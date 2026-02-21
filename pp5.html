@@ -74,9 +74,10 @@
         };
 
         function App() {
-          const [activeTab, setActiveTab] = useState('manage');
+          // ==================== STATE หลักของระบบ ====================
+          const [activeTab, setActiveTab] = useState('attendance'); 
 
-          // ==================== ระบบจัดการหลายวิชา (Multi-Subject State) ====================
+          // State จัดการฐานข้อมูลหลายวิชา
           const [subjects, setSubjects] = useState(() => {
             const saved = localStorage.getItem('p5_subjects_db');
             if (saved) return JSON.parse(saved);
@@ -103,7 +104,7 @@
           const activeSubject = subjects.find(s => s.id === activeSubjectId) || subjects[0];
           const { courseInfo, courseStructure, students, attendanceData, scores, evaluations, maxScores } = activeSubject;
 
-          // ฟังก์ชันอัปเดตข้อมูลวิชาปัจจุบัน
+          // ฟังก์ชันอัปเดตข้อมูลวิชาปัจจุบัน (ช่วยป้องกันบั๊ก State ไม่อัปเดต)
           const updateActiveSubject = (field, updater) => {
             setSubjects(prev => prev.map(sub => {
               if (sub.id !== activeSubjectId) return sub;
@@ -120,17 +121,15 @@
           const setEvaluations = (val) => updateActiveSubject('evaluations', val);
           const setMaxScores = (val) => updateActiveSubject('maxScores', val);
 
-          // --- การจัดการฐานข้อมูลวิชา ---
+
+          // ==================== ฟังก์ชันจัดการฐานข้อมูลวิชา ====================
           const handleAddNewSubject = () => {
             const newSub = {
               id: Math.random().toString(36).substr(2, 9),
-              courseInfo: { ...courseInfo, subjectName: 'วิชาใหม่ (เปลี่ยนชื่อได้ที่เมนูข้อมูลวิชา)', subjectCode: 'รหัสใหม่' },
+              courseInfo: { ...courseInfo, subjectName: 'วิชาใหม่', subjectCode: 'รหัสใหม่' },
               courseStructure: [...courseStructure],
               students: [...students],
-              attendanceData: {},
-              scores: {},
-              evaluations: {},
-              maxScores: { ...maxScores }
+              attendanceData: {}, scores: {}, evaluations: {}, maxScores: { ...maxScores }
             };
             setSubjects([...subjects, newSub]);
             setActiveSubjectId(newSub.id);
@@ -146,46 +145,129 @@
             }
           };
 
-          // ==================== ระบบ Google Sheets Integration ====================
-          const [sheetId, setSheetId] = useState(localStorage.getItem('p5_sheet_id') || '1kJhRIvRYz2_nChEEKBo-w5GvkTEdPItK5XjvPOjnH5M');
+
+          // ==================== ฟังก์ชันหน้าจัดการนักเรียน ====================
+          const [newStudent, setNewStudent] = useState({ studentId: '', number: '', name: '' });
+          
+          const handleAddStudent = () => {
+            if (!newStudent.studentId || !newStudent.name) return alert('กรุณากรอกรหัสและชื่อนักเรียน');
+            const newEntry = { 
+              id: Math.random().toString(36).substr(2, 9), 
+              studentId: newStudent.studentId, 
+              number: Number(newStudent.number) || 0, 
+              name: newStudent.name 
+            };
+            const updatedStudents = [...students, newEntry].sort((a, b) => a.number - b.number);
+            setStudents(updatedStudents); // บันทึกลง State
+            setNewStudent({ studentId: '', number: '', name: '' }); // ล้างฟอร์ม
+          };
+
+          const handleDeleteStudent = (id) => { 
+            if (window.confirm('ยืนยันการลบนักเรียนคนนี้?')) {
+              setStudents(students.filter(s => s.id !== id));
+            }
+          };
+
+          const updateStudentInfo = (id, field, value) => {
+            setStudents(students.map(s => s.id === id ? { ...s, [field]: value } : s));
+          };
+
+
+          // ==================== ระบบดึงและบันทึก Google Sheets ====================
           const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('p5_script_url') || 'https://script.google.com/macros/s/AKfycbwlnJwi82DYRfLrYVdNkqM8PPk9P0yxqRHAwArbAeFQaviD4EniyxwjfYLhb49H_NF9/exec');
+          
+          // ตัวแปรสำหรับนำเข้า (Import)
+          const [importSheetId, setImportSheetId] = useState('19YuGHh6BzXAROa5oDO1niEE-2RSIB3E6DBcWMudIMI4');
+          const [importTabName, setImportTabName] = useState('');
+          const [sheetNames, setSheetNames] = useState([]);
+          const [isImporting, setIsImporting] = useState(false);
+          const [isLoadingSheets, setIsLoadingSheets] = useState(false);
+
+          // ตัวแปรสำหรับส่งออก (Export/Save)
+          const [sheetDbId, setSheetDbId] = useState(localStorage.getItem('p5_sheet_id') || '1kJhRIvRYz2_nChEEKBo-w5GvkTEdPItK5XjvPOjnH5M');
           const [isSaving, setIsSaving] = useState(false);
+
+          const fetchSheetNames = async () => {
+            if (!scriptUrl) return alert("กรุณาตั้งค่า Web App URL ในหน้าจัดการฐานข้อมูลก่อนครับ");
+            if (!importSheetId) return alert("กรุณาใส่ Sheet ID");
+            setIsLoadingSheets(true);
+            try {
+              const res = await fetch(`${scriptUrl}?action=getSheets&sheetId=${importSheetId}`);
+              const data = await res.json();
+              if (data.names && data.names.length > 0) {
+                setSheetNames(data.names);
+                setImportTabName(data.names[0]);
+              } else {
+                alert('ไม่พบรายชื่อ Sheet หรือเกิดข้อผิดพลาด: ' + (data.error || 'Unknown'));
+              }
+            } catch (err) {
+              alert('เกิดข้อผิดพลาดในการดึงชื่อ Sheet\nโปรดตรวจสอบว่าได้นำโค้ดฟังก์ชัน doGet ไปใส่ใน Apps Script และ Deploy ใหม่แล้ว\n\nError: ' + err.message);
+            }
+            setIsLoadingSheets(false);
+          };
+
+          const handleImportStudents = async () => {
+            if (!importSheetId) return alert('กรุณากรอก Sheet ID');
+            setIsImporting(true);
+            try {
+              const url = `https://docs.google.com/spreadsheets/d/${importSheetId}/gviz/tq?tqx=out:json${importTabName ? `&sheet=${encodeURIComponent(importTabName)}` : ''}`;
+              const res = await fetch(url);
+              const text = await res.text();
+              const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
+              if (!jsonMatch) throw new Error("ไฟล์ Sheet นี้อาจไม่ได้เปิดแชร์สาธารณะ (Anyone with link) หรือ ID ไม่ถูกต้อง");
+              
+              const data = JSON.parse(jsonMatch[1]);
+              if (data.table && data.table.rows) {
+                const newStudentsList = [];
+                data.table.rows.forEach(row => {
+                  const c = row.c;
+                  if (c && c[2] && c[2].v) {
+                     newStudentsList.push({
+                       id: Math.random().toString(36).substr(2, 9),
+                       number: c[0] && c[0].v ? Number(c[0].v) : 0,
+                       studentId: c[1] && c[1].v ? String(c[1].v) : '',
+                       name: String(c[2].v)
+                     });
+                  }
+                });
+                if (newStudentsList.length > 0) {
+                  if(window.confirm(`พบข้อมูลนักเรียน ${newStudentsList.length} คน จาก Sheet: ${importTabName || 'แผ่นแรก'}\nคุณต้องการนำเข้าและทับรายชื่อเดิมทั้งหมดหรือไม่?`)) {
+                    setStudents(newStudentsList.sort((a, b) => a.number - b.number));
+                    alert('นำเข้าข้อมูลรายชื่อนักเรียนสำเร็จ!');
+                  }
+                } else {
+                  alert('ไม่พบข้อมูลนักเรียน (โปรดตรวจสอบว่า คอลัมน์ A=เลขที่, B=รหัส, C=ชื่อสกุล)');
+                }
+              }
+            } catch (err) {
+              alert('เกิดข้อผิดพลาดในการดึงข้อมูล: \n' + err.message);
+            }
+            setIsImporting(false);
+          };
 
           const saveToGoogleSheet = async () => {
             if (!scriptUrl) return alert("กรุณาใส่ Web App URL ของ Google Apps Script ก่อนครับ");
-            if (!sheetId) return alert("กรุณาใส่ Sheet ID");
-            
+            if (!sheetDbId) return alert("กรุณาใส่ Sheet ID สำหรับบันทึก");
             setIsSaving(true);
-            localStorage.setItem('p5_sheet_id', sheetId);
+            localStorage.setItem('p5_sheet_id', sheetDbId);
             localStorage.setItem('p5_script_url', scriptUrl);
-
             try {
               const payload = {
-                action: "saveData",
-                sheetId: sheetId,
-                subjectName: courseInfo.subjectName,
-                subjectCode: courseInfo.subjectCode,
-                classLevel: courseInfo.classLevel,
-                termYear: `${courseInfo.term}/${courseInfo.year}`,
-                studentsCount: students.length,
+                action: "saveData", sheetId: sheetDbId, subjectName: courseInfo.subjectName,
+                subjectCode: courseInfo.subjectCode, classLevel: courseInfo.classLevel,
+                termYear: `${courseInfo.term}/${courseInfo.year}`, studentsCount: students.length,
                 jsonData: JSON.stringify(activeSubject)
               };
-
-              await fetch(scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              
-              alert("ส่งคำสั่งบันทึกข้อมูลไปยัง Google Sheets เรียบร้อยแล้ว!\n(กรุณาเปิดตรวจสอบในไฟล์ Google Sheets ของคุณ)");
+              await fetch(scriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              alert("ส่งคำสั่งบันทึกข้อมูลไปยัง Google Sheets เรียบร้อยแล้ว!");
             } catch (err) {
               alert("เกิดข้อผิดพลาดในการส่งข้อมูล: " + err.message);
             }
             setIsSaving(false);
           };
 
-          // ==================== ส่วนทำงานเดิม ====================
+
+          // ==================== ฟังก์ชันเกี่ยวกับวิชา / โครงสร้าง / โลโก้ ====================
           const handleLogoUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -195,65 +277,60 @@
             }
           };
 
-          const handleMaxScoreChange = (field, value) => setMaxScores(prev => ({ ...prev, [field]: value }));
+          const handleMaxScoreChange = (field, value) => setMaxScores({ ...maxScores, [field]: value });
+          
+          // คำนวณคะแนนเต็ม
           const max_s1_total_pre = (Number(maxScores.s1_1)||0) + (Number(maxScores.s1_pre)||0) + (Number(maxScores.s1_2)||0);
           const max_s1_total = max_s1_total_pre + (Number(maxScores.s1_mid)||0);
           const max_s2_total_pre = (Number(maxScores.s2_1)||0) + (Number(maxScores.s2_pre)||0) + (Number(maxScores.s2_2)||0);
           const max_s2_total = max_s2_total_pre + (Number(maxScores.s2_fin)||0);
           const max_totalScore = max_s1_total + max_s2_total;
 
-          const handleAddStructureRow = () => setCourseStructure(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), unitGroup: '', unitName: '', indicators: '', hours: '', s_t1_1: '', s_t1_pre: '', s_t1_2: '', s_t1_mid: '', s_t2_1: '', s_t2_pre: '', s_t2_2: '', s_t2_fin: '' }]);
-          const handleRemoveStructureRow = (id) => { if (window.confirm('ยืนยันการลบหน่วยการเรียนรู้นี้?')) setCourseStructure(prev => prev.filter(s => s.id !== id)); };
-          const handleStructureChange = (id, field, value) => setCourseStructure(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+          const handleAddStructureRow = () => setCourseStructure([...courseStructure, { id: Math.random().toString(36).substr(2, 9), unitGroup: '', unitName: '', indicators: '', hours: '', s_t1_1: '', s_t1_pre: '', s_t1_2: '', s_t1_mid: '', s_t2_1: '', s_t2_pre: '', s_t2_2: '', s_t2_fin: '' }]);
+          const handleRemoveStructureRow = (id) => { if (window.confirm('ยืนยันการลบหน่วยการเรียนรู้นี้?')) setCourseStructure(courseStructure.filter(s => s.id !== id)); };
+          const handleStructureChange = (id, field, value) => setCourseStructure(courseStructure.map(s => s.id === id ? { ...s, [field]: value } : s));
 
           const structureTotals = courseStructure.reduce((acc, row) => ({
             hours: acc.hours + (Number(row.hours) || 0), s_t1_1: acc.s_t1_1 + (Number(row.s_t1_1) || 0), s_t1_pre: acc.s_t1_pre + (Number(row.s_t1_pre) || 0), s_t1_2: acc.s_t1_2 + (Number(row.s_t1_2) || 0), s_t1_mid: acc.s_t1_mid + (Number(row.s_t1_mid) || 0), s_t2_1: acc.s_t2_1 + (Number(row.s_t2_1) || 0), s_t2_pre: acc.s_t2_pre + (Number(row.s_t2_pre) || 0), s_t2_2: acc.s_t2_2 + (Number(row.s_t2_2) || 0), s_t2_fin: acc.s_t2_fin + (Number(row.s_t2_fin) || 0),
             totalScore: acc.totalScore + (Number(row.s_t1_1)||0) + (Number(row.s_t1_pre)||0) + (Number(row.s_t1_2)||0) + (Number(row.s_t1_mid)||0) + (Number(row.s_t2_1)||0) + (Number(row.s_t2_pre)||0) + (Number(row.s_t2_2)||0) + (Number(row.s_t2_fin)||0)
           }), { hours: 0, s_t1_1: 0, s_t1_pre: 0, s_t1_2: 0, s_t1_mid: 0, s_t2_1: 0, s_t2_pre: 0, s_t2_2: 0, s_t2_fin: 0, totalScore: 0 });
 
-          const [newStudent, setNewStudent] = useState({ studentId: '', number: '', name: '' });
-          const handleAddStudent = () => {
-            if (!newStudent.studentId || !newStudent.name) return alert('กรุณากรอกรหัสและชื่อนักเรียน');
-            setStudents(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), studentId: newStudent.studentId, number: Number(newStudent.number), name: newStudent.name }].sort((a, b) => a.number - b.number));
-            setNewStudent({ studentId: '', number: '', name: '' });
-          };
-          const handleDeleteStudent = (id) => { if (window.confirm('ยืนยันการลบนักเรียนคนนี้?')) setStudents(prev => prev.filter(s => s.id !== id)); };
-          const updateStudentInfo = (id, field, value) => setStudents(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
 
-          // --- การเช็คชื่อแบบรองรับ 2 คาบติดกัน ---
+          // ==================== ฟังก์ชันเวลาเรียน ====================
           const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-          const [currentPeriod, setCurrentPeriod] = useState('1'); // '1' = คาบแรก/คาบเดียว, '2' = คาบที่สอง
+          const [currentPeriod, setCurrentPeriod] = useState('1'); 
           
           const attendanceKey = `${currentDate}_${currentPeriod}`;
 
           const markAttendance = (id, status) => { 
-            setAttendanceData(prev => { 
-              const td = prev[attendanceKey] || {}; 
-              return { ...prev, [attendanceKey]: { ...td, [id]: td[id] === status ? null : status } }; 
-            }); 
+            const td = attendanceData[attendanceKey] || {}; 
+            const newStatus = td[id] === status ? null : status;
+            setAttendanceData({ ...attendanceData, [attendanceKey]: { ...td, [id]: newStatus } }); 
           };
           
           const markAllPresent = () => { 
-            setAttendanceData(prev => { 
-              const td = {}; 
-              students.forEach(s => td[s.id] = 'present'); 
-              return { ...prev, [attendanceKey]: td }; 
-            }); 
+            const td = {}; 
+            students.forEach(s => td[s.id] = 'present'); 
+            setAttendanceData({ ...attendanceData, [attendanceKey]: td }); 
           };
 
-          const handleScoreChange = (id, field, value) => setScores(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [field]: value === '' ? '' : Number(value) } }));
-          const handleEvalChange = (id, type, index, value) => setEvaluations(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [`${type}_${index}`]: value === '' ? '' : Number(value) } }));
+
+          // ==================== ฟังก์ชันคะแนนและประเมิน ====================
+          const handleScoreChange = (id, field, value) => setScores({ ...scores, [id]: { ...(scores[id] || {}), [field]: value === '' ? '' : Number(value) } });
+          const handleEvalChange = (id, type, index, value) => setEvaluations({ ...evaluations, [id]: { ...(evaluations[id] || {}), [`${type}_${index}`]: value === '' ? '' : Number(value) } });
 
           const calculateGrade = (total) => {
             if (total >= 80) return '4'; if (total >= 75) return '3.5'; if (total >= 70) return '3'; if (total >= 65) return '2.5';
             if (total >= 60) return '2'; if (total >= 55) return '1.5'; if (total >= 50) return '1'; return '0';
           };
 
+          // ==================== คำนวณสรุปข้อมูล ปพ.5 ====================
           const { summaryData, gradeStats } = useMemo(() => {
             const stats = { '4': 0, '3.5': 0, '3': 0, '2.5': 0, '2': 0, '1.5': 0, '1': 0, '0': 0, 'ร': 0, 'มส': 0 };
             const summarized = students.map(student => {
               const attStats = { present: 0, leave: 0, sick: 0, absent: 0, late: 0, total: 0 };
               Object.values(attendanceData).forEach(day => { if (day[student.id]) { attStats[day[student.id]]++; attStats.total++; } });
+              
               const stScore = scores[student.studentId] || {};
               const s1_1 = Number(stScore.s1_1) || 0; const s1_pre = Number(stScore.s1_pre) || 0; const s1_2 = Number(stScore.s1_2) || 0;
               const s1_total_pre = s1_1 + s1_pre + s1_2; const s1_mid = Number(stScore.s1_mid) || 0; const s1_total = s1_total_pre + s1_mid;
@@ -279,22 +356,25 @@
           }, [students, attendanceData, scores, evaluations]);
 
 
-          const TABS = [
-            { id: 'manage', label: 'ฐานข้อมูล/สำรองข้อมูล', icon: <i className="fas fa-database text-lg"></i>, color: 'text-indigo-600 font-bold bg-indigo-50 border-indigo-200' },
-            { id: 'settings', label: 'ข้อมูลวิชา (ปก)', icon: <i className="fas fa-cog text-lg"></i> },
-            { id: 'description', label: 'คำอธิบายรายวิชา', icon: <i className="fas fa-book-open text-lg"></i> },
-            { id: 'structure', label: 'โครงสร้างรายวิชา', icon: <i className="fas fa-list-ol text-lg"></i> },
-            { id: 'students', label: 'รายชื่อนักเรียน', icon: <i className="fas fa-users text-lg"></i> },
+          // ==================== การจัดหน้าและเมนู ====================
+          const SYSTEM_TABS = [
+            { id: 'manage', label: 'จัดการฐานข้อมูล/สำรองข้อมูล', icon: <i className="fas fa-database text-lg"></i> },
+            { id: 'students', label: 'จัดการรายชื่อนักเรียน', icon: <i className="fas fa-users text-lg"></i> },
+          ];
+
+          const DOC_TABS = [
             { id: 'attendance', label: 'เวลาเรียน', icon: <i className="fas fa-calendar-check text-lg"></i> },
             { id: 'scores', label: 'บันทึกคะแนน', icon: <i className="fas fa-edit text-lg"></i> },
             { id: 'evaluation', label: 'ประเมิน/สมรรถนะ', icon: <i className="fas fa-check-square text-lg"></i> },
             { id: 'summary', label: 'สรุปผล ปพ.5', icon: <i className="fas fa-chart-bar text-lg"></i> },
+            { id: 'settings', label: 'ข้อมูลวิชา (หน้าปก)', icon: <i className="fas fa-cog text-lg"></i> },
+            { id: 'description', label: 'คำอธิบายรายวิชา', icon: <i className="fas fa-book-open text-lg"></i> },
+            { id: 'structure', label: 'โครงสร้างรายวิชา', icon: <i className="fas fa-list-ol text-lg"></i> },
             { id: 'print_all', label: 'พิมพ์ ปพ.5 (ทั้งหมด)', icon: <i className="fas fa-file-export text-lg"></i> },
           ];
 
           const isPreview = activeTab === 'print_all';
           
-          // เรียงวันที่ให้ถูกต้องตามเวลาและคาบเรียน
           const allSortedDates = Object.keys(attendanceData).sort();
           const dateChunks = [];
           if (allSortedDates.length === 0) dateChunks.push(Array(20).fill(null));
@@ -339,19 +419,46 @@
                 `}
               </style>
 
-              {/* Sidebar */}
-              <div className={`w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 shadow-sm print:hidden ${isPreview ? 'hidden md:block' : 'block'}`}>
-                <div className="p-6 border-b border-slate-100">
-                  <h1 className="text-xl font-bold text-blue-700">ระบบ ปพ.5</h1>
-                  <p className="text-sm text-slate-500 mt-1">Smart Student Record</p>
+              {/* Sidebar โฉมใหม่ */}
+              <div className={`w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 shadow-sm print:hidden flex flex-col ${isPreview ? 'hidden md:flex' : 'flex'}`}>
+                
+                <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-start md:flex-col gap-4">
+                  <div>
+                    <h1 className="text-xl font-bold text-blue-700">ระบบ ปพ.5</h1>
+                    <p className="text-sm text-slate-500 mt-1 hidden md:block">Smart Student Record</p>
+                  </div>
+                  
+                  {/* แถบเมนูระบบ (ไอคอนล้วน) */}
+                  <div className="flex gap-3 bg-slate-50 p-1.5 rounded-lg border border-slate-200 w-fit">
+                    {SYSTEM_TABS.map(tab => (
+                       <button 
+                         key={tab.id}
+                         onClick={() => setActiveTab(tab.id)}
+                         title={tab.label}
+                         className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors ${
+                           activeTab === tab.id 
+                           ? 'bg-indigo-600 text-white shadow-sm' 
+                           : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+                         }`}
+                       >
+                          {tab.icon}
+                       </button>
+                    ))}
+                  </div>
                 </div>
-                <nav className="p-4 flex flex-row md:flex-col gap-2 overflow-x-auto">
-                  {TABS.map(tab => (
+
+                {/* หัวข้อหมวดหมู่เอกสาร */}
+                <div className="px-4 pt-4 hidden md:block">
+                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">หน้าเอกสาร ปพ.5</span>
+                </div>
+                
+                <nav className="p-4 flex flex-row md:flex-col gap-2 overflow-x-auto flex-1">
+                  {DOC_TABS.map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg text-[14pt] transition-colors whitespace-nowrap ${
                         activeTab === tab.id 
-                          ? (tab.color || 'bg-blue-50 text-blue-700 border border-blue-100 font-bold') 
-                          : (tab.color ? `hover:bg-slate-50 ${tab.color.split(' ')[0]}` : 'text-slate-600 hover:bg-slate-50 font-medium')
+                          ? (tab.id === 'print_all' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold' : 'bg-blue-50 text-blue-700 border border-blue-100 font-bold') 
+                          : 'text-slate-600 hover:bg-slate-50 font-medium'
                       }`}
                     >
                       {tab.icon} {tab.label}
@@ -396,7 +503,7 @@
                           >
                             {subjects.map(s => (
                               <option key={s.id} value={s.id}>
-                                {s.courseInfo.subjectCode} {s.courseInfo.subjectName} ({s.courseInfo.classLevel}) - นร. {s.students.length} คน
+                                {s.courseInfo.classLevel} - {s.courseInfo.subjectCode} {s.courseInfo.subjectName} - นร. {s.students.length} คน
                               </option>
                             ))}
                           </select>
@@ -416,7 +523,7 @@
                         <div className="space-y-4 max-w-3xl">
                           <div>
                             <label className="text-[14pt] font-bold text-slate-700 block mb-1">1. Google Sheet ID (ใส่ให้แล้ว)</label>
-                            <input type="text" value={sheetId} onChange={e => setSheetId(e.target.value)} className="w-full border border-slate-300 rounded-md px-4 py-2 text-[14pt] outline-none focus:border-green-500 bg-slate-50" />
+                            <input type="text" value={sheetDbId} onChange={e => setSheetDbId(e.target.value)} className="w-full border border-slate-300 rounded-md px-4 py-2 text-[14pt] outline-none focus:border-green-500 bg-slate-50" />
                           </div>
                           <div>
                             <label className="text-[14pt] font-bold text-slate-700 block mb-1">2. Google Apps Script Web App URL (ใส่ให้แล้ว)</label>
@@ -434,341 +541,43 @@
                     </div>
                   )}
 
-                  {/* ================= 1. แท็บตั้งค่าข้อมูลวิชา (Form View) ================= */}
-                  {!isPreview && activeTab === 'settings' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 print:hidden">
-                      <h2 className="text-[16pt] font-bold mb-6 flex items-center gap-2 text-blue-800"><i className="fas fa-cog text-blue-500 text-xl"></i> ข้อมูลรายวิชา (หน้าปก)</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="col-span-1 md:col-span-3 mb-4">
-                          <label className="text-[12pt] font-bold text-slate-600 block mb-2">อัปโหลดโลโก้โรงเรียน (แสดงผลที่หน้าปก)</label>
-                          <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 overflow-hidden relative">
-                            {courseInfo.logoUrl ? (
-                              <img src={courseInfo.logoUrl} alt="Logo Preview" className="h-full w-auto object-contain p-2" />
-                            ) : (
-                              <div className="flex flex-col items-center text-slate-500">
-                                 <i className="fas fa-upload text-2xl mb-2"></i>
-                                 <span className="text-[12pt]">คลิกเพื่ออัปโหลดไฟล์รูปภาพ</span>
-                              </div>
-                            )}
-                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                          </label>
-                        </div>
-                        {[
-                          { key: 'schoolName', label: 'ชื่อโรงเรียน' }, { key: 'district', label: 'อำเภอ' }, { key: 'province', label: 'จังหวัด' },
-                          { key: 'area', label: 'สังกัด (สพป./สพม.)' }, { key: 'term', label: 'ภาคเรียนที่' }, { key: 'year', label: 'ปีการศึกษา' },
-                          { key: 'groupName', label: 'กลุ่มสาระการเรียนรู้' }, { key: 'subjectName', label: 'รายวิชา' }, { key: 'subjectCode', label: 'รหัสวิชา' },
-                          { key: 'classLevel', label: 'ระดับชั้น' }, { key: 'hours', label: 'เวลาเรียน (ชั่วโมง/สัปดาห์)' }, { key: 'totalHours', label: 'เวลาเรียนรวม (ชั่วโมง/ปี)' },
-                          { key: 'credits', label: 'หน่วยกิต' }, { key: 'scoreRatio', label: 'อัตราส่วนคะแนน (ระหว่างเรียน : ปลายปี)' },
-                          { key: 'teacherName', label: 'ชื่อครูผู้สอน' }, { key: 'directorName', label: 'ชื่อผู้อำนวยการ' }
-                        ].map((item) => (
-                          <div key={item.key} className="space-y-1">
-                            <label className="text-[12pt] font-bold text-slate-600">{item.label}</label>
-                            <input type="text" value={courseInfo[item.key]} onChange={(e) => setCourseInfo({...courseInfo, [item.key]: e.target.value})}
-                              className="w-full border border-slate-300 rounded-md px-3 py-2 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ================= 2. หน้าปก ปพ.5 (A4 View) ================= */}
-                  {(isPreview || activeTab === 'settings') && (
-                    <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text' : 'hidden print:block print:a4-page force-black-text'}`}>
-                      
-                      {courseInfo.logoUrl && (
-                        <div className="flex justify-center mb-6">
-                          <img src={courseInfo.logoUrl} alt="School Logo" className="h-[100px] w-auto object-contain" />
-                        </div>
-                      )}
-
-                      <div className="text-center font-bold text-[18pt] mb-6 leading-tight">
-                        แบบบันทึกผลการเรียนประจำรายวิชา<br/>
-                        หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551
-                      </div>
-
-                      <div className="flex flex-col items-center gap-y-3 mb-6 text-[15pt] w-full">
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>โรงเรียน</span><span className="border-b border-dotted border-black px-2 min-w-[200px] text-center truncate">{courseInfo.schoolName}</span>
-                          <span className="ml-2">อำเภอ</span><span className="border-b border-dotted border-black px-2 min-w-[120px] text-center truncate">{courseInfo.district}</span>
-                          <span className="ml-2">จังหวัด</span><span className="border-b border-dotted border-black px-2 min-w-[120px] text-center truncate">{courseInfo.province}</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>สังกัด</span><span className="border-b border-dotted border-black px-2 min-w-[350px] text-center truncate">{courseInfo.area}</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>ชั้นประถมศึกษาปีที่</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.classLevel}</span>
-                          <span className="ml-2">ภาคเรียนที่</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.term}</span>
-                          <span className="ml-2">ปีการศึกษา</span><span className="border-b border-dotted border-black px-2 min-w-[100px] text-center">{courseInfo.year}</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>กลุ่มสาระการเรียนรู้</span><span className="border-b border-dotted border-black px-2 min-w-[300px] text-center truncate">{courseInfo.groupName}</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>รายวิชา</span><span className="border-b border-dotted border-black px-2 min-w-[200px] text-center truncate">{courseInfo.subjectName}</span>
-                          <span className="ml-2">รหัสวิชา</span><span className="border-b border-dotted border-black px-2 min-w-[150px] text-center truncate">{courseInfo.subjectCode}</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap">
-                          <span>เวลาเรียน</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.hours}</span><span>ชั่วโมง/สัปดาห์</span>
-                          <span className="ml-6">จำนวน</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.credits}</span><span>หน่วยกิต</span>
-                        </div>
-                        <div className="flex items-end justify-center w-full whitespace-nowrap mt-2">
-                          <span>ครูผู้สอน</span><span className="border-b border-dotted border-black px-2 min-w-[300px] text-center truncate">{courseInfo.teacherName}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 mb-6">
-                        <table className="w-full border-collapse border border-slate-300 text-center text-[14pt]">
-                          <thead>
-                            <tr className="bg-blue-100 print-bg-clear">
-                              <th className="border border-slate-300 p-2 font-normal w-32" rowSpan="2">จำนวนนักเรียน<br/>(คน)</th>
-                              <th className="border border-slate-300 p-2 font-normal" colSpan="10">ระดับผลการเรียน</th>
-                            </tr>
-                            <tr className="bg-blue-50 print-bg-clear">
-                              {GRADES.map(g => <th key={g} className="border border-slate-300 p-1 font-normal w-10">{g}</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className="border border-slate-300 p-2">{students.length}</td>
-                              {GRADES.map(g => <td key={`c_${g}`} className="border border-slate-300 p-2">{gradeStats[g] > 0 ? gradeStats[g] : '-'}</td>)}
-                            </tr>
-                            <tr>
-                              <td className="border border-slate-300 p-2">คิดเป็นร้อยละ</td>
-                              {GRADES.map(g => {
-                                const pct = students.length > 0 ? ((gradeStats[g] / students.length) * 100).toFixed(1) : 0;
-                                return <td key={`p_${g}`} className="border border-slate-300 p-2">{pct > 0 ? pct : '-'}</td>
-                              })}
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="mb-6">
-                        <table className="w-full border-collapse border border-slate-300 text-center text-[13pt]">
-                          <thead>
-                            <tr className="bg-blue-100 print-bg-clear">
-                              <th className="border border-slate-300 p-2 font-normal w-1/3">ผลการประเมินคุณลักษณะฯ</th>
-                              <th className="border border-slate-300 p-2 font-normal w-1/3">ผลการประเมินการอ่าน คิดวิเคราะห์ฯ</th>
-                              <th className="border border-slate-300 p-2 font-normal w-1/3">สมรรถนะสำคัญของผู้เรียน</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
-                                ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
-                              </td>
-                              <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
-                                ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
-                              </td>
-                              <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
-                                ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="mt-8 flex justify-center text-[15pt]">
-                        <div className="flex flex-col w-[600px] gap-y-3">
-                          <div className="text-center font-bold mb-4 text-[16pt]">การอนุมัติผลการพัฒนาคุณภาพผู้เรียน</div>
-                          <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">ครูผู้สอน</div></div>
-                          <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้ากลุ่มสาระการเรียนรู้</div></div>
-                          <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้างานวัดผลและประเมินผล</div></div>
-                          <div className="mt-4">เรียนเสนอเพื่อโปรดพิจารณา</div>
-                          <div className="flex ml-[60px] gap-16 mb-1 whitespace-nowrap"><div>☐ เห็นควรอนุมัติ</div><div>☐ เห็นควรปรับปรุง</div></div>
-                          <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้ากลุ่มงานบริหารงานวิชาการ</div></div>
-                          <div className="flex ml-[60px] gap-24 mt-4 mb-1 whitespace-nowrap"><div>☐ อนุมัติ</div><div>☐ ไม่อนุมัติ</div></div>
-                          <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">ผู้อำนวยการโรงเรียน</div></div>
-                          <div className="flex justify-center whitespace-nowrap mt-1"><div className="w-[300px] text-center ml-10">( {courseInfo.directorName} )</div></div>
-                          <div className="flex justify-center whitespace-nowrap"><div className="w-[300px] text-center ml-10">................/..................../..................</div></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ================= 2.5 คำอธิบายรายวิชา ================= */}
-                  {!isPreview && activeTab === 'description' && (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 print:hidden">
-                      <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800 mb-6"><i className="fas fa-book-open text-blue-500 text-xl"></i> ข้อมูลคำอธิบายรายวิชา</h2>
-                      <div className="space-y-6">
-                        <div>
-                          <label className="text-[14pt] font-bold text-slate-600 block mb-2">คำอธิบายรายวิชา</label>
-                          <textarea rows="8" value={courseInfo.description} onChange={e => setCourseInfo({...courseInfo, description: e.target.value})} className="w-full border border-slate-300 rounded-md p-3 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white" placeholder="กรอกข้อความคำอธิบายรายวิชาที่นี่..." />
-                        </div>
-                        <div>
-                          <label className="text-[14pt] font-bold text-slate-600 block mb-2">ตัวชี้วัด / มาตรฐานการเรียนรู้</label>
-                          <textarea rows="8" value={courseInfo.indicators} onChange={e => setCourseInfo({...courseInfo, indicators: e.target.value})} className="w-full border border-slate-300 rounded-md p-3 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white" placeholder="กรอกตัวชี้วัด/ผลการเรียนรู้ที่นี่..." />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {(isPreview || activeTab === 'description') && (
-                    <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text mt-8' : 'hidden print:block print:a4-page force-black-text'}`}>
-                       <div className="text-center font-bold text-[18pt] mb-6">คำอธิบายรายวิชา</div>
-                       <div className="flex justify-between text-[15pt] mb-2 font-bold px-4">
-                          <div>รายวิชา {courseInfo.subjectName}</div>
-                          <div>ชั้นประถมศึกษาปีที่ {courseInfo.classLevel}</div>
-                       </div>
-                       <div className="flex justify-between text-[15pt] mb-6 font-bold px-4">
-                          <div>รหัสวิชา {courseInfo.subjectCode}</div>
-                          <div>เวลา {courseInfo.totalHours !== undefined ? courseInfo.totalHours : courseInfo.hours} ชั่วโมง/ปี</div>
-                       </div>
-                       <div className="text-[15pt] leading-relaxed whitespace-pre-wrap mb-8 text-justify px-4">
-                         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{courseInfo.description}
-                       </div>
-                       <div className="font-bold text-[15pt] mb-2 px-4">ตัวชี้วัด / ผลการเรียนรู้</div>
-                       <div className="text-[15pt] leading-relaxed whitespace-pre-wrap px-8">
-                         {courseInfo.indicators}
-                       </div>
-                    </div>
-                  )}
-
-                  {/* ================= 2.6 โครงสร้างรายวิชา ================= */}
-                  <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text mt-8' : (activeTab === 'structure' ? 'rounded-xl shadow-sm border border-slate-200 p-6 overflow-x-auto print:block print:a4-page force-black-text' : 'hidden')}`}>
-                    {!isPreview && (
-                      <div className="flex justify-between items-center mb-6 print:hidden">
-                        <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800"><i className="fas fa-list-ol text-blue-500 text-xl"></i> จัดการโครงสร้างรายวิชา</h2>
-                        <button onClick={handleAddStructureRow} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-bold flex items-center gap-2 text-[14pt]"><i className="fas fa-plus"></i> เพิ่มหน่วยการเรียนรู้</button>
-                      </div>
-                    )}
-                    <div className={`${isPreview ? 'block' : 'hidden print:block'} mb-6`}>
-                       <div className="text-center font-bold text-[18pt] mb-4">โครงสร้างรายวิชา</div>
-                       <div className="flex flex-col gap-2 text-[15pt] px-2">
-                         <div className="flex justify-between">
-                            <div>รายวิชา <span className="font-bold border-b border-dotted border-black">{courseInfo.subjectName}</span> รหัสวิชา <span className="font-bold border-b border-dotted border-black">{courseInfo.subjectCode}</span></div>
-                         </div>
-                         <div className="flex justify-between">
-                            <div>ชั้นประถมศึกษาปีที่ <span className="font-bold border-b border-dotted border-black">{courseInfo.classLevel}</span></div>
-                            <div className="flex items-center">
-                               จำนวน 
-                               {!isPreview && <input type="text" value={courseInfo.totalHours !== undefined ? courseInfo.totalHours : (courseInfo.hours || '')} onChange={e=>setCourseInfo({...courseInfo, totalHours: e.target.value})} className="font-bold mx-2 border-b border-dotted border-black px-2 text-center bg-transparent outline-none w-20 focus:bg-white print:hidden" />}
-                               <span className={isPreview ? "font-bold mx-2 border-b border-dotted border-black px-4" : "hidden print:block font-bold mx-2 border-b border-dotted border-black px-4"}>{courseInfo.totalHours !== undefined ? courseInfo.totalHours : courseInfo.hours}</span>
-                               ชั่วโมง/ปี
-                            </div>
-                         </div>
-                         <div className="mt-2 flex items-center">
-                            อัตราส่วนคะแนนระหว่างเรียน : สอบปลายปี  
-                            {!isPreview && <input type="text" value={courseInfo.scoreRatio} onChange={e=>setCourseInfo({...courseInfo, scoreRatio: e.target.value})} className="font-bold ml-4 border-b border-dotted border-black px-2 text-center bg-transparent outline-none w-24 focus:bg-white print:hidden" />}
-                            <span className={isPreview ? "font-bold ml-4 border-b border-dotted border-black px-6" : "hidden print:block font-bold ml-4 border-b border-dotted border-black px-6"}>{courseInfo.scoreRatio}</span>
-                         </div>
-                       </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[12pt] border-collapse text-left">
-                        <thead>
-                          <tr className="bg-blue-100 print-bg-clear text-center">
-                            <th className="p-1 border border-slate-300 w-10" rowSpan="2">ลำดับ</th>
-                            <th className="p-1 border border-slate-300 w-32" rowSpan="2">หน่วยการเรียนรู้<br/><span className="text-[10pt] font-normal">(สาระที่...)</span></th>
-                            <th className="p-1 border border-slate-300 w-32" rowSpan="2">ชื่อหน่วย<br/><span className="text-[10pt] font-normal">(มาตรฐาน...)</span></th>
-                            <th className="p-1 border border-slate-300 min-w-[80px]" rowSpan="2">ตัวชี้วัด</th>
-                            <th className="p-1 border border-slate-300 w-12 leading-tight" rowSpan="2">เวลา<br/>(ชม.)</th>
-                            <th className="p-1 border border-slate-300" colSpan="4">คะแนนภาคเรียนที่ 1</th>
-                            <th className="p-1 border border-slate-300" colSpan="4">คะแนนภาคเรียนที่ 2</th>
-                            <th className="p-1 border border-slate-300 w-12" rowSpan="2">รวม</th>
-                            {!isPreview && <th className="p-1 border border-slate-300 w-10 print:hidden" rowSpan="2">ลบ</th>}
-                          </tr>
-                          <tr className="bg-blue-50 print-bg-clear text-center text-[10pt] leading-tight">
-                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>1</th>
-                            <th className="p-1 border border-slate-300 w-10">ก่อน<br/>กลางปี</th>
-                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>2</th>
-                            <th className="p-1 border border-slate-300 w-10">กลางปี</th>
-                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>1</th>
-                            <th className="p-1 border border-slate-300 w-10">ก่อน<br/>ปลายปี</th>
-                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>2</th>
-                            <th className="p-1 border border-slate-300 w-10">ปลายปี</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {courseStructure.map((row, index) => {
-                            const rowTotal = (Number(row.s_t1_1)||0) + (Number(row.s_t1_pre)||0) + (Number(row.s_t1_2)||0) + (Number(row.s_t1_mid)||0) + (Number(row.s_t2_1)||0) + (Number(row.s_t2_pre)||0) + (Number(row.s_t2_2)||0) + (Number(row.s_t2_fin)||0);
-                            return (
-                              <tr key={row.id} className="hover:bg-slate-50 align-top">
-                                <td className="p-1 border border-slate-300 text-center">{index + 1}</td>
-                                <td className="p-1 border border-slate-300">
-                                  {!isPreview && <textarea rows="2" value={row.unitGroup} onChange={e=>handleStructureChange(row.id, 'unitGroup', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="สาระที่..." />}
-                                  <span className={isPreview ? 'block whitespace-pre-wrap font-bold text-[12pt]' : 'hidden print:block whitespace-pre-wrap font-bold text-[12pt]'}>{row.unitGroup}</span>
-                                </td>
-                                <td className="p-1 border border-slate-300">
-                                  {!isPreview && <textarea rows="2" value={row.unitName} onChange={e=>handleStructureChange(row.id, 'unitName', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="มาตรฐาน..." />}
-                                  <span className={isPreview ? 'block whitespace-pre-wrap text-[12pt]' : 'hidden print:block whitespace-pre-wrap text-[12pt]'}>{row.unitName}</span>
-                                </td>
-                                <td className="p-1 border border-slate-300">
-                                  {!isPreview && <textarea rows="2" value={row.indicators} onChange={e=>handleStructureChange(row.id, 'indicators', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="ตัวชี้วัด" />}
-                                  <span className={isPreview ? 'block whitespace-pre-wrap text-[12pt]' : 'hidden print:block whitespace-pre-wrap text-[12pt]'}>{row.indicators}</span>
-                                </td>
-                                <td className="p-1 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.hours} onChange={e=>handleStructureChange(row.id, 'hours', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt]' : 'hidden print:block text-[12pt]'}>{row.hours}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t1_1} onChange={e=>handleStructureChange(row.id, 's_t1_1', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t1_1}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t1_pre} onChange={e=>handleStructureChange(row.id, 's_t1_pre', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t1_pre}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t1_2} onChange={e=>handleStructureChange(row.id, 's_t1_2', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t1_2}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t1_mid} onChange={e=>handleStructureChange(row.id, 's_t1_mid', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t1_mid}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t2_1} onChange={e=>handleStructureChange(row.id, 's_t2_1', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t2_1}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t2_pre} onChange={e=>handleStructureChange(row.id, 's_t2_pre', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t2_pre}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t2_2} onChange={e=>handleStructureChange(row.id, 's_t2_2', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t2_2}</span>
-                                </td>
-                                <td className="p-0 border border-slate-300 text-center align-middle">
-                                  {!isPreview && <input type="number" value={row.s_t2_fin} onChange={e=>handleStructureChange(row.id, 's_t2_fin', e.target.value)} className="score-input print:hidden text-[12pt]" />}
-                                  <span className={isPreview ? 'block text-[12pt] p-1' : 'hidden print:block text-[12pt] p-1'}>{row.s_t2_fin}</span>
-                                </td>
-                                <td className="p-1 border border-slate-300 text-center align-middle font-bold bg-slate-50 print-bg-clear text-[12pt]">
-                                  {rowTotal > 0 ? rowTotal : ''}
-                                </td>
-                                {!isPreview && (
-                                  <td className="p-1 border border-slate-300 text-center align-middle print:hidden">
-                                    <button onClick={() => handleRemoveStructureRow(row.id)} className="text-red-500 hover:text-red-700 p-1"><i className="fas fa-trash-alt text-base"></i></button>
-                                  </td>
-                                )}
-                              </tr>
-                            )
-                          })}
-                          <tr className="bg-slate-50 font-bold print-bg-clear text-center text-[12pt]">
-                            <td colSpan="4" className="p-2 border border-slate-300 text-right pr-6">รวม</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.hours > 0 ? structureTotals.hours : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_1 > 0 ? structureTotals.s_t1_1 : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_pre > 0 ? structureTotals.s_t1_pre : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_2 > 0 ? structureTotals.s_t1_2 : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_mid > 0 ? structureTotals.s_t1_mid : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_1 > 0 ? structureTotals.s_t2_1 : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_pre > 0 ? structureTotals.s_t2_pre : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_2 > 0 ? structureTotals.s_t2_2 : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_fin > 0 ? structureTotals.s_t2_fin : ''}</td>
-                            <td className="p-2 border border-slate-300">{structureTotals.totalScore > 0 ? structureTotals.totalScore : ''}</td>
-                            {!isPreview && <td className="p-2 border border-slate-300 print:hidden"></td>}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* ================= 3. รายชื่อนักเรียน (แสดงเฉพาะตอนจัดการ ไม่แสดงตอนพิมพ์) ================= */}
+                  {/* ================= 1. แท็บจัดการรายชื่อ (ซ่อนตอนพิมพ์) ================= */}
                   {!isPreview && activeTab === 'students' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-x-auto print:hidden">
                       <h2 className="text-[16pt] font-bold mb-6 flex items-center gap-2 text-blue-800"><i className="fas fa-users text-blue-500 text-xl"></i> จัดการรายชื่อนักเรียน</h2>
                       
+                      {/* ส่วนดึงข้อมูลจาก Google Sheet */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <h3 className="text-[14pt] font-bold text-green-800 mb-2"><i className="fas fa-cloud-download-alt"></i> นำเข้าข้อมูลนักเรียนจาก Google Sheets</h3>
+                        <p className="text-[12pt] text-slate-600 mb-3">ดึงข้อมูลจาก Sheet ID: 19YuGHh6BzXAROa5oDO1niEE-2RSIB3E6DBcWMudIMI4 (ข้ามแถวที่ 1 อัตโนมัติ)</p>
+                        
+                        <div className="flex flex-wrap items-end gap-3">
+                           <div className="flex-1 min-w-[200px]">
+                             <label className="text-[12pt] font-bold text-slate-700 block mb-1">เลือก Sheet (ชื่อห้องที่ต้องการดึง)</label>
+                             <div className="flex gap-2">
+                               {sheetNames.length > 0 ? (
+                                 <select 
+                                   value={importTabName} 
+                                   onChange={e => setImportTabName(e.target.value)} 
+                                   className="w-full border border-slate-300 rounded-md px-3 py-2 text-[14pt] outline-none focus:border-green-500 bg-white"
+                                 >
+                                   {sheetNames.map((name, i) => <option key={i} value={name}>{name}</option>)}
+                                 </select>
+                               ) : (
+                                 <input type="text" value={importTabName} onChange={e => setImportTabName(e.target.value)} placeholder="คลิกปุ่ม 'ดึงชื่อชีท' หรือพิมพ์ชื่อชีท" className="w-full border border-slate-300 rounded-md px-3 py-2 text-[14pt] outline-none focus:border-green-500 bg-white" />
+                               )}
+                               <button onClick={fetchSheetNames} disabled={isLoadingSheets} className="px-3 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 whitespace-nowrap text-[12pt] font-bold">
+                                 {isLoadingSheets ? 'กำลังดึง...' : 'ดึงชื่อชีท'}
+                               </button>
+                             </div>
+                           </div>
+                           <button onClick={handleImportStudents} disabled={isImporting || !importTabName} className={`px-4 py-2 rounded-md font-bold flex items-center gap-2 text-[14pt] shadow-sm whitespace-nowrap ${isImporting || !importTabName ? 'bg-slate-300 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+                             {isImporting ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-download"></i>}
+                             {isImporting ? 'กำลังดึงข้อมูล...' : 'ดึงข้อมูลรายชื่อ'}
+                           </button>
+                        </div>
+                      </div>
+
                       <div className="flex flex-wrap gap-3 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
                         <input type="number" placeholder="เลขที่" value={newStudent.number} onChange={e => setNewStudent({...newStudent, number: e.target.value})} className="border rounded-md px-3 py-2 w-20 outline-none text-[14pt]" />
                         <input type="text" placeholder="รหัสประจำตัว" value={newStudent.studentId} onChange={e => setNewStudent({...newStudent, studentId: e.target.value})} className="border rounded-md px-3 py-2 w-32 outline-none text-[14pt]" />
@@ -779,7 +588,7 @@
                       <div className="overflow-x-auto">
                         <table className="w-full text-[14pt] border-collapse">
                           <thead>
-                            <tr className="bg-blue-100 text-blue-900 text-left">
+                            <tr className="bg-blue-100 print-bg-clear text-left">
                               <th className="p-2 border border-slate-300 w-24 text-center">เลขที่</th>
                               <th className="p-2 border border-slate-300 w-48 text-center">รหัสประจำตัว</th>
                               <th className="p-2 border border-slate-300">ชื่อ - นามสกุล</th>
@@ -807,20 +616,39 @@
                     </div>
                   )}
 
-                  {/* ================= 4. เวลาเรียน ================= */}
+                  {/* ================= 2. เวลาเรียน (หน้าเช็คชื่อ) ================= */}
                   {!isPreview && activeTab === 'attendance' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
-                      <div className="p-4 bg-slate-50 border-b flex flex-col md:flex-row gap-4 justify-between items-center">
+                      <div className="p-4 bg-slate-50 border-b flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+                            <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800"><i className="fas fa-calendar-check text-blue-500 text-xl"></i> เช็คชื่อรายวัน</h2>
+                            <select 
+                              value={activeSubjectId} 
+                              onChange={e => setActiveSubjectId(e.target.value)}
+                              className="border border-blue-200 rounded-md px-3 py-1.5 text-[14pt] outline-none focus:border-blue-500 bg-blue-50 font-bold text-blue-800 shadow-sm flex-1 md:flex-none min-w-[280px]"
+                            >
+                              {subjects.map(s => (
+                                <option key={s.id} value={s.id}>
+                                  {s.courseInfo.classLevel} - {s.courseInfo.subjectCode} {s.courseInfo.subjectName} - นร. {s.students.length} คน
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button onClick={markAllPresent} className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-md font-bold hover:bg-green-100 text-[14pt] whitespace-nowrap w-full md:w-auto">
+                             เช็ค "มา" ทั้งหมด
+                          </button>
+                        </div>
+
                         <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800 mr-2"><i className="fas fa-calendar-check text-blue-500 text-xl"></i> เช็คชื่อรายวัน</h2>
-                          <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1.5 text-[14pt] outline-none bg-white" />
-                          <select value={currentPeriod} onChange={e => setCurrentPeriod(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1.5 text-[14pt] outline-none bg-white">
+                          <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1.5 text-[14pt] outline-none bg-white shadow-sm" />
+                          <select value={currentPeriod} onChange={e => setCurrentPeriod(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1.5 text-[14pt] outline-none bg-white shadow-sm">
                             <option value="1">คาบที่ 1 (หรือคาบเดี่ยว)</option>
                             <option value="2">คาบที่ 2 (เรียนต่อเนื่อง)</option>
                           </select>
                         </div>
-                        <button onClick={markAllPresent} className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-md font-bold hover:bg-green-100 text-[14pt] whitespace-nowrap">เช็ค "มา" ทั้งหมด</button>
                       </div>
+
                       <div className="overflow-x-auto border-b border-slate-200">
                         <table className="w-full text-left text-[14pt] border-collapse">
                           <thead>
@@ -854,7 +682,335 @@
                       </div>
                     </div>
                   )}
-                  
+
+                  {/* ========================================================================= */}
+                  {/* ส่วนจัดหน้าเอกสารพิมพ์ (PRINT VIEWS)          */}
+                  {/* ========================================================================= */}
+
+                  {/* --- 1. หน้าปก --- */}
+                  {(isPreview || activeTab === 'settings') && (
+                    <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text' : 'hidden print:block print:a4-page force-black-text'}`}>
+                      
+                      {!isPreview && activeTab === 'settings' && (
+                        <div className="print:hidden border border-slate-200 p-6 rounded-xl bg-white mb-6">
+                          <h2 className="text-[16pt] font-bold mb-6 flex items-center gap-2 text-blue-800"><i className="fas fa-cog text-blue-500 text-xl"></i> ข้อมูลรายวิชา (หน้าปก)</h2>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="col-span-1 md:col-span-3 mb-4">
+                              <label className="text-[12pt] font-bold text-slate-600 block mb-2">อัปโหลดโลโก้โรงเรียน (แสดงผลที่หน้าปก)</label>
+                              <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 overflow-hidden relative">
+                                {courseInfo.logoUrl ? (
+                                  <img src={courseInfo.logoUrl} alt="Logo Preview" className="h-full w-auto object-contain p-2" />
+                                ) : (
+                                  <div className="flex flex-col items-center text-slate-500">
+                                     <i className="fas fa-upload text-2xl mb-2"></i>
+                                     <span className="text-[12pt]">คลิกเพื่ออัปโหลดไฟล์รูปภาพ</span>
+                                 </div>
+                                )}
+                                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                              </label>
+                            </div>
+                            {[
+                              { key: 'schoolName', label: 'ชื่อโรงเรียน' }, { key: 'district', label: 'อำเภอ' }, { key: 'province', label: 'จังหวัด' },
+                              { key: 'area', label: 'สังกัด (สพป./สพม.)' }, { key: 'term', label: 'ภาคเรียนที่' }, { key: 'year', label: 'ปีการศึกษา' },
+                              { key: 'groupName', label: 'กลุ่มสาระการเรียนรู้' }, { key: 'subjectName', label: 'รายวิชา' }, { key: 'subjectCode', label: 'รหัสวิชา' },
+                              { key: 'classLevel', label: 'ระดับชั้น' }, { key: 'hours', label: 'เวลาเรียน (ชั่วโมง/สัปดาห์)' }, { key: 'totalHours', label: 'เวลาเรียนรวม (ชั่วโมง/ปี)' },
+                              { key: 'credits', label: 'หน่วยกิต' }, { key: 'scoreRatio', label: 'อัตราส่วนคะแนน (ระหว่างเรียน : ปลายปี)' },
+                              { key: 'teacherName', label: 'ชื่อครูผู้สอน' }, { key: 'directorName', label: 'ชื่อผู้อำนวยการ' }
+                            ].map((item) => (
+                              <div key={item.key} className="space-y-1">
+                                <label className="text-[12pt] font-bold text-slate-600">{item.label}</label>
+                                <input type="text" value={courseInfo[item.key]} onChange={(e) => setCourseInfo({...courseInfo, [item.key]: e.target.value})}
+                                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* เค้าโครงหน้าปกจริง สำหรับพรีวิวและปริ้น */}
+                      <div className={activeTab === 'settings' && !isPreview ? 'hidden' : 'block'}>
+                        {courseInfo.logoUrl && (
+                          <div className="flex justify-center mb-6">
+                            <img src={courseInfo.logoUrl} alt="School Logo" className="h-[100px] w-auto object-contain" />
+                          </div>
+                        )}
+
+                        <div className="text-center font-bold text-[18pt] mb-6 leading-tight">
+                          แบบบันทึกผลการเรียนประจำรายวิชา<br/>
+                          หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551
+                        </div>
+
+                        <div className="flex flex-col items-center gap-y-3 mb-6 text-[15pt] w-full">
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>โรงเรียน</span><span className="border-b border-dotted border-black px-2 min-w-[200px] text-center truncate">{courseInfo.schoolName}</span>
+                            <span className="ml-2">อำเภอ</span><span className="border-b border-dotted border-black px-2 min-w-[120px] text-center truncate">{courseInfo.district}</span>
+                            <span className="ml-2">จังหวัด</span><span className="border-b border-dotted border-black px-2 min-w-[120px] text-center truncate">{courseInfo.province}</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>สังกัด</span><span className="border-b border-dotted border-black px-2 min-w-[350px] text-center truncate">{courseInfo.area}</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>ชั้นประถมศึกษาปีที่</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.classLevel}</span>
+                            <span className="ml-2">ภาคเรียนที่</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.term}</span>
+                            <span className="ml-2">ปีการศึกษา</span><span className="border-b border-dotted border-black px-2 min-w-[100px] text-center">{courseInfo.year}</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>กลุ่มสาระการเรียนรู้</span><span className="border-b border-dotted border-black px-2 min-w-[300px] text-center truncate">{courseInfo.groupName}</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>รายวิชา</span><span className="border-b border-dotted border-black px-2 min-w-[200px] text-center truncate">{courseInfo.subjectName}</span>
+                            <span className="ml-2">รหัสวิชา</span><span className="border-b border-dotted border-black px-2 min-w-[150px] text-center truncate">{courseInfo.subjectCode}</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap">
+                            <span>เวลาเรียน</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.hours}</span><span>ชั่วโมง/สัปดาห์</span>
+                            <span className="ml-6">จำนวน</span><span className="border-b border-dotted border-black px-2 min-w-[60px] text-center">{courseInfo.credits}</span><span>หน่วยกิต</span>
+                          </div>
+                          <div className="flex items-end justify-center w-full whitespace-nowrap mt-2">
+                            <span>ครูผู้สอน</span><span className="border-b border-dotted border-black px-2 min-w-[300px] text-center truncate">{courseInfo.teacherName}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-8 mb-6">
+                          <table className="w-full border-collapse border border-slate-300 text-center text-[14pt]">
+                            <thead>
+                              <tr className="bg-blue-100 print-bg-clear">
+                                <th className="border border-slate-300 p-2 font-normal w-32" rowSpan="2">จำนวนนักเรียน<br/>(คน)</th>
+                                <th className="border border-slate-300 p-2 font-normal" colSpan="10">ระดับผลการเรียน</th>
+                              </tr>
+                              <tr className="bg-blue-50 print-bg-clear">
+                                {GRADES.map(g => <th key={g} className="border border-slate-300 p-1 font-normal w-10">{g}</th>)}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td className="border border-slate-300 p-2">{students.length}</td>
+                                {GRADES.map(g => <td key={`c_${g}`} className="border border-slate-300 p-2">{gradeStats[g] > 0 ? gradeStats[g] : '-'}</td>)}
+                              </tr>
+                              <tr>
+                                <td className="border border-slate-300 p-2">คิดเป็นร้อยละ</td>
+                                {GRADES.map(g => {
+                                  const pct = students.length > 0 ? ((gradeStats[g] / students.length) * 100).toFixed(1) : 0;
+                                  return <td key={`p_${g}`} className="border border-slate-300 p-2">{pct > 0 ? pct : '-'}</td>
+                                })}
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="mb-6">
+                          <table className="w-full border-collapse border border-slate-300 text-center text-[13pt]">
+                            <thead>
+                              <tr className="bg-blue-100 print-bg-clear">
+                                <th className="border border-slate-300 p-2 font-normal w-1/3">ผลการประเมินคุณลักษณะฯ</th>
+                                <th className="border border-slate-300 p-2 font-normal w-1/3">ผลการประเมินการอ่าน คิดวิเคราะห์ฯ</th>
+                                <th className="border border-slate-300 p-2 font-normal w-1/3">สมรรถนะสำคัญของผู้เรียน</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
+                                  ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
+                                </td>
+                                <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
+                                  ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
+                                </td>
+                                <td className="border border-slate-300 p-2 text-left px-8 leading-tight align-top">
+                                  ☐ 3 = ดีเยี่ยม<br/>☐ 2 = ดี<br/>☐ 1 = ผ่าน<br/>☐ 0 = ไม่ผ่าน
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="mt-8 flex justify-center text-[15pt]">
+                          <div className="flex flex-col w-[600px] gap-y-3">
+                            <div className="text-center font-bold mb-4 text-[16pt]">การอนุมัติผลการพัฒนาคุณภาพผู้เรียน</div>
+                            <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">ครูผู้สอน</div></div>
+                            <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้ากลุ่มสาระการเรียนรู้</div></div>
+                            <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้างานวัดผลและประเมินผล</div></div>
+                            <div className="mt-4">เรียนเสนอเพื่อโปรดพิจารณา</div>
+                            <div className="flex ml-[60px] gap-16 mb-1 whitespace-nowrap"><div>☐ เห็นควรอนุมัติ</div><div>☐ เห็นควรปรับปรุง</div></div>
+                            <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">หัวหน้ากลุ่มงานบริหารงานวิชาการ</div></div>
+                            <div className="flex ml-[60px] gap-24 mt-4 mb-1 whitespace-nowrap"><div>☐ อนุมัติ</div><div>☐ ไม่อนุมัติ</div></div>
+                            <div className="flex items-end whitespace-nowrap"><div className="w-12 text-right mr-2">ลงชื่อ</div><div className="border-b-[1.5px] border-dotted border-black flex-1 h-4"></div><div className="ml-4 w-[220px]">ผู้อำนวยการโรงเรียน</div></div>
+                            <div className="flex justify-center whitespace-nowrap mt-1"><div className="w-[300px] text-center ml-10">( {courseInfo.directorName} )</div></div>
+                            <div className="flex justify-center whitespace-nowrap"><div className="w-[300px] text-center ml-10">................/..................../..................</div></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- 2. คำอธิบายรายวิชา --- */}
+                  {(isPreview || activeTab === 'description') && (
+                    <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text mt-8' : 'hidden print:block print:a4-page force-black-text'}`}>
+                       {!isPreview && activeTab === 'description' && (
+                         <div className="bg-white border border-slate-200 p-6 rounded-xl print:hidden mb-6">
+                           <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800 mb-6"><i className="fas fa-book-open text-blue-500 text-xl"></i> ข้อมูลคำอธิบายรายวิชา</h2>
+                           <div className="space-y-6">
+                             <div>
+                               <label className="text-[14pt] font-bold text-slate-600 block mb-2">คำอธิบายรายวิชา</label>
+                               <textarea rows="8" value={courseInfo.description} onChange={e => setCourseInfo({...courseInfo, description: e.target.value})} className="w-full border border-slate-300 rounded-md p-3 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white" />
+                             </div>
+                             <div>
+                               <label className="text-[14pt] font-bold text-slate-600 block mb-2">ตัวชี้วัด / มาตรฐานการเรียนรู้</label>
+                               <textarea rows="8" value={courseInfo.indicators} onChange={e => setCourseInfo({...courseInfo, indicators: e.target.value})} className="w-full border border-slate-300 rounded-md p-3 text-[14pt] outline-none focus:border-blue-500 bg-slate-50 focus:bg-white" />
+                             </div>
+                           </div>
+                         </div>
+                       )}
+
+                       <div className={activeTab === 'description' && !isPreview ? 'hidden' : 'block'}>
+                         <div className="text-center font-bold text-[18pt] mb-6">คำอธิบายรายวิชา</div>
+                         <div className="flex justify-between text-[15pt] mb-2 font-bold px-4">
+                            <div>รายวิชา {courseInfo.subjectName}</div>
+                            <div>ชั้นประถมศึกษาปีที่ {courseInfo.classLevel}</div>
+                         </div>
+                         <div className="flex justify-between text-[15pt] mb-6 font-bold px-4">
+                            <div>รหัสวิชา {courseInfo.subjectCode}</div>
+                            <div>เวลา {courseInfo.totalHours !== undefined ? courseInfo.totalHours : courseInfo.hours} ชั่วโมง/ปี</div>
+                         </div>
+                         <div className="text-[15pt] leading-relaxed whitespace-pre-wrap mb-8 text-justify px-4">
+                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{courseInfo.description}
+                         </div>
+                         <div className="font-bold text-[15pt] mb-2 px-4">ตัวชี้วัด / ผลการเรียนรู้</div>
+                         <div className="text-[15pt] leading-relaxed whitespace-pre-wrap px-8">
+                           {courseInfo.indicators}
+                         </div>
+                       </div>
+                    </div>
+                  )}
+
+                  {/* --- 3. โครงสร้างรายวิชา --- */}
+                  <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text mt-8' : (activeTab === 'structure' ? 'rounded-xl shadow-sm border border-slate-200 p-6 overflow-x-auto print:block print:a4-page force-black-text' : 'hidden')}`}>
+                    {!isPreview && activeTab === 'structure' && (
+                      <div className="flex justify-between items-center mb-6 print:hidden">
+                        <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800"><i className="fas fa-list-ol text-blue-500 text-xl"></i> จัดการโครงสร้างรายวิชา</h2>
+                        <button onClick={handleAddStructureRow} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-bold flex items-center gap-2 text-[14pt]"><i className="fas fa-plus"></i> เพิ่มหน่วยการเรียนรู้</button>
+                      </div>
+                    )}
+                    
+                    <div className={`${isPreview || activeTab === 'structure' ? 'block' : 'hidden print:block'} mb-6`}>
+                       <div className="text-center font-bold text-[18pt] mb-4">โครงสร้างรายวิชา</div>
+                       <div className="flex flex-col gap-2 text-[15pt] px-2">
+                         <div className="flex justify-between">
+                            <div>รายวิชา <span className="font-bold border-b border-dotted border-black">{courseInfo.subjectName}</span> รหัสวิชา <span className="font-bold border-b border-dotted border-black">{courseInfo.subjectCode}</span></div>
+                         </div>
+                         <div className="flex justify-between">
+                            <div>ชั้นประถมศึกษาปีที่ <span className="font-bold border-b border-dotted border-black">{courseInfo.classLevel}</span></div>
+                            <div className="flex items-center">
+                               จำนวน 
+                               {!isPreview && <input type="text" value={courseInfo.totalHours !== undefined ? courseInfo.totalHours : (courseInfo.hours || '')} onChange={e=>setCourseInfo({...courseInfo, totalHours: e.target.value})} className="font-bold mx-2 border-b border-dotted border-black px-2 text-center bg-transparent outline-none w-20 focus:bg-white print:hidden" />}
+                               <span className={isPreview ? "font-bold mx-2 border-b border-dotted border-black px-4" : "hidden print:block font-bold mx-2 border-b border-dotted border-black px-4"}>{courseInfo.totalHours !== undefined ? courseInfo.totalHours : courseInfo.hours}</span>
+                               ชั่วโมง/ปี
+                            </div>
+                         </div>
+                         <div className="mt-2 flex items-center">
+                            อัตราส่วนคะแนนระหว่างเรียน : สอบปลายปี  
+                            {!isPreview && <input type="text" value={courseInfo.scoreRatio} onChange={e=>setCourseInfo({...courseInfo, scoreRatio: e.target.value})} className="font-bold ml-4 border-b border-dotted border-black px-2 text-center bg-transparent outline-none w-24 focus:bg-white print:hidden" />}
+                            <span className={isPreview ? "font-bold ml-4 border-b border-dotted border-black px-6" : "hidden print:block font-bold ml-4 border-b border-dotted border-black px-6"}>{courseInfo.scoreRatio}</span>
+                         </div>
+                       </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12pt] border-collapse text-left">
+                        <thead>
+                          <tr className="bg-blue-100 print-bg-clear text-center">
+                            <th className="p-1 border border-slate-300 w-10" rowSpan="2">ลำดับ</th>
+                            <th className="p-1 border border-slate-300 w-32" rowSpan="2">หน่วยการเรียนรู้<br/><span className="text-[10pt] font-normal">(สาระที่...)</span></th>
+                            <th className="p-1 border border-slate-300 w-32" rowSpan="2">ชื่อหน่วย<br/><span className="text-[10pt] font-normal">(มาตรฐาน...)</span></th>
+                            <th className="p-1 border border-slate-300 min-w-[80px]" rowSpan="2">ตัวชี้วัด</th>
+                            <th className="p-1 border border-slate-300 w-12 leading-tight" rowSpan="2">เวลา<br/>(ชม.)</th>
+                            <th className="p-1 border border-slate-300" colSpan="4">คะแนนภาคเรียนที่ 1</th>
+                            <th className="p-1 border border-slate-300" colSpan="4">คะแนนภาคเรียนที่ 2</th>
+                            <th className="p-1 border border-slate-300 w-12" rowSpan="2">รวม</th>
+                            {!isPreview && activeTab === 'structure' && <th className="p-1 border border-slate-300 w-10 print:hidden" rowSpan="2">ลบ</th>}
+                          </tr>
+                          <tr className="bg-blue-50 print-bg-clear text-center text-[10pt] leading-tight">
+                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>1</th>
+                            <th className="p-1 border border-slate-300 w-10">ก่อน<br/>กลางปี</th>
+                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>2</th>
+                            <th className="p-1 border border-slate-300 w-10">กลางปี</th>
+                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>1</th>
+                            <th className="p-1 border border-slate-300 w-10">ก่อน<br/>ปลายปี</th>
+                            <th className="p-1 border border-slate-300 w-10">ครั้งที่<br/>2</th>
+                            <th className="p-1 border border-slate-300 w-10">ปลายปี</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {courseStructure.map((row, index) => {
+                            const rowTotal = (Number(row.s_t1_1)||0) + (Number(row.s_t1_pre)||0) + (Number(row.s_t1_2)||0) + (Number(row.s_t1_mid)||0) + (Number(row.s_t2_1)||0) + (Number(row.s_t2_pre)||0) + (Number(row.s_t2_2)||0) + (Number(row.s_t2_fin)||0);
+                            return (
+                              <tr key={row.id} className="hover:bg-slate-50 align-top">
+                                <td className="p-1 border border-slate-300 text-center">{index + 1}</td>
+                                <td className="p-1 border border-slate-300">
+                                  {!isPreview && activeTab === 'structure' ? <textarea rows="2" value={row.unitGroup} onChange={e=>handleStructureChange(row.id, 'unitGroup', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="สาระที่..." /> : <span className="block whitespace-pre-wrap font-bold text-[12pt]">{row.unitGroup}</span>}
+                                </td>
+                                <td className="p-1 border border-slate-300">
+                                  {!isPreview && activeTab === 'structure' ? <textarea rows="2" value={row.unitName} onChange={e=>handleStructureChange(row.id, 'unitName', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="มาตรฐาน..." /> : <span className="block whitespace-pre-wrap text-[12pt]">{row.unitName}</span>}
+                                </td>
+                                <td className="p-1 border border-slate-300">
+                                  {!isPreview && activeTab === 'structure' ? <textarea rows="2" value={row.indicators} onChange={e=>handleStructureChange(row.id, 'indicators', e.target.value)} className="w-full border rounded p-1 bg-transparent outline-none focus:bg-white print:hidden resize-none text-[12pt]" placeholder="ตัวชี้วัด" /> : <span className="block whitespace-pre-wrap text-[12pt]">{row.indicators}</span>}
+                                </td>
+                                <td className="p-1 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.hours} onChange={e=>handleStructureChange(row.id, 'hours', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt]">{row.hours}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t1_1} onChange={e=>handleStructureChange(row.id, 's_t1_1', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t1_1}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t1_pre} onChange={e=>handleStructureChange(row.id, 's_t1_pre', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t1_pre}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t1_2} onChange={e=>handleStructureChange(row.id, 's_t1_2', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t1_2}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t1_mid} onChange={e=>handleStructureChange(row.id, 's_t1_mid', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t1_mid}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t2_1} onChange={e=>handleStructureChange(row.id, 's_t2_1', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t2_1}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t2_pre} onChange={e=>handleStructureChange(row.id, 's_t2_pre', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t2_pre}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t2_2} onChange={e=>handleStructureChange(row.id, 's_t2_2', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t2_2}</span>}
+                                </td>
+                                <td className="p-0 border border-slate-300 text-center align-middle">
+                                  {!isPreview && activeTab === 'structure' ? <input type="number" value={row.s_t2_fin} onChange={e=>handleStructureChange(row.id, 's_t2_fin', e.target.value)} className="score-input print:hidden text-[12pt]" /> : <span className="block text-[12pt] p-1">{row.s_t2_fin}</span>}
+                                </td>
+                                <td className="p-1 border border-slate-300 text-center align-middle font-bold bg-slate-50 print-bg-clear text-[12pt]">
+                                  {rowTotal > 0 ? rowTotal : ''}
+                                </td>
+                                {!isPreview && activeTab === 'structure' && (
+                                  <td className="p-1 border border-slate-300 text-center align-middle print:hidden">
+                                    <button onClick={() => handleRemoveStructureRow(row.id)} className="text-red-500 hover:text-red-700 p-1"><i className="fas fa-trash-alt text-base"></i></button>
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          })}
+                          <tr className="bg-slate-50 font-bold print-bg-clear text-center text-[12pt]">
+                            <td colSpan="4" className="p-2 border border-slate-300 text-right pr-6">รวม</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.hours > 0 ? structureTotals.hours : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_1 > 0 ? structureTotals.s_t1_1 : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_pre > 0 ? structureTotals.s_t1_pre : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_2 > 0 ? structureTotals.s_t1_2 : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t1_mid > 0 ? structureTotals.s_t1_mid : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_1 > 0 ? structureTotals.s_t2_1 : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_pre > 0 ? structureTotals.s_t2_pre : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_2 > 0 ? structureTotals.s_t2_2 : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.s_t2_fin > 0 ? structureTotals.s_t2_fin : ''}</td>
+                            <td className="p-2 border border-slate-300">{structureTotals.totalScore > 0 ? structureTotals.totalScore : ''}</td>
+                            {!isPreview && activeTab === 'structure' && <td className="p-2 border border-slate-300 print:hidden"></td>}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* --- 4. ตารางบันทึกเวลาเรียน (ย้ายมาไว้ใต้โครงสร้างเพื่อลำดับพิมพ์) --- */}
                   {(isPreview || activeTab === 'attendance') && dateChunks.map((chunkDates, chunkIndex) => (
                     <div key={`chunk-${chunkIndex}`} className={`bg-white print-no-shadow force-black-text ${isPreview ? 'a4-page mt-8' : 'hidden print:block print:a4-page'}`}>
                       <h2 className="text-center font-bold text-[18pt] mb-6 mt-4">
@@ -935,10 +1091,10 @@
                     </div>
                   ))}
 
-                  {/* ================= 5. บันทึกคะแนน ================= */}
+                  {/* --- 5. บันทึกคะแนน --- */}
                   <div className={`bg-white print-no-shadow ${isPreview ? 'a4-page force-black-text mt-8' : (activeTab === 'scores' ? 'rounded-xl shadow-sm border p-6 overflow-x-auto print:block print:a4-page force-black-text' : 'hidden')}`}>
-                    {!isPreview && <h2 className="text-[16pt] font-bold mb-4 flex items-center gap-2 text-blue-800 print:hidden"><i className="fas fa-edit text-blue-500 text-xl"></i> คะแนนรวมวิชา{courseInfo.subjectName} รหัสวิชา {courseInfo.subjectCode} ปีการศึกษา {courseInfo.year}</h2>}
-                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 print:block">คะแนนรวมวิชา{courseInfo.subjectName} รหัสวิชา {courseInfo.subjectCode} ปีการศึกษา {courseInfo.year}</h2>}
+                    {!isPreview && activeTab === 'scores' && <h2 className="text-[16pt] font-bold mb-4 flex items-center gap-2 text-blue-800 print:hidden"><i className="fas fa-edit text-blue-500 text-xl"></i> คะแนนรวมวิชา{courseInfo.subjectName} รหัสวิชา {courseInfo.subjectCode} ปีการศึกษา {courseInfo.year}</h2>}
+                    {(isPreview || activeTab === 'scores') && <h2 className="text-center font-bold text-[18pt] mb-6 print:block hidden">คะแนนรวมวิชา{courseInfo.subjectName} รหัสวิชา {courseInfo.subjectCode} ปีการศึกษา {courseInfo.year}</h2>}
                     
                     <div className="overflow-x-auto">
                      <table className="w-full text-center border-collapse text-[10pt] print:text-[10pt]">
@@ -975,41 +1131,33 @@
                            
                            {/* ภาค 1 */}
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s1_1} onChange={e=>handleMaxScoreChange('s1_1', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s1_1}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s1_1} onChange={e=>handleMaxScoreChange('s1_1', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s1_1}</span>}
                            </td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s1_pre} onChange={e=>handleMaxScoreChange('s1_pre', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s1_pre}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s1_pre} onChange={e=>handleMaxScoreChange('s1_pre', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s1_pre}</span>}
                            </td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s1_2} onChange={e=>handleMaxScoreChange('s1_2', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s1_2}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s1_2} onChange={e=>handleMaxScoreChange('s1_2', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s1_2}</span>}
                            </td>
                            <td className="border border-slate-300 p-1 bg-blue-50 print-bg-clear">{max_s1_total_pre}</td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s1_mid} onChange={e=>handleMaxScoreChange('s1_mid', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s1_mid}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s1_mid} onChange={e=>handleMaxScoreChange('s1_mid', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s1_mid}</span>}
                            </td>
                            <td className="border border-slate-300 p-1 bg-blue-100 print-bg-clear">{max_s1_total}</td>
 
                            {/* ภาค 2 */}
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s2_1} onChange={e=>handleMaxScoreChange('s2_1', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s2_1}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s2_1} onChange={e=>handleMaxScoreChange('s2_1', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s2_1}</span>}
                            </td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s2_pre} onChange={e=>handleMaxScoreChange('s2_pre', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s2_pre}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s2_pre} onChange={e=>handleMaxScoreChange('s2_pre', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s2_pre}</span>}
                            </td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s2_2} onChange={e=>handleMaxScoreChange('s2_2', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s2_2}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s2_2} onChange={e=>handleMaxScoreChange('s2_2', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s2_2}</span>}
                            </td>
                            <td className="border border-slate-300 p-1 bg-blue-50 print-bg-clear">{max_s2_total_pre}</td>
                            <td className="border border-slate-300 p-0 text-center">
-                             {!isPreview && <input type="number" value={maxScores.s2_fin} onChange={e=>handleMaxScoreChange('s2_fin', e.target.value)} className="score-input print:hidden font-bold" />}
-                             <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{maxScores.s2_fin}</span>
+                             {!isPreview && activeTab === 'scores' ? <input type="number" value={maxScores.s2_fin} onChange={e=>handleMaxScoreChange('s2_fin', e.target.value)} className="score-input print:hidden font-bold" /> : <span className="block p-1">{maxScores.s2_fin}</span>}
                            </td>
                            <td className="border border-slate-300 p-1 bg-blue-100 print-bg-clear">{max_s2_total}</td>
 
@@ -1021,40 +1169,32 @@
                              <td className="border border-slate-300 p-1">{s.number}</td>
                              <td className="border border-slate-300 p-1 px-3 text-left">{s.name}</td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="30" value={scores[s.studentId]?.s1_1 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_1', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s1_1 ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="30" value={scores[s.studentId]?.s1_1 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_1', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s1_1 ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="20" value={scores[s.studentId]?.s1_pre ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_pre', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s1_pre ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="20" value={scores[s.studentId]?.s1_pre ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_pre', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s1_pre ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="20" value={scores[s.studentId]?.s1_2 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_2', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s1_2 ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="20" value={scores[s.studentId]?.s1_2 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_2', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s1_2 ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear">{s.scores.s1_total_pre > 0 ? s.scores.s1_total_pre : ''}</td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="30" value={scores[s.studentId]?.s1_mid ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_mid', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s1_mid ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="30" value={scores[s.studentId]?.s1_mid ?? ''} onChange={e=>handleScoreChange(s.studentId, 's1_mid', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s1_mid ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear">{s.scores.s1_total > 0 ? s.scores.s1_total : ''}</td>
 
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="20" value={scores[s.studentId]?.s2_1 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_1', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s2_1 ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="20" value={scores[s.studentId]?.s2_1 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_1', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s2_1 ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="20" value={scores[s.studentId]?.s2_pre ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_pre', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s2_pre ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="20" value={scores[s.studentId]?.s2_pre ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_pre', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s2_pre ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="20" value={scores[s.studentId]?.s2_2 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_2', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s2_2 ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="20" value={scores[s.studentId]?.s2_2 ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_2', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s2_2 ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear">{s.scores.s2_total_pre > 0 ? s.scores.s2_total_pre : ''}</td>
                              <td className="border border-slate-300 p-0 text-center">
-                               {!isPreview && <input type="number" max="30" value={scores[s.studentId]?.s2_fin ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_fin', e.target.value)} className="score-input print:hidden" />}
-                               <span className={isPreview ? 'block p-1' : 'hidden print:block p-1'}>{scores[s.studentId]?.s2_fin ?? ''}</span>
+                               {!isPreview && activeTab === 'scores' ? <input type="number" max="30" value={scores[s.studentId]?.s2_fin ?? ''} onChange={e=>handleScoreChange(s.studentId, 's2_fin', e.target.value)} className="score-input print:hidden" /> : <span className="block p-1">{scores[s.studentId]?.s2_fin ?? ''}</span>}
                              </td>
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear">{s.scores.s2_total > 0 ? s.scores.s2_total : ''}</td>
 
@@ -1068,10 +1208,10 @@
                   </div>
 
 
-                  {/* ================= 6.1 ประเมินคุณลักษณะ ================= */}
+                  {/* --- 6.1 ประเมินคุณลักษณะ --- */}
                   <div className={`bg-white print-no-shadow print-break force-black-text ${activeTab === 'evaluation' || isPreview ? 'block' : 'hidden'} ${isPreview ? 'a4-page mt-8' : 'rounded-xl shadow-sm border p-6 overflow-hidden'} print:block print:a4-page`}>
-                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 print:block">ผลการประเมินคุณลักษณะอันพึงประสงค์</h2>}
-                    <h3 className="font-bold text-[14pt] md:text-[16pt] mb-3 print:hidden">ตอนที่ 1: ประเมินคุณลักษณะอันพึงประสงค์ (8 ข้อ)</h3>
+                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 print:block hidden">ผลการประเมินคุณลักษณะอันพึงประสงค์</h2>}
+                    {!isPreview && activeTab === 'evaluation' && <h3 className="font-bold text-[14pt] md:text-[16pt] mb-3 print:hidden">ตอนที่ 1: ประเมินคุณลักษณะอันพึงประสงค์ (8 ข้อ)</h3>}
                     
                     <div className="overflow-x-auto">
                      <table className="w-full text-center border-collapse text-[13pt]">
@@ -1101,8 +1241,7 @@
                              <td className="border border-slate-300 p-1 text-left truncate px-3">{s.name}</td>
                              {[1,2,3,4,5,6,7,8].map(i => (
                                <td key={`a${i}`} className="border border-slate-300 p-0 text-center">
-                                 {!isPreview && <input type="number" max="3" value={evaluations[s.studentId]?.[`attr_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'attr', i, e.target.value)} className="score-input print:hidden" />}
-                                 <span className={isPreview ? 'block p-2' : 'hidden print:block p-2'}>{evaluations[s.studentId]?.[`attr_${i}`] ?? ''}</span>
+                                 {!isPreview && activeTab === 'evaluation' ? <input type="number" max="3" value={evaluations[s.studentId]?.[`attr_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'attr', i, e.target.value)} className="score-input print:hidden" /> : <span className="block p-2">{evaluations[s.studentId]?.[`attr_${i}`] ?? ''}</span>}
                                </td>
                              ))}
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear text-[14pt]">
@@ -1116,10 +1255,10 @@
                   </div>
 
 
-                  {/* ================= 6.2 ประเมินอ่านคิดวิเคราะห์ และ สมรรถนะ ================= */}
+                  {/* --- 6.2 ประเมินอ่านคิดวิเคราะห์ และ สมรรถนะ --- */}
                   <div className={`bg-white print-no-shadow print-break force-black-text ${activeTab === 'evaluation' || isPreview ? 'block' : 'hidden'} ${isPreview ? 'a4-page mt-8' : 'rounded-xl shadow-sm border p-6 overflow-hidden mt-6'} print:block print:a4-page`}>
-                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 print:block">ผลการประเมินการอ่าน คิดวิเคราะห์ฯ และ สมรรถนะสำคัญของผู้เรียน</h2>}
-                    <h3 className="font-bold text-[14pt] md:text-[16pt] mb-3 print:hidden">ตอนที่ 2: ประเมินการอ่าน คิดวิเคราะห์ฯ และ สมรรถนะสำคัญของผู้เรียน</h3>
+                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 print:block hidden">ผลการประเมินการอ่าน คิดวิเคราะห์ฯ และ สมรรถนะสำคัญของผู้เรียน</h2>}
+                    {!isPreview && activeTab === 'evaluation' && <h3 className="font-bold text-[14pt] md:text-[16pt] mb-3 print:hidden">ตอนที่ 2: ประเมินการอ่าน คิดวิเคราะห์ฯ และ สมรรถนะสำคัญของผู้เรียน</h3>}
                     
                     <div className="overflow-x-auto">
                      <table className="w-full text-center border-collapse text-[13pt]">
@@ -1162,8 +1301,7 @@
                              {/* อ่านคิดวิเคราะห์ */}
                              {[1,2,3,4,5].map(i => (
                                <td key={`r${i}`} className="border border-slate-300 p-0 text-center">
-                                 {!isPreview && <input type="number" max="3" value={evaluations[s.studentId]?.[`read_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'read', i, e.target.value)} className="score-input print:hidden" />}
-                                 <span className={isPreview ? 'block p-2' : 'hidden print:block p-2'}>{evaluations[s.studentId]?.[`read_${i}`] ?? ''}</span>
+                                 {!isPreview && activeTab === 'evaluation' ? <input type="number" max="3" value={evaluations[s.studentId]?.[`read_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'read', i, e.target.value)} className="score-input print:hidden" /> : <span className="block p-2">{evaluations[s.studentId]?.[`read_${i}`] ?? ''}</span>}
                                </td>
                              ))}
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear text-[14pt]">
@@ -1173,8 +1311,7 @@
                              {/* สมรรถนะ */}
                              {[1,2,3,4,5].map(i => (
                                <td key={`c${i}`} className="border border-slate-300 p-0 text-center print-bg-clear">
-                                 {!isPreview && <input type="number" max="3" value={evaluations[s.studentId]?.[`comp_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'comp', i, e.target.value)} className="score-input print:hidden" />}
-                                 <span className={isPreview ? 'block p-2' : 'hidden print:block p-2'}>{evaluations[s.studentId]?.[`comp_${i}`] ?? ''}</span>
+                                 {!isPreview && activeTab === 'evaluation' ? <input type="number" max="3" value={evaluations[s.studentId]?.[`comp_${i}`] ?? ''} onChange={e=>handleEvalChange(s.studentId, 'comp', i, e.target.value)} className="score-input print:hidden" /> : <span className="block p-2">{evaluations[s.studentId]?.[`comp_${i}`] ?? ''}</span>}
                                </td>
                              ))}
                              <td className="border border-slate-300 p-1 font-bold print-bg-clear text-[14pt]">
@@ -1188,16 +1325,16 @@
                   </div>
 
 
-                  {/* ================= 7. สรุปผล ================= */}
+                  {/* --- 7. สรุปผล --- */}
                   <div className={`bg-white print-no-shadow print-break force-black-text ${activeTab === 'summary' || isPreview ? 'block' : 'hidden'} ${isPreview ? 'a4-page mt-8' : 'rounded-xl shadow-sm border overflow-hidden'} print:block print:a4-page`}>
                     
-                    {!isPreview && (
+                    {!isPreview && activeTab === 'summary' && (
                       <div className="p-4 bg-slate-50 border-b flex justify-between items-center print:hidden">
                         <h2 className="text-[16pt] font-bold flex items-center gap-2 text-blue-800"><i className="fas fa-chart-bar text-blue-500 text-xl"></i> ตารางสรุปผล ปพ.5 (ภาพรวม)</h2>
                       </div>
                     )}
                     
-                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 mt-4 print:block">ตารางสรุปผลการเรียนรวม ปพ.5</h2>}
+                    {isPreview && <h2 className="text-center font-bold text-[18pt] mb-6 mt-4 print:block hidden">ตารางสรุปผลการเรียนรวม ปพ.5</h2>}
                     
                     <div className="overflow-x-auto p-4 print:p-0">
                       <table className="w-full text-center border-collapse text-[14pt]">
