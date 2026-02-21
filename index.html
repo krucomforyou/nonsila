@@ -20,6 +20,9 @@
     <meta property="og:image" content="https://placehold.co/1200x630/1e3a8a/FFFFFF/png?text=Nonsilasawangwit+School">
     <meta property="og:site_name" content="โรงเรียนโนนศิลาสว่างวิทย์">
 
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -174,6 +177,7 @@
                     <div class="sidebar-header"><i class="fas fa-id-card mr-2"></i> ข้อมูลบุคคล</div>
                     <ul class="divide-y divide-gray-100 text-sm">
                         <li><a href="javascript:void(0)" onclick="showPage('personnel')" class="block px-4 py-2 hover:bg-blue-50 text-gray-700"><i class="fas fa-caret-right text-blue-500 mr-2"></i> ทำเนียบบุคลากร</a></li>
+                        <li><a href="javascript:void(0)" onclick="showPage('students')" class="block px-4 py-2 hover:bg-blue-50 text-gray-700"><i class="fas fa-caret-right text-blue-500 mr-2"></i> ข้อมูลนักเรียน</a></li>
                     </ul>
                 </div>
             </aside>
@@ -358,6 +362,37 @@
                     </div>
                 </div>
 
+                <!-- CONTENT PAGE: STUDENTS -->
+                <div id="content-students" class="hidden bg-white rounded-lg shadow-md p-6 border-t-4 border-yellow-400 fade-in">
+                    <h2 class="text-2xl font-bold text-blue-900 mb-6 border-b pb-4 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="bg-blue-100 p-2 rounded-full mr-3"><i class="fas fa-user-graduate text-blue-600"></i></div>
+                            ข้อมูลนักเรียน
+                        </div>
+                    </h2>
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="w-full md:w-1/2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">เลือกชั้นเรียน:</label>
+                            <select id="studentClassSelect" onchange="loadStudentData()" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="">-- กำลังโหลดข้อมูลชั้นเรียน --</option>
+                            </select>
+                        </div>
+                        <div class="w-full md:w-auto mt-4 md:mt-0">
+                            <button onclick="downloadStudentExcel()" id="btnDownloadExcel" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow transition flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                                <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="studentTableContainer" class="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm min-h-[300px]">
+                        <div class="text-center py-20 text-gray-400">
+                            <i class="fas fa-table text-4xl mb-3 text-gray-300"></i>
+                            <p>กรุณาเลือกชั้นเรียนเพื่อดูข้อมูล</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- CONTENT PAGE: BUILDING INFO -->
                 <div id="content-building-info" class="hidden bg-white rounded-lg shadow-md p-8 border-t-4 border-yellow-400 fade-in">
                     <h2 class="text-2xl font-bold text-blue-900 mb-6 border-b pb-4 flex items-center">
@@ -439,6 +474,7 @@
                     <div class="sidebar-header"><i class="fas fa-id-card mr-2"></i> ข้อมูลบุคคล</div>
                     <ul class="divide-y divide-gray-100 text-sm">
                         <li><a href="javascript:void(0)" onclick="showPage('personnel')" class="block px-4 py-2 hover:bg-blue-50 text-gray-700"><i class="fas fa-caret-right text-blue-500 mr-2"></i> ทำเนียบบุคลากร</a></li>
+                        <li><a href="javascript:void(0)" onclick="showPage('students')" class="block px-4 py-2 hover:bg-blue-50 text-gray-700"><i class="fas fa-caret-right text-blue-500 mr-2"></i> ข้อมูลนักเรียน</a></li>
                     </ul>
                 </div>
 
@@ -1054,7 +1090,7 @@
         const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
         const DEFAULT_BANNER = 'https://placehold.co/800x350/e0f2fe/e0f2fe/png?text=';
         
-        let state = { user: null, news: [], settings: {}, teachers: [], buildings: [], activities: [], announcements: [] }; 
+        let state = { user: null, news: [], settings: {}, teachers: [], buildings: [], activities: [], announcements: [], studentClasses: [] }; 
         
         // News variables
         let currentDetailImages = []; 
@@ -1072,6 +1108,10 @@
         let currentActivityServerImages = [];
         let currentActivityDetailImages = [];
         let currentActivityImageIndex = 0;
+
+        // Student variables
+        let currentStudentData = [];
+        let currentStudentClass = '';
 
         document.addEventListener('DOMContentLoaded', () => {
             initDropdowns();
@@ -1095,7 +1135,6 @@
         // ================= ฟังก์ชันบีบอัดรูปภาพ (Image Compression) =================
         function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
             return new Promise((resolve) => {
-                // หากไม่ใช่รูปภาพ ให้คืนค่าไฟล์เดิมกลับไป
                 if (!file.type.startsWith('image/')) {
                     resolve(file);
                     return;
@@ -1109,7 +1148,6 @@
                         let width = img.width;
                         let height = img.height;
 
-                        // คำนวณสัดส่วนใหม่ ไม่ให้เกินค่า Max ที่กำหนด
                         if (width > height) {
                             if (width > maxWidth) {
                                 height = Math.round((height *= maxWidth / width));
@@ -1127,7 +1165,6 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
 
-                        // เติมพื้นหลังสีขาวกรณีไฟล์ PNG โปร่งใสถูกแปลงเป็น JPEG
                         if(file.type !== 'image/png') {
                             ctx.fillStyle = '#FFFFFF';
                             ctx.fillRect(0, 0, width, height);
@@ -1135,13 +1172,12 @@
 
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // แปลงเป็น JPEG เสมอเพื่อประหยัดพื้นที่ให้มากที่สุด (ยกเว้น PNG ถ้าอยากเก็บโปร่งใส)
                         const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
                         const outQuality = outType === 'image/jpeg' ? quality : undefined;
 
                         canvas.toBlob((blob) => {
                             if (!blob) {
-                                resolve(file); // fallback กรณี error
+                                resolve(file);
                                 return;
                             }
                             const newFile = new File([blob], file.name, {
@@ -1203,7 +1239,6 @@
         async function loadData() {
             showLoading(); 
             try {
-                // Fetch announcements
                 const [newsRes, settingsRes, teachersRes, buildingsRes, activitiesRes, annRes] = await Promise.all([
                     fetch(`${API_URL}?action=getNewsletters`),
                     fetch(`${API_URL}?action=getSettings`),
@@ -1355,11 +1390,8 @@
             
             let file = document.getElementById('announcementFile').files[0];
             if(file) {
-                 showLoading(); // แสดงสถานะกำลังโหลดระหว่างบีบอัดภาพ
-                 
-                 // เรียกใช้ฟังก์ชันบีบอัดภาพ (ความกว้าง/สูง สูงสุด 1600px, คุณภาพ 80%)
+                 showLoading();
                  const compressedFile = await compressImageFile(file, 1600, 1600, 0.8);
-                 
                  const reader = new FileReader();
                  reader.readAsDataURL(compressedFile);
                  await new Promise(r => reader.onload = r);
@@ -1515,8 +1547,7 @@
                 mobileMenu.classList.add('hidden');
             }
 
-            // เพิ่ม content-activities ลงในรายการที่จะซ่อน
-            ['content-home', 'content-school-info', 'content-school-symbol', 'content-vision-philosophy', 'content-slogan-mission', 'content-building-info', 'content-all-news', 'content-personnel', 'content-contact', 'content-activities'].forEach(id => {
+            ['content-home', 'content-school-info', 'content-school-symbol', 'content-vision-philosophy', 'content-slogan-mission', 'content-building-info', 'content-all-news', 'content-personnel', 'content-contact', 'content-activities', 'content-students'].forEach(id => {
                 const el = document.getElementById(id); if(el) el.classList.add('hidden');
             });
             const target = document.getElementById('content-' + pageId);
@@ -1525,6 +1556,11 @@
             if(pageId === 'all-news') renderAllNewsPage(1);
             if(pageId === 'activities') renderActivitiesPage(1); 
             if(pageId === 'personnel') renderPersonnelPage();
+            if(pageId === 'students') {
+                if (state.studentClasses.length === 0) {
+                    fetchStudentClasses();
+                }
+            }
         }
         
         function updateBanner() {
@@ -1665,19 +1701,16 @@
             currentImageIndex = 0;
             setDetailMainImage(currentDetailImages[0]);
             
-            // จัดการการแสดงผลของรูปเล็ก (Thumbnails) และลูกศร
             const thumbsContainer = document.getElementById('detailThumbnails');
             const prevBtn = document.getElementById('newsPrevBtn');
             const nextBtn = document.getElementById('newsNextBtn');
             
             if (currentDetailImages.length <= 1) {
-                // ซ่อนถ้ามีแค่ 1 รูป
                 thumbsContainer.classList.add('hidden');
                 thumbsContainer.classList.remove('flex');
                 if(prevBtn) prevBtn.classList.add('hidden');
                 if(nextBtn) nextBtn.classList.add('hidden');
             } else {
-                // แสดงถ้ามีหลายรูป
                 thumbsContainer.classList.remove('hidden');
                 thumbsContainer.classList.add('flex');
                 if(prevBtn) prevBtn.classList.remove('hidden');
@@ -1704,7 +1737,6 @@
                 return; 
             }
             
-            // แสดง 3 รายการล่าสุด
             container.innerHTML = state.activities.slice(0, 6).map((act, index) => {
                 const coverImage = act.CoverImage || 'https://placehold.co/400x300?text=No+Image';
                 const imgCount = act.Images ? act.Images.length : 0;
@@ -1895,12 +1927,12 @@
         function openAdminModal() {
             document.getElementById('adminModal').classList.add('active');
             disableBodyScroll(); 
-            renderAdminAnnouncementList(); // Render announcements list
+            renderAdminAnnouncementList(); 
             renderAdminNewsList();
             renderSettings();
             renderAdminTeacherList();
             renderAdminBuildingList();
-            renderAdminActivityList(); // Render activity list
+            renderAdminActivityList(); 
         }
 
         // ------------------ TEACHER ADMIN ------------------
@@ -2044,7 +2076,7 @@
 
         async function handleFileSelect(input) {
             if (input.files) {
-                showLoading(); // แสดงหน้าต่างโหลดตอนบีบอัดภาพ
+                showLoading(); 
                 const newFiles = Array.from(input.files);
                 for (let i = 0; i < newFiles.length; i++) {
                     const compressedFile = await compressImageFile(newFiles[i], 1200, 1200, 0.8);
@@ -2169,7 +2201,6 @@
             currentActivityServerImages = []; 
             renderActivityPreviewGrid();
             
-            // Set default date to today
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
             document.getElementById('activityDate').value = localISOTime;
@@ -2185,7 +2216,6 @@
             document.getElementById('activityId').value = act.ID;
             document.getElementById('activityTitle').value = act.Title;
             
-            // Format date for input type="date"
             if(act.Date && act.Date.includes('-')) {
                 document.getElementById('activityDate').value = act.Date;
             }
@@ -2201,7 +2231,7 @@
 
         async function handleActivityFileSelect(input) {
             if (input.files) {
-                showLoading(); // แสดงหน้าต่างโหลดตอนบีบอัดภาพ
+                showLoading(); 
                 const newFiles = Array.from(input.files);
                 for (let i = 0; i < newFiles.length; i++) {
                     const compressedFile = await compressImageFile(newFiles[i], 1200, 1200, 0.8);
@@ -2274,7 +2304,7 @@
                 fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
                     state.activities = data;
                     renderAdminActivityList();
-                    renderHomeActivities(); // อัปเดตหน้าแรกด้วย
+                    renderHomeActivities(); 
                     if (!document.getElementById('content-activities').classList.contains('hidden')) {
                         renderActivitiesPage(currentActivityPage);
                     }
@@ -2289,7 +2319,7 @@
                     fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
                         state.activities = data;
                         renderAdminActivityList();
-                        renderHomeActivities(); // อัปเดตหน้าแรกด้วย
+                        renderHomeActivities(); 
                         if (!document.getElementById('content-activities').classList.contains('hidden')) {
                             renderActivitiesPage(1);
                         }
@@ -2387,7 +2417,7 @@
             if(tabId === 'teacherTab') renderAdminTeacherList(); 
             if(tabId === 'buildingsTab') renderAdminBuildingList();
             if(tabId === 'activitiesTab') renderAdminActivityList();
-            if(tabId === 'announcementsTab') renderAdminAnnouncementList(); // Render tab ประกาศ
+            if(tabId === 'announcementsTab') renderAdminAnnouncementList(); 
 
             document.querySelectorAll('.admin-tab').forEach(el => {
                 el.classList.remove('active', 'bg-gray-700', 'border-blue-500');
@@ -2520,6 +2550,139 @@
 
             document.getElementById('personnelDetailModal').classList.add('active');
             disableBodyScroll(); 
+        }
+
+        // ======================= ระบบข้อมูลนักเรียน =======================
+        async function fetchStudentClasses() {
+            try {
+                const select = document.getElementById('studentClassSelect');
+                select.innerHTML = '<option value="">-- กำลังโหลดข้อมูลชั้นเรียน --</option>';
+                
+                const res = await fetch(`${API_URL}?action=getStudentClasses`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    state.studentClasses = json.data;
+                    if (state.studentClasses.length > 0) {
+                        select.innerHTML = '<option value="">-- กรุณาเลือกชั้นเรียน --</option>' + 
+                            state.studentClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                    } else {
+                        select.innerHTML = '<option value="">-- ไม่พบข้อมูลชั้นเรียนในฐานข้อมูล --</option>';
+                    }
+                } else {
+                    select.innerHTML = '<option value="">-- เกิดข้อผิดพลาดในการดึงข้อมูล --</option>';
+                    showAlert('ข้อผิดพลาด', json.message, 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('studentClassSelect').innerHTML = '<option value="">-- เกิดข้อผิดพลาดในการดึงข้อมูล --</option>';
+            }
+        }
+
+        async function loadStudentData() {
+            const className = document.getElementById('studentClassSelect').value;
+            const container = document.getElementById('studentTableContainer');
+            const btnDownload = document.getElementById('btnDownloadExcel');
+            
+            if (!className) {
+                container.innerHTML = '<div class="text-center py-20 text-gray-400"><i class="fas fa-table text-4xl mb-3 text-gray-300"></i><p>กรุณาเลือกชั้นเรียนเพื่อดูข้อมูล</p></div>';
+                btnDownload.disabled = true;
+                btnDownload.classList.add('opacity-50', 'cursor-not-allowed');
+                currentStudentData = [];
+                currentStudentClass = '';
+                return;
+            }
+
+            container.innerHTML = '<div class="text-center py-20 text-gray-400"><div class="loader mx-auto mb-2"></div><p>กำลังโหลดข้อมูลชั้น ' + className + '...</p></div>';
+            btnDownload.disabled = true;
+            btnDownload.classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className)}`);
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    currentStudentData = json.data;
+                    currentStudentClass = className;
+                    renderStudentTable();
+                    
+                    if (currentStudentData.length > 1) { // ต้องมีมากกว่า 1 แถว (หัวตาราง + ข้อมูล) ถึงจะให้โหลด
+                        btnDownload.disabled = false;
+                        btnDownload.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    container.innerHTML = `<div class="text-center py-20 text-red-500"><i class="fas fa-exclamation-triangle text-4xl mb-3"></i><p>${json.message}</p></div>`;
+                }
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<div class="text-center py-20 text-red-500"><i class="fas fa-wifi text-4xl mb-3"></i><p>เกิดข้อผิดพลาดในการเชื่อมต่อ</p></div>';
+            }
+        }
+
+        function renderStudentTable() {
+            const container = document.getElementById('studentTableContainer');
+            
+            if (!currentStudentData || currentStudentData.length === 0) {
+                container.innerHTML = '<div class="text-center py-20 text-gray-400"><p>ไม่พบข้อมูลในชั้นเรียนนี้</p></div>';
+                return;
+            }
+
+            const headers = currentStudentData[0];
+            const rows = currentStudentData.slice(1);
+
+            let tableHtml = `
+            <table class="w-full text-sm text-left whitespace-nowrap">
+                <thead class="bg-blue-900 text-white sticky top-0 z-10 shadow-sm">
+                    <tr>
+                        ${headers.map(h => `<th class="px-6 py-4 font-semibold border-b border-blue-800 tracking-wide">${h}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+            `;
+
+            if (rows.length === 0) {
+                tableHtml += `<tr><td colspan="${headers.length}" class="px-6 py-8 text-center text-gray-500 bg-gray-50">ไม่มีรายชื่อนักเรียนในชั้นเรียนนี้</td></tr>`;
+            } else {
+                tableHtml += rows.map((row, idx) => `
+                    <tr class="hover:bg-blue-50 transition duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}">
+                        ${row.map(cell => `<td class="px-6 py-3 text-gray-700">${cell}</td>`).join('')}
+                    </tr>
+                `).join('');
+            }
+
+            tableHtml += `
+                </tbody>
+            </table>
+            `;
+
+            container.innerHTML = tableHtml;
+        }
+
+        function downloadStudentExcel() {
+            if (!currentStudentData || currentStudentData.length === 0) return;
+
+            try {
+                // สร้าง Workbook และ Worksheet ด้วย SheetJS
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(currentStudentData);
+
+                // ปรับความกว้างคอลัมน์อัตโนมัติแบบคร่าวๆ
+                const wscols = currentStudentData[0].map(h => ({ wch: Math.max(h.length + 5, 12) }));
+                ws['!cols'] = wscols;
+
+                // ตัดชื่อ Sheet ไม่ให้เกิน 31 ตัวอักษร (ข้อจำกัดของ Excel)
+                const safeSheetName = currentStudentClass.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+
+                // Export ไฟล์
+                const fileName = `ข้อมูลนักเรียน_${currentStudentClass}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showToast('กำลังดาวน์โหลดไฟล์...');
+            } catch (e) {
+                console.error(e);
+                showAlert('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ กรุณาลองใหม่', 'error');
+            }
         }
 
     </script>
