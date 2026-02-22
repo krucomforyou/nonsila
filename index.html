@@ -848,6 +848,7 @@
                                 <div><label class="block text-xs font-bold text-gray-500 mb-1">สังกัด</label><input type="text" id="editAppSubtitle" class="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-1 focus:ring-blue-500 outline-none"></div>
                                 <div><label class="block text-xs font-bold text-gray-500 mb-1">ข้อความ Copyright (Footer)</label><input type="text" id="editFooterCopyright" class="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-1 focus:ring-blue-500 outline-none"></div>
                                 <div class="mt-4"><label class="block text-xs font-bold text-gray-500 mb-1">URL เพจ Facebook</label><input type="text" id="editFacebookPageUrl" class="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="https://www.facebook.com/YourPageName"></div>
+                                <div class="mt-4"><label class="block text-xs font-bold text-gray-500 mb-1">เวลาล็อกเอาต์อัตโนมัติ (นาที)</label><input type="number" id="editIdleTimeout" class="w-full border rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="ค่าเริ่มต้น 60 นาที" min="1"></div>
                             </div>
                             <div class="bg-white p-6 rounded-xl shadow-sm border space-y-4">
                                 <h5 class="font-bold text-gray-700 border-b pb-2">โลโก้โรงเรียน</h5>
@@ -910,6 +911,37 @@
                         </div>
 
                         <button onclick="saveSettings()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-bold shadow transition w-full md:w-auto"><i class="fas fa-save mr-2"></i> บันทึกการตั้งค่า</button>
+                    </div>
+                    
+                    <!-- LOGS TAB (บันทึกการใช้งาน) -->
+                    <div id="logsTab" class="admin-content hidden space-y-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h4 class="font-bold text-2xl text-gray-800"><i class="fas fa-history text-blue-500 mr-2"></i> บันทึกการใช้งานระบบ (Audit Log)</h4>
+                                <p class="text-gray-500 text-sm">ประวัติการกระทำต่างๆ ของแอดมินในระบบ (เฉพาะนักรบมังกรและระดับสูงที่ได้รับสิทธิ์)</p>
+                            </div>
+                            <button onclick="loadSystemLogs()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition text-sm font-bold border">
+                                <i class="fas fa-sync-alt"></i> โหลดข้อมูลใหม่
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left whitespace-nowrap">
+                                    <thead class="bg-gray-800 text-white border-b">
+                                        <tr>
+                                            <th class="p-4 font-semibold w-40">วันเวลา (Date/Time)</th>
+                                            <th class="p-4 font-semibold">ผู้ใช้งาน (User)</th>
+                                            <th class="p-4 font-semibold">การกระทำ (Action)</th>
+                                            <th class="p-4 font-semibold">รายละเอียด (Details)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="adminLogsList" class="divide-y divide-gray-100">
+                                        <tr><td colspan="4" class="p-8 text-center text-gray-400"><div class="loader mx-auto mb-2"></div> กำลังโหลดบันทึก...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -1119,7 +1151,7 @@
         const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
         const DEFAULT_BANNER = 'https://placehold.co/800x350/e0f2fe/e0f2fe/png?text=';
         
-        let state = { user: null, news: [], settings: {}, teachers: [], buildings: [], activities: [], announcements: [], studentClasses: [] }; 
+        let state = { user: null, news: [], settings: {}, teachers: [], buildings: [], activities: [], announcements: [], studentClasses: [], logs: [] }; 
         
         // News variables
         let currentDetailImages = []; 
@@ -1142,6 +1174,10 @@
         let currentStudentData = [];
         let currentStudentClass = '';
 
+        // Auto Logout (Idle Timeout) Variables
+        let idleTimer;
+        const DEFAULT_IDLE_MINUTES = 60; // ค่าเริ่มต้นถ้าไม่มีตั้งค่าในระบบ
+
         // ================= RBAC Data =================
         const FANTASY_ROLES = [
             "🧙‍♂️ จอมเวทย์อาวุโส",
@@ -1156,7 +1192,8 @@
             { id: 'activitiesTab', name: 'จัดการภาพกิจกรรม', icon: 'fa-images' },
             { id: 'teacherTab', name: 'จัดการบุคลากร', icon: 'fa-users' },
             { id: 'buildingsTab', name: 'จัดการอาคารสถานที่', icon: 'fa-building' },
-            { id: 'settingsTab', name: 'ตั้งค่าเว็บไซต์', icon: 'fa-cog' }
+            { id: 'settingsTab', name: 'ตั้งค่าเว็บไซต์', icon: 'fa-cog' },
+            { id: 'logsTab', name: 'บันทึกระบบ (Log)', icon: 'fa-history' } // เพิ่มระบบ Log
         ];
 
         let rolePermissions = {}; // จะเก็บ State การเข้าถึง
@@ -1165,15 +1202,30 @@
             initDropdowns();
             loadData();
             const savedUser = localStorage.getItem('nswUser');
-            if(savedUser) { state.user = JSON.parse(savedUser); updateAuthUI(); }
+            if(savedUser) { 
+                state.user = JSON.parse(savedUser); 
+                updateAuthUI(); 
+                resetIdleTimer(); // เริ่มจับเวลาถ้ามี User ค้างอยู่
+            }
+            
+            // จับ Events เพื่อรีเซ็ตเวลา
+            ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
+                document.addEventListener(evt, resetIdleTimer, true)
+            );
+
             document.getElementById('loginForm').onsubmit = async (e) => {
                 e.preventDefault(); showLoading();
                 try {
                     const res = await fetch(`${API_URL}?action=login&username=${document.getElementById('user').value}&password=${document.getElementById('pass').value}`, { method: 'POST' });
                     const json = await res.json();
                     if(json.status === 'success') {
-                        state.user = json.user; localStorage.setItem('nswUser', JSON.stringify(state.user)); updateAuthUI(); 
+                        state.user = json.user; 
+                        localStorage.setItem('nswUser', JSON.stringify(state.user)); 
+                        updateAuthUI(); 
                         showToast('ยินดีต้อนรับ ' + state.user.name);
+                        
+                        logAction('Login', 'เข้าสู่ระบบสำเร็จ'); // บันทึก Log การเข้าสู่ระบบ
+                        resetIdleTimer(); // เริ่มจับเวลาใหม่
                         
                         // ถ้าระหว่างล็อกอินเปิดหน้าต่างนักเรียนค้างไว้ ให้ดึงข้อมูลนักเรียนมารอโหลดสถานะปุ่มดาวน์โหลด
                         if (currentStudentClass && !document.getElementById('content-students').classList.contains('hidden')) {
@@ -1184,6 +1236,86 @@
                 hideLoading();
             };
         });
+
+        // ================= ระบบ Idle Timeout (Auto Logout) =================
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            if (!state.user) return; // หากยังไม่เข้าระบบ ไม่ต้องจับเวลา
+            
+            let minutes = parseInt(state.settings.idleTimeout) || DEFAULT_IDLE_MINUTES;
+            idleTimer = setTimeout(() => {
+                sessionExpiredLogout();
+            }, minutes * 60 * 1000);
+        }
+
+        function sessionExpiredLogout() {
+            if(!state.user) return;
+            logAction('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ (ไม่ได้ใช้งานนานเกินกำหนด)');
+            state.user = null;
+            localStorage.removeItem('nswUser');
+            updateAuthUI();
+            closeAdminModal();
+            showAlert('หมดเวลาการเชื่อมต่อ', 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งาน', 'info');
+        }
+
+        // ================= ฟังก์ชันบันทึก Log =================
+        async function logAction(actionName, detailText) {
+            if(!state.user) return;
+            const form = new FormData();
+            form.append('user', state.user.name);
+            form.append('role', state.user.role);
+            form.append('action', actionName);
+            form.append('detail', detailText || '');
+            
+            // ส่งไปเงียบๆ ไม่ต้องแสดง Loading
+            try {
+                fetch(`${API_URL}?action=addLog`, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.status === 'success' && data.logs) {
+                        state.logs = data.logs; // อัปเดต Log ใน State ถ้า Backend ส่งกลับมา
+                        if(!document.getElementById('logsTab').classList.contains('hidden')) {
+                            renderAdminLogsList();
+                        }
+                    }
+                });
+            } catch(e) { console.warn('Failed to save log', e); }
+        }
+
+        async function loadSystemLogs() {
+            const tbody = document.getElementById('adminLogsList');
+            tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400"><div class="loader mx-auto mb-2"></div> กำลังโหลดบันทึก...</td></tr>';
+            try {
+                const res = await fetch(`${API_URL}?action=getLogs`);
+                const json = await res.json();
+                state.logs = Array.isArray(json) ? json : [];
+                renderAdminLogsList();
+            } catch(e) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล (อาจจะยังไม่ได้อัปเดตไฟล์ code.gs)</td></tr>';
+            }
+        }
+
+        function renderAdminLogsList() {
+            const tbody = document.getElementById('adminLogsList');
+            if(!state.logs || state.logs.length === 0) { 
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">ยังไม่มีประวัติการใช้งาน</td></tr>'; 
+                return; 
+            }
+            
+            // แสดง 100 รายการล่าสุด
+            tbody.innerHTML = state.logs.slice(0, 100).map(log => `
+                <tr class="hover:bg-blue-50 border-b transition text-xs">
+                    <td class="p-3 text-gray-500">${log.DateTime || '-'}</td>
+                    <td class="p-3 font-bold text-gray-700">${log.User || '-'} <br><span class="text-[10px] font-normal text-blue-500">${log.Role || '-'}</span></td>
+                    <td class="p-3">
+                        <span class="bg-gray-100 border border-gray-200 text-gray-700 px-2 py-1 rounded font-bold">${log.Action || '-'}</span>
+                    </td>
+                    <td class="p-3 text-gray-600 truncate max-w-[300px]" title="${log.Detail || '-'}">${log.Detail || '-'}</td>
+                </tr>
+            `).join('');
+        }
+        // =====================================================================
+
 
         // ================= ฟังก์ชันบีบอัดรูปภาพ (Image Compression) =================
         function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
@@ -1300,12 +1432,21 @@
                     fetch(`${API_URL}?action=getActivities`),
                     fetch(`${API_URL}?action=getAnnouncements`)
                 ]);
+                
                 state.news = await newsRes.json();
                 state.settings = await settingsRes.json();
                 state.teachers = await teachersRes.json();
                 state.buildings = await buildingsRes.json();
                 state.activities = await activitiesRes.json();
                 state.announcements = await annRes.json();
+                
+                // พยายามดึง Logs แบบแยกส่วน เพื่อป้องกันไม่ให้เว็บพังหาก Backend ยังไม่ได้อัปเดต
+                try {
+                    fetch(`${API_URL}?action=getLogs`)
+                        .then(r => r.json())
+                        .then(data => { if(Array.isArray(data)) state.logs = data; })
+                        .catch(e => console.warn('Backend ไม่รองรับระบบ Log'));
+                } catch(e){}
 
                 // โหลด Permissions
                 if (state.settings.rolePermissions) {
@@ -1440,9 +1581,10 @@
 
         async function submitAnnouncement() {
             const id = document.getElementById('announcementId').value;
+            const title = document.getElementById('announcementTitle').value;
             const form = new FormData();
             form.append('id', id);
-            form.append('title', document.getElementById('announcementTitle').value);
+            form.append('title', title);
             form.append('link', document.getElementById('announcementLink').value);
             form.append('isActive', document.getElementById('announcementIsActive').checked);
             
@@ -1462,6 +1604,7 @@
             }
 
             sendData('saveAnnouncement', form, (json) => {
+                logAction(id ? 'Edit Announcement' : 'Add Announcement', `จัดการภาพประกาศ: ${title}`);
                 closeAnnouncementFormModal();
                 document.getElementById('announcementFile').value = '';
                 fetch(`${API_URL}?action=getAnnouncements`).then(r=>r.json()).then(data => {
@@ -1473,9 +1616,11 @@
         }
 
         async function deleteAnnouncement(id) {
+            const a = state.announcements.find(x => x.ID == id);
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลประกาศจะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteAnnouncement', form, () => { 
+                    logAction('Delete Announcement', `ลบภาพประกาศ: ${a ? a.Title : 'ID '+id}`);
                     fetch(`${API_URL}?action=getAnnouncements`).then(r=>r.json()).then(data => {
                         state.announcements = data;
                         renderAdminAnnouncementList();
@@ -1557,9 +1702,10 @@
 
         async function submitBuilding() {
             const id = document.getElementById('buildingId').value;
+            const name = document.getElementById('buildingName').value;
             const form = new FormData();
             form.append('id', id);
-            form.append('name', document.getElementById('buildingName').value);
+            form.append('name', name);
             form.append('description', document.getElementById('buildingDesc').value);
             
             const file = document.getElementById('buildingFile').files[0];
@@ -1576,6 +1722,7 @@
             }
 
             sendData('saveBuilding', form, (json) => {
+                logAction(id ? 'Edit Building' : 'Add Building', `จัดการอาคาร: ${name}`);
                 closeBuildingFormModal();
                 document.getElementById('buildingFile').value = '';
                 fetch(`${API_URL}?action=getBuildings`).then(r=>r.json()).then(data => {
@@ -1587,9 +1734,11 @@
         }
 
         async function deleteBuilding(id) {
+            const b = state.buildings.find(x => x.ID == id);
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteBuilding', form, () => { 
+                    logAction('Delete Building', `ลบอาคาร: ${b ? b.Name : 'ID '+id}`);
                     fetch(`${API_URL}?action=getBuildings`).then(r=>r.json()).then(data => {
                         state.buildings = data;
                         renderAdminBuildingList();
@@ -1700,6 +1849,9 @@
 
         function logout() {
             showConfirm('ยืนยันออกจากระบบ?', '', 'question', () => {
+                logAction('Logout', 'ออกจากระบบโดยผู้ใช้'); // บันทึกก่อนล้าง State
+                clearTimeout(idleTimer);
+                
                 state.user = null;
                 localStorage.removeItem('nswUser');
                 updateAuthUI();
@@ -2049,6 +2201,9 @@
             } else {
                 mapContainer.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">ยังไม่ได้ตั้งค่าแผนที่</div>';
             }
+
+            // แสดงการตั้งค่า Timeout
+            document.getElementById('editIdleTimeout').value = state.settings.idleTimeout || DEFAULT_IDLE_MINUTES;
         }
         
         // ================= RBAC Logic =================
@@ -2081,7 +2236,10 @@
             // สร้างแท็บอื่นๆ ตามสิทธิ์
             let firstAllowedTab = null;
             ADMIN_FEATURES.forEach(feature => {
-                const hasAccess = isDragonWarrior || allowedFeatures.includes(feature.id);
+                // เพิ่มเงื่อนไข Tab Log อนุญาตเฉพาะ Dragon Warrior เท่านั้น (หรือตามที่คุณตั้งค่าได้)
+                let hasAccess = isDragonWarrior || allowedFeatures.includes(feature.id);
+                if(feature.id === 'logsTab' && !isDragonWarrior) { hasAccess = false; } // Log ดูได้เฉพาะแอดมินสูงสุด
+
                 if (hasAccess) {
                     if(!firstAllowedTab) firstAllowedTab = feature.id;
                     const isActiveClass = (!isDragonWarrior && firstAllowedTab === feature.id) ? 'active bg-gray-700 border-blue-500' : 'border-transparent';
@@ -2109,6 +2267,7 @@
             const targetTabToOpen = isDragonWarrior ? 'permissionsTab' : firstAllowedTab;
             if (targetTabToOpen) {
                 document.getElementById(targetTabToOpen).classList.remove('hidden');
+                if(targetTabToOpen === 'logsTab') loadSystemLogs();
             }
 
             // โหลดข้อมูลในทุก Tab เผื่อไว้
@@ -2126,7 +2285,9 @@
             
             let theadHTML = '<th class="p-4 font-semibold w-1/4">ระดับสมาชิกระบบ</th>';
             ADMIN_FEATURES.forEach(f => {
-                theadHTML += `<th class="p-4 font-semibold text-center text-xs"><i class="fas ${f.icon} mb-1 block"></i>${f.name}</th>`;
+                if(f.id !== 'logsTab') { // ไม่ให้แก้สิทธิ์เข้าดู Log
+                    theadHTML += `<th class="p-4 font-semibold text-center text-xs"><i class="fas ${f.icon} mb-1 block"></i>${f.name}</th>`;
+                }
             });
             thead.innerHTML = theadHTML;
 
@@ -2137,14 +2298,16 @@
                 tbodyHTML += `<td class="p-4 font-bold text-blue-900">${role}</td>`;
                 
                 ADMIN_FEATURES.forEach(f => {
-                    const isChecked = userPerms.includes(f.id) ? 'checked' : '';
-                    tbodyHTML += `
-                    <td class="p-4 text-center">
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="perm_${role}_${f.id}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 top-0 left-0 transition-all duration-300 ${isChecked}" onchange="togglePermission('${role}', '${f.id}', this.checked)" ${isChecked}>
-                            <label for="perm_${role}_${f.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
-                        </div>
-                    </td>`;
+                    if(f.id !== 'logsTab') {
+                        const isChecked = userPerms.includes(f.id) ? 'checked' : '';
+                        tbodyHTML += `
+                        <td class="p-4 text-center">
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" id="perm_${role}_${f.id}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 top-0 left-0 transition-all duration-300 ${isChecked}" onchange="togglePermission('${role}', '${f.id}', this.checked)" ${isChecked}>
+                                <label for="perm_${role}_${f.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
+                            </div>
+                        </td>`;
+                    }
                 });
                 tbodyHTML += `</tr>`;
             });
@@ -2169,6 +2332,7 @@
             
             sendData('savePermissions', form, () => {
                 state.settings.rolePermissions = JSON.stringify(rolePermissions);
+                logAction('Edit Permissions', 'แก้ไขสิทธิ์การใช้งาน (RBAC)');
                 showToast('อัปเดตสิทธิ์การใช้งานสำเร็จ');
             });
         }
@@ -2189,6 +2353,7 @@
                 btn.querySelector('i').classList.add('text-yellow-400');
                 btn.querySelector('span').classList.add('text-yellow-400');
             }
+            if(tabId === 'logsTab') loadSystemLogs();
         }
 
         // ------------------ TEACHER ADMIN ------------------
@@ -2261,9 +2426,10 @@
 
         async function submitTeacher() {
             const id = document.getElementById('teacherId').value;
+            const name = document.getElementById('teacherName').value;
             const form = new FormData();
             form.append('id', id);
-            form.append('name', document.getElementById('teacherName').value);
+            form.append('name', name);
             form.append('position', document.getElementById('teacherPosition').value); 
             form.append('major', document.getElementById('teacherMajor').value);
             form.append('academic', document.getElementById('teacherAcademic').value);
@@ -2286,6 +2452,7 @@
                 if(currentT) form.append('currentImageUrl', currentT.Image);
             }
             sendData('saveTeacher', form, (json) => {
+                logAction(id ? 'Edit User/Teacher' : 'Add User/Teacher', `จัดการบุคลากร: ${name}`);
                 closeTeacherFormModal();
                 document.getElementById('teacherFile').value = ''; 
                 fetch(`${API_URL}?action=getTeachers`).then(r=>r.json()).then(data => {
@@ -2297,9 +2464,11 @@
         }
 
         async function deleteTeacher(id) {
+            const t = state.teachers.find(x => x.ID == id);
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteTeacher', form, () => { 
+                    logAction('Delete User/Teacher', `ลบบุคลากร: ${t ? t.Name : 'ID '+id}`);
                     fetch(`${API_URL}?action=getTeachers`).then(r=>r.json()).then(data => {
                         state.teachers = data;
                         renderAdminTeacherList();
@@ -2420,6 +2589,7 @@
 
         async function submitNews() {
             const id = document.getElementById('newsId').value;
+            const title = document.getElementById('newsTitle').value;
             const issue = document.getElementById('newsIssue').value;
             const year = document.getElementById('newsYear').value;
             if(!year) { showAlert('ข้อผิดพลาด', 'กรุณาระบุปี พ.ศ.', 'warning'); return; }
@@ -2430,7 +2600,7 @@
             form.append('day', document.getElementById('newsDay').value);
             form.append('month', document.getElementById('newsMonth').value);
             form.append('year', year);
-            form.append('newsletterTitle', document.getElementById('newsTitle').value);
+            form.append('newsletterTitle', title);
             form.append('newsletterDetail', document.getElementById('newsDetail').value);
             if(id) { form.append('keptImages', JSON.stringify(currentServerImages)); }
             if(uploadQueue.length > 0) {
@@ -2445,6 +2615,7 @@
                  }
             }
             sendData(id ? 'editNewsletter' : 'addNewsletter', form, () => {
+                logAction(id ? 'Edit News' : 'Add News', `จัดการข่าว: ${title}`);
                 closeNewsFormModal();
                 document.getElementById('newsFiles').value = ''; 
                 renderAdminNewsList();
@@ -2453,9 +2624,14 @@
         }
 
         async function deleteNews(id) {
+            const n = state.news.find(x => x.ID == id);
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้จะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('newsletterId', id);
-                sendData('deleteNewsletter', form, () => { renderAdminNewsList(); renderNews(); });
+                sendData('deleteNewsletter', form, () => { 
+                    logAction('Delete News', `ลบข่าว: ${n ? n.Title : 'ID '+id}`);
+                    renderAdminNewsList(); 
+                    renderNews(); 
+                });
             });
         }
 
@@ -2591,6 +2767,7 @@
             }
             
             sendData(id ? 'editActivity' : 'addActivity', form, () => {
+                logAction(id ? 'Edit Activity' : 'Add Activity', `จัดการกิจกรรม: ${title}`);
                 closeActivityFormModal();
                 document.getElementById('activityFiles').value = ''; 
                 fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
@@ -2605,9 +2782,11 @@
         }
 
         async function deleteActivity(id) {
+            const act = state.activities.find(x => x.ID == id);
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้และรูปภาพจะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteActivity', form, () => { 
+                    logAction('Delete Activity', `ลบกิจกรรม: ${act ? act.Title : 'ID '+id}`);
                     fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
                         state.activities = data;
                         renderAdminActivityList();
@@ -2637,6 +2816,10 @@
             // ส่งค่า true / false ของ Toggle การไว้อาลัยไปที่ Backend
             form.append('mourningActive', document.getElementById('editMourningActive').checked);
             
+            // ตั้งเวลา Timeout
+            const idleTime = document.getElementById('editIdleTimeout').value || DEFAULT_IDLE_MINUTES;
+            form.append('idleTimeout', idleTime);
+
             form.append('currentLogoUrl', state.settings.appLogo || '');
             form.append('currentHeaderUrl', state.settings.appHeader || '');
             form.append('currentMourningUrl', state.settings.mourningImage || '');
@@ -2672,11 +2855,16 @@
             }
 
             sendData('saveSettings', form, (json) => {
+                logAction('Edit Settings', 'แก้ไขข้อมูลตั้งค่าเว็บไซต์พื้นฐาน');
+                
                 // อัปเดต state ตัวแปรในเครื่องให้ตรงกับที่บันทึก
                 if (json.logoUrl) state.settings.appLogo = json.logoUrl;
                 if (json.headerUrl) state.settings.appHeader = json.headerUrl;
                 if (json.mourningUrl) state.settings.mourningImage = json.mourningUrl;
                 state.settings.mourningActive = document.getElementById('editMourningActive').checked;
+                state.settings.idleTimeout = idleTime;
+                
+                resetIdleTimer(); // อัปเดตเวลาจับเวลาใหม่ทันที
                 
                 // โหลดการตั้งค่าหน้า UI และ Banner ใหม่ทันที
                 renderSettings();
@@ -2962,6 +3150,7 @@
                 const fileName = `ข้อมูลนักเรียน_${currentStudentClass}.xlsx`;
                 XLSX.writeFile(wb, fileName);
                 
+                logAction('Download Student', `ดาวน์โหลดข้อมูลนักเรียนชั้น: ${currentStudentClass}`);
                 showToast('กำลังดาวน์โหลดไฟล์...');
             } catch (e) {
                 console.error(e);
