@@ -2622,6 +2622,74 @@
 
 
         // ------------------ SAVE SETTINGS & MISC ------------------
+	async function saveSettings() {
+            const form = new FormData();
+            form.append('appTitle', document.getElementById('editAppTitle').value);
+            form.append('appSubtitle', document.getElementById('editAppSubtitle').value);
+            form.append('appFooterCopyright', document.getElementById('editFooterCopyright').value);
+            form.append('facebookPageUrl', document.getElementById('editFacebookPageUrl').value);
+            
+            form.append('contactAddress', document.getElementById('editContactAddress').value);
+            form.append('contactPhone', document.getElementById('editContactPhone').value);
+            form.append('contactEmail', document.getElementById('editContactEmail').value);
+            form.append('contactMap', document.getElementById('editContactMap').value);
+            
+            // ส่งค่า true / false ของ Toggle การไว้อาลัยไปที่ Backend
+            form.append('mourningActive', document.getElementById('editMourningActive').checked);
+            
+            form.append('currentLogoUrl', state.settings.appLogo || '');
+            form.append('currentHeaderUrl', state.settings.appHeader || '');
+            form.append('currentMourningUrl', state.settings.mourningImage || '');
+
+            const logoFile = document.getElementById('editLogoFile').files[0];
+            if(logoFile) {
+                 const reader = new FileReader();
+                 reader.readAsDataURL(logoFile);
+                 await new Promise(r => reader.onload = r);
+                 form.append('logoFile', reader.result.split(',')[1]);
+                 form.append('logoFileName', logoFile.name);
+                 form.append('logoFileType', logoFile.type);
+            }
+            
+            const headerFile = document.getElementById('editHeaderFile').files[0];
+            if(headerFile) {
+                 const reader = new FileReader();
+                 reader.readAsDataURL(headerFile);
+                 await new Promise(r => reader.onload = r);
+                 form.append('headerFile', reader.result.split(',')[1]);
+                 form.append('headerFileName', headerFile.name);
+                 form.append('headerFileType', headerFile.type);
+            }
+
+            const mourningFile = document.getElementById('editMourningFile').files[0];
+            if(mourningFile) {
+                 const reader = new FileReader();
+                 reader.readAsDataURL(mourningFile);
+                 await new Promise(r => reader.onload = r);
+                 form.append('mourningFile', reader.result.split(',')[1]);
+                 form.append('mourningFileName', mourningFile.name);
+                 form.append('mourningFileType', mourningFile.type);
+            }
+
+            sendData('saveSettings', form, (json) => {
+                // อัปเดต state ตัวแปรในเครื่องให้ตรงกับที่บันทึก
+                if (json.logoUrl) state.settings.appLogo = json.logoUrl;
+                if (json.headerUrl) state.settings.appHeader = json.headerUrl;
+                if (json.mourningUrl) state.settings.mourningImage = json.mourningUrl;
+                state.settings.mourningActive = document.getElementById('editMourningActive').checked;
+                
+                // โหลดการตั้งค่าหน้า UI และ Banner ใหม่ทันที
+                renderSettings();
+                updateBanner();
+                
+                // ล้างค่าที่เลือกในช่องอัปโหลดรูป
+                document.getElementById('editLogoFile').value = '';
+                document.getElementById('editHeaderFile').value = '';
+                document.getElementById('editMourningFile').value = '';
+            });
+        }
+
+
         async function sendData(action, formData, callback) {
             showLoading();
             try {
