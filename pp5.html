@@ -179,21 +179,53 @@
             document.getElementById('section-attendance').classList.add('hidden');
             
             if (typeof google !== 'undefined' && google.script) {
+                // รันบน Google Apps Script
                 google.script.run
                     .withSuccessHandler(setupData)
                     .withFailureHandler(showError)
                     .getInitialData();
             } else {
-                setTimeout(() => {
-                    setupData({
-                        subjects: ["คณิตศาสตร์ ม.1/1", "คณิตศาสตร์ ม.1/2"],
-                        students: [
-                            { subject: 'คณิตศาสตร์ ม.1/1', number: 1, id: '10001', name: 'ด.ช. สมชาย รักดี' },
-                            { subject: 'คณิตศาสตร์ ม.1/1', number: 2, id: '10002', name: 'ด.ญ. สมหญิง ขยันเรียน' },
-                            { subject: 'คณิตศาสตร์ ม.1/2', number: 1, id: '10003', name: 'ด.ช. มานะ อดทน' }
-                        ]
+                // ทดสอบดึงข้อมูลจริงจาก Google Sheet (โหมด Preview บนหน้าเว็บ)
+                const sheetId = '19YuGHh6BzXAROa5oDO1niEE-2RSIB3E6DBcWMudIMI4';
+                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=รายชื่อนักเรียน`;
+
+                fetch(url)
+                    .then(res => res.text())
+                    .then(text => {
+                        // แยกเฉพาะส่วนที่เป็น JSON ออกมาจาก Response
+                        const start = text.indexOf('{');
+                        const end = text.lastIndexOf('}');
+                        const jsonString = text.substring(start, end + 1);
+                        const json = JSON.parse(jsonString);
+                        
+                        const rows = json.table.rows;
+                        const students = [];
+                        const subjectsSet = new Set();
+                        
+                        rows.forEach(row => {
+                            const c = row.c;
+                            if (!c || !c[0] || !c[3]) return;
+                            
+                            const subject = c[0].v ? c[0].v.toString() : '';
+                            if (subject === 'วิชา/ชั้นเรียน' || !subject) return; // ข้ามแถวหัวตาราง
+                            
+                            const number = c[1] && c[1].v !== null ? c[1].v.toString() : '';
+                            const id = c[2] && c[2].v !== null ? c[2].v.toString() : '';
+                            const name = c[3] && c[3].v !== null ? c[3].v.toString() : '';
+                            
+                            subjectsSet.add(subject);
+                            students.push({ subject, number, id, name });
+                        });
+                        
+                        setupData({
+                            subjects: Array.from(subjectsSet).sort(),
+                            students: students
+                        });
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showError("ไม่สามารถดึงข้อมูลจริงได้ โปรดตรวจสอบให้แน่ใจว่าชีต '19Yu...' เปิดแชร์ลิงก์เป็นสาธารณะแล้ว (Anyone with the link)");
                     });
-                }, 500);
             }
         }
 
@@ -287,7 +319,8 @@
                     res.success ? showToast(res.message) : showToast(res.error, true);
                 }).saveAttendance(date, subject, period, records);
             } else {
-                setTimeout(() => { saveBtn.disabled = false; saveBtn.innerHTML = originalBtnText; showToast("จำลองบันทึกสำเร็จ!"); }, 1000);
+                // จำลองการบันทึกเมื่อไม่ได้รันบน Apps Script
+                setTimeout(() => { saveBtn.disabled = false; saveBtn.innerHTML = originalBtnText; showToast("จำลองบันทึกข้อมูลสำเร็จ!"); }, 1000);
             }
         }
 
@@ -331,10 +364,11 @@
                     else { showToast(res.error, true); }
                 }).importStudentsFromExternal();
             } else {
+                // จำลองการอัปเดต โดยรันฟังก์ชัน init ใหม่เพื่อดึงจาก Sheet ตรงๆ อีกรอบ
                 setTimeout(() => { 
-                    btn.innerHTML = originalText; btn.disabled = false; showToast("จำลองอัปเดตสำเร็จ! เพิ่มใหม่ 1 คน"); 
-                    allStudentsData.push({subject: 'คณิตศาสตร์ ม.1/1', number: 99, id: '99999', name: 'ด.ช. ย้ายมาใหม่'});
-                    setupData({subjects: [...new Set(allStudentsData.map(s=>s.subject))], students: allStudentsData});
+                    btn.innerHTML = originalText; btn.disabled = false; 
+                    showToast("ดึงข้อมูลจริงจากชีต 19Yu... เรียบร้อยแล้ว"); 
+                    init();
                 }, 1500);
             }
         }
