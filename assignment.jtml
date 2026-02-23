@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบใบงานออนไลน์</title>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js](https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)"></script>
+    <style>
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: none; margin: auto;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+    <nav class="bg-white shadow-md p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-blue-600">📝 ระบบใบงานออนไลน์</h1>
+        <div>
+            <button onclick="switchTab('student')" id="tab-student" class="tab-btn active px-4 py-2">นักเรียน</button>
+            <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn px-4 py-2">ครูผู้สอน</button>
+        </div>
+    </nav>
+
+    <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center">
+            <div class="loader block mb-4"></div>
+            <p id="loading-text">กำลังประมวลผล...</p>
+        </div>
+    </div>
+
+    <main class="max-w-4xl mx-auto mt-8 p-4">
+        <!-- Student Section -->
+        <section id="section-student" class="block">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2">ส่งใบงาน</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div><label class="block text-sm font-medium mb-1">ชื่อ - สกุล</label><input type="text" id="stu-name" class="w-full border rounded p-2" placeholder="ด.ช.รักเรียน"></div>
+                    <div><label class="block text-sm font-medium mb-1">เลขที่</label><input type="number" id="stu-no" class="w-full border rounded p-2"></div>
+                    <div><label class="block text-sm font-medium mb-1">ชั้น</label>
+                        <select id="stu-class" class="w-full border rounded p-2">
+                            <option value="ม.1/1">ม.1/1</option>
+                            <option value="ม.1/2">ม.1/2</option>
+                            <option value="ม.2/1">ม.2/1</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">เลือกใบงาน</label>
+                    <select id="stu-assignment" class="w-full border rounded p-2"><option value="">-- กำลังโหลดใบงาน --</option></select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">พิมพ์คำตอบที่นี่ (ระบบจะบันทึกเป็นรูปภาพ)</label>
+                    <div id="worksheet-area" class="w-full h-64 border-2 border-dashed border-gray-400 p-4 bg-yellow-50 rounded" contenteditable="true">คลิกที่นี่เพื่อพิมพ์คำตอบ...</div>
+                </div>
+                <button onclick="submitStudentWork()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition">📤 ส่งใบงาน</button>
+            </div>
+        </section>
+
+        <!-- Admin Login -->
+        <section id="section-admin-login" class="hidden max-w-sm mx-auto mt-10">
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <h2 class="text-xl font-bold mb-4">สำหรับครูผู้สอน</h2>
+                <input type="password" id="admin-pin" class="w-full border rounded p-2 mb-4 text-center tracking-widest" placeholder="รหัส Admin">
+                <button onclick="loginAdmin()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">เข้าสู่ระบบ</button>
+            </div>
+        </section>
+
+        <!-- Admin Dashboard -->
+        <section id="section-admin-dashboard" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2">สร้างใบงานใหม่</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="new-assignment-name" class="flex-1 border rounded p-2" placeholder="ชื่อใบงาน">
+                    <button onclick="createAssignment()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">สร้าง</button>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2">ตรวจใบงานนักเรียน</h2>
+                <div class="mb-4 flex gap-2 items-center">
+                    <label class="font-medium">เลือกห้องเรียน:</label>
+                    <select id="admin-class-select" class="border rounded p-2 flex-1" onchange="loadStudents()"><option value="">-- เลือกห้องเรียน --</option></select>
+                    <button onclick="loadStudents()" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded">🔄 รีเฟรช</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-sm">
+                                <th class="p-2 border">เลขที่</th><th class="p-2 border">ชื่อ - สกุล</th><th class="p-2 border">ใบงาน</th><th class="p-2 border">ดูผลงาน</th><th class="p-2 border w-24">คะแนน</th><th class="p-2 border">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-table-body"><tr><td colspan="6" class="p-4 text-center text-gray-500">กรุณาเลือกห้องเรียน</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Edit -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h3 class="text-lg font-bold mb-4">แก้ไขข้อมูลนักเรียน</h3>
+            <input type="hidden" id="edit-row"><input type="hidden" id="edit-orig-class">
+            <div class="mb-2"><label class="block text-sm">เลขที่</label><input type="number" id="edit-no" class="w-full border rounded p-2"></div>
+            <div class="mb-2"><label class="block text-sm">ชื่อ-สกุล</label><input type="text" id="edit-name" class="w-full border rounded p-2"></div>
+            <div class="mb-2"><label class="block text-sm">ชั้น</label><input type="text" id="edit-class" class="w-full border rounded p-2"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeEditModal()" class="bg-gray-300 px-4 py-2 rounded">ยกเลิก</button>
+                <button onclick="saveStudentEdit()" class="bg-blue-500 text-white px-4 py-2 rounded">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // นำ URL ที่ได้จาก Apps Script มาใส่ตรงนี้ครับ 👇👇
+        // ==========================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw3R93ur6WhbqXb--zMRDm7GZiBXun9b7ZeLX3Jc0eeJgP-QOFg-yCYY7wyr2dh2Yp5jQ/exec';
+
+        // ฟังก์ชันหลักที่ใช้คุยกับ Google Apps Script แทน google.script.run
+        async function apiCall(action, payload = {}) {
+            try {
+                // ส่งเป็น text/plain เพื่อหลีกเลี่ยง CORS Preflight บนเบราว์เซอร์
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: action, ...payload })
+                });
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+                return result.data;
+            } catch (error) {
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + error.message);
+                throw error;
+            }
+        }
+
+        function showLoading(text) { document.getElementById('loading-text').innerText = text || 'กำลังประมวลผล...'; document.getElementById('loading').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            ['section-student', 'section-admin-login', 'section-admin-dashboard'].forEach(id => document.getElementById(id).classList.add('hidden'));
+
+            if (tab === 'student') {
+                document.getElementById('section-student').classList.remove('hidden');
+                loadAssignmentsForStudent();
+            } else {
+                if (window.isAdminLoggedIn) {
+                    document.getElementById('section-admin-dashboard').classList.remove('hidden');
+                    loadClassList();
+                } else {
+                    document.getElementById('section-admin-login').classList.remove('hidden');
+                }
+            }
+        }
+
+        // --- Student ---
+        async function loadAssignmentsForStudent() {
+            try {
+                const assignments = await apiCall('getAssignments');
+                const select = document.getElementById('stu-assignment');
+                select.innerHTML = '<option value="">-- เลือกใบงาน --</option>';
+                assignments.forEach(a => select.innerHTML += `<option value="${a.name}">${a.name}</option>`);
+            } catch (e) { console.error(e); }
+        }
+
+        function submitStudentWork() {
+            const name = document.getElementById('stu-name').value;
+            const no = document.getElementById('stu-no').value;
+            const className = document.getElementById('stu-class').value;
+            const assignment = document.getElementById('stu-assignment').value;
+
+            if (!name || !no || !assignment) return alert('กรุณากรอกข้อมูลและเลือกใบงานให้ครบถ้วน');
+
+            showLoading('กำลังบันทึกภาพผลงานของคุณ...');
+            html2canvas(document.getElementById('worksheet-area')).then(async canvas => {
+                const base64Image = canvas.toDataURL("image/png");
+                const data = { studentName: name, studentNo: no, className: className, assignmentName: assignment, imageBase64: base64Image };
+                try {
+                    const res = await apiCall('submitWork', { data: data });
+                    hideLoading();
+                    if(res.success) {
+                        alert('ส่งงานเรียบร้อยแล้ว เยี่ยมมาก!');
+                        document.getElementById('worksheet-area').innerHTML = 'คลิกที่นี่เพื่อพิมพ์คำตอบ...';
+                    }
+                } catch (e) { hideLoading(); }
+            });
+        }
+
+        // --- Admin ---
+        async function loginAdmin() {
+            const pin = document.getElementById('admin-pin').value;
+            showLoading('ตรวจสอบรหัส...');
+            try {
+                const isValid = await apiCall('checkAdminPass', { pass: pin });
+                hideLoading();
+                if(isValid) {
+                    window.isAdminLoggedIn = true;
+                    document.getElementById('section-admin-login').classList.add('hidden');
+                    document.getElementById('section-admin-dashboard').classList.remove('hidden');
+                    loadClassList();
+                } else alert('รหัสผ่านไม่ถูกต้อง');
+            } catch(e) { hideLoading(); }
+        }
+
+        async function createAssignment() {
+            const name = document.getElementById('new-assignment-name').value;
+            if(!name) return;
+            showLoading('กำลังสร้างใบงาน...');
+            try {
+                await apiCall('createAssignment', { name: name });
+                hideLoading();
+                alert('สร้างใบงานสำเร็จ');
+                document.getElementById('new-assignment-name').value = '';
+                loadAssignmentsForStudent();
+            } catch(e) { hideLoading(); }
+        }
+
+        async function loadClassList() {
+            try {
+                const classes = await apiCall('getClassList');
+                const select = document.getElementById('admin-class-select');
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">-- เลือกห้องเรียน --</option>';
+                classes.forEach(c => select.innerHTML += `<option value="${c}" ${currentVal === c ? 'selected' : ''}>${c}</option>`);
+            } catch(e) { console.error(e); }
+        }
+
+        window.currentStudentData = [];
+
+        async function loadStudents() {
+            const className = document.getElementById('admin-class-select').value;
+            const tbody = document.getElementById('student-table-body');
+            if (!className) return tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">กรุณาเลือกห้องเรียน</td></tr>';
+
+            showLoading('กำลังดึงข้อมูลนักเรียน...');
+            try {
+                const students = await apiCall('getStudentsByClass', { className: className });
+                hideLoading();
+                window.currentStudentData = students;
+                renderStudentTable(students);
+            } catch(e) { hideLoading(); }
+        }
+
+        function renderStudentTable(students) {
+            const tbody = document.getElementById('student-table-body');
+            tbody.innerHTML = '';
+            if(students.length === 0) return tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">ยังไม่มีนักเรียนส่งงาน</td></tr>';
+
+            students.forEach((s, index) => {
+                tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-2 text-center">${s.no}</td><td class="p-2">${s.name}</td><td class="p-2 text-sm">${s.assignment}</td>
+                        <td class="p-2 text-center"><a href="${s.imgUrl}" target="_blank" class="text-blue-500 hover:underline">🖼️ ดูภาพ</a></td>
+                        <td class="p-2"><input type="text" id="score-${index}" class="w-full border p-1 rounded text-center" value="${s.score || ''}"></td>
+                        <td class="p-2 text-center">
+                            <button onclick="saveScore(${index})" class="bg-green-500 text-white px-2 py-1 rounded text-xs mb-1 w-full">💾 เซฟ</button>
+                            <button onclick="openEditModal(${index})" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs w-full">✏️ แก้ไข</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        async function saveScore(index) {
+            const s = window.currentStudentData[index];
+            const newScore = document.getElementById(`score-${index}`).value;
+            const data = { originalClass: s.className, rowIdx: s.rowIdx, newNo: s.no, newName: s.name, newClass: s.className, score: newScore };
+            showLoading('บันทึกคะแนน...');
+            try {
+                await apiCall('updateStudentInfo', { data: data });
+                hideLoading();
+                window.currentStudentData[index].score = newScore;
+            } catch(e) { hideLoading(); }
+        }
+
+        function openEditModal(index) {
+            const s = window.currentStudentData[index];
+            document.getElementById('edit-row').value = s.rowIdx; document.getElementById('edit-orig-class').value = s.className;
+            document.getElementById('edit-no').value = s.no; document.getElementById('edit-name').value = s.name;
+            document.getElementById('edit-class').value = s.className; document.getElementById('edit-modal').classList.remove('hidden');
+            window.editingIndex = index;
+        }
+
+        function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+        async function saveStudentEdit() {
+            const index = window.editingIndex;
+            const currentScore = document.getElementById(`score-${index}`).value;
+            const data = {
+                rowIdx: document.getElementById('edit-row').value, originalClass: document.getElementById('edit-orig-class').value,
+                newNo: document.getElementById('edit-no').value, newName: document.getElementById('edit-name').value,
+                newClass: document.getElementById('edit-class').value, score: currentScore
+            };
+            showLoading('กำลังอัปเดต...');
+            try {
+                await apiCall('updateStudentInfo', { data: data });
+                hideLoading(); closeEditModal(); loadStudents();
+            } catch(e) { hideLoading(); }
+        }
+
+        window.onload = loadAssignmentsForStudent;
+    </script>
+</body>
+</html>
