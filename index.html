@@ -1604,7 +1604,11 @@
             }
 
             sendData('saveAnnouncement', form, (json) => {
-                logAction(id ? 'Edit Announcement' : 'Add Announcement', `จัดการภาพประกาศ: ${title}`);
+                // อัปเดตรายละเอียด Log
+                let detailMsg = id ? `แก้ไขข้อมูลประกาศ "${title}"` : `สร้างประกาศใหม่ "${title}"`;
+                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                logAction(id ? 'Edit Announcement' : 'Add Announcement', detailMsg);
+                
                 closeAnnouncementFormModal();
                 document.getElementById('announcementFile').value = '';
                 fetch(`${API_URL}?action=getAnnouncements`).then(r=>r.json()).then(data => {
@@ -1620,7 +1624,7 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลประกาศจะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteAnnouncement', form, () => { 
-                    logAction('Delete Announcement', `ลบภาพประกาศ: ${a ? a.Title : 'ID '+id}`);
+                    logAction('Delete Announcement', `ลบภาพประกาศถาวร: "${a ? a.Title : 'ID '+id}"`);
                     fetch(`${API_URL}?action=getAnnouncements`).then(r=>r.json()).then(data => {
                         state.announcements = data;
                         renderAdminAnnouncementList();
@@ -1722,7 +1726,9 @@
             }
 
             sendData('saveBuilding', form, (json) => {
-                logAction(id ? 'Edit Building' : 'Add Building', `จัดการอาคาร: ${name}`);
+                let detailMsg = id ? `แก้ไขข้อมูลอาคาร "${name}"` : `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
+                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                logAction(id ? 'Edit Building' : 'Add Building', detailMsg);
                 closeBuildingFormModal();
                 document.getElementById('buildingFile').value = '';
                 fetch(`${API_URL}?action=getBuildings`).then(r=>r.json()).then(data => {
@@ -1812,7 +1818,7 @@
             return r;
         }
 
-function updateAuthUI() {
+        function updateAuthUI() {
             if(state.user) {
                 state.user.role = normalizeFrontendRole(state.user.role);
                 document.getElementById('loginForm').classList.add('hidden');
@@ -1826,9 +1832,6 @@ function updateAuthUI() {
                 document.getElementById('loginForm').classList.remove('hidden');
                 document.getElementById('userProfile').classList.add('hidden');
                 document.getElementById('btnAdminPanel').classList.add('hidden');
-                
-                // ===== เพิ่มส่วนนี้เพื่อล้างค่า Username และ Password =====
-                document.getElementById('loginForm').reset();
             }
 
             // จัดการปุ่มดาวน์โหลดนักเรียนตามสถานะ Login (ซ่อนปุ่มหากไม่ได้ Login)
@@ -1857,10 +1860,6 @@ function updateAuthUI() {
                 
                 state.user = null;
                 localStorage.removeItem('nswUser');
-                
-                // ===== เพิ่มความชัวร์ในการเคลียร์ฟอร์ม =====
-                document.getElementById('loginForm').reset(); 
-
                 updateAuthUI();
                 closeAdminModal(); 
                 showToast('ออกจากระบบแล้ว');
@@ -2459,7 +2458,9 @@ function updateAuthUI() {
                 if(currentT) form.append('currentImageUrl', currentT.Image);
             }
             sendData('saveTeacher', form, (json) => {
-                logAction(id ? 'Edit User/Teacher' : 'Add User/Teacher', `จัดการบุคลากร: ${name}`);
+                let detailMsg = id ? `แก้ไขข้อมูลบุคลากร "${name}"` : `เพิ่มบุคลากรใหม่ "${name}"`;
+                if(file) detailMsg += ' (พร้อมเปลี่ยนรูปโปรไฟล์)';
+                logAction(id ? 'Edit User/Teacher' : 'Add User/Teacher', detailMsg);
                 closeTeacherFormModal();
                 document.getElementById('teacherFile').value = ''; 
                 fetch(`${API_URL}?action=getTeachers`).then(r=>r.json()).then(data => {
@@ -2622,7 +2623,11 @@ function updateAuthUI() {
                  }
             }
             sendData(id ? 'editNewsletter' : 'addNewsletter', form, () => {
-                logAction(id ? 'Edit News' : 'Add News', `จัดการข่าว: ${title}`);
+                // อัปเดตรายละเอียด Log
+                let detailMsg = id ? `แก้ไขเนื้อหาข่าวประชาสัมพันธ์ "${title}"` : `โพสต์ข่าวประชาสัมพันธ์ใหม่ "${title}"`;
+                if(uploadQueue.length > 0) detailMsg += ` (อัปโหลดรูปภาพเพิ่ม ${uploadQueue.length} รูป)`;
+                logAction(id ? 'Edit News' : 'Add News', detailMsg);
+                
                 closeNewsFormModal();
                 document.getElementById('newsFiles').value = ''; 
                 renderAdminNewsList();
@@ -2635,7 +2640,7 @@ function updateAuthUI() {
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้จะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('newsletterId', id);
                 sendData('deleteNewsletter', form, () => { 
-                    logAction('Delete News', `ลบข่าว: ${n ? n.Title : 'ID '+id}`);
+                    logAction('Delete News', `ลบข่าวประชาสัมพันธ์: "${n ? n.Title : 'ID '+id}"`);
                     renderAdminNewsList(); 
                     renderNews(); 
                 });
@@ -2774,7 +2779,11 @@ function updateAuthUI() {
             }
             
             sendData(id ? 'editActivity' : 'addActivity', form, () => {
-                logAction(id ? 'Edit Activity' : 'Add Activity', `จัดการกิจกรรม: ${title}`);
+                // อัปเดตรายละเอียด Log
+                let detailMsg = id ? `แก้ไขข้อมูลแกลเลอรีภาพกิจกรรม "${title}"` : `สร้างแกลเลอรีภาพกิจกรรมใหม่ "${title}"`;
+                if(activityUploadQueue.length > 0) detailMsg += ` (อัปโหลดรูปภาพเพิ่ม ${activityUploadQueue.length} รูป)`;
+                logAction(id ? 'Edit Activity' : 'Add Activity', detailMsg);
+                
                 closeActivityFormModal();
                 document.getElementById('activityFiles').value = ''; 
                 fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
@@ -2793,7 +2802,7 @@ function updateAuthUI() {
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้และรูปภาพจะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteActivity', form, () => { 
-                    logAction('Delete Activity', `ลบกิจกรรม: ${act ? act.Title : 'ID '+id}`);
+                    logAction('Delete Activity', `ลบแกลเลอรีภาพกิจกรรม: "${act ? act.Title : 'ID '+id}"`);
                     fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
                         state.activities = data;
                         renderAdminActivityList();
@@ -2862,7 +2871,15 @@ function updateAuthUI() {
             }
 
             sendData('saveSettings', form, (json) => {
-                logAction('Edit Settings', 'แก้ไขข้อมูลตั้งค่าเว็บไซต์พื้นฐาน');
+                // อัปเดตรายละเอียด Log ตรวจเช็คว่ามีการอัปไฟล์ส่วนไหนบ้าง
+                let changes = [];
+                if(logoFile) changes.push('โลโก้');
+                if(headerFile) changes.push('แบนเนอร์ส่วนหัว');
+                if(mourningFile) changes.push('ภาพไว้อาลัย/ประกาศ');
+                
+                let detailMsg = 'อัปเดตการตั้งค่าเว็บไซต์และข้อมูลติดต่อ';
+                if(changes.length > 0) detailMsg += ` (อัปโหลดรูปใหม่: ${changes.join(', ')})`;
+                logAction('Edit Settings', detailMsg);
                 
                 // อัปเดต state ตัวแปรในเครื่องให้ตรงกับที่บันทึก
                 if (json.logoUrl) state.settings.appLogo = json.logoUrl;
