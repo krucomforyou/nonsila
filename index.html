@@ -1609,14 +1609,14 @@
                 let detailMsg = '';
                 if (id && currentA) {
                     let changes = [];
-                    if ((currentA.Title || '') !== title) changes.push(`ชื่อประกาศ (จาก "${currentA.Title}" เป็น "${title}")`);
+                    if (currentA.Title !== title) changes.push(`ชื่อประกาศ (จาก "${currentA.Title}" เป็น "${title}")`);
                     
                     const newLink = document.getElementById('announcementLink').value;
-                    if ((currentA.Link || '') !== newLink) changes.push(`แนบลิงก์ (จาก "${currentA.Link || '-'}" เป็น "${newLink || '-'}")`);
+                    if (currentA.Link !== newLink) changes.push(`แนบลิงก์ (จาก "${currentA.Link || '-'}" เป็น "${newLink || '-'}")`);
                     
                     const newActive = document.getElementById('announcementIsActive').checked;
                     const oldActive = String(currentA.IsActive) === 'true';
-                    if (oldActive !== newActive) changes.push(`${newActive ? 'เปิด' : 'ปิด'}ใช้งานแสดงผลที่หน้าแรก`);
+                    if (oldActive !== newActive) changes.push(`สถานะ (จาก "${oldActive ? 'เปิด' : 'ปิด'}" เป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
                     
                     if (file) changes.push(`อัปโหลดรูปภาพใหม่`);
                     
@@ -1744,22 +1744,8 @@
             }
 
             sendData('saveBuilding', form, (json) => {
-                let detailMsg = '';
-                const currentB = state.buildings.find(b => b.ID == id);
-                if (id && currentB) {
-                    let changes = [];
-                    if ((currentB.Name || '') !== name) changes.push(`ชื่ออาคาร (จาก "${currentB.Name}" เป็น "${name}")`);
-                    
-                    const newDesc = document.getElementById('buildingDesc').value;
-                    if ((currentB.Description || '') !== newDesc) changes.push(`รายละเอียด`);
-                    
-                    if (file) changes.push(`เปลี่ยนรูปภาพอาคารใหม่`);
-                    
-                    detailMsg = `แก้ไขข้อมูลอาคาร "${currentB.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
-                } else {
-                    detailMsg = `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
-                    if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
-                }
+                let detailMsg = id ? `แก้ไขข้อมูลอาคาร "${name}"` : `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
+                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
                 logAction(id ? 'Edit Building' : 'Add Building', detailMsg);
                 closeBuildingFormModal();
                 document.getElementById('buildingFile').value = '';
@@ -1776,7 +1762,7 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteBuilding', form, () => { 
-                    logAction('Delete Building', `ลบข้อมูลอาคารสถานที่: "${b ? b.Name : 'ID '+id}"`);
+                    logAction('Delete Building', `ลบอาคาร: ${b ? b.Name : 'ID '+id}`);
                     fetch(`${API_URL}?action=getBuildings`).then(r=>r.json()).then(data => {
                         state.buildings = data;
                         renderAdminBuildingList();
@@ -2494,10 +2480,10 @@
                 const currentT = state.teachers.find(t => t.ID == id);
                 if (id && currentT) {
                     let changes = [];
-                    if ((currentT.Name || '') !== name) changes.push(`ชื่อ (จาก "${currentT.Name}" เป็น "${name}")`);
+                    if (currentT.Name !== name) changes.push(`ชื่อ (จาก "${currentT.Name}" เป็น "${name}")`);
                     
                     const newRole = document.getElementById('teacherRole').value;
-                    if ((currentT.Role || '') !== newRole) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${newRole}")`);
+                    if (currentT.Role !== newRole) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${newRole}")`);
                     
                     if (file) changes.push(`เปลี่ยนรูปโปรไฟล์ใหม่`);
                     
@@ -2522,7 +2508,7 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteTeacher', form, () => { 
-                    logAction('Delete User/Teacher', `ลบข้อมูลบุคลากร: "${t ? t.Name : 'ID '+id}"`);
+                    logAction('Delete User/Teacher', `ลบบุคลากร: ${t ? t.Name : 'ID '+id}`);
                     fetch(`${API_URL}?action=getTeachers`).then(r=>r.json()).then(data => {
                         state.teachers = data;
                         renderAdminTeacherList();
@@ -2674,7 +2660,7 @@
                 if (id) {
                     let changes = [];
                     const currentN = state.news.find(n => n.ID == id);
-                    if (currentN && (currentN.Title || '') !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
+                    if (currentN && currentN.Title !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
                     
                     if (uploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${uploadQueue.length} รูป`);
                     if (currentN && currentN.Images) {
@@ -2695,7 +2681,6 @@
                 renderNews();
             });
         }
-
 
         async function deleteNews(id) {
             const n = state.news.find(x => x.ID == id);
@@ -2847,7 +2832,7 @@
                 if (id) {
                     let changes = [];
                     const currentAct = state.activities.find(a => a.ID == id);
-                    if (currentAct && (currentAct.Title || '') !== title) changes.push(`ชื่อกิจกรรม (จาก "${currentAct.Title}" เป็น "${title}")`);
+                    if (currentAct && currentAct.Title !== title) changes.push(`ชื่อกิจกรรม (จาก "${currentAct.Title}" เป็น "${title}")`);
                     
                     if (activityUploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${activityUploadQueue.length} รูป`);
                     if (currentAct && currentAct.Images) {
@@ -2954,20 +2939,20 @@
                 let changes = [];
                 
                 const newPhone = document.getElementById('editContactPhone').value;
-                if((state.settings.contactPhone || '') !== newPhone) changes.push(`เบอร์โทรศัพท์ (จาก "${state.settings.contactPhone || '-'}" เป็น "${newPhone}")`);
+                if(state.settings.contactPhone !== newPhone) changes.push(`เบอร์โทรศัพท์ (จาก "${state.settings.contactPhone || '-'}" เป็น "${newPhone}")`);
                 
                 const newTitle = document.getElementById('editAppTitle').value;
-                if((state.settings.appTitle || '') !== newTitle) changes.push(`ชื่อโรงเรียน (จาก "${state.settings.appTitle}" เป็น "${newTitle}")`);
+                if(state.settings.appTitle !== newTitle) changes.push(`ชื่อโรงเรียน (จาก "${state.settings.appTitle}" เป็น "${newTitle}")`);
                 
                 const newAddress = document.getElementById('editContactAddress').value;
-                if((state.settings.contactAddress || '') !== newAddress) changes.push(`ที่อยู่โรงเรียน`);
+                if(state.settings.contactAddress !== newAddress) changes.push(`ที่อยู่โรงเรียน`);
                 
                 const newEmail = document.getElementById('editContactEmail').value;
-                if((state.settings.contactEmail || '') !== newEmail) changes.push(`อีเมล (จาก "${state.settings.contactEmail || '-'}" เป็น "${newEmail}")`);
+                if(state.settings.contactEmail !== newEmail) changes.push(`อีเมล (จาก "${state.settings.contactEmail || '-'}" เป็น "${newEmail}")`);
                 
                 const newActive = document.getElementById('editMourningActive').checked;
                 const oldActive = String(state.settings.mourningActive).toLowerCase() === 'true';
-                if(newActive !== oldActive) changes.push(`${newActive ? 'เปิด' : 'ปิด'}ใช้งาน ภาพประกาศ / ไว้อาลัย (Pop-up & Banner)`);
+                if(newActive !== oldActive) changes.push(`สถานะการแสดงภาพประกาศ (เปลี่ยนเป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
 
                 if(logoFile) changes.push('อัปโหลดโลโก้โรงเรียนใหม่');
                 if(headerFile) changes.push('อัปโหลดแบนเนอร์ส่วนหัวใหม่');
