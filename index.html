@@ -1589,6 +1589,8 @@
             form.append('isActive', document.getElementById('announcementIsActive').checked);
             
             let file = document.getElementById('announcementFile').files[0];
+            const currentA = state.announcements.find(a => a.ID == id); // ดึงข้อมูลเดิมมาเทียบ
+            
             if(file) {
                  showLoading();
                  const compressedFile = await compressImageFile(file, 1600, 1600, 0.8);
@@ -1599,14 +1601,30 @@
                  form.append('fileName', compressedFile.name);
                  form.append('fileType', compressedFile.type);
             } else {
-                const currentA = state.announcements.find(a => a.ID == id);
                 if(currentA) form.append('currentImageUrl', currentA.Image);
             }
 
             sendData('saveAnnouncement', form, (json) => {
-                // อัปเดตรายละเอียด Log
-                let detailMsg = id ? `แก้ไขข้อมูลประกาศ "${title}"` : `สร้างประกาศใหม่ "${title}"`;
-                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
+                let detailMsg = '';
+                if (id && currentA) {
+                    let changes = [];
+                    if (currentA.Title !== title) changes.push(`ชื่อประกาศ (จาก "${currentA.Title}" เป็น "${title}")`);
+                    
+                    const newLink = document.getElementById('announcementLink').value;
+                    if (currentA.Link !== newLink) changes.push(`แนบลิงก์ (จาก "${currentA.Link || '-'}" เป็น "${newLink || '-'}")`);
+                    
+                    const newActive = document.getElementById('announcementIsActive').checked;
+                    const oldActive = String(currentA.IsActive) === 'true';
+                    if (oldActive !== newActive) changes.push(`สถานะ (จาก "${oldActive ? 'เปิด' : 'ปิด'}" เป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
+                    
+                    if (file) changes.push(`อัปโหลดรูปภาพใหม่`);
+                    
+                    detailMsg = `แก้ไขข้อมูลประกาศ "${currentA.Title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+                } else {
+                    detailMsg = `สร้างประกาศใหม่ "${title}"`;
+                    if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                }
                 logAction(id ? 'Edit Announcement' : 'Add Announcement', detailMsg);
                 
                 closeAnnouncementFormModal();
@@ -1726,8 +1744,22 @@
             }
 
             sendData('saveBuilding', form, (json) => {
-                let detailMsg = id ? `แก้ไขข้อมูลอาคาร "${name}"` : `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
-                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                let detailMsg = '';
+                const currentB = state.buildings.find(b => b.ID == id);
+                if (id && currentB) {
+                    let changes = [];
+                    if (currentB.Name !== name) changes.push(`ชื่ออาคาร (จาก "${currentB.Name}" เป็น "${name}")`);
+                    
+                    const newDesc = document.getElementById('buildingDesc').value;
+                    if (currentB.Description !== newDesc) changes.push(`รายละเอียด`);
+                    
+                    if (file) changes.push(`เปลี่ยนรูปภาพอาคารใหม่`);
+                    
+                    detailMsg = `แก้ไขข้อมูลอาคาร "${currentB.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+                } else {
+                    detailMsg = `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
+                    if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+                }
                 logAction(id ? 'Edit Building' : 'Add Building', detailMsg);
                 closeBuildingFormModal();
                 document.getElementById('buildingFile').value = '';
@@ -2458,8 +2490,22 @@
                 if(currentT) form.append('currentImageUrl', currentT.Image);
             }
             sendData('saveTeacher', form, (json) => {
-                let detailMsg = id ? `แก้ไขข้อมูลบุคลากร "${name}"` : `เพิ่มบุคลากรใหม่ "${name}"`;
-                if(file) detailMsg += ' (พร้อมเปลี่ยนรูปโปรไฟล์)';
+                let detailMsg = '';
+                const currentT = state.teachers.find(t => t.ID == id);
+                if (id && currentT) {
+                    let changes = [];
+                    if (currentT.Name !== name) changes.push(`ชื่อ (จาก "${currentT.Name}" เป็น "${name}")`);
+                    
+                    const newRole = document.getElementById('teacherRole').value;
+                    if (currentT.Role !== newRole) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${newRole}")`);
+                    
+                    if (file) changes.push(`เปลี่ยนรูปโปรไฟล์ใหม่`);
+                    
+                    detailMsg = `แก้ไขข้อมูลบุคลากร "${currentT.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+                } else {
+                    detailMsg = `เพิ่มข้อมูลบุคลากรใหม่ "${name}"`;
+                    if (file) detailMsg += ' (พร้อมอัปโหลดรูปโปรไฟล์)';
+                }
                 logAction(id ? 'Edit User/Teacher' : 'Add User/Teacher', detailMsg);
                 closeTeacherFormModal();
                 document.getElementById('teacherFile').value = ''; 
@@ -2623,9 +2669,24 @@
                  }
             }
             sendData(id ? 'editNewsletter' : 'addNewsletter', form, () => {
-                // อัปเดตรายละเอียด Log
-                let detailMsg = id ? `แก้ไขเนื้อหาข่าวประชาสัมพันธ์ "${title}"` : `โพสต์ข่าวประชาสัมพันธ์ใหม่ "${title}"`;
-                if(uploadQueue.length > 0) detailMsg += ` (อัปโหลดรูปภาพเพิ่ม ${uploadQueue.length} รูป)`;
+                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
+                let detailMsg = '';
+                if (id) {
+                    let changes = [];
+                    const currentN = state.news.find(n => n.ID == id);
+                    if (currentN && currentN.Title !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
+                    
+                    if (uploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${uploadQueue.length} รูป`);
+                    if (currentN && currentN.Images) {
+                        const removedCount = currentN.Images.length - currentServerImages.length;
+                        if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
+                    }
+                    
+                    detailMsg = `แก้ไขข่าวประชาสัมพันธ์ "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+                } else {
+                    detailMsg = `โพสต์ข่าวประชาสัมพันธ์ใหม่ "${title}"`;
+                    if(uploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${uploadQueue.length} รูป)`;
+                }
                 logAction(id ? 'Edit News' : 'Add News', detailMsg);
                 
                 closeNewsFormModal();
@@ -2640,7 +2701,8 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้จะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('newsletterId', id);
                 sendData('deleteNewsletter', form, () => { 
-                    logAction('Delete News', `ลบข่าวประชาสัมพันธ์: "${n ? n.Title : 'ID '+id}"`);
+                    const imgCount = n && n.Images ? n.Images.length : 0;
+                    logAction('Delete News', `ลบข่าวประชาสัมพันธ์: "${n ? n.Title : 'ID '+id}" (ลบรูปภาพ ${imgCount} รูป)`);
                     renderAdminNewsList(); 
                     renderNews(); 
                 });
@@ -2779,9 +2841,24 @@
             }
             
             sendData(id ? 'editActivity' : 'addActivity', form, () => {
-                // อัปเดตรายละเอียด Log
-                let detailMsg = id ? `แก้ไขข้อมูลแกลเลอรีภาพกิจกรรม "${title}"` : `สร้างแกลเลอรีภาพกิจกรรมใหม่ "${title}"`;
-                if(activityUploadQueue.length > 0) detailMsg += ` (อัปโหลดรูปภาพเพิ่ม ${activityUploadQueue.length} รูป)`;
+                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
+                let detailMsg = '';
+                if (id) {
+                    let changes = [];
+                    const currentAct = state.activities.find(a => a.ID == id);
+                    if (currentAct && currentAct.Title !== title) changes.push(`ชื่อกิจกรรม (จาก "${currentAct.Title}" เป็น "${title}")`);
+                    
+                    if (activityUploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${activityUploadQueue.length} รูป`);
+                    if (currentAct && currentAct.Images) {
+                        const removedCount = currentAct.Images.length - currentActivityServerImages.length;
+                        if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
+                    }
+                    
+                    detailMsg = `แก้ไขแกลเลอรีภาพกิจกรรม "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+                } else {
+                    detailMsg = `สร้างแกลเลอรีภาพกิจกรรมใหม่ "${title}"`;
+                    if(activityUploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${activityUploadQueue.length} รูป)`;
+                }
                 logAction(id ? 'Edit Activity' : 'Add Activity', detailMsg);
                 
                 closeActivityFormModal();
@@ -2802,7 +2879,8 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'รายการนี้และรูปภาพจะถูกลบถาวร', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteActivity', form, () => { 
-                    logAction('Delete Activity', `ลบแกลเลอรีภาพกิจกรรม: "${act ? act.Title : 'ID '+id}"`);
+                    const imgCount = act && act.Images ? act.Images.length : 0;
+                    logAction('Delete Activity', `ลบแกลเลอรีภาพกิจกรรม: "${act ? act.Title : 'ID '+id}" (ลบรูปภาพ ${imgCount} รูป)`);
                     fetch(`${API_URL}?action=getActivities`).then(r=>r.json()).then(data => {
                         state.activities = data;
                         renderAdminActivityList();
@@ -2871,14 +2949,30 @@
             }
 
             sendData('saveSettings', form, (json) => {
-                // อัปเดตรายละเอียด Log ตรวจเช็คว่ามีการอัปไฟล์ส่วนไหนบ้าง
+                // วิเคราะห์และเปรียบเทียบรายละเอียด Log เจาะลึกรายตัวแปร
                 let changes = [];
-                if(logoFile) changes.push('โลโก้');
-                if(headerFile) changes.push('แบนเนอร์ส่วนหัว');
-                if(mourningFile) changes.push('ภาพไว้อาลัย/ประกาศ');
                 
-                let detailMsg = 'อัปเดตการตั้งค่าเว็บไซต์และข้อมูลติดต่อ';
-                if(changes.length > 0) detailMsg += ` (อัปโหลดรูปใหม่: ${changes.join(', ')})`;
+                const newPhone = document.getElementById('editContactPhone').value;
+                if(state.settings.contactPhone !== newPhone) changes.push(`เบอร์โทรศัพท์ (จาก "${state.settings.contactPhone || '-'}" เป็น "${newPhone}")`);
+                
+                const newTitle = document.getElementById('editAppTitle').value;
+                if(state.settings.appTitle !== newTitle) changes.push(`ชื่อโรงเรียน (จาก "${state.settings.appTitle}" เป็น "${newTitle}")`);
+                
+                const newAddress = document.getElementById('editContactAddress').value;
+                if(state.settings.contactAddress !== newAddress) changes.push(`ที่อยู่โรงเรียน`);
+                
+                const newEmail = document.getElementById('editContactEmail').value;
+                if(state.settings.contactEmail !== newEmail) changes.push(`อีเมล (จาก "${state.settings.contactEmail || '-'}" เป็น "${newEmail}")`);
+                
+                const newActive = document.getElementById('editMourningActive').checked;
+                const oldActive = String(state.settings.mourningActive).toLowerCase() === 'true';
+                if(newActive !== oldActive) changes.push(`สถานะการแสดงภาพประกาศ (เปลี่ยนเป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
+
+                if(logoFile) changes.push('อัปโหลดโลโก้โรงเรียนใหม่');
+                if(headerFile) changes.push('อัปโหลดแบนเนอร์ส่วนหัวใหม่');
+                if(mourningFile) changes.push('อัปโหลดภาพประกาศ/ไว้อาลัยใหม่');
+                
+                let detailMsg = 'อัปเดตการตั้งค่าเว็บไซต์: ' + (changes.length > 0 ? changes.join(', ') : 'บันทึกโดยไม่มีการเปลี่ยนแปลงข้อมูล');
                 logAction('Edit Settings', detailMsg);
                 
                 // อัปเดต state ตัวแปรในเครื่องให้ตรงกับที่บันทึก
