@@ -1582,14 +1582,36 @@
         async function submitAnnouncement() {
             const id = document.getElementById('announcementId').value;
             const title = document.getElementById('announcementTitle').value;
-            const form = new FormData();
-            form.append('id', id);
-            form.append('title', title);
-            form.append('link', document.getElementById('announcementLink').value);
-            form.append('isActive', document.getElementById('announcementIsActive').checked);
+            const link = document.getElementById('announcementLink').value;
+            const isActive = document.getElementById('announcementIsActive').checked;
             
             let file = document.getElementById('announcementFile').files[0];
             const currentA = state.announcements.find(a => a.ID == id); // ดึงข้อมูลเดิมมาเทียบ
+            
+            // วิเคราะห์และเปรียบเทียบรายละเอียด Log ก่อนส่งข้อมูล
+            let detailMsg = '';
+            if (id && currentA) {
+                let changes = [];
+                if ((currentA.Title || '') !== title) changes.push(`ชื่อประกาศ (จาก "${currentA.Title}" เป็น "${title}")`);
+                
+                if ((currentA.Link || '') !== link) changes.push(`แนบลิงก์ (จาก "${currentA.Link || '-'}" เป็น "${link || '-'}")`);
+                
+                const oldActive = String(currentA.IsActive) === 'true';
+                if (oldActive !== isActive) changes.push(`${isActive ? 'เปิด' : 'ปิด'}ใช้งานแสดงผลที่หน้าแรก`);
+                
+                if (file) changes.push(`อัปโหลดรูปภาพใหม่`);
+                
+                detailMsg = `แก้ไขข้อมูลประกาศ "${currentA.Title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+            } else {
+                detailMsg = `สร้างประกาศใหม่ "${title}"`;
+                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+            }
+
+            const form = new FormData();
+            form.append('id', id);
+            form.append('title', title);
+            form.append('link', link);
+            form.append('isActive', isActive);
             
             if(file) {
                  showLoading();
@@ -1605,26 +1627,6 @@
             }
 
             sendData('saveAnnouncement', form, (json) => {
-                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
-                let detailMsg = '';
-                if (id && currentA) {
-                    let changes = [];
-                    if (currentA.Title !== title) changes.push(`ชื่อประกาศ (จาก "${currentA.Title}" เป็น "${title}")`);
-                    
-                    const newLink = document.getElementById('announcementLink').value;
-                    if (currentA.Link !== newLink) changes.push(`แนบลิงก์ (จาก "${currentA.Link || '-'}" เป็น "${newLink || '-'}")`);
-                    
-                    const newActive = document.getElementById('announcementIsActive').checked;
-                    const oldActive = String(currentA.IsActive) === 'true';
-                    if (oldActive !== newActive) changes.push(`สถานะ (จาก "${oldActive ? 'เปิด' : 'ปิด'}" เป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
-                    
-                    if (file) changes.push(`อัปโหลดรูปภาพใหม่`);
-                    
-                    detailMsg = `แก้ไขข้อมูลประกาศ "${currentA.Title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
-                } else {
-                    detailMsg = `สร้างประกาศใหม่ "${title}"`;
-                    if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
-                }
                 logAction(id ? 'Edit Announcement' : 'Add Announcement', detailMsg);
                 
                 closeAnnouncementFormModal();
@@ -1725,12 +1727,29 @@
         async function submitBuilding() {
             const id = document.getElementById('buildingId').value;
             const name = document.getElementById('buildingName').value;
+            const desc = document.getElementById('buildingDesc').value;
+            
+            const file = document.getElementById('buildingFile').files[0];
+            const currentB = state.buildings.find(b => b.ID == id);
+            
+            // วิเคราะห์รายละเอียดก่อนส่ง (ดึงค่าเก่ามาเทียบก่อนถูกทับ)
+            let detailMsg = '';
+            if (id && currentB) {
+                let changes = [];
+                if ((currentB.Name || '') !== name) changes.push(`ชื่ออาคาร (จาก "${currentB.Name}" เป็น "${name}")`);
+                if ((currentB.Description || '') !== desc) changes.push(`รายละเอียด`);
+                if (file) changes.push(`เปลี่ยนรูปภาพอาคารใหม่`);
+                detailMsg = `แก้ไขข้อมูลอาคาร "${currentB.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+            } else {
+                detailMsg = `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
+                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
+            }
+
             const form = new FormData();
             form.append('id', id);
             form.append('name', name);
-            form.append('description', document.getElementById('buildingDesc').value);
+            form.append('description', desc);
             
-            const file = document.getElementById('buildingFile').files[0];
             if(file) {
                  const reader = new FileReader();
                  reader.readAsDataURL(file);
@@ -1739,13 +1758,10 @@
                  form.append('fileName', file.name);
                  form.append('fileType', file.type);
             } else {
-                const currentB = state.buildings.find(b => b.ID == id);
                 if(currentB) form.append('currentImageUrl', currentB.Image);
             }
 
             sendData('saveBuilding', form, (json) => {
-                let detailMsg = id ? `แก้ไขข้อมูลอาคาร "${name}"` : `เพิ่มข้อมูลอาคารใหม่ "${name}"`;
-                if(file) detailMsg += ' (พร้อมอัปโหลดรูปภาพใหม่)';
                 logAction(id ? 'Edit Building' : 'Add Building', detailMsg);
                 closeBuildingFormModal();
                 document.getElementById('buildingFile').value = '';
@@ -1762,7 +1778,7 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteBuilding', form, () => { 
-                    logAction('Delete Building', `ลบอาคาร: ${b ? b.Name : 'ID '+id}`);
+                    logAction('Delete Building', `ลบข้อมูลอาคารสถานที่: "${b ? b.Name : 'ID '+id}"`);
                     fetch(`${API_URL}?action=getBuildings`).then(r=>r.json()).then(data => {
                         state.buildings = data;
                         renderAdminBuildingList();
@@ -2451,6 +2467,27 @@
         async function submitTeacher() {
             const id = document.getElementById('teacherId').value;
             const name = document.getElementById('teacherName').value;
+            const role = document.getElementById('teacherRole').value;
+            
+            const file = document.getElementById('teacherFile').files[0];
+            const currentT = state.teachers.find(t => t.ID == id);
+            
+            // วิเคราะห์รายละเอียดก่อนส่ง (ดึงค่าเก่ามาเทียบก่อนถูกทับ)
+            let detailMsg = '';
+            if (id && currentT) {
+                let changes = [];
+                if ((currentT.Name || '') !== name) changes.push(`ชื่อ (จาก "${currentT.Name}" เป็น "${name}")`);
+                
+                if ((currentT.Role || '') !== role) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${role}")`);
+                
+                if (file) changes.push(`เปลี่ยนรูปโปรไฟล์ใหม่`);
+                
+                detailMsg = `แก้ไขข้อมูลบุคลากร "${currentT.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+            } else {
+                detailMsg = `เพิ่มข้อมูลบุคลากรใหม่ "${name}"`;
+                if (file) detailMsg += ' (พร้อมอัปโหลดรูปโปรไฟล์)';
+            }
+
             const form = new FormData();
             form.append('id', id);
             form.append('name', name);
@@ -2461,9 +2498,8 @@
             form.append('phone', document.getElementById('teacherPhone').value);
             form.append('username', document.getElementById('teacherUser').value);
             form.append('password', document.getElementById('teacherPass').value);
-            form.append('role', document.getElementById('teacherRole').value);
+            form.append('role', role);
             
-            const file = document.getElementById('teacherFile').files[0];
             if(file) {
                  const reader = new FileReader();
                  reader.readAsDataURL(file);
@@ -2472,26 +2508,9 @@
                  form.append('fileName', file.name);
                  form.append('fileType', file.type);
             } else {
-                const currentT = state.teachers.find(t => t.ID == id);
                 if(currentT) form.append('currentImageUrl', currentT.Image);
             }
             sendData('saveTeacher', form, (json) => {
-                let detailMsg = '';
-                const currentT = state.teachers.find(t => t.ID == id);
-                if (id && currentT) {
-                    let changes = [];
-                    if (currentT.Name !== name) changes.push(`ชื่อ (จาก "${currentT.Name}" เป็น "${name}")`);
-                    
-                    const newRole = document.getElementById('teacherRole').value;
-                    if (currentT.Role !== newRole) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${newRole}")`);
-                    
-                    if (file) changes.push(`เปลี่ยนรูปโปรไฟล์ใหม่`);
-                    
-                    detailMsg = `แก้ไขข้อมูลบุคลากร "${currentT.Name}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
-                } else {
-                    detailMsg = `เพิ่มข้อมูลบุคลากรใหม่ "${name}"`;
-                    if (file) detailMsg += ' (พร้อมอัปโหลดรูปโปรไฟล์)';
-                }
                 logAction(id ? 'Edit User/Teacher' : 'Add User/Teacher', detailMsg);
                 closeTeacherFormModal();
                 document.getElementById('teacherFile').value = ''; 
@@ -2508,7 +2527,7 @@
             showConfirm('คุณแน่ใจหรือไม่?', 'ข้อมูลที่ลบจะไม่สามารถกู้คืนได้', 'warning', () => {
                 const form = new FormData(); form.append('id', id);
                 sendData('deleteTeacher', form, () => { 
-                    logAction('Delete User/Teacher', `ลบบุคลากร: ${t ? t.Name : 'ID '+id}`);
+                    logAction('Delete User/Teacher', `ลบข้อมูลบุคลากร: "${t ? t.Name : 'ID '+id}"`);
                     fetch(`${API_URL}?action=getTeachers`).then(r=>r.json()).then(data => {
                         state.teachers = data;
                         renderAdminTeacherList();
@@ -2634,6 +2653,25 @@
             const year = document.getElementById('newsYear').value;
             if(!year) { showAlert('ข้อผิดพลาด', 'กรุณาระบุปี พ.ศ.', 'warning'); return; }
 
+            // วิเคราะห์รายละเอียดก่อนส่ง (ดึงค่าเก่ามาเทียบก่อนถูกทับ)
+            const currentN = state.news.find(n => n.ID == id);
+            let detailMsg = '';
+            if (id) {
+                let changes = [];
+                if (currentN && (currentN.Title || '') !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
+                
+                if (uploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${uploadQueue.length} รูป`);
+                if (currentN && currentN.Images) {
+                    const removedCount = currentN.Images.length - currentServerImages.length;
+                    if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
+                }
+                
+                detailMsg = `แก้ไขข่าวประชาสัมพันธ์ "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+            } else {
+                detailMsg = `โพสต์ข่าวประชาสัมพันธ์ใหม่ "${title}"`;
+                if(uploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${uploadQueue.length} รูป)`;
+            }
+
             const form = new FormData();
             form.append('newsletterId', id);
             form.append('issue', issue);
@@ -2655,24 +2693,6 @@
                  }
             }
             sendData(id ? 'editNewsletter' : 'addNewsletter', form, () => {
-                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
-                let detailMsg = '';
-                if (id) {
-                    let changes = [];
-                    const currentN = state.news.find(n => n.ID == id);
-                    if (currentN && currentN.Title !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
-                    
-                    if (uploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${uploadQueue.length} รูป`);
-                    if (currentN && currentN.Images) {
-                        const removedCount = currentN.Images.length - currentServerImages.length;
-                        if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
-                    }
-                    
-                    detailMsg = `แก้ไขข่าวประชาสัมพันธ์ "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
-                } else {
-                    detailMsg = `โพสต์ข่าวประชาสัมพันธ์ใหม่ "${title}"`;
-                    if(uploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${uploadQueue.length} รูป)`;
-                }
                 logAction(id ? 'Edit News' : 'Add News', detailMsg);
                 
                 closeNewsFormModal();
@@ -2681,6 +2701,7 @@
                 renderNews();
             });
         }
+
 
         async function deleteNews(id) {
             const n = state.news.find(x => x.ID == id);
@@ -2807,6 +2828,25 @@
 
             if(!title || !date) { showAlert('ข้อผิดพลาด', 'กรุณาระบุชื่อกิจกรรมและวันที่', 'warning'); return; }
 
+            // วิเคราะห์และเปรียบเทียบรายละเอียด Log ก่อนถูกเขียนทับ
+            const currentAct = state.activities.find(a => a.ID == id);
+            let detailMsg = '';
+            if (id) {
+                let changes = [];
+                if (currentAct && (currentAct.Title || '') !== title) changes.push(`ชื่อกิจกรรม (จาก "${currentAct.Title}" เป็น "${title}")`);
+                
+                if (activityUploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${activityUploadQueue.length} รูป`);
+                if (currentAct && currentAct.Images) {
+                    const removedCount = currentAct.Images.length - currentActivityServerImages.length;
+                    if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
+                }
+                
+                detailMsg = `แก้ไขแกลเลอรีภาพกิจกรรม "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
+            } else {
+                detailMsg = `สร้างแกลเลอรีภาพกิจกรรมใหม่ "${title}"`;
+                if(activityUploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${activityUploadQueue.length} รูป)`;
+            }
+
             const form = new FormData();
             if (id) form.append('id', id);
             form.append('title', title);
@@ -2827,24 +2867,6 @@
             }
             
             sendData(id ? 'editActivity' : 'addActivity', form, () => {
-                // วิเคราะห์และเปรียบเทียบรายละเอียด Log
-                let detailMsg = '';
-                if (id) {
-                    let changes = [];
-                    const currentAct = state.activities.find(a => a.ID == id);
-                    if (currentAct && currentAct.Title !== title) changes.push(`ชื่อกิจกรรม (จาก "${currentAct.Title}" เป็น "${title}")`);
-                    
-                    if (activityUploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${activityUploadQueue.length} รูป`);
-                    if (currentAct && currentAct.Images) {
-                        const removedCount = currentAct.Images.length - currentActivityServerImages.length;
-                        if (removedCount > 0) changes.push(`ลบรูปออก ${removedCount} รูป`);
-                    }
-                    
-                    detailMsg = `แก้ไขแกลเลอรีภาพกิจกรรม "${title}": ` + (changes.length > 0 ? changes.join(', ') : 'ไม่มีการเปลี่ยนแปลงข้อมูล');
-                } else {
-                    detailMsg = `สร้างแกลเลอรีภาพกิจกรรมใหม่ "${title}"`;
-                    if(activityUploadQueue.length > 0) detailMsg += ` (พร้อมอัปโหลดรูปภาพ ${activityUploadQueue.length} รูป)`;
-                }
                 logAction(id ? 'Edit Activity' : 'Add Activity', detailMsg);
                 
                 closeActivityFormModal();
@@ -2881,30 +2903,57 @@
 
 
         // ------------------ SAVE SETTINGS & MISC ------------------
-	async function saveSettings() {
+        async function saveSettings() {
             const form = new FormData();
-            form.append('appTitle', document.getElementById('editAppTitle').value);
-            form.append('appSubtitle', document.getElementById('editAppSubtitle').value);
-            form.append('appFooterCopyright', document.getElementById('editFooterCopyright').value);
-            form.append('facebookPageUrl', document.getElementById('editFacebookPageUrl').value);
             
-            form.append('contactAddress', document.getElementById('editContactAddress').value);
-            form.append('contactPhone', document.getElementById('editContactPhone').value);
-            form.append('contactEmail', document.getElementById('editContactEmail').value);
-            form.append('contactMap', document.getElementById('editContactMap').value);
-            
-            // ส่งค่า true / false ของ Toggle การไว้อาลัยไปที่ Backend
-            form.append('mourningActive', document.getElementById('editMourningActive').checked);
-            
-            // ตั้งเวลา Timeout
+            // ดึงค่าใหม่ที่กรอกมา
+            const newTitle = document.getElementById('editAppTitle').value;
+            const newSubtitle = document.getElementById('editAppSubtitle').value;
+            const newFooter = document.getElementById('editFooterCopyright').value;
+            const newFbUrl = document.getElementById('editFacebookPageUrl').value;
+            const newAddress = document.getElementById('editContactAddress').value;
+            const newPhone = document.getElementById('editContactPhone').value;
+            const newEmail = document.getElementById('editContactEmail').value;
+            const newMap = document.getElementById('editContactMap').value;
+            const newActive = document.getElementById('editMourningActive').checked;
             const idleTime = document.getElementById('editIdleTimeout').value || DEFAULT_IDLE_MINUTES;
+
+            // วิเคราะห์และเปรียบเทียบรายละเอียด Log เจาะลึกรายตัวแปร (ทำก่อนส่งข้อมูล)
+            let changes = [];
+            if((state.settings.contactPhone || '') !== newPhone) changes.push(`เบอร์โทรศัพท์ (จาก "${state.settings.contactPhone || '-'}" เป็น "${newPhone}")`);
+            if((state.settings.appTitle || '') !== newTitle) changes.push(`ชื่อโรงเรียน (จาก "${state.settings.appTitle}" เป็น "${newTitle}")`);
+            if((state.settings.contactAddress || '') !== newAddress) changes.push(`ที่อยู่โรงเรียน`);
+            if((state.settings.contactEmail || '') !== newEmail) changes.push(`อีเมล (จาก "${state.settings.contactEmail || '-'}" เป็น "${newEmail}")`);
+            
+            const oldActive = String(state.settings.mourningActive).toLowerCase() === 'true';
+            if(newActive !== oldActive) changes.push(`${newActive ? 'เปิด' : 'ปิด'}ใช้งาน ภาพประกาศ / ไว้อาลัย (Pop-up & Banner)`);
+
+            const logoFile = document.getElementById('editLogoFile').files[0];
+            const headerFile = document.getElementById('editHeaderFile').files[0];
+            const mourningFile = document.getElementById('editMourningFile').files[0];
+
+            if(logoFile) changes.push('อัปโหลดโลโก้โรงเรียนใหม่');
+            if(headerFile) changes.push('อัปโหลดแบนเนอร์ส่วนหัวใหม่');
+            if(mourningFile) changes.push('อัปโหลดภาพประกาศ/ไว้อาลัยใหม่');
+            
+            let detailMsg = 'อัปเดตการตั้งค่าเว็บไซต์: ' + (changes.length > 0 ? changes.join(', ') : 'บันทึกโดยไม่มีการเปลี่ยนแปลงข้อมูล');
+
+            // เพิ่มค่าลงฟอร์มเพื่อเตรียมส่ง
+            form.append('appTitle', newTitle);
+            form.append('appSubtitle', newSubtitle);
+            form.append('appFooterCopyright', newFooter);
+            form.append('facebookPageUrl', newFbUrl);
+            form.append('contactAddress', newAddress);
+            form.append('contactPhone', newPhone);
+            form.append('contactEmail', newEmail);
+            form.append('contactMap', newMap);
+            form.append('mourningActive', newActive);
             form.append('idleTimeout', idleTime);
 
             form.append('currentLogoUrl', state.settings.appLogo || '');
             form.append('currentHeaderUrl', state.settings.appHeader || '');
             form.append('currentMourningUrl', state.settings.mourningImage || '');
 
-            const logoFile = document.getElementById('editLogoFile').files[0];
             if(logoFile) {
                  const reader = new FileReader();
                  reader.readAsDataURL(logoFile);
@@ -2913,8 +2962,6 @@
                  form.append('logoFileName', logoFile.name);
                  form.append('logoFileType', logoFile.type);
             }
-            
-            const headerFile = document.getElementById('editHeaderFile').files[0];
             if(headerFile) {
                  const reader = new FileReader();
                  reader.readAsDataURL(headerFile);
@@ -2923,8 +2970,6 @@
                  form.append('headerFileName', headerFile.name);
                  form.append('headerFileType', headerFile.type);
             }
-
-            const mourningFile = document.getElementById('editMourningFile').files[0];
             if(mourningFile) {
                  const reader = new FileReader();
                  reader.readAsDataURL(mourningFile);
@@ -2935,37 +2980,13 @@
             }
 
             sendData('saveSettings', form, (json) => {
-                // วิเคราะห์และเปรียบเทียบรายละเอียด Log เจาะลึกรายตัวแปร
-                let changes = [];
-                
-                const newPhone = document.getElementById('editContactPhone').value;
-                if(state.settings.contactPhone !== newPhone) changes.push(`เบอร์โทรศัพท์ (จาก "${state.settings.contactPhone || '-'}" เป็น "${newPhone}")`);
-                
-                const newTitle = document.getElementById('editAppTitle').value;
-                if(state.settings.appTitle !== newTitle) changes.push(`ชื่อโรงเรียน (จาก "${state.settings.appTitle}" เป็น "${newTitle}")`);
-                
-                const newAddress = document.getElementById('editContactAddress').value;
-                if(state.settings.contactAddress !== newAddress) changes.push(`ที่อยู่โรงเรียน`);
-                
-                const newEmail = document.getElementById('editContactEmail').value;
-                if(state.settings.contactEmail !== newEmail) changes.push(`อีเมล (จาก "${state.settings.contactEmail || '-'}" เป็น "${newEmail}")`);
-                
-                const newActive = document.getElementById('editMourningActive').checked;
-                const oldActive = String(state.settings.mourningActive).toLowerCase() === 'true';
-                if(newActive !== oldActive) changes.push(`สถานะการแสดงภาพประกาศ (เปลี่ยนเป็น "${newActive ? 'เปิด' : 'ปิด'}")`);
-
-                if(logoFile) changes.push('อัปโหลดโลโก้โรงเรียนใหม่');
-                if(headerFile) changes.push('อัปโหลดแบนเนอร์ส่วนหัวใหม่');
-                if(mourningFile) changes.push('อัปโหลดภาพประกาศ/ไว้อาลัยใหม่');
-                
-                let detailMsg = 'อัปเดตการตั้งค่าเว็บไซต์: ' + (changes.length > 0 ? changes.join(', ') : 'บันทึกโดยไม่มีการเปลี่ยนแปลงข้อมูล');
                 logAction('Edit Settings', detailMsg);
                 
                 // อัปเดต state ตัวแปรในเครื่องให้ตรงกับที่บันทึก
                 if (json.logoUrl) state.settings.appLogo = json.logoUrl;
                 if (json.headerUrl) state.settings.appHeader = json.headerUrl;
                 if (json.mourningUrl) state.settings.mourningImage = json.mourningUrl;
-                state.settings.mourningActive = document.getElementById('editMourningActive').checked;
+                state.settings.mourningActive = newActive;
                 state.settings.idleTimeout = idleTime;
                 
                 resetIdleTimer(); // อัปเดตเวลาจับเวลาใหม่ทันที
