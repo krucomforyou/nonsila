@@ -297,13 +297,6 @@
                                 </tbody>
                             </table>
                          </div>
-
-                         <div class="bg-blue-50 text-blue-800 rounded-lg p-4 border border-blue-100 text-sm flex items-start gap-3">
-                             <i class="fas fa-info-circle mt-0.5"></i>
-                             <div>
-                                ข้อมูลถูกดึงมาจากระบบและฐานข้อมูลเรียบร้อยแล้ว หากพบความผิดพลาดสามารถกลับไปแก้ไขได้ที่เมนู "จัดการเวลาเรียน"
-                             </div>
-                         </div>
                     </div>
                 </div>
             </div>
@@ -406,7 +399,7 @@
         let fpMain, fpHistory, fpReport;
 
         // =========================================================================
-        // SweetAlert แบบน่ารักๆ (Cute Alerts) - แก้ไขเพิ่ม return ทำให้ใช้ .then() ได้แล้ว
+        // SweetAlert แบบน่ารักๆ (Cute Alerts)
         // =========================================================================
         const cuteAlert = {
             loading: (text) => {
@@ -560,7 +553,10 @@
                     if (selectedDates.length > 0) {
                         updateHeaderDate(selectedDates[0]);
                         state.currentDate = dateStr;
-                        if(state.currentClass) fetchAttendanceHistory();
+                        // แก้บั๊กซ้อนทับ: โหลดประวัติเฉพาะตอนที่เราอยู่หน้าเช็คชื่อเท่านั้น
+                        if(state.currentClass && document.getElementById('tab-attendance').classList.contains('hidden') === false) {
+                            fetchAttendanceHistory();
+                        }
                     }
                 }
             });
@@ -768,7 +764,7 @@
         }
 
         // =========================================================================
-        // จัดการเวลาเรียน
+        // จัดการเวลาเรียน (แก้บั๊กการดึงข้อมูลซ้ำซ้อน)
         // =========================================================================
         function goToEditTime() {
             const cls = document.getElementById('manageTimeClass').value;
@@ -779,13 +775,18 @@
                 return;
             }
 
-            document.getElementById('classSelector').value = cls;
-            fpMain.setDate(dateStr);
+            // บังคับเปลี่ยน State ล่วงหน้าก่อน เพื่อป้องกัน Race Condition
+            state.currentClass = cls;
             state.currentDate = dateStr;
-            updateHeaderDate(fpMain.selectedDates[0]);
+
+            document.getElementById('classSelector').value = cls;
+            
+            // setDate แบบส่งพารามิเตอร์ false เพื่อไม่ให้ trigger onChange อัตโนมัติ
+            fpMain.setDate(dateStr, false); 
+            if(fpMain.selectedDates[0]) updateHeaderDate(fpMain.selectedDates[0]);
             
             switchTab('attendance');
-            loadStudents();
+            loadStudents(); // ให้ loadStudents เป็นตัวควบคุมการดึงข้อมูลใหม่ทั้งหมด
         }
 
         // =========================================================================
@@ -845,12 +846,25 @@
                 document.getElementById('repLate').innerText = stats.late;
                 document.getElementById('repSick').innerText = stats.sick;
                 
-                // อัปเดตตารางรายละเอียด
+                // อัปเดตตารางรายละเอียด พร้อมตรวจสอบว่ามีข้อมูลหรือไม่ (เผื่อเจอกรณี Sheet เปลี่ยนรูปแบบ Date)
                 const detailContainer = document.getElementById('reportDetailList');
                 if(detailHtml === '') {
-                    // ถ้ายังไม่มีข้อมูล หรือ มาเรียนครบทุกคน
+                    // ถ้าดึงข้อมูลมาแล้ว ทุกสถานะเป็น 0 แสดงว่าหาข้อมูลวันนั้นไม่เจอเลย
                     if (stats.present === 0 && stats.leave === 0 && stats.absent === 0 && stats.late === 0 && stats.sick === 0) {
-                        detailContainer.innerHTML = `<tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">ยังไม่มีการบันทึกข้อมูลการเช็คชื่อในวันดังกล่าว</td></tr>`;
+                        detailContainer.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                                <div class="text-lg mb-2"><i class="fas fa-folder-open text-gray-300 text-4xl"></i></div>
+                                <p class="font-bold">ไม่พบข้อมูลในระบบ หรือ ยังไม่มีการบันทึกข้อมูลของวันดังกล่าว</p>
+                                <div class="mt-4 p-4 bg-yellow-50 text-yellow-800 rounded-lg text-sm inline-block text-left border border-yellow-200">
+                                    <i class="fas fa-exclamation-triangle mr-1 text-yellow-600"></i> <b>แก้ปัญหาดึงข้อมูลไม่ขึ้น:</b><br>
+                                    หากคุณแน่ใจว่าบันทึกไปแล้ว ให้เปิดไฟล์ Google Sheet ที่เชื่อมต่อไว้<br>
+                                    1. คลุมดำหัวคอลัมน์ A (Date) ทั้งหมด<br>
+                                    2. เลือกเมนู <b>รูปแบบ (Format)</b> > <b>ตัวเลข (Number)</b><br>
+                                    3. เลือก <b>"ข้อความธรรมดา" (Plain text)</b>
+                                </div>
+                            </td>
+                        </tr>`;
                     } else {
                         detailContainer.innerHTML = `<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-500 font-bold">🎉 นักเรียนมาเรียนครบทุกคน 🎉</td></tr>`;
                     }
