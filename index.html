@@ -520,9 +520,12 @@
                             <div class="text-xs text-blue-500 mb-1" id="userPosition">Position</div>
                             <div class="inline-block bg-yellow-100 text-yellow-800 text-[10px] px-2 py-1 rounded-full font-bold mb-3 border border-yellow-200" id="userRole">Role</div>
                             
+                            <!-- เพิ่มปุ่มแก้ไขข้อมูลส่วนตัว -->
+                            <button onclick="openMyProfileEdit()" class="w-full mb-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 shadow rounded transition"><i class="fas fa-user-edit"></i> แก้ไขข้อมูลส่วนตัว</button>
+
                             <div class="flex gap-2">
-                                <button onclick="openAdminModal()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-2 rounded"><i class="fas fa-tools"></i> จัดการ</button>
-                                <button onclick="logout()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold py-2 rounded"><i class="fas fa-sign-out-alt"></i> ออก</button>
+                                <button onclick="openAdminModal()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-2 rounded shadow transition"><i class="fas fa-tools"></i> จัดการระบบ</button>
+                                <button onclick="logout()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold py-2 rounded shadow transition"><i class="fas fa-sign-out-alt"></i> ออก</button>
                             </div>
                         </div>
                     </div>
@@ -2490,6 +2493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('teacherRole').disabled = false; // รีเซ็ตสถานะ
             document.getElementById('teacherFormModal').classList.add('active');
             disableBodyScroll(); 
+            document.querySelector('#teacherFormModal h3').innerHTML = 'จัดการข้อมูลบุคลากร';
         }
 
         function renderAdminTeacherList() {
@@ -2546,7 +2550,47 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('teacherFile').value = ''; 
             document.getElementById('teacherFormModal').classList.add('active');
             disableBodyScroll(); 
+            document.querySelector('#teacherFormModal h3').innerHTML = 'จัดการข้อมูลบุคลากร';
         }
+
+
+        // ================= ฟังก์ชันสำหรับให้บุคลากรแก้ไขข้อมูลตัวเอง =================
+        function openMyProfileEdit() {
+            if (!state.user || !state.teachers) return;
+            
+            // หาข้อมูลของตัวเองจาก state.teachers
+            const myData = state.teachers.find(t => String(t.ID) === String(state.user.id));
+            if (!myData) {
+                showAlert('ข้อผิดพลาด', 'ไม่พบข้อมูลบุคลากรของคุณในระบบ', 'error');
+                return;
+            }
+
+            // นำข้อมูลไปใส่ในฟอร์ม (ใช้ฟอร์มเดียวกับแอดมิน)
+            document.getElementById('teacherId').value = myData.ID;
+            document.getElementById('teacherName').value = myData.Name;
+            document.getElementById('teacherPosition').value = myData.Position; 
+            document.getElementById('teacherMajor').value = myData.Major;
+            document.getElementById('teacherAcademic').value = myData.Academic;
+            document.getElementById('teacherDept').value = myData.Department;
+            document.getElementById('teacherPhone').value = myData.Phone;
+            document.getElementById('teacherUser').value = myData.Username;
+            document.getElementById('teacherPass').value = ''; 
+            document.getElementById('teacherRole').value = myData.Role || '🎒 นักผจญภัยฝึกหัด';
+            
+            document.getElementById('formTeacherPreview').src = myData.Image || 'https://placehold.co/100x130?text=No+Img';
+            document.getElementById('teacherFile').value = ''; 
+
+            // **สำคัญ**: ล็อกช่อง Role (ระดับสิทธิ์) ไม่ให้แก้เองได้ หากไม่ใช่แอดมิน
+            const isDragonWarrior = state.user.role === '🐲 นักรบมังกร' || String(state.user.id) === '1';
+            document.getElementById('teacherRole').disabled = !isDragonWarrior;
+            
+            // เปลี่ยนข้อความหัวฟอร์มให้ดูรู้ว่าเป็นของตัวเอง
+            document.querySelector('#teacherFormModal h3').innerHTML = '<i class="fas fa-user-edit mr-2 text-blue-600"></i>แก้ไขข้อมูลส่วนตัว';
+
+            document.getElementById('teacherFormModal').classList.add('active');
+            disableBodyScroll();
+        }
+
 
         async function submitTeacher() {
             const id = document.getElementById('teacherId').value;
@@ -2602,6 +2646,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     state.teachers = data;
                     renderAdminTeacherList();
                     renderDirector(); 
+                    
+                    // --- เพิ่มส่วนนี้: อัปเดตข้อมูลบนหน้าจอตัวเองทันที ---
+                    if (state.user && String(state.user.id) === String(id)) {
+                        const updatedMe = state.teachers.find(t => String(t.ID) === String(id));
+                        if(updatedMe) {
+                            state.user.name = updatedMe.Name;
+                            state.user.position = updatedMe.Position;
+                            state.user.image = updatedMe.Image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(updatedMe.Name);
+                            localStorage.setItem('nswUser', JSON.stringify(state.user));
+                            updateAuthUI(); // รีเฟรชกรอบโปรไฟล์ขวามือ
+                        }
+                    }
+                    // ------------------------------------------
                 });
             });
         }
