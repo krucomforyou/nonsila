@@ -1198,17 +1198,37 @@
 
         let rolePermissions = {}; // จะเก็บ State การเข้าถึง
 
-        document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
             initDropdowns();
             loadData();
+            
             const savedUser = localStorage.getItem('nswUser');
             if(savedUser) { 
-                state.user = JSON.parse(savedUser); 
-                updateAuthUI(); 
-                resetIdleTimer(); // เริ่มจับเวลาถ้ามี User ค้างอยู่
+                // เช็คว่าหมดอายุหรือยังตั้งแต่ตอนเปิดหน้าเว็บ
+                const lastActive = localStorage.getItem('nswLastActive');
+                const savedTimeout = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+                let isExpired = false;
+
+                if (lastActive) {
+                    const diffMs = Date.now() - parseInt(lastActive);
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins >= savedTimeout) {
+                        isExpired = true;
+                    }
+                }
+
+                if (!isExpired) {
+                    state.user = JSON.parse(savedUser); 
+                    updateAuthUI(); 
+                    resetIdleTimer(); // เริ่มจับเวลาต่อ
+                } else {
+                    // ถ้าทิ้งไว้นานเกินตั้งแต่ก่อนโหลด ให้เคลียร์ข้อมูลทิ้งอย่างเงียบๆ
+                    localStorage.removeItem('nswUser');
+                    localStorage.removeItem('nswLastActive');
+                }
             }
             
-            // จับ Events เพื่อรีเซ็ตเวลา
+            // จับ Events เพื่อรีเซ็ตเวลา (ส่วนนี้คงเดิม)
             ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
                 document.addEventListener(evt, resetIdleTimer, true)
             );
@@ -1221,13 +1241,15 @@
                     if(json.status === 'success') {
                         state.user = json.user; 
                         localStorage.setItem('nswUser', JSON.stringify(state.user)); 
+                        localStorage.setItem('nswLastActive', Date.now().toString()); // <--- บันทึกเวลาเริ่มใช้งานตอนล็อกอินสำเร็จ
+
                         updateAuthUI(); 
                         showToast('ยินดีต้อนรับ ' + state.user.name);
                         
-                        logAction('Login', 'เข้าสู่ระบบสำเร็จ'); // บันทึก Log การเข้าสู่ระบบ
-                        resetIdleTimer(); // เริ่มจับเวลาใหม่
+                        logAction('Login', 'เข้าสู่ระบบสำเร็จ');
+                        resetIdleTimer(); // เริ่มจับเวลา
                         
-                        // ถ้าระหว่างล็อกอินเปิดหน้าต่างนักเรียนค้างไว้ ให้ดึงข้อมูลนักเรียนมารอโหลดสถานะปุ่มดาวน์โหลด
+                        // (โค้ดดึงข้อมูลนักเรียนส่วนที่เหลือเหมือนเดิม...)
                         if (currentStudentClass && !document.getElementById('content-students').classList.contains('hidden')) {
                              loadStudentData();
                         }
@@ -1238,11 +1260,31 @@
         });
 
         // ================= ระบบ Idle Timeout (Auto Logout) =================
+        function checkSessionStatus() {
+            if (!state.user) return; // ถ้าไม่ได้เข้าระบบ ไม่ต้องเช็ค
+            
+            const lastActive = localStorage.getItem('nswLastActive');
+            if (lastActive) {
+                const diffMs = Date.now() - parseInt(lastActive);
+                const diffMins = Math.floor(diffMs / 60000);
+                // ดึงค่า Timeout จาก Settings ถ้าไม่มีให้ใช้ค่าเริ่มต้น
+                const timeoutLimit = parseInt(state.settings.idleTimeout) || parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+                
+                // ถ้าห่างเกินเวลาที่กำหนด ให้ออกจากระบบทันที
+                if (diffMins >= timeoutLimit) {
+                    sessionExpiredLogout();
+                }
+            }
+        }
+        
         function resetIdleTimer() {
             clearTimeout(idleTimer);
             if (!state.user) return; // หากยังไม่เข้าระบบ ไม่ต้องจับเวลา
             
-            let minutes = parseInt(state.settings.idleTimeout) || DEFAULT_IDLE_MINUTES;
+            // อัปเดตเวลาใช้งานล่าสุดลงเครื่องทุกครั้งที่มีการขยับเมาส์/สัมผัสจอ
+            localStorage.setItem('nswLastActive', Date.now().toString());
+            
+            let minutes = parseInt(state.settings.idleTimeout) || parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
             idleTimer = setTimeout(() => {
                 sessionExpiredLogout();
             }, minutes * 60 * 1000);
@@ -1250,13 +1292,22 @@
 
         function sessionExpiredLogout() {
             if(!state.user) return;
-            logAction('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ (ไม่ได้ใช้งานนานเกินกำหนด)');
+            logAction('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ (ไม่ได้ใช้งานนานเกินกำหนด หรือปิดเว็บไปนาน)');
             state.user = null;
             localStorage.removeItem('nswUser');
+            localStorage.removeItem('nswLastActive'); // เคลียร์เวลาทิ้ง
             updateAuthUI();
             closeAdminModal();
-            showAlert('หมดเวลาการเชื่อมต่อ', 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งาน', 'info');
+            showAlert('หมดเวลาการเชื่อมต่อ', 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 'info');
         }
+
+        // เช็คว่าผู้ใช้สลับแท็บกลับมาหน้าเว็บเราหรือเปิดเบราว์เซอร์ขึ้นมาใหม่หรือไม่
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                checkSessionStatus(); // ตรวจสอบเวลาที่หายไปเมื่อกลับเข้ามา
+            }
+        });
+        
 
         // ================= ฟังก์ชันบันทึก Log =================
         async function logAction(actionName, detailText) {
@@ -1435,6 +1486,12 @@
                 
                 state.news = await newsRes.json();
                 state.settings = await settingsRes.json();
+
+                // --- เพิ่มส่วนนี้เข้าไป ---
+                if(state.settings.idleTimeout) localStorage.setItem('nswIdleTimeout', state.settings.idleTimeout);
+                checkSessionStatus(); // ลองเช็คอีกรอบหลังจากโหลดการตั้งค่าล่าสุดจากฐานข้อมูลเสร็จ
+                // ---------------------
+
                 state.teachers = await teachersRes.json();
                 state.buildings = await buildingsRes.json();
                 state.activities = await activitiesRes.json();
