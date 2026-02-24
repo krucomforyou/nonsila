@@ -13,7 +13,7 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- Flatpickr (สำหรับปฏิทินที่ปิดวันเสาร์-อาทิตย์ได้) -->
+    <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -21,9 +21,16 @@
 
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
-        .sidebar { background-color: #1e3a8a; } /* สีน้ำเงินเข้มตามเว็บหลัก */
+        .sidebar { background-color: #1e3a8a; } 
         .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #facc15; }
         
+        /* แก้ปัญหาหน้าจอขยับ/Sidebar หด เวลา SweetAlert ทำงาน */
+        body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) {
+            padding-right: 0 !important;
+            overflow: hidden !important;
+        }
+        .swal2-container { z-index: 9999 !important; }
+
         /* สไตล์ปุ่มสถานะ */
         .status-btn {
             width: 36px; height: 36px;
@@ -37,24 +44,18 @@
         
         .status-present { border-color: #10b981; }
         .status-present.selected { background-color: #10b981; border-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
-        
         .status-leave { border-color: #3b82f6; }
         .status-leave.selected { background-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); }
-        
         .status-absent { border-color: #ef4444; }
         .status-absent.selected { background-color: #ef4444; border-color: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); }
-        
         .status-late { border-color: #f59e0b; }
         .status-late.selected { background-color: #f59e0b; border-color: #f59e0b; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3); }
-        
         .status-sick { border-color: #8b5cf6; }
         .status-sick.selected { background-color: #8b5cf6; border-color: #8b5cf6; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3); }
 
-        /* Loader */
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Modal Transitions */
         .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
         .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
@@ -70,7 +71,7 @@
     </div>
 
     <!-- SIDEBAR -->
-    <aside class="w-64 sidebar text-white flex flex-col h-full shadow-xl z-20 hidden md:flex flex-shrink-0">
+    <aside class="w-64 sidebar text-white flex flex-col h-full shadow-xl z-20 hidden md:flex flex-shrink-0 relative">
         <div class="p-6 border-b border-blue-800 flex flex-col items-center">
             <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-blue-900 text-3xl shadow-lg mb-3">
                 <i class="fas fa-clock"></i>
@@ -117,7 +118,7 @@
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden bg-white">
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-white w-full">
         <!-- HEADER -->
         <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
             <div class="flex items-center gap-4">
@@ -130,12 +131,12 @@
         </header>
 
         <!-- TABS CONTAINER -->
-        <div class="flex-1 overflow-hidden relative bg-gray-50">
+        <div class="flex-1 overflow-hidden relative bg-gray-50 w-full">
             
             <!-- 1. ภาพรวม (Overview) -->
             <div id="tab-overview" class="tab-content absolute inset-0 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
                 <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-2xl w-full">
-                    <img src="https://cdn-icons-png.flaticon.com/512/3281/3281323.png" class="w-32 mx-auto mb-6 opacity-80" alt="Dashboard">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3281/3281323.png" class="w-32 mx-auto mb-6 opacity-80 animate-pulse" alt="Dashboard">
                     <h2 class="text-2xl font-bold text-blue-900 mb-2">ยินดีต้อนรับสู่ระบบเช็คชื่อนักเรียน</h2>
                     <p class="text-gray-500 mb-8">เชื่อมต่อกับฐานข้อมูลโรงเรียนเรียบร้อยแล้ว คุณสามารถเลือกเมนูเพื่อเริ่มต้นการทำงานได้ทันที</p>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -179,13 +180,13 @@
 
                 <!-- TABLE AREA -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[400px]">
-                    <div class="bg-gray-50 border-b border-gray-200 px-6 py-3 flex justify-between items-center">
-                        <div class="text-sm font-bold text-gray-600 flex items-center">
+                    <div class="bg-gray-50 border-b border-gray-200 px-6 py-3 flex justify-between items-center overflow-x-auto">
+                        <div class="text-sm font-bold text-gray-600 flex items-center whitespace-nowrap mr-4">
                             <i class="fas fa-clipboard-list text-blue-500 mr-2 text-lg"></i> รายชื่อนักเรียน 
                             <span id="studentCountBadge" class="bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full text-xs ml-2">0 คน</span>
                         </div>
-                        <div class="flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
-                            <span class="text-xs font-bold text-gray-500">ตั้งค่าทั้งห้อง:</span>
+                        <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm whitespace-nowrap">
+                            <span class="text-xs font-bold text-gray-500 mr-1">ตั้งค่าทั้งห้อง:</span>
                             <button onclick="setAllStatus('present')" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded font-bold transition">/ มาทุกคน</button>
                             <button onclick="setAllStatus('absent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded font-bold transition">ข ขาดทุกคน</button>
                             <button onclick="setAllStatus(null)" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-bold transition">ล้าง</button>
@@ -216,7 +217,7 @@
                 </div>
 
                 <!-- Legend -->
-                <div class="mt-6 flex flex-wrap justify-center gap-4 text-xs font-medium text-gray-500 bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex mx-auto">
+                <div class="mt-6 flex flex-wrap justify-center gap-4 text-xs font-medium text-gray-500 bg-white p-3 rounded-lg border border-gray-200 shadow-sm mx-auto w-fit">
                     <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></span> มาเรียน (/)</div>
                     <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span> ลากิจ (ล)</div>
                     <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span> ขาดเรียน (ข)</div>
@@ -257,7 +258,7 @@
             <div id="tab-report" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-xl font-bold text-blue-900 mb-1"><i class="fas fa-chart-bar mr-2"></i> สรุปรายงานการมาเรียนประจำวัน</h3>
-                    <p class="text-sm text-gray-500 mb-6">เลือกห้องเรียนและวันที่เพื่อดูสรุปยอดนักเรียนทั้งหมด</p>
+                    <p class="text-sm text-gray-500 mb-6">ดึงข้อมูลประวัติการเช็คชื่อจากฐานข้อมูล (Sheet ID) เพื่อสรุปยอดและรายชื่อ</p>
                     
                     <div class="flex flex-col md:flex-row gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-100">
                          <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full md:w-48 outline-none focus:ring-2 focus:ring-blue-500"></select>
@@ -265,10 +266,11 @@
                             <input type="text" id="reportDate" class="border border-gray-300 p-2.5 pl-10 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer" placeholder="เลือกวันที่">
                             <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                          </div>
-                         <button onclick="generateReport()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm transition"><i class="fas fa-sync-alt mr-2"></i> แสดงรายงาน</button>
+                         <button onclick="generateReport()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm transition"><i class="fas fa-sync-alt mr-2"></i> ประมวลผลรายงาน</button>
                     </div>
 
                     <div id="reportResult" class="hidden">
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">ภาพรวมสถิติ</h4>
                          <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                              <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-xl text-center"><div class="text-emerald-600 text-sm font-bold">มาเรียน (คน)</div><div id="repPresent" class="text-3xl font-black mt-2 text-emerald-700">0</div></div>
                              <div class="bg-blue-50 border border-blue-100 p-5 rounded-xl text-center"><div class="text-blue-600 text-sm font-bold">ลากิจ (คน)</div><div id="repLeave" class="text-3xl font-black mt-2 text-blue-700">0</div></div>
@@ -277,8 +279,27 @@
                              <div class="bg-purple-50 border border-purple-100 p-5 rounded-xl text-center"><div class="text-purple-600 text-sm font-bold">ป่วย (คน)</div><div id="repSick" class="text-3xl font-black mt-2 text-purple-700">0</div></div>
                          </div>
                          
-                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                             <p class="text-center text-gray-500 text-sm"><i class="fas fa-info-circle mr-1"></i> รายงานฉบับสมบูรณ์ (รายเดือน/เทอม) จะสามารถดาวน์โหลดได้ผ่านเมนูนี้ในการอัปเดตระบบครั้งต่อไป</p>
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">รายละเอียด (นักเรียนที่ไม่มาเรียน/สาย)</h4>
+                         <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 text-gray-600 border-b">
+                                    <tr>
+                                        <th class="px-4 py-3 w-1/4">สถานะ</th>
+                                        <th class="px-4 py-3">ข้อมูลนักเรียน</th>
+                                        <th class="px-4 py-3 w-1/3">หมายเหตุ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportDetailList" class="divide-y divide-gray-100">
+                                    <!-- รายชื่อจะแสดงตรงนี้ -->
+                                </tbody>
+                            </table>
+                         </div>
+
+                         <div class="bg-blue-50 text-blue-800 rounded-lg p-4 border border-blue-100 text-sm flex items-start gap-3">
+                             <i class="fas fa-info-circle mt-0.5"></i>
+                             <div>
+                                ข้อมูลถูกดึงมาจากระบบและฐานข้อมูลเรียบร้อยแล้ว หากพบความผิดพลาดสามารถกลับไปแก้ไขได้ที่เมนู "จัดการเวลาเรียน"
+                             </div>
                          </div>
                     </div>
                 </div>
@@ -329,9 +350,9 @@
                 <table class="w-full text-sm text-left whitespace-nowrap">
                     <thead class="bg-gray-100 text-gray-600 sticky top-0 z-10 shadow-sm">
                         <tr id="manageTableHeader">
-                            <th class="p-3">เลขที่</th>
-                            <th class="p-3">ข้อมูล</th>
-                            <th class="p-3 text-center">จัดการ</th>
+                            <th class="p-3 w-16 text-center">เลขที่</th>
+                            <th class="p-3">ข้อมูลนักเรียน</th>
+                            <th class="p-3 text-center w-24">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="manageTableBody" class="divide-y divide-gray-200">
@@ -345,11 +366,11 @@
     <!-- ADD/EDIT STUDENT FORM MODAL -->
     <div id="studentFormModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm">
         <div class="modal-content bg-white w-full max-w-sm mx-4 rounded-xl shadow-xl p-0 overflow-hidden">
-            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-                 <h3 class="font-bold text-lg text-gray-800" id="studentFormTitle">เพิ่มนักเรียน</h3>
+            <div class="bg-blue-50 px-6 py-4 border-b flex justify-between items-center">
+                 <h3 class="font-bold text-lg text-blue-900" id="studentFormTitle">เพิ่มนักเรียน</h3>
                  <button onclick="closeEditStudentForm()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
             </div>
-            <div class="p-6 space-y-3">
+            <div class="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
                 <input type="hidden" id="stuFormAction">
                 <input type="hidden" id="stuFormRowIndex">
                 <div id="stuDynamicInputs"></div>
@@ -382,6 +403,73 @@
         let fpMain, fpHistory, fpReport;
 
         // =========================================================================
+        // SweetAlert แบบน่ารักๆ (Cute Alerts)
+        // =========================================================================
+        const cuteAlert = {
+            loading: (text) => {
+                Swal.fire({
+                    html: `
+                        <div class="p-4 text-center">
+                            <img src="https://cdn-icons-png.flaticon.com/512/3281/3281323.png" class="w-20 h-20 mx-auto mb-4 animate-bounce opacity-90">
+                            <h3 class="text-xl font-bold text-blue-900 mb-2">กำลังทำงาน...</h3>
+                            <p class="text-sm text-gray-500">${text}</p>
+                        </div>
+                    `,
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    scrollbarPadding: false, heightAuto: false
+                });
+            },
+            success: (title, text) => {
+                Swal.fire({
+                    html: `
+                        <div class="p-2 text-center">
+                            <div class="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-emerald-700 mb-2">${title}</h3>
+                            <p class="text-sm text-gray-500">${text}</p>
+                        </div>
+                    `,
+                    timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false
+                });
+            },
+            error: (title, text) => {
+                Swal.fire({
+                    html: `
+                        <div class="p-2 text-center">
+                            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
+                                <i class="fas fa-times"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-red-700 mb-2">${title}</h3>
+                            <p class="text-sm text-gray-500">${text}</p>
+                        </div>
+                    `,
+                    confirmButtonText: 'ตกลง', confirmButtonColor: '#ef4444', scrollbarPadding: false, heightAuto: false
+                });
+            },
+            confirm: (title, text, confirmBtnText, colorClass = '#3b82f6') => {
+                return Swal.fire({
+                    html: `
+                        <div class="p-2 text-center">
+                            <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
+                                <i class="fas fa-question"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
+                            <p class="text-sm text-gray-500">${text}</p>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonColor: colorClass,
+                    cancelButtonColor: '#9ca3af',
+                    confirmButtonText: confirmBtnText,
+                    cancelButtonText: 'ยกเลิก',
+                    scrollbarPadding: false, heightAuto: false
+                });
+            }
+        };
+
+        // =========================================================================
         // เริ่มต้นการทำงาน (Initialization)
         // =========================================================================
         document.addEventListener('DOMContentLoaded', () => {
@@ -389,8 +477,6 @@
             initDatePickers();
             updateHeaderDate(new Date());
             fetchClasses();
-            
-            // แสดงแท็บภาพรวมเป็นหน้าแรก
             switchTab('overview');
         });
 
@@ -402,36 +488,16 @@
                 document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
                 document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=1e3a8a&color=ffffff`;
             } else {
-                Swal.fire({
-                    title: 'ปฏิเสธการเข้าถึง',
-                    text: 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน',
-                    icon: 'warning',
-                    confirmButtonText: 'กลับไปหน้าหลัก',
-                    allowOutsideClick: false
-                }).then(() => {
+                cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน').then(() => {
                     window.location.href = 'index.html'; 
                 });
             }
         }
 
-        // --- ระบบแยกปุ่ม: กลับเว็บ vs ออกจากระบบ ---
-        function goToMainWeb() {
-            // ไปหน้าแรกโดยไม่เตะออกจากระบบ
-            window.location.href = 'index.html';
-        }
+        function goToMainWeb() { window.location.href = 'index.html'; }
 
         function realLogout() {
-            // เคลียร์ LocalStorage และออกระบบจริง
-            Swal.fire({
-                title: 'ออกจากระบบ?',
-                text: 'คุณแน่ใจหรือไม่ที่จะออกจากระบบเช็คชื่อ?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'ออกจากระบบ',
-                cancelButtonText: 'ยกเลิก'
-            }).then((result) => {
+            cuteAlert.confirm('ออกจากระบบ?', 'คุณแน่ใจหรือไม่ที่จะออกจากระบบเช็คชื่อ?', 'ใช่, ออกจากระบบ', '#ef4444').then((result) => {
                 if (result.isConfirmed) {
                     localStorage.removeItem('nswUser');
                     window.location.href = 'index.html';
@@ -439,23 +505,10 @@
             });
         }
 
-        // =========================================================================
-        // UI & ระบบสลับแท็บ (Tab Navigation)
-        // =========================================================================
-        const tabTitles = {
-            'overview': 'ภาพรวมระบบเช็คชื่อ',
-            'attendance': 'บันทึกเวลาเรียนประจำวัน',
-            'manage-time': 'ตรวจสอบ / แก้ไขเวลาย้อนหลัง',
-            'report': 'รายงานการมาเรียน'
-        };
-
         function switchTab(tabId) {
-            // ซ่อนทุกเนื้อหา
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            // แสดงเนื้อหาเป้าหมาย
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
             
-            // เปลี่ยนสี Sidebar
             document.querySelectorAll('.sidebar-item').forEach(el => {
                 if(el.getAttribute('data-tab')) {
                     el.classList.remove('active', 'border-l-4', 'border-yellow-400');
@@ -468,27 +521,20 @@
                 activeLink.classList.add('active', 'border-l-4', 'border-yellow-400');
             }
 
-            // เปลี่ยน Header Title
+            const tabTitles = {
+                'overview': 'ภาพรวมระบบเช็คชื่อ', 'attendance': 'บันทึกเวลาเรียนประจำวัน',
+                'manage-time': 'ตรวจสอบ / แก้ไขเวลาย้อนหลัง', 'report': 'รายงานการมาเรียน'
+            };
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
-        }
-
-        function showLoading(text = 'กำลังโหลดข้อมูล...') { 
-            document.getElementById('loadingText').innerText = text;
-            document.getElementById('loadingOverlay').classList.remove('hidden'); 
-        }
-        function hideLoading() { 
-            document.getElementById('loadingOverlay').classList.add('hidden'); 
         }
 
         function initDatePickers() {
             flatpickr.localize(flatpickr.l10ns.th);
             const commonConfig = {
-                dateFormat: "Y-m-d",
-                defaultDate: "today",
+                dateFormat: "Y-m-d", defaultDate: "today",
                 disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
             };
 
-            // Main date picker
             fpMain = flatpickr("#datePicker", {
                 ...commonConfig,
                 onChange: function(selectedDates, dateStr) {
@@ -500,12 +546,9 @@
                 }
             });
             
-            // Manage Time Picker
             fpHistory = flatpickr("#manageTimeDate", commonConfig);
-            // Report Picker
             fpReport = flatpickr("#reportDate", commonConfig);
 
-            // Set Initial Dates avoiding weekends
             const today = new Date();
             if(today.getDay() === 0) today.setDate(today.getDate() - 2);
             else if(today.getDay() === 6) today.setDate(today.getDate() - 1);
@@ -526,25 +569,23 @@
         // Data Fetching
         // =========================================================================
         async function fetchClasses() {
-            showLoading('กำลังเตรียมข้อมูล...');
+            document.getElementById('loadingOverlay').classList.remove('hidden'); 
             try {
                 const res = await fetch(`${API_URL}?action=getStudentClasses`);
                 const json = await res.json();
                 
                 if (json.status === 'success') {
                     state.classes = json.data;
-                    let options = '<option value="">เลือกห้องเรียน...</option>' + 
-                                  state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
-                    
+                    let options = '<option value="">เลือกห้องเรียน...</option>' + state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
                     document.getElementById('classSelector').innerHTML = options;
                     document.getElementById('manageClassSelector').innerHTML = options;
                     document.getElementById('manageTimeClass').innerHTML = options;
                     document.getElementById('reportClassSel').innerHTML = options;
                 }
             } catch (e) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลห้องเรียนได้');
             }
-            hideLoading();
+            document.getElementById('loadingOverlay').classList.add('hidden'); 
         }
 
         async function loadStudents() {
@@ -557,7 +598,7 @@
                 return;
             }
 
-            showLoading(`กำลังโหลดรายชื่อนักเรียน ${className}...`);
+            cuteAlert.loading(`โหลดข้อมูล ${className} 🚀`);
             try {
                 const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className)}`);
                 const json = await res.json();
@@ -567,14 +608,15 @@
                     state.students = json.data.slice(1);
                     document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
                     await fetchAttendanceHistory();
+                    Swal.close();
                 } else {
                     document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500">ไม่มีข้อมูลนักเรียนในชั้นเรียนนี้</td></tr>`;
                     document.getElementById('studentCountBadge').innerText = '0 คน';
+                    Swal.close();
                 }
             } catch (e) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถโหลดรายชื่อนักเรียนได้', 'error');
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถโหลดรายชื่อนักเรียนได้');
             }
-            hideLoading();
         }
 
         async function fetchAttendanceHistory() {
@@ -617,7 +659,7 @@
                 const code = row[1] || '';
                 const nameParts = row.slice(2, 5).filter(Boolean); 
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : row[2] || 'ไม่ระบุชื่อ';
-                const displayInfo = `${fullName} ${code ? '(รหัส: ' + code + ')' : ''}`;
+                const displayInfo = `${fullName} <span class="text-xs text-gray-400 ml-1">${code ? '(' + code + ')' : ''}</span>`;
 
                 const attendanceRecord = state.attendance[index];
                 const s = attendanceRecord.status;
@@ -628,7 +670,7 @@
                     <td class="px-6 py-3 text-center text-gray-500 font-medium">${number}</td>
                     <td class="px-6 py-3 font-medium text-gray-800">${displayInfo}</td>
                     <td class="px-6 py-3 text-center">
-                        <div class="flex items-center justify-center gap-2">
+                        <div class="flex items-center justify-center gap-1.5 md:gap-2">
                             <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
                             <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
                             <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
@@ -637,7 +679,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-3 text-center">
-                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${hasNote ? attendanceRecord.note : 'เพิ่มหมายเหตุ'}">
+                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-inner' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${hasNote ? attendanceRecord.note : 'เพิ่มหมายเหตุ'}">
                             <i class="fas fa-comment-alt text-xs"></i>
                         </button>
                     </td>
@@ -657,7 +699,6 @@
             renderStudentTable();
         }
 
-        // --- Note Modal ---
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
             document.getElementById('noteTextarea').value = state.attendance[index].note || '';
@@ -675,29 +716,17 @@
 
         async function saveAttendance() {
             if(!state.currentClass || !state.currentDate) {
-                Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวันที่ก่อนบันทึก', 'warning');
+                cuteAlert.warning('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวันที่ก่อนบันทึก');
                 return;
             }
 
             const unchecked = state.attendance.filter(a => a.status === null).length;
             if(unchecked > 0) {
-                const conf = await Swal.fire({
-                    title: 'ยังระบุไม่ครบ!',
-                    text: `มีนักเรียนที่ยังไม่ได้เลือกสถานะจำนวน ${unchecked} คน บันทึกเลยหรือไม่?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'บันทึกเลย',
-                    cancelButtonText: 'กลับไปตรวจสอบ'
-                });
+                const conf = await cuteAlert.confirm('ยังระบุไม่ครบ!', `มีนักเรียนที่ยังไม่ได้เลือกสถานะจำนวน ${unchecked} คน บันทึกเลยหรือไม่?`, 'บันทึกเลย', '#f59e0b');
                 if(!conf.isConfirmed) return;
             }
 
-            Swal.fire({
-                title: 'กำลังบันทึก...',
-                html: '<b>โปรดรอสักครู่</b> ระบบกำลังสื่อสารกับฐานข้อมูล 🚀',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
+            cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
             
             const form = new FormData();
             form.append('className', state.currentClass);
@@ -710,84 +739,110 @@
                 const json = await res.json();
                 
                 if (json.status === 'success') {
-                    Swal.fire({ icon: 'success', title: 'สำเร็จแล้ว! 🎉', text: json.message, timer: 2000, showConfirmButton: false });
+                    cuteAlert.success('สำเร็จแล้ว! 🎉', json.message);
                 } else {
-                    Swal.fire('ข้อผิดพลาด', json.message, 'error');
+                    cuteAlert.error('ข้อผิดพลาด', json.message);
                 }
             } catch(e) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
             }
         }
 
         // =========================================================================
-        // จัดการเวลาเรียน (Manage Time - redirect to edit)
+        // จัดการเวลาเรียน
         // =========================================================================
         function goToEditTime() {
             const cls = document.getElementById('manageTimeClass').value;
             const dateStr = document.getElementById('manageTimeDate').value;
             
             if(!cls || !dateStr) {
-                Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องและวันที่ให้ครบถ้วน', 'warning');
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องและวันที่ให้ครบถ้วน');
                 return;
             }
 
-            // นำค่าไปใส่ใน Main Picker และสั่งโหลด
             document.getElementById('classSelector').value = cls;
             fpMain.setDate(dateStr);
             state.currentDate = dateStr;
             updateHeaderDate(fpMain.selectedDates[0]);
             
-            // สลับแท็บและโหลดข้อมูลทันที
             switchTab('attendance');
             loadStudents();
         }
 
         // =========================================================================
-        // รายงาน (Report)
+        // รายงาน (Report) พร้อมดึงข้อมูลแสดงผล
         // =========================================================================
         async function generateReport() {
             const cls = document.getElementById('reportClassSel').value;
             const dateStr = document.getElementById('reportDate').value;
 
             if(!cls || !dateStr) {
-                Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องและวันที่ที่ต้องการดูรายงาน', 'warning');
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องและวันที่ที่ต้องการดูรายงาน');
                 return;
             }
 
-            Swal.fire({
-                title: 'กำลังประมวลผลรายงาน...',
-                html: 'ระบบกำลังดึงข้อมูลสถิติ 📊',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
+            cuteAlert.loading('ดึงข้อมูลสถิติจากฐานข้อมูล 📊');
 
             try {
                 const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${dateStr}`);
                 const json = await res.json();
                 
                 let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                let detailHtml = '';
                 
+                const statusConfig = {
+                    'leave': { text: 'ลากิจ', color: 'bg-blue-100 text-blue-700' },
+                    'absent': { text: 'ขาดเรียน', color: 'bg-red-100 text-red-700' },
+                    'late': { text: 'สาย', color: 'bg-orange-100 text-orange-700' },
+                    'sick': { text: 'ป่วย', color: 'bg-purple-100 text-purple-700' }
+                };
+
                 if(json.status === 'success' && json.data.length > 0) {
                     json.data.forEach(r => {
                         if(stats[r.status] !== undefined) stats[r.status]++;
+                        
+                        // สร้างรายการคนที่ไม่ได้มาเรียนปกติ
+                        if(r.status && r.status !== 'present') {
+                            const studentInfoParts = r.id.split('|'); // [เลขที่, รหัส, ชื่อ]
+                            const studentNumber = studentInfoParts[0] || '-';
+                            const studentName = studentInfoParts[2] || 'ไม่ทราบชื่อ';
+                            const config = statusConfig[r.status];
+                            
+                            detailHtml += `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${config.color}">${config.text}</span></td>
+                                    <td class="px-4 py-3 font-medium text-gray-800">เลขที่ ${studentNumber} - ${studentName}</td>
+                                    <td class="px-4 py-3 text-gray-500 text-sm">${r.note || '-'}</td>
+                                </tr>
+                            `;
+                        }
                     });
                 }
                 
+                // อัปเดตตัวเลขสถิติ
                 document.getElementById('repPresent').innerText = stats.present;
                 document.getElementById('repLeave').innerText = stats.leave;
                 document.getElementById('repAbsent').innerText = stats.absent;
                 document.getElementById('repLate').innerText = stats.late;
                 document.getElementById('repSick').innerText = stats.sick;
                 
+                // อัปเดตตารางรายละเอียด
+                const detailContainer = document.getElementById('reportDetailList');
+                if(detailHtml === '') {
+                    detailContainer.innerHTML = `<tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">ไม่มีนักเรียนที่ขาด/ลา/สาย/ป่วย ในวันดังกล่าว 🎉</td></tr>`;
+                } else {
+                    detailContainer.innerHTML = detailHtml;
+                }
+
                 document.getElementById('reportResult').classList.remove('hidden');
                 Swal.close();
             } catch(e) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้', 'error');
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้');
             }
         }
 
         // =========================================================================
-        // ADMIN: จัดการข้อมูลนักเรียน (มี SweetAlert น่ารักๆ)
+        // ADMIN: จัดการข้อมูลนักเรียน 
         // =========================================================================
         function openManageStudentModal() {
             document.getElementById('manageStudentModal').classList.add('active');
@@ -840,11 +895,11 @@
 
         function openEditStudentForm(actionType, rowIndex = null) {
             const className = document.getElementById('manageClassSelector').value;
-            if(!className) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน', 'warning'); return; }
+            if(!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
 
             document.getElementById('stuFormAction').value = actionType;
             document.getElementById('stuFormRowIndex').value = rowIndex !== null ? rowIndex : '';
-            document.getElementById('studentFormTitle').innerText = actionType === 'add' ? 'เพิ่มนักเรียน' : 'แก้ไขข้อมูลนักเรียน';
+            document.getElementById('studentFormTitle').innerHTML = actionType === 'add' ? '<i class="fas fa-user-plus mr-2"></i> เพิ่มนักเรียน' : '<i class="fas fa-user-edit mr-2"></i> แก้ไขข้อมูลนักเรียน';
 
             const container = document.getElementById('stuDynamicInputs');
             container.innerHTML = '';
@@ -854,8 +909,8 @@
                 const val = rowData[i] || '';
                 container.innerHTML += `
                     <div class="mb-3">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">${headerName}</label>
-                        <input type="text" id="stuInput_${i}" value="${val}" class="w-full border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        <label class="block text-xs font-bold text-gray-600 mb-1">${headerName}</label>
+                        <input type="text" id="stuInput_${i}" value="${val}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 `;
             });
@@ -879,12 +934,7 @@
             form.append('studentData', JSON.stringify(newRowData));
             if(actionType === 'edit') form.append('rowIndex', rowIndex);
 
-            Swal.fire({
-                title: 'กำลังบันทึกข้อมูล...',
-                html: '<b>โปรดรอสักครู่</b> ระบบกำลังจัดการข้อมูลนักเรียน 📝',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
+            cuteAlert.loading('กำลังจัดการข้อมูลนักเรียน 📝');
 
             try {
                 const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
@@ -894,33 +944,19 @@
                     closeEditStudentForm();
                     loadManageStudents();
                     if (state.currentClass === className) loadStudents();
-                    Swal.fire({icon: 'success', title: 'สำเร็จ! ✨', text: 'อัปเดตข้อมูลนักเรียนเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false});
+                    cuteAlert.success('สำเร็จ! ✨', 'อัปเดตข้อมูลนักเรียนเรียบร้อยแล้ว');
                 } else {
-                    Swal.fire('ข้อผิดพลาด', json.message, 'error');
+                    cuteAlert.error('ข้อผิดพลาด', json.message);
                 }
             } catch (e) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', 'error');
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
             }
         }
 
         function deleteStudent(rowIndex) {
-            Swal.fire({
-                title: 'ยืนยันการลบ?',
-                text: 'คุณแน่ใจหรือไม่ที่จะลบข้อมูลนักเรียนนี้?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'ใช่, ลบเลย! 🗑️',
-                cancelButtonText: 'ยกเลิก'
-            }).then(async (result) => {
+            cuteAlert.confirm('ลบข้อมูลนักเรียน?', 'หากลบแล้วข้อมูลจะหายไป รวมถึงประวัติการเช็คชื่อเดิมด้วย', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'กำลังลบข้อมูล...',
-                        html: 'โปรดรอสักครู่ ระบบกำลังนำข้อมูลออก ⏳',
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
+                    cuteAlert.loading('กำลังนำข้อมูลออก ⏳');
 
                     const className = document.getElementById('manageClassSelector').value;
                     const form = new FormData();
@@ -935,10 +971,10 @@
                         if (json.status === 'success') {
                             loadManageStudents();
                             if (state.currentClass === className) loadStudents();
-                            Swal.fire({icon: 'success', title: 'ลบสำเร็จ! ✅', timer: 1500, showConfirmButton: false});
+                            cuteAlert.success('ลบสำเร็จ! ✅', 'นำนักเรียนออกจากระบบแล้ว');
                         }
                     } catch (e) {
-                        Swal.fire('Error', 'ลบข้อมูลไม่สำเร็จ', 'error');
+                        cuteAlert.error('Error', 'ลบข้อมูลไม่สำเร็จ');
                     }
                 }
             });
