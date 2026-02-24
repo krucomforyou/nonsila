@@ -395,7 +395,7 @@
             manageData: []
         };
 
-        const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรดฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
         let fpMain, fpHistory, fpReport;
 
         // =========================================================================
@@ -636,9 +636,14 @@
 
         async function fetchAttendanceHistory() {
             if(!state.currentClass || !state.currentDate) return;
+            
+            console.log("Fetching attendance for:", state.currentClass, state.currentDate);
+            
             try {
                 const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(state.currentClass)}&date=${state.currentDate}`);
                 const json = await res.json();
+                
+                console.log("Attendance History Data:", json);
                 
                 state.attendance = state.students.map(row => ({
                     id: getStudentUniqueId(row), status: null, note: ''
@@ -655,6 +660,7 @@
                 }
                 renderStudentTable();
             } catch (e) {
+                console.error("Error fetching history:", e);
                 renderStudentTable();
             }
         }
@@ -802,10 +808,14 @@
             }
 
             cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
+            
+            console.log("Fetching report for:", cls, dateStr);
 
             try {
                 const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${dateStr}`);
                 const json = await res.json();
+                
+                console.log("Report Data Received:", json);
                 
                 let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
                 let detailHtml = '';
@@ -846,7 +856,7 @@
                 document.getElementById('repLate').innerText = stats.late;
                 document.getElementById('repSick').innerText = stats.sick;
                 
-                // อัปเดตตารางรายละเอียด พร้อมตรวจสอบว่ามีข้อมูลหรือไม่ (เผื่อเจอกรณี Sheet เปลี่ยนรูปแบบ Date)
+                // อัปเดตตารางรายละเอียด 
                 const detailContainer = document.getElementById('reportDetailList');
                 if(detailHtml === '') {
                     // ถ้าดึงข้อมูลมาแล้ว ทุกสถานะเป็น 0 แสดงว่าหาข้อมูลวันนั้นไม่เจอเลย
@@ -855,13 +865,13 @@
                         <tr>
                             <td colspan="3" class="px-4 py-8 text-center text-gray-500">
                                 <div class="text-lg mb-2"><i class="fas fa-folder-open text-gray-300 text-4xl"></i></div>
-                                <p class="font-bold">ไม่พบข้อมูลในระบบ หรือ ยังไม่มีการบันทึกข้อมูลของวันดังกล่าว</p>
-                                <div class="mt-4 p-4 bg-yellow-50 text-yellow-800 rounded-lg text-sm inline-block text-left border border-yellow-200">
-                                    <i class="fas fa-exclamation-triangle mr-1 text-yellow-600"></i> <b>แก้ปัญหาดึงข้อมูลไม่ขึ้น:</b><br>
-                                    หากคุณแน่ใจว่าบันทึกไปแล้ว ให้เปิดไฟล์ Google Sheet ที่เชื่อมต่อไว้<br>
-                                    1. คลุมดำหัวคอลัมน์ A (Date) ทั้งหมด<br>
-                                    2. เลือกเมนู <b>รูปแบบ (Format)</b> > <b>ตัวเลข (Number)</b><br>
-                                    3. เลือก <b>"ข้อความธรรมดา" (Plain text)</b>
+                                <p class="font-bold text-gray-700 text-lg mt-2">ยังไม่พบข้อมูลการเช็คชื่อของวันดังกล่าว</p>
+                                <div class="mt-5 p-4 bg-red-50 text-red-800 rounded-xl text-sm inline-block text-left border border-red-200">
+                                    <i class="fas fa-exclamation-triangle mr-1 text-red-600 text-lg"></i> <b class="text-base text-red-900">วิธีแก้ปัญหา หากมั่นใจว่าบันทึกแล้วแต่ข้อมูลไม่ขึ้น:</b><br><br>
+                                    <div class="space-y-2">
+                                        <p><b>1. ลืม Deploy โค้ดใหม่:</b> ถ้าเพิ่งแก้ไข <code>code.gs</code> ต้องกด <b>"การทำให้ใช้งานได้" (Deploy) > "การทำให้ใช้งานได้รายการใหม่" (New deployment)</b> เสมอ (ห้ามกดแค่บันทึก)</p>
+                                        <p><b>2. รูปแบบวันที่ผิดเพี้ยน:</b> ไปที่ไฟล์ Google Sheet ที่เก็บข้อมูล คลุมดำหัวคอลัมน์ A (Date) ทั้งหมด > เมนู <b>รูปแบบ (Format) > ตัวเลข (Number) > เลือก "ข้อความธรรมดา" (Plain text)</b></p>
+                                    </div>
                                 </div>
                             </td>
                         </tr>`;
