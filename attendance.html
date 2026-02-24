@@ -3,559 +3,796 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็คชื่อนักเรียน - โรงเรียนโนนศิลาสว่างวิทย์ (นสว.)</title>
+    <title>บันทึกเวลาเรียน - โรงเรียนโนนศิลาสว่างวิทย์</title>
     
-    <!-- Favicon -->
-    <link id="favicon" rel="icon" type="image/png" href="https://placehold.co/32">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
+
+    <!-- Flatpickr (สำหรับปฏิทินที่ปิดวันเสาร์-อาทิตย์ได้) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+
     <style>
-        body { 
-            font-family: 'Sarabun', sans-serif; 
-            background-color: #f0f8ff; 
-            background-image: url('https://www.transparenttextures.com/patterns/cubes.png'); 
-        }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .sidebar { background-color: #1e3a8a; } /* สีน้ำเงินเข้มตามเว็บหลัก */
+        .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #facc15; }
         
-        /* SweetAlert Custom Cute Style */
-        .swal2-popup { 
-            font-family: 'Sarabun', sans-serif !important; 
-            border-radius: 28px !important; 
-            border: 4px solid #ffffff !important; 
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
-            background: linear-gradient(135deg, #ffffff 0%, #f0f8ff 100%) !important;
+        /* สไตล์ปุ่มสถานะ */
+        .status-btn {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: bold; cursor: pointer; transition: all 0.2s;
+            border: 2px solid transparent;
+            color: #6b7280; background-color: #f3f4f6;
         }
-        .swal2-title { color: #1e3a8a !important; font-weight: 700 !important; }
-        .swal2-html-container { color: #6b7280 !important; font-size: 1.05rem !important; }
-        .swal2-confirm, .swal2-cancel { 
-            border-radius: 50px !important; 
-            font-weight: 700 !important; 
-            padding: 12px 30px !important; 
-            transition: all 0.3s ease !important; 
-        }
+        .status-btn.selected { color: white; }
+        
+        /* สีของแต่ละสถานะ (Outline ก่อนเลือก และ สีทึบเมื่อเลือก) */
+        .status-present { border-color: #10b981; }
+        .status-present.selected { background-color: #10b981; border-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
+        
+        .status-leave { border-color: #3b82f6; }
+        .status-leave.selected { background-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); }
+        
+        .status-absent { border-color: #ef4444; }
+        .status-absent.selected { background-color: #ef4444; border-color: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); }
+        
+        .status-late { border-color: #f59e0b; }
+        .status-late.selected { background-color: #f59e0b; border-color: #f59e0b; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3); }
+        
+        .status-sick { border-color: #8b5cf6; }
+        .status-sick.selected { background-color: #8b5cf6; border-color: #8b5cf6; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3); }
 
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #ffffff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
-        .loader-blue { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        /* Loader */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Custom Scrollbar สำหรับตารางเช็คชื่อ */
-        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Modal Transitions */
+        .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
+        .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-6 px-4 relative overflow-x-hidden">
+<body class="flex h-screen overflow-hidden">
 
-    <!-- Background Decoration -->
-    <div class="fixed top-0 left-0 w-full h-64 bg-gradient-to-b from-blue-900 to-transparent -z-10"></div>
-    <div class="fixed -top-32 -right-32 w-96 h-96 bg-yellow-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-    <div class="fixed -bottom-32 -left-32 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style="animation-delay: 2s;"></div>
+    <!-- OVERLAY LOADING -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
+        <div class="loader mb-4 w-12 h-12 border-4"></div>
+        <p class="text-blue-900 font-bold text-lg animate-pulse" id="loadingText">กำลังโหลดข้อมูล...</p>
+    </div>
 
-    <div class="w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden border-t-8 border-yellow-400 transform transition-all relative z-10">
+    <!-- SIDEBAR -->
+    <aside class="w-64 sidebar text-white flex flex-col h-full shadow-xl z-20 hidden md:flex flex-shrink-0">
+        <div class="p-6 border-b border-blue-800 flex flex-col items-center">
+            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-blue-900 text-3xl shadow-lg mb-3">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h1 class="font-bold text-lg">บันทึกเวลาเรียน</h1>
+        </div>
         
-        <!-- Header Section -->
-        <div class="px-6 pt-8 pb-4 text-center">
-            <img src="https://placehold.co/150x150/ffffff/1e3a8a?text=NSW" alt="Logo" class="w-20 h-20 mx-auto rounded-full border-4 border-blue-50 shadow-md object-contain mb-3">
-            <h1 class="text-2xl md:text-3xl font-bold text-blue-900 tracking-wide">โรงเรียนโนนศิลาสว่างวิทย์</h1>
-            <p class="text-sm md:text-base text-gray-500 mt-1 font-medium bg-yellow-100 text-yellow-800 inline-block px-4 py-1 rounded-full border border-yellow-200"><i class="fas fa-clipboard-check mr-1"></i> ระบบเช็คชื่อนักเรียน</p>
-        </div>
-
-        <!-- ======================= SECTION: LOGIN ======================= -->
-        <div id="loginSection" class="px-8 pb-10 block max-w-md mx-auto">
-            <div class="bg-blue-50 rounded-lg p-3 mb-6 text-sm text-blue-800 text-center font-medium border border-blue-100">
-                <i class="fas fa-info-circle mr-1"></i> กรุณาเข้าสู่ระบบเพื่อดำเนินการเช็คชื่อ
-            </div>
-            <form id="standaloneLoginForm" class="space-y-6">
-                <!-- Username -->
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">ชื่อผู้ใช้งาน (Username)</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i class="fas fa-user text-gray-400"></i>
-                        </div>
-                        <input type="text" id="loginUser" placeholder="กรอกชื่อผู้ใช้งาน" required
-                            class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm">
-                    </div>
-                </div>
-
-                <!-- Password -->
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">รหัสผ่าน (Password)</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i class="fas fa-lock text-gray-400"></i>
-                        </div>
-                        <input type="password" id="loginPass" placeholder="กรอกรหัสผ่าน" required
-                            class="w-full pl-11 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm">
-                        <!-- Toggle Password Visibility -->
-                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors">
-                            <i class="fas fa-eye" id="toggleIcon"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg transform transition hover:-translate-y-1 flex justify-center items-center gap-2">
-                    <span id="btnText">เข้าสู่ระบบ</span>
-                    <i class="fas fa-sign-in-alt" id="btnIcon"></i>
-                    <div id="btnSpinner" class="loader hidden"></div>
-                </button>
-            </form>
-        </div>
-
-        <!-- ======================= SECTION: ATTENDANCE SYSTEM ======================= -->
-        <div id="attendanceSection" class="px-4 md:px-8 pb-8 hidden">
-            <!-- User Profile & Date -->
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50 rounded-2xl p-4 border border-gray-100 shadow-inner mb-6">
-                <div class="flex items-center gap-4">
-                    <img id="profileImage" src="https://placehold.co/100x100" class="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover">
-                    <div>
-                        <h2 id="profileName" class="font-bold text-gray-800 text-sm md:text-base">ชื่อครูผู้สอน</h2>
-                        <div id="profileRole" class="mt-1 inline-block bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-blue-200">ครูผู้สอน</div>
-                    </div>
-                </div>
-                <div class="w-full md:w-auto text-right">
-                    <label class="block text-xs font-bold text-gray-500 mb-1 text-left md:text-right">วันที่เช็คชื่อ</label>
-                    <input type="date" id="attendanceDate" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full md:w-auto bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-                </div>
-            </div>
-
-            <!-- Class Selection -->
-            <div class="mb-6">
-                <label class="block text-sm font-bold text-gray-700 mb-2"><i class="fas fa-chalkboard-teacher text-blue-500 mr-1"></i> เลือกชั้นเรียนที่ต้องการเช็คชื่อ</label>
-                <select id="classSelect" onchange="loadStudents()" class="w-full bg-white border-2 border-blue-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm font-bold text-blue-900 cursor-pointer appearance-none">
-                    <option value="">-- กำลังโหลดข้อมูลชั้นเรียน --</option>
-                </select>
-            </div>
-
-            <!-- Student List Container -->
-            <div id="studentContainer" class="hidden">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-lg text-gray-800">รายชื่อนักเรียน <span id="studentCountBadge" class="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full ml-1">0 คน</span></h3>
-                    <div class="flex gap-2 text-xs font-medium text-gray-500">
-                        <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-green-500"></div>มา</span>
-                        <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-red-500"></div>ขาด</span>
-                    </div>
-                </div>
-
-                <!-- Table/List Area -->
-                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                    <div class="max-h-[50vh] overflow-y-auto custom-scroll p-2 space-y-2" id="studentList">
-                        <!-- Student Rows Will Be Injected Here -->
-                    </div>
-                </div>
-
-                <!-- Summary & Submit -->
-                <div class="mt-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div class="text-sm text-blue-800 font-medium w-full sm:w-auto text-center sm:text-left">
-                            ตรวจสอบข้อมูลให้ครบถ้วนก่อนบันทึก
-                        </div>
-                        <button onclick="submitAttendance()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transform transition hover:-translate-y-1 flex items-center justify-center gap-2">
-                            <i class="fas fa-save"></i> บันทึกข้อมูลเช็คชื่อ
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading State for Students -->
-            <div id="studentLoading" class="hidden py-12 text-center text-gray-500">
-                <div class="loader-blue mb-4"></div>
-                <p class="font-medium text-sm">กำลังดึงรายชื่อนักเรียน...</p>
-            </div>
-
-            <!-- Initial State for Students -->
-            <div id="studentInitial" class="py-12 text-center text-gray-400 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
-                <i class="fas fa-users text-4xl mb-3 text-gray-300"></i>
-                <p class="font-medium text-sm">กรุณาเลือกชั้นเรียนเพื่อแสดงรายชื่อ</p>
-            </div>
-
-            <!-- Switch Account -->
-            <div class="mt-8 text-center">
-                <button onclick="logout()" class="text-gray-400 hover:text-red-500 text-xs font-bold transition flex items-center justify-center gap-1 mx-auto">
-                    <i class="fas fa-sign-out-alt"></i> สลับบัญชีผู้ใช้
-                </button>
-            </div>
-        </div>
-
-        <div class="text-center border-t pt-4 pb-4 border-gray-100 bg-gray-50 mt-2">
-            <a href="index.html" class="text-blue-600 hover:text-blue-800 text-sm font-bold transition flex items-center justify-center gap-2">
-                <i class="fas fa-home"></i> กลับสู่หน้าหลักเว็บไซต์
+        <nav class="flex-1 overflow-y-auto py-4">
+            <div class="px-4 text-xs font-bold text-blue-300 mb-2 uppercase">เมนูหลัก</div>
+            <a href="index.html" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-chart-pie w-6"></i> ภาพรวม
             </a>
+            <a href="#" class="sidebar-item active flex items-center px-6 py-3 text-sm transition">
+                <i class="fas fa-clipboard-check w-6"></i> บันทึกเวลาเรียน
+            </a>
+            <a href="#" onclick="openManageStudentModal()" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-users w-6"></i> จัดการนักเรียน
+            </a>
+            <a href="#" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="far fa-calendar-alt w-6"></i> จัดการเวลาเรียน
+            </a>
+            <a href="#" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-file-alt w-6"></i> รายงาน
+            </a>
+            
+            <div id="adminMenuSection" class="hidden">
+                <div class="px-4 text-xs font-bold text-blue-300 mb-2 mt-6 uppercase">จัดการ</div>
+                <a href="#" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                    <i class="fas fa-user-cog w-6"></i> จัดการผู้ใช้
+                </a>
+                <a href="index.html" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                    <i class="fas fa-cogs w-6"></i> ตั้งค่าระบบ
+                </a>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-blue-800 bg-blue-950">
+            <div class="flex items-center gap-3">
+                <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-blue-400">
+                <div class="flex-1 overflow-hidden">
+                    <div id="sidebarUserName" class="text-sm font-bold truncate">ผู้ใช้งาน</div>
+                    <div id="sidebarUserRole" class="text-xs text-blue-300 truncate">ตำแหน่ง</div>
+                </div>
+            </div>
+            <button onclick="logoutToMain()" class="mt-3 w-full bg-blue-800 hover:bg-red-500 text-white text-xs py-2 rounded transition flex items-center justify-center gap-2">
+                <i class="fas fa-sign-out-alt"></i> กลับหน้าแรก / ออกจากระบบ
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        <!-- HEADER -->
+        <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
+            <div class="flex items-center gap-4">
+                <button class="md:hidden text-gray-500 hover:text-blue-900"><i class="fas fa-bars text-xl"></i></button>
+                <h2 class="text-xl font-bold text-gray-800">บันทึกเวลาเรียน</h2>
+            </div>
+            <div class="text-sm text-gray-500 font-medium bg-gray-100 px-4 py-2 rounded-lg border" id="headerDateDisplay">
+                <i class="far fa-calendar-alt mr-2 text-blue-500"></i><span id="headerDateText">กำลังโหลด...</span>
+            </div>
+        </header>
+
+        <!-- CONTENT AREA -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50">
+            
+            <!-- CONTROLS CONTAINER -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                        <!-- Class Selector -->
+                        <div class="w-full md:w-48 relative">
+                            <select id="classSelector" onchange="loadStudents()" class="w-full appearance-none border border-gray-300 rounded-lg pl-4 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-gray-700">
+                                <option value="">เลือกห้องเรียน...</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                        </div>
+                        
+                        <!-- Date Picker -->
+                        <div class="w-full md:w-64 relative">
+                            <input type="text" id="datePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่...">
+                            <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <button onclick="saveAttendance()" class="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> บันทึกทั้งหมด
+                    </button>
+                </div>
+            </div>
+
+            <!-- ATTENDANCE TABLE AREA -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[400px]">
+                
+                <!-- Batch Actions Bar -->
+                <div class="bg-gray-50 border-b border-gray-200 px-6 py-3 flex justify-between items-center">
+                    <div class="text-sm font-bold text-gray-600 flex items-center">
+                        <i class="fas fa-clipboard-list text-blue-500 mr-2 text-lg"></i> บันทึกเวลาเรียน 
+                        <span id="studentCountBadge" class="bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full text-xs ml-2">0 คน</span>
+                    </div>
+                    <div class="flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border shadow-sm">
+                        <span class="text-xs font-bold text-gray-500">ตั้งค่าทั้งห้อง:</span>
+                        <button onclick="setAllStatus('present')" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded font-bold transition">/ มาทุกคน</button>
+                        <button onclick="setAllStatus('absent')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded font-bold transition">ข ขาดทุกคน</button>
+                        <button onclick="setAllStatus(null)" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-bold transition">ล้าง</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="bg-white border-b border-gray-100 text-gray-500">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold w-16 text-center">เลขที่</th>
+                                <th class="px-6 py-4 font-semibold">ชื่อ - นามสกุล</th>
+                                <th class="px-6 py-4 font-semibold text-center w-64">สถานะการเข้าเรียน</th>
+                                <th class="px-6 py-4 font-semibold text-center w-20">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentListContainer" class="divide-y divide-gray-100">
+                            <!-- Empty State -->
+                            <tr>
+                                <td colspan="4" class="py-20 text-center">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                                        <i class="fas fa-users text-2xl text-gray-400"></i>
+                                    </div>
+                                    <p class="text-gray-500 font-medium">กรุณาเลือกห้องเรียนและวันที่เพื่อทำรายการ</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-6 flex flex-wrap justify-center gap-4 text-xs font-medium text-gray-500 bg-white p-3 rounded-lg border border-gray-200 shadow-sm inline-flex mx-auto">
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></span> มาเรียน (/)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span> ลากิจ (ล)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span> ขาดเรียน (ข)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-orange-500 mr-2"></span> สาย (ส)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-purple-500 mr-2"></span> ป่วย (ป)</div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- NOTE MODAL -->
+    <div id="noteModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="modal-content bg-white w-full max-w-sm mx-4 rounded-xl shadow-2xl p-0 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                 <h3 class="font-bold text-lg text-gray-800" id="noteModalTitle">หมายเหตุ</h3>
+                 <button onclick="closeNoteModal()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="noteStudentIndex">
+                <textarea id="noteTextarea" rows="3" class="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50" placeholder="พิมพ์เหตุผลการลา, ป่วย หรือข้อความอื่นๆ..."></textarea>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeNoteModal()" class="px-4 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 rounded-lg transition">ยกเลิก</button>
+                <button onclick="saveNote()" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow hover:bg-blue-700 transition">บันทึก</button>
+            </div>
         </div>
     </div>
 
-    <div class="mt-8 text-center text-gray-500 text-xs">
-        &copy; 2024 Non Sila Sawang Wit School. All rights reserved.
+    <!-- MANAGE STUDENTS MODAL (Admin Only) -->
+    <div id="manageStudentModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="modal-content bg-white w-full max-w-4xl mx-4 rounded-xl shadow-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
+            <div class="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
+                 <h3 class="font-bold text-lg"><i class="fas fa-users-cog mr-2"></i> จัดการฐานข้อมูลนักเรียน</h3>
+                 <button onclick="closeManageStudentModal()" class="text-white hover:text-red-300"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-4 bg-gray-50 border-b flex justify-between items-center gap-4 flex-wrap">
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-sm text-gray-700">เลือกห้อง:</label>
+                    <select id="manageClassSelector" onchange="loadManageStudents()" class="border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 bg-white min-w-[150px]">
+                        <option value="">-- เลือก --</option>
+                    </select>
+                </div>
+                <button onclick="openEditStudentForm('add')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded shadow text-sm font-bold flex items-center gap-2">
+                    <i class="fas fa-plus"></i> เพิ่มนักเรียน
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-auto p-4 relative">
+                <table class="w-full text-sm text-left whitespace-nowrap">
+                    <thead class="bg-gray-100 text-gray-600 sticky top-0 z-10 shadow-sm">
+                        <tr id="manageTableHeader">
+                            <th class="p-3">เลขที่</th>
+                            <th class="p-3">ข้อมูล</th>
+                            <th class="p-3 text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manageTableBody" class="divide-y divide-gray-200">
+                        <tr><td colspan="3" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT STUDENT FORM MODAL -->
+    <div id="studentFormModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="modal-content bg-white w-full max-w-sm mx-4 rounded-xl shadow-xl p-0 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                 <h3 class="font-bold text-lg text-gray-800" id="studentFormTitle">เพิ่มนักเรียน</h3>
+                 <button onclick="closeEditStudentForm()" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-3">
+                <input type="hidden" id="stuFormAction">
+                <input type="hidden" id="stuFormRowIndex">
+                <div id="stuDynamicInputs"></div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeEditStudentForm()" class="px-4 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 rounded-lg transition">ยกเลิก</button>
+                <button onclick="submitStudentForm()" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow hover:bg-blue-700 transition">บันทึก</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // API URL (ดึงข้อมูลจากระบบเดิมของคุณ)
+        // =========================================================================
+        // การตั้งค่า API URL
+        // =========================================================================
         const API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
         
-        let currentUser = null;
-        let currentStudents = [];
-        let currentClass = "";
-
-        // ตั้งค่าวันที่ปัจจุบันให้ input date
-        document.addEventListener('DOMContentLoaded', () => {
-            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
-            document.getElementById('attendanceDate').value = localISOTime;
-            
-            checkLoginStatus();
-        });
-
-        function checkLoginStatus() {
-            const savedUser = localStorage.getItem('nswUser');
-            if(savedUser) {
-                currentUser = JSON.parse(savedUser);
-                showAttendanceSystem();
-            } else {
-                currentUser = null;
-                showLoginSystem();
-            }
-        }
-
-        function showAttendanceSystem() {
-            document.getElementById('loginSection').classList.add('hidden');
-            document.getElementById('attendanceSection').classList.remove('hidden');
-            
-            document.getElementById('profileName').innerText = currentUser.name || 'ไม่มีชื่อ';
-            document.getElementById('profileRole').innerText = currentUser.role || 'ครูผู้สอน';
-            document.getElementById('profileImage').src = currentUser.image || 'https://placehold.co/100x100?text=User';
-
-            // โหลดรายการชั้นเรียนเมื่อเข้าสู่ระบบสำเร็จ
-            fetchClasses();
-        }
-
-        function showLoginSystem() {
-            document.getElementById('attendanceSection').classList.add('hidden');
-            document.getElementById('loginSection').classList.remove('hidden');
-        }
-
-        function togglePassword() {
-            const passInput = document.getElementById('loginPass');
-            const icon = document.getElementById('toggleIcon');
-            if (passInput.type === 'password') {
-                passInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        }
-
-        // ----------------- ระบบ Login -----------------
-        document.getElementById('standaloneLoginForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const user = document.getElementById('loginUser').value;
-            const pass = document.getElementById('loginPass').value;
-            const btn = document.getElementById('submitBtn');
-            const btnText = document.getElementById('btnText');
-            const btnIcon = document.getElementById('btnIcon');
-            const btnSpinner = document.getElementById('btnSpinner');
-
-            btn.disabled = true;
-            btn.classList.add('opacity-75', 'cursor-not-allowed');
-            btnText.innerText = 'กำลังตรวจสอบ...';
-            btnIcon.classList.add('hidden');
-            btnSpinner.classList.remove('hidden');
-
-            try {
-                const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`, { method: 'POST' });
-                const json = await res.json();
-                
-                if(json.status === 'success') {
-                    localStorage.setItem('nswUser', JSON.stringify(json.user)); 
-                    checkLoginStatus();
-                    Swal.fire({ title: 'เข้าสู่ระบบสำเร็จ', text: 'ยินดีต้อนรับ ' + json.user.name, icon: 'success', timer: 1500, showConfirmButton: false });
-                } else {
-                    Swal.fire({ title: 'เข้าสู่ระบบล้มเหลว', text: json.message || 'ข้อมูลไม่ถูกต้อง', icon: 'error', confirmButtonColor: '#3b82f6' });
-                }
-            } catch(err) {
-                Swal.fire({ title: 'ข้อผิดพลาด', text: 'การเชื่อมต่อล้มเหลว', icon: 'error', confirmButtonColor: '#3b82f6' });
-            } finally {
-                btn.disabled = false;
-                btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                btnText.innerText = 'เข้าสู่ระบบ';
-                btnIcon.classList.remove('hidden');
-                btnSpinner.classList.add('hidden');
-            }
+        // สถานะของแอพ
+        let state = {
+            user: null,
+            classes: [],
+            students: [],     // เก็บข้อมูลดิบจาก API
+            headers: [],      // เก็บหัวตารางที่ได้จาก API (เช่น ['เลขที่', 'รหัส', 'ชื่อ-สกุล'])
+            attendance: [],   // เก็บสถานะการเช็คชื่อ [{id: 'รหัสหรือชื่อ', status: 'present', note: ''}]
+            currentDate: '',
+            currentClass: '',
+            manageData: []    // สำหรับหน้าแอดมิน
         };
 
-        function logout() {
-            localStorage.removeItem('nswUser');
-            document.getElementById('standaloneLoginForm').reset();
-            document.getElementById('classSelect').innerHTML = '<option value="">-- โหลดข้อมูลชั้นเรียน --</option>';
-            document.getElementById('studentContainer').classList.add('hidden');
-            document.getElementById('studentInitial').classList.remove('hidden');
-            checkLoginStatus();
+        const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+        // =========================================================================
+        // เริ่มต้นการทำงาน (Initialization)
+        // =========================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            initDatePicker();
+            updateHeaderDate(new Date());
+            fetchClasses();
+        });
+
+        function checkAuth() {
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                state.user = JSON.parse(savedUser);
+                document.getElementById('sidebarUserName').innerText = state.user.name;
+                document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
+                document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=1e3a8a&color=ffffff`;
+                
+                // ตรวจสอบสิทธิ์ (แอดมินสูงสุดเท่านั้นถึงจัดการนักเรียนได้)
+                if (state.user.role && (state.user.role.includes('นักรบมังกร') || state.user.role.includes('Dragon'))) {
+                    document.getElementById('adminMenuSection').classList.remove('hidden');
+                }
+            } else {
+                Swal.fire({
+                    title: 'ปฏิเสธการเข้าถึง',
+                    text: 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน',
+                    icon: 'warning',
+                    confirmButtonText: 'กลับไปหน้าหลัก',
+                    allowOutsideClick: false
+                }).then(() => {
+                    window.location.href = 'index.html'; // ลิงก์กลับเว็บหลัก
+                });
+            }
         }
 
-        // ----------------- ดึงข้อมูลชั้นเรียน -----------------
+        function logoutToMain() {
+            window.location.href = 'index.html';
+        }
+
+        // =========================================================================
+        // UI & Components
+        // =========================================================================
+        function showLoading(text = 'กำลังโหลดข้อมูล...') { 
+            document.getElementById('loadingText').innerText = text;
+            document.getElementById('loadingOverlay').classList.remove('hidden'); 
+        }
+        function hideLoading() { 
+            document.getElementById('loadingOverlay').classList.add('hidden'); 
+        }
+
+        function initDatePicker() {
+            // ตั้งค่าภาษาไทยสำหรับ Flatpickr
+            flatpickr.localize(flatpickr.l10ns.th);
+            
+            const fp = flatpickr("#datePicker", {
+                dateFormat: "Y-m-d",
+                defaultDate: "today",
+                disable: [
+                    function(date) {
+                        // ปิดไม่ให้เลือกวันเสาร์ (6) และ วันอาทิตย์ (0)
+                        return (date.getDay() === 0 || date.getDay() === 6);
+                    }
+                ],
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0) {
+                        updateHeaderDate(selectedDates[0]);
+                        state.currentDate = dateStr;
+                        if(state.currentClass) {
+                            fetchAttendanceHistory(); // ดึงประวัติของวันใหม่ที่เลือก
+                        }
+                    }
+                }
+            });
+            
+            // ตั้งค่า Date เริ่มต้น
+            const today = new Date();
+            // ถาวันนี้เป็น ส/อา ให้เลื่อนไปวันศุกร์
+            if(today.getDay() === 0) today.setDate(today.getDate() - 2);
+            else if(today.getDay() === 6) today.setDate(today.getDate() - 1);
+            
+            fp.setDate(today);
+            state.currentDate = fp.formatDate(today, "Y-m-d");
+            updateHeaderDate(today);
+        }
+
+        function updateHeaderDate(dateObj) {
+            const day = dateObj.getDate();
+            const month = THAI_MONTHS[dateObj.getMonth()];
+            const year = dateObj.getFullYear() + 543;
+            document.getElementById('headerDateText').innerText = `${day} ${month} ${year}`;
+        }
+
+        // =========================================================================
+        // Data Fetching (ดึงข้อมูล)
+        // =========================================================================
         async function fetchClasses() {
-            const select = document.getElementById('classSelect');
+            showLoading('กำลังโหลดข้อมูลห้องเรียน...');
             try {
                 const res = await fetch(`${API_URL}?action=getStudentClasses`);
                 const json = await res.json();
                 
-                if (json.status === 'success' && json.data.length > 0) {
-                    select.innerHTML = '<option value="">-- กรุณาเลือกชั้นเรียน --</option>' + 
-                        json.data.map(c => `<option value="${c}">${c}</option>`).join('');
-                } else {
-                    select.innerHTML = '<option value="">-- ไม่พบข้อมูลชั้นเรียนในระบบ --</option>';
+                if (json.status === 'success') {
+                    state.classes = json.data;
+                    const select = document.getElementById('classSelector');
+                    const manageSelect = document.getElementById('manageClassSelector');
+                    
+                    let options = '<option value="">เลือกห้องเรียน...</option>' + 
+                                  state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+                    select.innerHTML = options;
+                    manageSelect.innerHTML = options;
                 }
             } catch (e) {
-                select.innerHTML = '<option value="">-- เกิดข้อผิดพลาดในการดึงข้อมูล --</option>';
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
             }
+            hideLoading();
         }
 
-        // ----------------- ดึงรายชื่อนักเรียน -----------------
         async function loadStudents() {
-            const className = document.getElementById('classSelect').value;
-            const container = document.getElementById('studentContainer');
-            const loading = document.getElementById('studentLoading');
-            const initial = document.getElementById('studentInitial');
+            const className = document.getElementById('classSelector').value;
+            state.currentClass = className;
             
             if (!className) {
-                container.classList.add('hidden');
-                loading.classList.add('hidden');
-                initial.classList.remove('hidden');
-                currentStudents = [];
-                currentClass = "";
+                document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4"><i class="fas fa-users text-2xl text-gray-400"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกห้องเรียนและวันที่เพื่อทำรายการ</p></td></tr>`;
+                document.getElementById('studentCountBadge').innerText = '0 คน';
                 return;
             }
 
-            initial.classList.add('hidden');
-            container.classList.add('hidden');
-            loading.classList.remove('hidden');
-
+            showLoading(`กำลังโหลดรายชื่อนักเรียน ${className}...`);
             try {
                 const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className)}`);
                 const json = await res.json();
 
-                if (json.status === 'success') {
-                    // สมมติว่า json.data คืนค่ามาเป็น Array 2D (แถวแรกเป็น Header)
-                    const dataRows = json.data;
-                    if(dataRows.length > 1) {
-                        // เก็บ Header ไว้ (ถ้าต้องการอ้างอิง)
-                        const headers = dataRows[0];
-                        
-                        // หา index ของคอลัมน์ที่น่าจะเป็น ชื่อ, นามสกุล, เลขที่ จาก Header
-                        let nameIdx = headers.findIndex(h => String(h).includes('ชื่อ') || String(h).toLowerCase() === 'name');
-                        let lastNameIdx = headers.findIndex(h => String(h).includes('สกุล') || String(h).toLowerCase() === 'lastname');
-                        let prefixIdx = headers.findIndex(h => String(h).includes('คำนำ') || String(h).includes('ยศ'));
-                        let idIdx = headers.findIndex(h => String(h).includes('เลขที่') || String(h).includes('รหัส'));
-
-                        // ข้อมูลนักเรียนเริ่มที่ index 1
-                        currentStudents = [];
-                        dataRows.slice(1).forEach((row, index) => {
-                            // ป้องกันปัญหาแถวว่างใน Google Sheet (ถ้าว่างทุกช่อง ให้ข้ามไปเลย)
-                            if (!row || !row.some(cell => String(cell).trim() !== '')) return;
-
-                            let stuId = '';
-                            if (idIdx !== -1 && row[idIdx]) stuId = row[idIdx];
-                            else stuId = row[0] || (index + 1); // fallback เป็นคอลัมน์แรก หรือ ลำดับ
-
-                            let stuName = '';
-                            if (nameIdx !== -1 && row[nameIdx]) {
-                                // ถ้ามีคอลัมน์ "ชื่อ" ให้เอา คำนำหน้า + ชื่อ + นามสกุล มารวมกัน
-                                // เช็คเพิ่มเติมไม่ให้ index ซ้ำกับ nameIdx เพื่อกันปัญหาชื่อเบิ้ล
-                                let prefix = (prefixIdx !== -1 && prefixIdx !== nameIdx && row[prefixIdx]) ? String(row[prefixIdx]).trim() : '';
-                                let name = String(row[nameIdx]).trim();
-                                
-                                // ป้องกันการดึงคอลัมน์ "ชื่อ-สกุล" ซ้ำสองรอบ (ถ้า nameIdx และ lastNameIdx คือคอลัมน์เดียวกัน)
-                                let lastName = (lastNameIdx !== -1 && lastNameIdx !== nameIdx && row[lastNameIdx]) ? ' ' + String(row[lastNameIdx]).trim() : '';
-                                
-                                // เช็คว่าในชื่อมีคำนำหน้าหรือยัง ถ้าไม่มีค่อยเติม
-                                if (prefix && !name.startsWith(prefix)) {
-                                    stuName = prefix + name + lastName;
-                                } else {
-                                    stuName = name + lastName;
-                                }
-                            } else {
-                                // ถ้าหาจาก Header ไม่เจอ หรือช่องชื่อว่าง ให้เอาข้อมูลคอลัมน์ 1 ขึ้นไปมารวมกัน
-                                let parts = [];
-                                // ข้ามคอลัมน์ 0 ไป เพราะมักจะเป็นลำดับที่
-                                for (let i = 1; i < row.length; i++) {
-                                    if (row[i] && String(row[i]).trim() !== '') {
-                                        parts.push(String(row[i]).trim());
-                                    }
-                                }
-                                stuName = parts.length > 0 ? parts.join(' ') : 'ไม่ระบุชื่อ';
-                            }
-
-                            if (!stuName || stuName.trim() === '') stuName = 'ไม่ระบุชื่อ';
-
-                            currentStudents.push({
-                                id: stuId,
-                                name: stuName,
-                                rawIndex: index
-                            });
-                        });
-                        
-                        currentClass = className;
-                        renderStudentList();
-                    } else {
-                        currentStudents = [];
-                        Swal.fire('แจ้งเตือน', 'ไม่พบรายชื่อนักเรียนในชั้นเรียนนี้', 'info');
-                        loading.classList.add('hidden');
-                        initial.classList.remove('hidden');
-                    }
+                if (json.status === 'success' && json.data.length > 1) {
+                    state.headers = json.data[0];
+                    state.students = json.data.slice(1);
+                    document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
+                    
+                    // เมื่อโหลดรายชื่อเสร็จ ให้โหลดประวัติเช็คชื่อของวันนี้ต่อเลย
+                    await fetchAttendanceHistory();
                 } else {
-                    throw new Error(json.message);
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500">ไม่มีข้อมูลนักเรียนในชั้นเรียนนี้</td></tr>`;
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
                 }
             } catch (e) {
-                loading.classList.add('hidden');
-                initial.classList.remove('hidden');
-                Swal.fire('ข้อผิดพลาด', 'ดึงข้อมูลนักเรียนล้มเหลว', 'error');
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถโหลดรายชื่อนักเรียนได้', 'error');
+            }
+            hideLoading();
+        }
+
+        async function fetchAttendanceHistory() {
+            if(!state.currentClass || !state.currentDate) return;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(state.currentClass)}&date=${state.currentDate}`);
+                const json = await res.json();
+                
+                // เริ่มต้น state.attendance ด้วยค่าว่างสำหรับทุกคน
+                // สมมติว่าคอลัมน์ [1] คือ รหัส หรือสิ่งที่ใช้ระบุตัวตน แต่เพื่อความชัวร์จะรวมกัน [0]+[1]+[2] ให้เป็น ID
+                state.attendance = state.students.map(row => ({
+                    id: getStudentUniqueId(row), 
+                    status: null, 
+                    note: ''
+                }));
+
+                // ถ้ามีประวัติ ก็เอามาทับ
+                if (json.status === 'success' && json.data.length > 0) {
+                    json.data.forEach(historyRow => {
+                        const target = state.attendance.find(a => a.id === historyRow.id);
+                        if(target) {
+                            target.status = historyRow.status;
+                            target.note = historyRow.note;
+                        }
+                    });
+                }
+                
+                renderStudentTable();
+            } catch (e) {
+                console.error("History fetch error:", e);
+                renderStudentTable(); // Render แบบว่างๆ ไปก่อนถ้า error
             }
         }
 
-        // ----------------- สร้าง UI รายชื่อนักเรียน -----------------
-        function renderStudentList() {
-            document.getElementById('studentLoading').classList.add('hidden');
-            document.getElementById('studentContainer').classList.remove('hidden');
-            document.getElementById('studentCountBadge').innerText = `${currentStudents.length} คน`;
-            
-            const listDiv = document.getElementById('studentList');
-            
-            let html = '';
-            currentStudents.forEach((stu, i) => {
-                const stuId = `stu_${i}`;
-                html += `
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 sm:p-4 bg-gray-50 border border-gray-100 rounded-lg hover:bg-blue-50 transition gap-3">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${i+1}</div>
-                        <div>
-                            <div class="font-bold text-gray-800 text-sm md:text-base">${stu.name}</div>
-                            <div class="text-xs text-gray-500">รหัส/เลขที่: ${stu.id}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Radio Buttons Group -->
-                    <div class="flex gap-2 w-full sm:w-auto justify-end">
-                        <!-- มา (Present) -->
-                        <label class="cursor-pointer select-none">
-                            <input type="radio" name="status_${stuId}" value="present" class="peer hidden" checked>
-                            <div class="w-12 h-10 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-500 font-bold text-sm peer-checked:border-green-500 peer-checked:bg-green-500 peer-checked:text-white hover:bg-gray-100 transition shadow-sm">
-                                มา
-                            </div>
-                        </label>
-                        <!-- ขาด (Absent) -->
-                        <label class="cursor-pointer select-none">
-                            <input type="radio" name="status_${stuId}" value="absent" class="peer hidden">
-                            <div class="w-12 h-10 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-500 font-bold text-sm peer-checked:border-red-500 peer-checked:bg-red-500 peer-checked:text-white hover:bg-gray-100 transition shadow-sm">
-                                ขาด
-                            </div>
-                        </label>
-                        <!-- ลา (Leave) -->
-                        <label class="cursor-pointer select-none">
-                            <input type="radio" name="status_${stuId}" value="leave" class="peer hidden">
-                            <div class="w-12 h-10 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-500 font-bold text-sm peer-checked:border-orange-400 peer-checked:bg-orange-400 peer-checked:text-white hover:bg-gray-100 transition shadow-sm">
-                                ลา
-                            </div>
-                        </label>
-                        <!-- ป่วย (Sick) -->
-                        <label class="cursor-pointer select-none">
-                            <input type="radio" name="status_${stuId}" value="sick" class="peer hidden">
-                            <div class="w-12 h-10 flex items-center justify-center rounded-lg border-2 border-gray-200 bg-white text-gray-500 font-bold text-sm peer-checked:border-blue-400 peer-checked:bg-blue-400 peer-checked:text-white hover:bg-gray-100 transition shadow-sm">
-                                ป่วย
-                            </div>
-                        </label>
-                    </div>
-                </div>
-                `;
-            });
-            
-            listDiv.innerHTML = html;
+        function getStudentUniqueId(row) {
+            // สร้าง ID จากข้อมูลแถวเพื่อหลีกเลี่ยงชื่อซ้ำ (ดึงข้อมูล 3 คอลัมน์แรกมาต่อกัน)
+            return row.slice(0,3).join('|');
         }
 
-        // ----------------- ส่งข้อมูลเช็คชื่อ -----------------
-        async function submitAttendance() {
-            const date = document.getElementById('attendanceDate').value;
-            if(!date) {
-                Swal.fire('ข้อผิดพลาด', 'กรุณาระบุวันที่เช็คชื่อ', 'warning');
+        // =========================================================================
+        // การแสดงผลตารางและการกดปุ่ม
+        // =========================================================================
+        function renderStudentTable() {
+            const container = document.getElementById('studentListContainer');
+            if(state.students.length === 0) return;
+
+            let html = '';
+            state.students.forEach((row, index) => {
+                // สมมติโครงสร้าง Sheet คือ [เลขที่, รหัส, คำนำหน้า, ชื่อ, นามสกุล]
+                const number = row[0] || '-';
+                const code = row[1] || '';
+                const nameParts = row.slice(2, 5).filter(Boolean); 
+                const fullName = nameParts.length > 0 ? nameParts.join(' ') : row[2] || 'ไม่ระบุชื่อ';
+                
+                // รวมชื่อและรหัสเข้าด้วยกันตามรูป UI
+                const displayInfo = `${fullName} ${code ? '(รหัส: ' + code + ')' : ''}`;
+
+                const attendanceRecord = state.attendance[index];
+                const s = attendanceRecord.status;
+                const hasNote = attendanceRecord.note && attendanceRecord.note.trim() !== '';
+
+                html += `
+                <tr class="hover:bg-blue-50/50 transition border-b border-gray-50">
+                    <td class="px-6 py-3 text-center text-gray-500 font-medium">${number}</td>
+                    <td class="px-6 py-3 font-medium text-gray-800">${displayInfo}</td>
+                    <td class="px-6 py-3 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
+                            <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
+                            <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
+                            <button onclick="setStatus(${index}, 'late')" class="status-btn status-late ${s === 'late' ? 'selected' : ''}" title="สาย">ส</button>
+                            <button onclick="setStatus(${index}, 'sick')" class="status-btn status-sick ${s === 'sick' ? 'selected' : ''}" title="ป่วย">ป</button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-3 text-center">
+                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${hasNote ? attendanceRecord.note : 'เพิ่มหมายเหตุ'}">
+                            <i class="fas fa-comment-alt text-xs"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function setStatus(index, status) {
+            // ถ้ากดสถานะเดิมให้ยกเลิก (uncheck)
+            if(state.attendance[index].status === status) {
+                state.attendance[index].status = null;
+            } else {
+                state.attendance[index].status = status;
+            }
+            renderStudentTable();
+        }
+
+        function setAllStatus(status) {
+            if(state.students.length === 0) return;
+            state.attendance.forEach(a => a.status = status);
+            renderStudentTable();
+        }
+
+        // --- Note Modal ---
+        function openNoteModal(index) {
+            document.getElementById('noteStudentIndex').value = index;
+            document.getElementById('noteTextarea').value = state.attendance[index].note || '';
+            const studentName = state.students[index].slice(2, 5).join(' ') || '';
+            document.getElementById('noteModalTitle').innerText = `หมายเหตุ: ${studentName}`;
+            
+            document.getElementById('noteModal').classList.add('active');
+        }
+
+        function closeNoteModal() {
+            document.getElementById('noteModal').classList.remove('active');
+        }
+
+        function saveNote() {
+            const index = document.getElementById('noteStudentIndex').value;
+            const text = document.getElementById('noteTextarea').value;
+            state.attendance[index].note = text;
+            closeNoteModal();
+            renderStudentTable();
+        }
+
+        // =========================================================================
+        // การบันทึกข้อมูล (Save)
+        // =========================================================================
+        async function saveAttendance() {
+            if(!state.currentClass || !state.currentDate) {
+                Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวันที่ก่อนบันทึก', 'warning');
                 return;
             }
 
-            // รวบรวมข้อมูลสถานะของนักเรียนแต่ละคน
-            let attendanceData = [];
-            currentStudents.forEach((stu, i) => {
-                const stuId = `stu_${i}`;
-                const selectedRadio = document.querySelector(`input[name="status_${stuId}"]:checked`);
-                attendanceData.push({
-                    id: stu.id,
-                    name: stu.name,
-                    status: selectedRadio ? selectedRadio.value : 'present' // default เผื่อไว้
+            // ตรวจสอบว่าเช็คครบทุกคนหรือยัง
+            const unchecked = state.attendance.filter(a => a.status === null).length;
+            if(unchecked > 0) {
+                const conf = await Swal.fire({
+                    title: 'เช็คชื่อยังไม่ครบ!',
+                    text: `มีนักเรียนที่ยังไม่ได้ระบุสถานะจำนวน ${unchecked} คน ต้องการบันทึกข้อมูลใช่หรือไม่?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'บันทึกเลย',
+                    cancelButtonText: 'กลับไปตรวจสอบ'
                 });
+                if(!conf.isConfirmed) return;
+            }
+
+            showLoading('กำลังบันทึกข้อมูล...');
+            
+            const form = new FormData();
+            form.append('className', state.currentClass);
+            form.append('date', state.currentDate);
+            form.append('records', JSON.stringify(state.attendance));
+            form.append('recordedBy', state.user.name);
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveAttendance`, { method: 'POST', body: form });
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    Swal.fire({
+                        title: 'สำเร็จ!',
+                        text: json.message,
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire('ข้อผิดพลาด', json.message, 'error');
+                }
+            } catch(e) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            }
+            hideLoading();
+        }
+
+        // =========================================================================
+        // ADMIN: จัดการข้อมูลนักเรียน
+        // =========================================================================
+        function openManageStudentModal() {
+            document.getElementById('manageStudentModal').classList.add('active');
+            if (state.currentClass && !document.getElementById('manageClassSelector').value) {
+                document.getElementById('manageClassSelector').value = state.currentClass;
+                loadManageStudents();
+            }
+        }
+        function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); }
+        function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
+
+        async function loadManageStudents() {
+            const className = document.getElementById('manageClassSelector').value;
+            const tbody = document.getElementById('manageTableBody');
+            
+            if (!className) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-10"><div class="loader mx-auto mb-2"></div></td></tr>';
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className)}`);
+                const json = await res.json();
+
+                if (json.status === 'success' && json.data.length > 0) {
+                    state.headers = json.data[0];
+                    state.manageData = json.data.slice(1);
+                    renderManageTable();
+                } else {
+                    state.headers = ['เลขที่', 'รหัสประจำตัว', 'คำนำหน้า', 'ชื่อ', 'นามสกุล']; // Default fallback
+                    state.manageData = [];
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียน <button onclick="openEditStudentForm('add')" class="text-blue-500 underline">เพิ่มคนแรกเลย</button></td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-10 text-red-500">เชื่อมต่อล้มเหลว</td></tr>';
+            }
+        }
+
+        function renderManageTable() {
+            const tbody = document.getElementById('manageTableBody');
+            if(state.manageData.length === 0) return;
+
+            tbody.innerHTML = state.manageData.map((row, idx) => {
+                const num = row[0] || '-';
+                // แสดงข้อมูลคอลัมน์อื่นๆ มาต่อกันให้พอดูรู้เรื่อง
+                const info = row.slice(1).join(' | ');
+                
+                return `
+                <tr class="hover:bg-blue-50">
+                    <td class="p-3 text-center font-bold text-gray-600">${num}</td>
+                    <td class="p-3 text-xs text-gray-600 truncate max-w-[300px]">${info}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="openEditStudentForm('edit', ${idx})" class="text-blue-500 hover:bg-blue-100 p-2 rounded transition"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteStudent(${idx})" class="text-red-500 hover:bg-red-100 p-2 rounded transition ml-1"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function openEditStudentForm(actionType, rowIndex = null) {
+            const className = document.getElementById('manageClassSelector').value;
+            if(!className) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน', 'warning'); return; }
+
+            document.getElementById('stuFormAction').value = actionType;
+            document.getElementById('stuFormRowIndex').value = rowIndex !== null ? rowIndex : '';
+            document.getElementById('studentFormTitle').innerText = actionType === 'add' ? 'เพิ่มนักเรียน' : 'แก้ไขข้อมูลนักเรียน';
+
+            const container = document.getElementById('stuDynamicInputs');
+            container.innerHTML = '';
+
+            let rowData = actionType === 'edit' ? state.manageData[rowIndex] : [];
+
+            // สร้าง Input ตามจำนวน Headers ที่มีใน Sheet
+            state.headers.forEach((headerName, i) => {
+                const val = rowData[i] || '';
+                container.innerHTML += `
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">${headerName}</label>
+                        <input type="text" id="stuInput_${i}" value="${val}" class="w-full border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                    </div>
+                `;
             });
 
-            // นับสรุปยอด
-            const summary = {
-                present: attendanceData.filter(a => a.status === 'present').length,
-                absent: attendanceData.filter(a => a.status === 'absent').length,
-                leave: attendanceData.filter(a => a.status === 'leave').length,
-                sick: attendanceData.filter(a => a.status === 'sick').length
-            };
+            document.getElementById('studentFormModal').classList.add('active');
+        }
 
+        async function submitStudentForm() {
+            const className = document.getElementById('manageClassSelector').value;
+            const actionType = document.getElementById('stuFormAction').value;
+            const rowIndex = document.getElementById('stuFormRowIndex').value;
+            
+            // รวบรวมข้อมูลจาก Input
+            const newRowData = [];
+            for (let i = 0; i < state.headers.length; i++) {
+                const el = document.getElementById(`stuInput_${i}`);
+                newRowData.push(el ? el.value : '');
+            }
+
+            const form = new FormData();
+            form.append('className', className);
+            form.append('actionType', actionType);
+            form.append('studentData', JSON.stringify(newRowData));
+            if(actionType === 'edit') form.append('rowIndex', rowIndex);
+
+            showLoading('กำลังบันทึกข้อมูล...');
+            try {
+                const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    closeEditStudentForm();
+                    loadManageStudents(); // โหลดข้อมูลใหม่มาแสดง
+                    // ถ้าหน้าหลักเปิดห้องเดียวกันอยู่ ให้โหลดหน้าหลักใหม่ด้วย
+                    if (state.currentClass === className) {
+                        loadStudents();
+                    }
+                    Swal.fire({icon: 'success', title: 'สำเร็จ', text: json.message, timer: 1500, showConfirmButton: false});
+                } else {
+                    Swal.fire('ข้อผิดพลาด', json.message, 'error');
+                }
+            } catch (e) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', 'error');
+            }
+            hideLoading();
+        }
+
+        function deleteStudent(rowIndex) {
             Swal.fire({
-                title: 'ยืนยันการบันทึกข้อมูล?',
-                html: `ชั้น <b>${currentClass}</b> วันที่ <b>${date}</b><br><br>
-                       <div class="text-sm bg-gray-100 p-3 rounded-lg text-left inline-block">
-                           <p class="text-green-600 font-bold">มาเรียน: ${summary.present} คน</p>
-                           <p class="text-red-500 font-bold">ขาดเรียน: ${summary.absent} คน</p>
-                           <p class="text-orange-500 font-bold">ลากิจ: ${summary.leave} คน</p>
-                           <p class="text-blue-500 font-bold">ลาป่วย: ${summary.sick} คน</p>
-                       </div>`,
-                icon: 'question',
+                title: 'ยืนยันการลบ?',
+                text: 'ข้อมูลนักเรียนนี้จะถูกลบออกจากระบบ (มีผลกับการเช็คชื่อเก่า)',
+                icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#3b82f6',
-                cancelButtonColor: '#9ca3af',
-                confirmButtonText: '<i class="fas fa-check"></i> ยืนยันบันทึก',
-                cancelButtonText: 'แก้ไข',
-                reverseButtons: true
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: 'ลบข้อมูล'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    
-                    Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+                    const className = document.getElementById('manageClassSelector').value;
+                    const form = new FormData();
+                    form.append('className', className);
+                    form.append('actionType', 'delete');
+                    form.append('studentData', '[]');
+                    form.append('rowIndex', rowIndex);
 
+                    showLoading('กำลังลบข้อมูล...');
                     try {
-                        // ปลดล็อกโค้ดใช้งาน API จริง
-                        const payload = {
-                            action: 'saveStudentAttendance',
-                            className: currentClass,
-                            date: date,
-                            teacher: currentUser.name || 'ไม่ระบุชื่อครูผู้สอน', // ดึงชื่อครูไปใช้สร้าง Sheet
-                            data: JSON.stringify(attendanceData)
-                        };
-
-                        const form = new FormData();
-                        for (const key in payload) { form.append(key, payload[key]); }
-
-                        const res = await fetch(API_URL, { method: 'POST', body: form });
+                        const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
                         const json = await res.json();
-                        
-                        if (json.status !== 'success') throw new Error(json.message);
-
-                        Swal.fire({
-                            title: 'บันทึกสำเร็จ!',
-                            html: `บันทึกข้อมูลเช็คชื่อเข้าสู่ระบบเรียบร้อยแล้ว`,
-                            icon: 'success',
-                            confirmButtonColor: '#3b82f6'
-                        });
-
-                    } catch (error) {
-                        Swal.fire('ข้อผิดพลาด', error.message || 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่', 'error');
-                    }
+                        if (json.status === 'success') {
+                            loadManageStudents();
+                            if (state.currentClass === className) loadStudents();
+                        }
+                    } catch (e) {}
+                    hideLoading();
                 }
             });
         }
