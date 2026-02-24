@@ -632,6 +632,11 @@
             document.getElementById('headerDateText').innerText = `${day} ${month} ${year}`;
         }
 
+        function formatDate(dateString) {
+            const dObj = new Date(dateString);
+            return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
+        }
+
         // Dropdown สำหรับหน้าเช็คชื่อปกติและย้อนหลัง (กรองตามวัน)
         function populateSubjectDropdown(selectId, dateStr, classFilter = null) {
             const sel = document.getElementById(selectId);
@@ -1050,9 +1055,17 @@
 
             cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
             try {
-                // เรียกใช้ Endpoint ใหม่ที่ดึงข้อมูล "ทั้งหมด" ของวิชานี้ (ไม่จำกัดวัน)
-                const res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                const json = await res.json();
+                // ใช้ Endpoint getAttendanceReport (ดึงทั้งหมด) แต่ถ้าไม่พบให้ลองใช้ getAttendance (ดึงรายวัน)
+                let res, json;
+                try {
+                    res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                    json = await res.json();
+                } catch(err) {
+                    // Fallback in case endpoint is missing
+                    const singleDate = dateRangeStr.split(' to ')[0] || state.currentDate;
+                    res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${singleDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                    json = await res.json();
+                }
                 
                 let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
                 let detailHtml = '';
@@ -1063,24 +1076,20 @@
                     reportData = json.data;
                 }
 
-                // กรองข้อมูลตามช่วงวันที่ (ถ้ามีการเลือก)
+                // กรองข้อมูลตามช่วงวันที่
                 if (dateRangeStr && dateRangeStr.includes(' to ')) {
                     const [startStr, endStr] = dateRangeStr.split(' to ');
                     const startDate = new Date(startStr);
                     const endDate = new Date(endStr);
-                    endDate.setHours(23, 59, 59, 999); // ให้อยู่ถึงสิ้นวัน
+                    endDate.setHours(23, 59, 59, 999); 
 
                     reportData = reportData.filter(r => {
-                        const rDate = new Date(r.date);
+                        const rDate = new Date(r.date || r.Timestamp || startStr); // fallback date
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    // เลือกแค่วันเดียว
-                    reportData = reportData.filter(r => r.date === dateRangeStr);
+                    reportData = reportData.filter(r => (r.date === dateRangeStr || r.Timestamp?.includes(dateRangeStr)));
                 }
-
-                // เรียงตามวันที่ล่าสุดขึ้นก่อน
-                reportData.sort((a,b) => new Date(b.date) - new Date(a.date));
 
                 if(reportData.length > 0) {
                     reportData.forEach(r => {
@@ -1088,7 +1097,7 @@
                         if(r.status && r.status !== 'present') {
                             const info = r.id.split('|');
                             const config = statusConfig[r.status] || { text: 'ไม่ระบุ', color: 'bg-gray-100 text-gray-700' };
-                            const displayDate = formatDate(r.date);
+                            const displayDate = r.date ? formatDate(r.date) : formatDate(dateRangeStr);
                             detailHtml += `<tr class="border-b hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 align-top font-medium text-gray-600">${displayDate}</td>
                                 <td class="px-4 py-3 align-top"><span class="px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold ${config.color} whitespace-nowrap">${config.text}</span></td>
@@ -1143,30 +1152,38 @@
                 }
                 const rawStudents = stuJson.data.slice(1);
 
-                // 2. ดึงประวัติการมาเรียนทั้งหมดของวิชานี้ (ผ่าน Endpoint ใหม่)
-                const attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                const attJson = await attRes.json();
+                // 2. ดึงประวัติการมาเรียน
+                let attRes, attJson;
+                try {
+                    attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                    attJson = await attRes.json();
+                } catch(err) {
+                    const singleDate = dateRangeStr.split(' to ')[0] || state.currentDate;
+                    attRes = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${singleDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                    attJson = await attRes.json();
+                }
+                
                 let reportData = attJson.data || [];
 
-                // 3. กรองวันที่ถ้ามีการระบุ
+                // 3. กรองวันที่
                 if (dateRangeStr && dateRangeStr.includes(' to ')) {
                     const [startStr, endStr] = dateRangeStr.split(' to ');
                     const startDate = new Date(startStr);
                     const endDate = new Date(endStr);
                     endDate.setHours(23, 59, 59, 999);
                     reportData = reportData.filter(r => {
-                        const rDate = new Date(r.date);
+                        const rDate = new Date(r.date || r.Timestamp || startStr);
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => r.date === dateRangeStr);
+                    reportData = reportData.filter(r => (r.date === dateRangeStr || r.Timestamp?.includes(dateRangeStr)));
                 }
 
-                // 4. หาวันที่ที่มีการสอนทั้งหมด (เรียงจากเก่าไปใหม่)
-                const uniqueDates = [...new Set(reportData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
+                // 4. หาวันที่ที่มีการสอนทั้งหมด
+                const uniqueDates = [...new Set(reportData.map(r => r.date || dateRangeStr.split(' to ')[0]))].sort((a, b) => new Date(a) - new Date(b));
 
                 if(uniqueDates.length === 0) {
-                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อในระบบ (อาจจะยังไม่ได้เช็คชื่อ หรือเลือกช่วงเวลาผิด)');
+                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาที่เลือก');
                      return;
                 }
 
@@ -1174,29 +1191,30 @@
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
                 
                 const excelData = [];
-                // ใส่ Header ปพ.5
                 excelData.push(["แบบบันทึกเวลาเรียน (ปพ.5)"]);
                 excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
                 excelData.push(["ครูผู้สอน:", state.user.name, "ช่วงวันที่:", dateRangeStr || "ทั้งหมด"]);
-                excelData.push([]); // บรรทัดว่าง
+                excelData.push([]); 
 
-                // แถวหัวตารางหลัก (Header Row)
                 let headerRow = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล"];
                 uniqueDates.forEach(d => {
-                    const dObj = new Date(d);
-                    headerRow.push(`${dObj.getDate()}/${dObj.getMonth()+1}`);
+                    if(d) {
+                        const dObj = new Date(d);
+                        headerRow.push(`${dObj.getDate()}/${dObj.getMonth()+1}`);
+                    } else {
+                        headerRow.push("วันที่");
+                    }
                 });
                 headerRow.push("มา", "ลา", "ขาด", "สาย", "ป่วย");
                 excelData.push(headerRow);
 
-                // สร้าง Dictionary เก็บข้อมูลเด็กแต่ละคน [ID] -> { date: status }
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
+                    const dateKey = r.date || uniqueDates[0];
                     if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
-                    studentAttendanceMap[r.id][r.date] = r.status;
+                    studentAttendanceMap[r.id][dateKey] = r.status;
                 });
 
-                // วนลูปข้อมูลเด็กใส่ลงแถว
                 rawStudents.forEach(stuRow => {
                     const number = stuRow[0] || '-';
                     const code = stuRow[1] || '-';
@@ -1207,14 +1225,12 @@
                     let rowData = [number, code, fullName];
                     let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
 
-                    // วนลูปตามวันเพื่อใส่สถานะ
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
-                        rowData.push(status ? statusSymbol[status] : ''); // ใส่สัญลักษณ์
+                        rowData.push(status ? statusSymbol[status] : ''); 
                     });
 
-                    // ใส่สรุป
                     rowData.push(stats.present, stats.leave, stats.absent, stats.late, stats.sick);
                     excelData.push(rowData);
                 });
@@ -1223,14 +1239,9 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-                // ปรับความกว้างคอลัมน์ให้อ่านง่าย
-                const wscols = [
-                    {wch: 6},  // เลขที่
-                    {wch: 12}, // รหัส
-                    {wch: 30}, // ชื่อ
-                ];
-                uniqueDates.forEach(() => wscols.push({wch: 6})); // คอลัมน์วันที่
-                wscols.push({wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}); // สรุป
+                const wscols = [ {wch: 6}, {wch: 12}, {wch: 30} ];
+                uniqueDates.forEach(() => wscols.push({wch: 6})); 
+                wscols.push({wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}); 
                 ws['!cols'] = wscols;
 
                 XLSX.utils.book_append_sheet(wb, ws, "ปพ.5");
@@ -1252,6 +1263,8 @@
         function openManageStudentModal() { document.getElementById('manageStudentModal').classList.add('active'); if (state.currentClass && !document.getElementById('manageClassSelector').value) { document.getElementById('manageClassSelector').value = state.currentClass; loadManageStudents(); } disableBodyScroll(); }
         function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); enableBodyScroll(); }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
+        function disableBodyScroll() { document.body.style.overflow = 'hidden'; }
+        function enableBodyScroll() { document.body.style.overflow = ''; }
 
         async function loadManageStudents() {
             const className = document.getElementById('manageClassSelector').value;
