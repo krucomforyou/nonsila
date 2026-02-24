@@ -505,7 +505,10 @@
                         <form id="loginForm" class="space-y-3">
                             <div><input type="text" id="user" placeholder="ชื่อผู้ใช้" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"></div>
                             <div><input type="password" id="pass" placeholder="รหัสผ่าน" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"></div>
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 rounded transition shadow">เข้าสู่ระบบ</button>
+                            <button type="submit" id="btnLoginSubmit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 rounded transition shadow flex justify-center items-center">
+                                <span id="btnLoginText">เข้าสู่ระบบ</span>
+                                <i id="btnLoginSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
                         </form>
 
                         <div id="userProfile" class="hidden text-center">
@@ -1234,28 +1237,52 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             document.getElementById('loginForm').onsubmit = async (e) => {
-                e.preventDefault(); showLoading();
+                e.preventDefault(); 
+                
+                // จัดการ Loading เฉพาะปุ่ม Login เท่านั้น
+                const btnSubmit = document.getElementById('btnLoginSubmit');
+                const btnText = document.getElementById('btnLoginText');
+                const btnSpinner = document.getElementById('btnLoginSpinner');
+                
+                // เปลี่ยนสถานะปุ่ม
+                btnSubmit.disabled = true;
+                btnSubmit.classList.add('opacity-70', 'cursor-not-allowed');
+                btnText.innerText = 'กำลังตรวจสอบ...';
+                btnSpinner.classList.remove('hidden');
+
                 try {
                     const res = await fetch(`${API_URL}?action=login&username=${document.getElementById('user').value}&password=${document.getElementById('pass').value}`, { method: 'POST' });
                     const json = await res.json();
+                    
                     if(json.status === 'success') {
                         state.user = json.user; 
                         localStorage.setItem('nswUser', JSON.stringify(state.user)); 
-                        localStorage.setItem('nswLastActive', Date.now().toString()); // <--- บันทึกเวลาเริ่มใช้งานตอนล็อกอินสำเร็จ
+                        localStorage.setItem('nswLastActive', Date.now().toString()); 
 
                         updateAuthUI(); 
                         showToast('ยินดีต้อนรับ ' + state.user.name);
                         
                         logAction('Login', 'เข้าสู่ระบบสำเร็จ');
-                        resetIdleTimer(); // เริ่มจับเวลา
+                        resetIdleTimer(); 
                         
-                        // (โค้ดดึงข้อมูลนักเรียนส่วนที่เหลือเหมือนเดิม...)
                         if (currentStudentClass && !document.getElementById('content-students').classList.contains('hidden')) {
-                             loadStudentData();
+                            loadStudentData();
                         }
-                    } else { showAlert('ผิดพลาด', json.message, 'error'); }
-                } catch(err) { showAlert('ผิดพลาด', 'เชื่อมต่อล้มเหลว', 'error'); }
-                hideLoading();
+                    } else { 
+                        showAlert('ผิดพลาด', json.message, 'error'); 
+                    }
+                } catch(err) { 
+                    showAlert('ผิดพลาด', 'เชื่อมต่อล้มเหลว', 'error'); 
+                } finally {
+                    // ไม่ว่าจะสำเร็จหรือพัง ก็ให้คืนค่าปุ่มกลับมาเหมือนเดิม
+                    btnSubmit.disabled = false;
+                    btnSubmit.classList.remove('opacity-70', 'cursor-not-allowed');
+                    btnText.innerText = 'เข้าสู่ระบบ';
+                    btnSpinner.classList.add('hidden');
+                    
+                    // เคลียร์ช่องรหัสผ่านเผื่อผู้ใช้กรอกผิด
+                    document.getElementById('pass').value = '';
+                }
             };
         });
 
