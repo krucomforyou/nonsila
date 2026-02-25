@@ -96,7 +96,7 @@
                 <i class="fas fa-history w-6"></i> จัดการข้อมูลย้อนหลัง
             </a>
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
-                <i class="fas fa-file-excel w-6"></i> รายงาน / ดาวน์โหลด
+                <i class="fas fa-file-excel w-6"></i> รายงาน / ดาวน์โหลด .xlsx
             </a>
         </nav>
 
@@ -340,7 +340,7 @@
                             <p class="text-xs md:text-sm text-gray-500">ดูสถิติรายวัน หรือดาวน์โหลดข้อมูลทั้งหมดของวิชาในรูปแบบ Excel (.xlsx)</p>
                         </div>
                         <!-- เปลี่ยนปุ่มตรงนี้ตามคำขอ -->
-                        <button onclick="downloadPorPor5()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 border-b-4 border-green-800">
+                        <button onclick="downloadExcel()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 border-b-4 border-green-800">
                             <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
                         </button>
                     </div>
@@ -400,7 +400,7 @@
                          
                          <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg text-blue-800 text-sm flex gap-3">
                              <i class="fas fa-lightbulb text-yellow-500 text-xl"></i>
-                             <p>หากต้องการดูตารางรายชื่อนักเรียนและประวัติการเช็คชื่อแบบครบทุกคนในรูปแบบหน้ากระดาษ (รูปแบบ ปพ.5) กรุณากดปุ่ม <b>"ดาวน์โหลด .xlsx"</b> สีเขียวที่มุมขวาบน</p>
+                             <p>หากต้องการดูตารางรายชื่อนักเรียนและประวัติการเช็คชื่อแบบครบทุกคนในรูปแบบหน้ากระดาษ (รูปแบบมาตรฐาน .xlsx) กรุณากดปุ่ม <b>"ดาวน์โหลด .xlsx"</b> สีเขียวที่มุมขวาบน</p>
                          </div>
                     </div>
                 </div>
@@ -1114,7 +1114,7 @@
         // =========================================================================
         // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง 3 ชั้น
         // =========================================================================
-        async function downloadPorPor5() {
+        async function downloadExcel() {
             const dateRangeStr = document.getElementById('reportDate').value;
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
@@ -1177,26 +1177,26 @@
                 
                 const excelData = [];
                 // ใส่หัวกระดาษ
-                excelData.push(["สรุปเวลาเรียน (รูปแบบมาตรฐาน)"]);
+                excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
                 excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
                 excelData.push(["ครูผู้สอน:", state.user.name, "ช่วงวันที่:", dateRangeStr || "ทั้งหมด"]);
                 excelData.push([]); 
 
                 // แถวหัวตาราง (3 ชั้น: สัปดาห์ > เดือน > วันที่)
-                let headerRow1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "เวลาเรียนเต็ม", "มา", "ลา", "ขาด", "สาย", "ป่วย"];
-                let headerRow2 = ["", "", "", "", "", "", "", "", ""];
-                let headerRow3 = ["", "", "", "", "", "", "", "", ""];
+                let headerRow1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "", "", "สัปดาห์"];
+                let headerRow2 = ["", "", "", "", "มา", "ลา", "ขาด", "สาย", "ป่วย", "เดือน"];
+                let headerRow3 = ["", "", "", "", "", "", "", "", "", "วันที่"];
                 
                 uniqueDates.forEach((d, idx) => {
                     if(d) {
                         const dObj = new Date(d);
-                        headerRow1.push(`สัปดาห์ ${Math.ceil((idx+1)/5)}`); // คำนวณสัปดาห์คร่าวๆ ให้เหมือนฟอร์ม
+                        headerRow1.push(Math.ceil((idx+1)/5).toString()); // สัปดาห์คร่าวๆ 5 วัน/สัปดาห์
                         headerRow2.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
                         headerRow3.push(dObj.getDate().toString());
                     } else {
-                        headerRow1.push("สัปดาห์");
-                        headerRow2.push("เดือน");
-                        headerRow3.push("วันที่");
+                        headerRow1.push("-");
+                        headerRow2.push("-");
+                        headerRow3.push("-");
                     }
                 });
                 headerRow1.push("หมายเหตุ");
@@ -1231,8 +1231,8 @@
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    // ใส่ข้อมูล [ข้อมูลนักเรียน -> ยอดรวม -> การเช็คชื่อรายวัน]
-                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, stats.late, stats.sick];
+                    // ใส่ข้อมูล [ข้อมูลนักเรียน -> ยอดรวม -> การเช็คชื่อรายวัน] (ใส่ช่องว่างคั่น Col 9)
+                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, stats.late, stats.sick, ""];
 
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
@@ -1247,16 +1247,48 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-                // สร้างเงื่อนไขผสานเซลล์ (Merge Cells) เพื่อความสวยงามในส่วนหัว (9 คอลัมน์แรก)
-                const merges = [];
-                for(let i = 0; i < 9; i++) {
-                    merges.push({ s: {r:4, c:i}, e: {r:6, c:i} }); // แถวที่ 4,5,6 ตาม index
+                // สร้างเงื่อนไขผสานเซลล์ (Merge Cells) เพื่อความสวยงามในส่วนหัว (10 คอลัมน์แรก)
+                const merges = [
+                    { s: {r:4, c:0}, e: {r:6, c:0} }, // เลขที่
+                    { s: {r:4, c:1}, e: {r:6, c:1} }, // รหัส
+                    { s: {r:4, c:2}, e: {r:6, c:2} }, // ชื่อ
+                    { s: {r:4, c:3}, e: {r:6, c:3} }, // เวลาเรียนเต็ม
+                    { s: {r:4, c:4}, e: {r:4, c:8} }, // สรุปเวลาเรียน (Span over มา ลา ขาด สาย ป่วย)
+                    { s: {r:5, c:4}, e: {r:6, c:4} }, // มา
+                    { s: {r:5, c:5}, e: {r:6, c:5} }, // ลา
+                    { s: {r:5, c:6}, e: {r:6, c:6} }, // ขาด
+                    { s: {r:5, c:7}, e: {r:6, c:7} }, // สาย
+                    { s: {r:5, c:8}, e: {r:6, c:8} }, // ป่วย
+                    { s: {r:4, c:10+uniqueDates.length}, e: {r:6, c:10+uniqueDates.length} } // หมายเหตุ
+                ];
+
+                // Merge สัปดาห์ (แถวที่ 4) แนวนอนอัตโนมัติ
+                let startCol = 10;
+                let currentVal = headerRow1[startCol];
+                let startIdx = startCol;
+                for (let c = startCol + 1; c <= 10 + uniqueDates.length; c++) {
+                    if (c === 10 + uniqueDates.length || headerRow1[c] !== currentVal) {
+                        if (c - 1 > startIdx) merges.push({ s: {r:4, c:startIdx}, e: {r:4, c:c-1} });
+                        if (c < 10 + uniqueDates.length) { currentVal = headerRow1[c]; startIdx = c; }
+                    }
                 }
+
+                // Merge เดือน (แถวที่ 5) แนวนอนอัตโนมัติ
+                startCol = 10;
+                currentVal = headerRow2[startCol];
+                startIdx = startCol;
+                for (let c = startCol + 1; c <= 10 + uniqueDates.length; c++) {
+                    if (c === 10 + uniqueDates.length || headerRow2[c] !== currentVal) {
+                        if (c - 1 > startIdx) merges.push({ s: {r:5, c:startIdx}, e: {r:5, c:c-1} });
+                        if (c < 10 + uniqueDates.length) { currentVal = headerRow2[c]; startIdx = c; }
+                    }
+                }
+
                 ws['!merges'] = merges;
 
                 // กำหนดความกว้างคอลัมน์
-                const wscols = [ {wch: 6}, {wch: 12}, {wch: 30}, {wch: 12}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5} ];
-                uniqueDates.forEach(() => wscols.push({wch: 6})); 
+                const wscols = [ {wch: 6}, {wch: 12}, {wch: 30}, {wch: 12}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 5}, {wch: 8} ];
+                uniqueDates.forEach(() => wscols.push({wch: 4})); 
                 wscols.push({wch: 15}); // คอลัมน์หมายเหตุ
                 ws['!cols'] = wscols;
 
@@ -1273,7 +1305,6 @@
                 cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ กรุณาลองใหม่'); 
             }
         }
-
 
         // =========================================================================
         // ADMIN: จัดการข้อมูลนักเรียน
