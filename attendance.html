@@ -53,6 +53,12 @@
         .hide-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         .hide-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .hide-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* สไตล์ตารางรายงาน */
+        .report-table th, .report-table td { white-space: nowrap; padding: 8px 12px; }
+        .report-table th { position: sticky; top: 0; background-color: #f9fafb; z-index: 10; }
+        .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; background-color: inherit; z-index: 20; border-right: 1px solid #e5e7eb; }
+        .report-table th:nth-child(2), .report-table td:nth-child(2) { position: sticky; left: 48px; background-color: inherit; z-index: 20; border-right: 1px solid #e5e7eb; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -337,7 +343,7 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <div>
                             <h3 class="text-lg md:text-xl font-bold text-blue-900 mb-1"><i class="fas fa-chart-bar mr-2"></i> รายงานบันทึกเวลาเรียน / ดาวน์โหลด .xlsx</h3>
-                            <p class="text-xs md:text-sm text-gray-500">ดูสถิติรายวัน หรือดาวน์โหลดข้อมูลทั้งหมดของวิชาในรูปแบบ Excel (.xlsx)</p>
+                            <p class="text-xs md:text-sm text-gray-500">ดูสถิติทั้งหมด หรือดาวน์โหลดข้อมูลของวิชาในรูปแบบ Excel (.xlsx)</p>
                         </div>
                         <!-- ปุ่มดาวน์โหลด Excel -->
                         <button onclick="downloadExcel()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 border-b-4 border-green-800">
@@ -346,13 +352,7 @@
                     </div>
                     
                     <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-8 bg-gray-50 p-4 rounded-lg border border-gray-100 items-end">
-                         <div class="w-full md:w-64">
-                            <label class="block text-xs font-bold text-gray-600 mb-1">เลือกช่วงวันที่ (ดูทั้งหมดให้เว้นว่าง)</label>
-                            <div class="relative">
-                                <input type="text" id="reportDate" class="border border-gray-300 p-2.5 pl-10 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-sm" placeholder="เลือกช่วงเวลา...">
-                                <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                            </div>
-                         </div>
+                         <!-- เอา Date picker ออก -->
                          <div class="w-full md:w-64">
                              <label class="block text-xs font-bold text-gray-600 mb-1">เลือกห้องเรียน</label>
                              <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" onchange="populateSubjectDropdown('reportSubjectSel', null, this.value)">
@@ -370,7 +370,7 @@
 
                     <!-- ส่วนแสดงผลรวมหน้าเว็บ (จะแสดงเมื่อกดดูสถิติ) -->
                     <div id="reportResult" class="hidden">
-                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">ภาพรวมสถิติ (ตามช่วงเวลาที่เลือก)</h4>
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">ภาพรวมสถิติ (ทั้งหมด)</h4>
                          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-8">
                              <div class="bg-emerald-50 border border-emerald-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-emerald-600 text-xs md:text-sm font-bold">มาเรียน (ครั้ง)</div><div id="repPresent" class="text-2xl md:text-3xl font-black mt-2 text-emerald-700">0</div></div>
                              <div class="bg-blue-50 border border-blue-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-blue-600 text-xs md:text-sm font-bold">ลากิจ (ครั้ง)</div><div id="repLeave" class="text-2xl md:text-3xl font-black mt-2 text-blue-700">0</div></div>
@@ -379,28 +379,12 @@
                              <div class="bg-purple-50 border border-purple-100 p-4 md:p-5 rounded-2xl text-center col-span-2 md:col-span-1"><div class="text-purple-600 text-xs md:text-sm font-bold">ป่วย (ครั้ง)</div><div id="repSick" class="text-2xl md:text-3xl font-black mt-2 text-purple-700">0</div></div>
                          </div>
                          
-                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">รายละเอียด (เฉพาะข้อมูลที่มีการ ขาด/ลา/สาย/ป่วย)</h4>
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">ตารางบันทึกเวลาเรียนรายวัน</h4>
                          <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
-                            <div class="overflow-x-auto max-h-[400px]">
-                                <table class="w-full text-sm text-left whitespace-nowrap md:whitespace-normal">
-                                    <thead class="bg-gray-50 text-gray-600 border-b sticky top-0 shadow-sm">
-                                        <tr>
-                                            <th class="px-4 py-3 w-32">วันที่</th>
-                                            <th class="px-4 py-3 w-24">สถานะ</th>
-                                            <th class="px-4 py-3 min-w-[200px]">ข้อมูลนักเรียน</th>
-                                            <th class="px-4 py-3 w-1/3">หมายเหตุ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="reportDetailList" class="divide-y divide-gray-100">
-                                        <!-- รายชื่อจะแสดงตรงนี้ -->
-                                    </tbody>
-                                </table>
+                            <div class="overflow-x-auto" id="reportTableContainer">
+                                <!-- ตารางจะถูกสร้างที่นี่ -->
+                                <div class="p-8 text-center text-gray-500">กรุณากดปุ่ม "ดูสถิติหน้าเว็บ"</div>
                             </div>
-                         </div>
-                         
-                         <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg text-blue-800 text-sm flex gap-3">
-                             <i class="fas fa-lightbulb text-yellow-500 text-xl"></i>
-                             <p>หากต้องการดูตารางรายชื่อนักเรียนและประวัติการเช็คชื่อแบบครบทุกคนในรูปแบบหน้ากระดาษ (รูปแบบมาตรฐาน .xlsx) กรุณากดปุ่ม <b>"ดาวน์โหลด .xlsx"</b> สีเขียวที่มุมขวาบน</p>
                          </div>
                     </div>
                 </div>
@@ -590,11 +574,7 @@
             fpMain = flatpickr("#datePicker", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'attSubjectSelector') });
             fpHistory = flatpickr("#manageTimeDate", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'manageTimeSubject') });
             
-            fpReport = flatpickr("#reportDate", { 
-                mode: "range",
-                dateFormat: "Y-m-d",
-                disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
-            });
+            // ไม่ต้องใช้ date picker ในหน้ารายงานแล้ว
 
             const today = new Date();
             if(today.getDay() === 0) today.setDate(today.getDate() - 2);
@@ -631,12 +611,8 @@
         function formatDate(dateString) {
             if(!dateString) return "-";
             try {
-                // พยายามแปลงเป็น Date object
                 let dObj = new Date(dateString);
-                
-                // ถ้าแปลงไม่ได้ (Invalid Date) ให้คืนค่าสตริงเดิมกลับไปก่อน
                 if (isNaN(dObj.getTime())) return dateString;
-                
                 return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
             } catch (e) {
                 return dateString;
@@ -866,9 +842,6 @@
             } catch(e) { cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
         }
 
-        // =========================================================================
-        // Data Fetching (ทั่วไป)
-        // =========================================================================
         async function fetchClasses() {
             try {
                 const res = await fetch(`${API_URL}?action=getStudentClasses`);
@@ -1040,10 +1013,9 @@
         }
 
         // =========================================================================
-        // รายงาน (Report) 
+        // รายงาน (Report) แบบใหม่ (แสดงทั้งหมด & Matrix Table)
         // =========================================================================
         async function generateReport() {
-            const dateRangeStr = document.getElementById('reportDate').value;
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
 
@@ -1054,97 +1026,121 @@
 
             cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
             try {
-                let res, json;
-                try {
-                    res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                    json = await res.json();
-                } catch(err) {
-                    const singleDate = dateRangeStr.split(' to ')[0] || state.currentDate;
-                    res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${singleDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                    json = await res.json();
+                // ดึงข้อมูลรายชื่อนักเรียนก่อน
+                const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls)}`);
+                const stuJson = await stuRes.json();
+                let rawStudents = [];
+                if(stuJson.status === 'success' && stuJson.data.length > 1) {
+                    rawStudents = stuJson.data.slice(1); // ตัดหัวตารางออก
                 }
+
+                // ดึงข้อมูลการเข้าเรียน (ทั้งหมดของวิชานั้น)
+                const attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                const attJson = await attRes.json();
+                let reportData = (attJson.status === 'success') ? attJson.data : [];
+
+                if (reportData.length === 0) {
+                     document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้</div>';
+                     document.getElementById('reportResult').classList.remove('hidden');
+                     Swal.close();
+                     return;
+                }
+
+                // หาวันที่ที่มีการบันทึกทั้งหมด
+                let uniqueDates = [...new Set(reportData.map(r => r.date))].filter(d => d).sort((a, b) => new Date(a) - new Date(b));
+
+                // สร้าง Map ข้อมูลการเช็คชื่อ
+                const studentAttendanceMap = {};
+                reportData.forEach(r => {
+                    if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
+                    studentAttendanceMap[r.id][r.date] = r.status;
+                });
+
+                // คำนวณสถิติรวม (Total)
+                let totalStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                reportData.forEach(r => {
+                    if (totalStats[r.status] !== undefined) totalStats[r.status]++;
+                });
+
+                // อัปเดตกล่องสถิติ
+                document.getElementById('repPresent').innerText = totalStats.present;
+                document.getElementById('repLeave').innerText = totalStats.leave;
+                document.getElementById('repAbsent').innerText = totalStats.absent;
+                document.getElementById('repLate').innerText = totalStats.late;
+                document.getElementById('repSick').innerText = totalStats.sick;
+
+                // --- สร้างตาราง Matrix HTML ---
+                const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
+                const statusColor = { 'present': 'text-green-600', 'absent': 'text-red-600 font-bold', 'leave': 'text-blue-600', 'late': 'text-orange-500', 'sick': 'text-purple-600' };
+
+                let tableHtml = `<table class="report-table w-full text-sm text-left border-collapse min-w-max">
+                    <thead class="bg-gray-100 text-gray-700">
+                        <tr>
+                            <th class="border">เลขที่</th>
+                            <th class="border">ชื่อ - นามสกุล</th>`;
                 
-                let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
-                let detailHtml = '';
-                const statusConfig = { 'leave': { text: 'ลากิจ', color: 'bg-blue-100 text-blue-700' }, 'absent': { text: 'ขาดเรียน', color: 'bg-red-100 text-red-700' }, 'late': { text: 'สาย', color: 'bg-orange-100 text-orange-700' }, 'sick': { text: 'ป่วย', color: 'bg-purple-100 text-purple-700' } };
+                // หัวตารางวันที่
+                uniqueDates.forEach(d => {
+                    let dObj = new Date(d);
+                    let dateStr = isNaN(dObj.getTime()) ? d : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                    tableHtml += `<th class="border text-center min-w-[50px]">${dateStr}</th>`;
+                });
+                
+                tableHtml += `<th class="border text-center bg-gray-200">มา</th>
+                              <th class="border text-center bg-gray-200">ลา</th>
+                              <th class="border text-center bg-gray-200">ขาด</th>
+                              <th class="border text-center bg-gray-200">สาย</th>
+                              <th class="border text-center bg-gray-200">ป่วย</th>
+                              </tr></thead><tbody>`;
 
-                let reportData = [];
-                if(json.status === 'success' && json.data) {
-                    reportData = json.data;
-                }
+                // แถวข้อมูลนักเรียน
+                rawStudents.forEach((stuRow, idx) => {
+                    const number = stuRow[0] || '-';
+                    const nameParts = stuRow.slice(2, 5).filter(Boolean);
+                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const uniqueId = getStudentUniqueId(stuRow);
 
-                // กรองข้อมูลตามช่วงวันที่ (ปรับปรุงใหม่)
-                if (dateRangeStr && dateRangeStr.includes(' to ')) {
-                    const [startStr, endStr] = dateRangeStr.split(' to ');
-                    const startDate = new Date(startStr);
-                    const endDate = new Date(endStr);
-                    // ปรับเวลาให้ครอบคลุมทั้งวัน
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate.setHours(23, 59, 59, 999);
+                    let rowStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                    let rowCells = '';
 
-                    reportData = reportData.filter(r => {
-                        // รองรับทั้ง r.date (YYYY-MM-DD) และ r.Timestamp
-                        let dateString = r.date;
-                        if (!dateString && r.Timestamp) {
-                             dateString = r.Timestamp.split(' ')[0];
-                        }
-                        if (!dateString) return false;
-
-                        const rDate = new Date(dateString);
-                        // ตั้งเวลา rDate ให้เป็นเที่ยงวันเพื่อเลี่ยงปัญหา timezone
-                        rDate.setHours(12, 0, 0, 0); 
+                    uniqueDates.forEach(d => {
+                        const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        if(status && rowStats[status] !== undefined) rowStats[status]++;
                         
-                        return rDate >= startDate && rDate <= endDate;
+                        const symbol = status ? statusSymbol[status] : '-';
+                        const colorClass = status ? statusColor[status] : 'text-gray-300';
+                        rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
-                } else if (dateRangeStr) {
-                    // กรณีเลือกวันเดียว
-                    reportData = reportData.filter(r => {
-                        const dateString = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
-                        return dateString === dateRangeStr;
-                    });
-                }
 
-                if(reportData.length > 0) {
-                    reportData.forEach(r => {
-                        if(stats[r.status] !== undefined) stats[r.status]++;
-                        if(r.status && r.status !== 'present') {
-                            const info = r.id.split('|');
-                            const config = statusConfig[r.status] || { text: 'ไม่ระบุ', color: 'bg-gray-100 text-gray-700' };
-                            const displayDate = r.date ? formatDate(r.date) : formatDate(dateRangeStr);
-                            detailHtml += `<tr class="border-b hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 align-top font-medium text-gray-600">${displayDate}</td>
-                                <td class="px-4 py-3 align-top"><span class="px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold ${config.color} whitespace-nowrap">${config.text}</span></td>
-                                <td class="px-4 py-3 font-medium text-gray-800 align-top break-words whitespace-normal"><div class="text-xs md:text-sm">เลขที่ ${info[0]||'-'}</div><div>${info[2]||'ไม่ทราบชื่อ'}</div></td>
-                                <td class="px-4 py-3 text-gray-500 text-xs md:text-sm align-top whitespace-normal break-words">${r.note || '-'}</td>
-                            </tr>`;
-                        }
-                    });
-                }
-                
-                document.getElementById('repPresent').innerText = stats.present; document.getElementById('repLeave').innerText = stats.leave;
-                document.getElementById('repAbsent').innerText = stats.absent; document.getElementById('repLate').innerText = stats.late; document.getElementById('repSick').innerText = stats.sick;
-                
-                const detailContainer = document.getElementById('reportDetailList');
-                if(detailHtml === '') {
-                    if (reportData.length === 0) {
-                        detailContainer.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500"><div class="text-lg mb-2"><i class="fas fa-folder-open text-gray-300 text-4xl"></i></div><p class="font-bold text-gray-700 mt-2">ไม่พบข้อมูลการเช็คชื่อในช่วงเวลาที่เลือก</p></td></tr>`;
-                    } else {
-                        detailContainer.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-emerald-500 font-bold">🎉 นักเรียนมาเรียนครบทุกคน 🎉</td></tr>`;
-                    }
-                } else {
-                    detailContainer.innerHTML = detailHtml;
-                }
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b">
+                        <td class="border text-center font-bold">${number}</td>
+                        <td class="border">${fullName}</td>
+                        ${rowCells}
+                        <td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td>
+                        <td class="border text-center text-blue-700 bg-gray-50">${rowStats.leave}</td>
+                        <td class="border text-center text-red-700 bg-gray-50">${rowStats.absent}</td>
+                        <td class="border text-center text-orange-700 bg-gray-50">${rowStats.late}</td>
+                        <td class="border text-center text-purple-700 bg-gray-50">${rowStats.sick}</td>
+                    </tr>`;
+                });
+
+                tableHtml += '</tbody></table>';
+                document.getElementById('reportTableContainer').innerHTML = tableHtml;
 
                 document.getElementById('reportResult').classList.remove('hidden');
                 Swal.close();
-            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); }
+
+            } catch(e) { 
+                console.error(e);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); 
+            }
         }
 
         // =========================================================================
-        // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง CSV ที่อัปโหลด
+        // ดาวน์โหลดรายงาน Excel (ดาวน์โหลดทั้งหมด ไม่ต้องกรองวันที่)
         // =========================================================================
         async function downloadExcel() {
-            const dateRangeStr = document.getElementById('reportDate').value;
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
 
@@ -1165,54 +1161,21 @@
                 }
                 const rawStudents = stuJson.data.slice(1);
 
-                // 2. ดึงประวัติการมาเรียน (ใช้ getAttendanceReport เพื่อดึงทั้งหมดของวิชานี้)
+                // 2. ดึงประวัติการมาเรียน (ดึงทั้งหมดของวิชานี้)
                 const attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
                 const attJson = await attRes.json();
                 
                 let reportData = (attJson.status === 'success') ? attJson.data : [];
 
-                // 3. กรองวันที่ (ถ้ามีการเลือกช่วง)
-                if (dateRangeStr && dateRangeStr.includes(' to ')) {
-                    const [startStr, endStr] = dateRangeStr.split(' to ');
-                    const startDate = new Date(startStr);
-                    const endDate = new Date(endStr);
-                    // ปรับเวลาให้ครอบคลุมทั้งวัน (00:00:00 - 23:59:59)
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate.setHours(23, 59, 59, 999);
-
-                    reportData = reportData.filter(r => {
-                        // รองรับทั้ง r.date (YYYY-MM-DD) และ r.Timestamp
-                        let dateString = r.date;
-                        if (!dateString && r.Timestamp) {
-                             // แปลง Timestamp (เช่น 2024-02-25 14:30:00) เป็น YYYY-MM-DD
-                             dateString = r.Timestamp.split(' ')[0];
-                        }
-                        if (!dateString) return false;
-
-                        const rDate = new Date(dateString);
-                        // ตั้งเวลา rDate ให้เป็นเที่ยงวันเพื่อเลี่ยงปัญหา timezone
-                        rDate.setHours(12, 0, 0, 0); 
-                        
-                        return rDate >= startDate && rDate <= endDate;
-                    });
-                } else if (dateRangeStr) {
-                    // กรณีเลือกวันเดียว
-                    reportData = reportData.filter(r => {
-                        const dateString = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
-                        return dateString === dateRangeStr;
-                    });
-                }
-
-                // 4. หาวันที่ที่มีการบันทึก (Unique Dates)
-                // ดึงวันที่จากข้อมูลที่มีอยู่จริง
+                // 3. หาวันที่ที่มีการบันทึก (Unique Dates)
                 let uniqueDates = [...new Set(reportData.map(r => r.date))].filter(d => d).sort((a, b) => new Date(a) - new Date(b));
 
                 if(uniqueDates.length === 0) {
-                     cuteAlert.error('ไม่พบข้อมูล', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาหรือวิชาที่เลือก (อาจจะยังไม่ได้บันทึกข้อมูล)');
+                     cuteAlert.error('ไม่พบข้อมูล', 'ไม่พบประวัติการเช็คชื่อในระบบ (อาจจะยังไม่ได้บันทึกข้อมูล)');
                      return;
                 }
 
-                // 5. เตรียมข้อมูล Excel ตามฟอร์ม
+                // 4. เตรียมข้อมูล Excel ตามฟอร์ม
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
@@ -1226,12 +1189,10 @@
                 uniqueDates.forEach((d, idx) => {
                     let dObj = new Date(d);
                     if(isNaN(dObj.getTime())) {
-                        // กรณีวันที่มีรูปแบบแปลกๆ
                         headerRow1.push(""); 
                         headerRow2.push(d); 
                         headerRow3.push((idx + 1).toString());
                     } else {
-                        // รูปแบบ: ม.ค. | 17 ก.พ. | 1 (แก้ไขให้แสดง วัน+เดือน ในแถวกลาง)
                         headerRow1.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
                         
                         // แก้ไข: แสดงวันที่พร้อมเดือนย่อ เช่น "17 ก.พ."
@@ -1262,20 +1223,17 @@
                     const code = stuRow[1] || '-';
                     const nameParts = stuRow.slice(2, 5).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                    const uniqueId = getStudentUniqueId(stuRow); // ใช้ ID เดียวกับตอนบันทึก
+                    const uniqueId = getStudentUniqueId(stuRow);
 
                     let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
 
-                    // นับสถิติ
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    // คิดร้อยละ (มาเรียน / จำนวนคาบทั้งหมด * 100)
                     let percent = uniqueDates.length > 0 ? Math.round((stats.present / uniqueDates.length) * 100) : 0;
 
-                    // จัดเรียงข้อมูลลงแถว: ข้อมูลส่วนตัว -> สรุป -> รายวัน
                     let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
 
                     uniqueDates.forEach(d => {
@@ -1295,12 +1253,12 @@
                 const merges = [
                     { s: {r:0, c:0}, e: {r:2, c:0} }, // เลขที่
                     { s: {r:0, c:1}, e: {r:2, c:1} }, // รหัส
-                    { s: {r:0, c:2}, e: {r:2, c:3} }, // ชื่อ-นามสกุล (กินพื้นที่ 2 คอลัมน์)
-                    { s: {r:0, c:5}, e: {r:0, c:9} }, // หัวข้อ "สรุปเวลาเรียน"
-                    { s: {r:0, c:10+uniqueDates.length}, e: {r:2, c:10+uniqueDates.length} } // หมายเหตุ (หลังสุด)
+                    { s: {r:0, c:2}, e: {r:2, c:3} }, // ชื่อ-นามสกุล
+                    { s: {r:0, c:5}, e: {r:0, c:9} }, // สรุปเวลาเรียน
+                    { s: {r:0, c:10+uniqueDates.length}, e: {r:2, c:10+uniqueDates.length} } // หมายเหตุ
                 ];
 
-                // Merge "เดือน" (Row 1) แนวนอนอัตโนมัติ ถ้าเป็นเดือนเดียวกัน
+                // Merge เดือน แนวนอนอัตโนมัติ
                 let startCol = 11;
                 let currentVal = headerRow1[startCol];
                 let startIdx = startCol;
@@ -1319,13 +1277,12 @@
 
                 // กำหนดความกว้างคอลัมน์
                 const wscols = [ {wch: 5}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 10}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 8} ];
-                uniqueDates.forEach(() => wscols.push({wch: 8})); // เพิ่มความกว้างช่องวันที่ให้พอดีกับ "17 ก.พ."
+                uniqueDates.forEach(() => wscols.push({wch: 8})); 
                 wscols.push({wch: 15});
                 ws['!cols'] = wscols;
 
                 XLSX.utils.book_append_sheet(wb, ws, "บันทึกเวลาเรียน");
                 
-                // ตั้งชื่อไฟล์ให้ปลอดภัย
                 const safeName = `${cls}_${subj}`.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 30);
                 XLSX.writeFile(wb, `รายงานเวลาเรียน_${safeName}.xlsx`);
 
