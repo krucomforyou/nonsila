@@ -1073,18 +1073,35 @@
                     reportData = json.data;
                 }
 
+                // กรองข้อมูลตามช่วงวันที่ (ปรับปรุงใหม่)
                 if (dateRangeStr && dateRangeStr.includes(' to ')) {
                     const [startStr, endStr] = dateRangeStr.split(' to ');
                     const startDate = new Date(startStr);
                     const endDate = new Date(endStr);
-                    endDate.setHours(23, 59, 59, 999); 
+                    // ปรับเวลาให้ครอบคลุมทั้งวัน
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate.setHours(23, 59, 59, 999);
 
                     reportData = reportData.filter(r => {
-                        let rDate = r.date ? new Date(r.date) : (r.Timestamp ? new Date(r.Timestamp.split(' ')[0]) : new Date(startStr)); 
+                        // รองรับทั้ง r.date (YYYY-MM-DD) และ r.Timestamp
+                        let dateString = r.date;
+                        if (!dateString && r.Timestamp) {
+                             dateString = r.Timestamp.split(' ')[0];
+                        }
+                        if (!dateString) return false;
+
+                        const rDate = new Date(dateString);
+                        // ตั้งเวลา rDate ให้เป็นเที่ยงวันเพื่อเลี่ยงปัญหา timezone
+                        rDate.setHours(12, 0, 0, 0); 
+                        
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => (r.date === dateRangeStr || (r.Timestamp && r.Timestamp.includes(dateRangeStr))));
+                    // กรณีเลือกวันเดียว
+                    reportData = reportData.filter(r => {
+                        const dateString = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                        return dateString === dateRangeStr;
+                    });
                 }
 
                 if(reportData.length > 0) {
@@ -1093,9 +1110,7 @@
                         if(r.status && r.status !== 'present') {
                             const info = r.id.split('|');
                             const config = statusConfig[r.status] || { text: 'ไม่ระบุ', color: 'bg-gray-100 text-gray-700' };
-                            
-                            const displayDate = r.date ? formatDate(r.date) : (r.Timestamp ? formatDate(r.Timestamp.split(' ')[0]) : formatDate(dateRangeStr));
-                            
+                            const displayDate = r.date ? formatDate(r.date) : formatDate(dateRangeStr);
                             detailHtml += `<tr class="border-b hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 align-top font-medium text-gray-600">${displayDate}</td>
                                 <td class="px-4 py-3 align-top"><span class="px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold ${config.color} whitespace-nowrap">${config.text}</span></td>
@@ -1161,14 +1176,31 @@
                     const [startStr, endStr] = dateRangeStr.split(' to ');
                     const startDate = new Date(startStr);
                     const endDate = new Date(endStr);
+                    // ปรับเวลาให้ครอบคลุมทั้งวัน (00:00:00 - 23:59:59)
+                    startDate.setHours(0, 0, 0, 0);
                     endDate.setHours(23, 59, 59, 999);
+
                     reportData = reportData.filter(r => {
-                        const dStr = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : startStr);
-                        const rDate = new Date(dStr);
+                        // รองรับทั้ง r.date (YYYY-MM-DD) และ r.Timestamp
+                        let dateString = r.date;
+                        if (!dateString && r.Timestamp) {
+                             // แปลง Timestamp (เช่น 2024-02-25 14:30:00) เป็น YYYY-MM-DD
+                             dateString = r.Timestamp.split(' ')[0];
+                        }
+                        if (!dateString) return false;
+
+                        const rDate = new Date(dateString);
+                        // ตั้งเวลา rDate ให้เป็นเที่ยงวันเพื่อเลี่ยงปัญหา timezone
+                        rDate.setHours(12, 0, 0, 0); 
+                        
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => (r.date === dateRangeStr));
+                    // กรณีเลือกวันเดียว
+                    reportData = reportData.filter(r => {
+                        const dateString = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                        return dateString === dateRangeStr;
+                    });
                 }
 
                 // 4. หาวันที่ที่มีการบันทึก (Unique Dates)
@@ -1199,9 +1231,13 @@
                         headerRow2.push(d); 
                         headerRow3.push((idx + 1).toString());
                     } else {
-                        // รูปแบบ: ม.ค. | 17 | 1
+                        // รูปแบบ: ม.ค. | 17 ก.พ. | 1 (แก้ไขให้แสดง วัน+เดือน ในแถวกลาง)
                         headerRow1.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
-                        headerRow2.push(dObj.getDate().toString());
+                        
+                        // แก้ไข: แสดงวันที่พร้อมเดือนย่อ เช่น "17 ก.พ."
+                        const dateWithMonth = `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                        headerRow2.push(dateWithMonth);
+                        
                         headerRow3.push((idx + 1).toString());
                     }
                 });
@@ -1283,7 +1319,7 @@
 
                 // กำหนดความกว้างคอลัมน์
                 const wscols = [ {wch: 5}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 10}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 8} ];
-                uniqueDates.forEach(() => wscols.push({wch: 5})); // ช่องวันที่กว้าง 5
+                uniqueDates.forEach(() => wscols.push({wch: 8})); // เพิ่มความกว้างช่องวันที่ให้พอดีกับ "17 ก.พ."
                 wscols.push({wch: 15});
                 ws['!cols'] = wscols;
 
