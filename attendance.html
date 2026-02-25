@@ -339,7 +339,7 @@
                             <h3 class="text-lg md:text-xl font-bold text-blue-900 mb-1"><i class="fas fa-chart-bar mr-2"></i> รายงานบันทึกเวลาเรียน / ดาวน์โหลด .xlsx</h3>
                             <p class="text-xs md:text-sm text-gray-500">ดูสถิติรายวัน หรือดาวน์โหลดข้อมูลทั้งหมดของวิชาในรูปแบบ Excel (.xlsx)</p>
                         </div>
-                        <!-- เปลี่ยนปุ่มตรงนี้ตามคำขอ -->
+                        <!-- ปุ่มดาวน์โหลด Excel -->
                         <button onclick="downloadExcel()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 border-b-4 border-green-800">
                             <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
                         </button>
@@ -1026,8 +1026,7 @@
                 return;
             }
 
-            // 3. แก้บั๊กการเลือกวันที่ข้ามแท็บ
-            fpMain.setDate(dateStr, true); // เปลี่ยนเป็น true เพื่อ trigger ให้ดึงข้อมูลวิชาของวันนั้น
+            fpMain.setDate(dateStr, true); 
             
             switchTab('attendance');
             
@@ -1041,7 +1040,7 @@
         }
 
         // =========================================================================
-        // รายงาน (Report) พร้อมระบบกรองวันที่ & ดาวน์โหลดโครงสร้างใหม่ (แบบย่อ+เรียงหัวตาราง 3 ชั้น)
+        // รายงาน (Report) 
         // =========================================================================
         async function generateReport() {
             const dateRangeStr = document.getElementById('reportDate').value;
@@ -1081,7 +1080,6 @@
                     endDate.setHours(23, 59, 59, 999); 
 
                     reportData = reportData.filter(r => {
-                        // 2. ปรับปรุงการใช้ Timestamp/Date ให้ดึงมาได้ชัวร์ขึ้น
                         let rDate = r.date ? new Date(r.date) : (r.Timestamp ? new Date(r.Timestamp.split(' ')[0]) : new Date(startStr)); 
                         return rDate >= startDate && rDate <= endDate;
                     });
@@ -1096,7 +1094,6 @@
                             const info = r.id.split('|');
                             const config = statusConfig[r.status] || { text: 'ไม่ระบุ', color: 'bg-gray-100 text-gray-700' };
                             
-                            // ใช้ formatDate ตัวใหม่
                             const displayDate = r.date ? formatDate(r.date) : (r.Timestamp ? formatDate(r.Timestamp.split(' ')[0]) : formatDate(dateRangeStr));
                             
                             detailHtml += `<tr class="border-b hover:bg-gray-50 transition-colors">
@@ -1129,7 +1126,7 @@
         }
 
         // =========================================================================
-        // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง 3 ชั้น
+        // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง CSV ที่อัปโหลด
         // =========================================================================
         async function downloadExcel() {
             const dateRangeStr = document.getElementById('reportDate').value;
@@ -1189,28 +1186,29 @@
                      return;
                 }
 
-                // สัญลักษณ์การเช็คชื่อตามฟอร์ม
+                // สัญลักษณ์การเช็คชื่อ
+                // เปลี่ยน "สาย" (late) เป็นคำว่า "หนี" ในส่วนหัวตารางและแมปปิ้ง เพื่อให้ตรงกับ CSV ต้นแบบ
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
                 const excelData = [];
-                // ใส่หัวกระดาษ
-                excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
-                excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
-                excelData.push(["ครูผู้สอน:", state.user.name, "ช่วงวันที่:", dateRangeStr || "ทั้งหมด"]);
-                excelData.push([]); 
-
-                // แถวหัวตาราง (3 ชั้น: สัปดาห์ > เดือน > วันที่)
+                
+                // แถวหัวตาราง (3 ชั้น ให้ตรงกับ CSV ต้นฉบับ)
+                // Row 1: เลขที่, รหัส, ชื่อ-สกุล นักเรียน, เวลาเรียนเต็ม, สรุปเวลาเรียน, (blank), (blank), (blank), (blank), เดือน, ...วัน/เดือน/ปี..., หมายเหตุ
                 let headerRow1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "", "", "เดือน"];
                 let headerRow2 = ["", "", "", "", `${uniqueDates.length} ชม.`, "", "", "", "", "", "วันที่"];
-                let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย", "ร้อยละ", "ชั่วโมงที่"];
+                let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
                 
                 uniqueDates.forEach((d, idx) => {
                     let dObj = new Date(d);
                     if(isNaN(dObj.getTime())) {
-                        headerRow1.push("-"); headerRow2.push(d); headerRow3.push("-");
+                        headerRow1.push(d); 
+                        headerRow2.push(""); 
+                        headerRow3.push((idx + 1).toString());
                     } else {
-                        headerRow1.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
+                        // รูปแบบ: 17ก.พ.69
+                        const dateStr = `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${(dObj.getFullYear()+543).toString().slice(-2)}`;
+                        headerRow1.push(dateStr);
                         headerRow2.push(dObj.getDate().toString());
                         headerRow3.push((idx + 1).toString());
                     }
@@ -1223,16 +1221,15 @@
                 excelData.push(headerRow2);
                 excelData.push(headerRow3);
 
-                // Map สถานะ
+                // Map สถานะการมาเรียนของแต่ละคน
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
-                    // ใช้ date หรือตัดเอาเฉพาะส่วนวันที่ของ Timestamp มาใช้เป็น key
                     const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
                     if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
                     studentAttendanceMap[r.id][dateKey] = r.status;
                 });
 
-                // วนลูปรายชื่อ
+                // วนลูปรายชื่อนักเรียนและคำนวณสถิติ
                 rawStudents.forEach(stuRow => {
                     const number = stuRow[0] || '-';
                     const code = stuRow[1] || '-';
@@ -1242,16 +1239,15 @@
 
                     let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
 
-                    // นับสถิติก่อน
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    // คิดร้อยละ (นับเฉพาะมาเรียน / จำนวนคาบทั้งหมด)
+                    // คิดร้อยละ
                     let percent = uniqueDates.length > 0 ? Math.round((stats.present / uniqueDates.length) * 100) : 0;
 
-                    // ใส่ข้อมูล [ข้อมูลนักเรียน -> ยอดรวม -> การเช็คชื่อรายวัน]
+                    // ใส่ข้อมูล สรุป ไว้ด้านหน้าก่อนติ๊กรายวัน
                     let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
 
                     uniqueDates.forEach(d => {
@@ -1263,37 +1259,29 @@
                     excelData.push(rowData);
                 });
 
-                // สร้างเอกสาร Excel
+                // สร้างเอกสาร Excel โดยใช้ SheetJS
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-                // สร้างเงื่อนไขผสานเซลล์ (Merge Cells) เพื่อความสวยงาม
+                // สร้างเงื่อนไขผสานเซลล์ (Merge Cells) เพื่อความสวยงามเหมือนต้นฉบับ
                 const merges = [
-                    { s: {r:4, c:0}, e: {r:6, c:0} }, // เลขที่
-                    { s: {r:4, c:1}, e: {r:6, c:1} }, // รหัส
-                    { s: {r:4, c:2}, e: {r:6, c:2} }, // ชื่อ
-                    { s: {r:4, c:3}, e: {r:6, c:3} }, // ช่องว่าง
-                    { s: {r:4, c:5}, e: {r:4, c:9} }  // สรุปเวลาเรียน (Span over มา, ป่วย, ลา, ขาด, สาย, ร้อยละ)
+                    { s: {r:0, c:0}, e: {r:2, c:0} }, // เลขที่ (Col 0, Row 0-2)
+                    { s: {r:0, c:1}, e: {r:2, c:1} }, // รหัส (Col 1, Row 0-2)
+                    { s: {r:0, c:2}, e: {r:2, c:3} }, // ชื่อ-นามสกุล (Col 2-3, Row 0-2)
+                    { s: {r:0, c:5}, e: {r:0, c:9} }, // สรุปเวลาเรียน (Span over มา ป่วย ลา ขาด สาย ร้อยละ)
+                    { s: {r:0, c:10+uniqueDates.length}, e: {r:2, c:10+uniqueDates.length} } // หมายเหตุ (ริมขวาสุด)
                 ];
 
-                // Merge เดือน แนวนอนอัตโนมัติ (อยู่แถว index 4 หรือ Row 5 ใน Excel)
-                let startCol = 11;
-                let currentVal = headerRow1[startCol];
-                let startIdx = startCol;
-                for (let c = startCol + 1; c <= 11 + uniqueDates.length; c++) {
-                    if (c === 11 + uniqueDates.length || headerRow1[c] !== currentVal) {
-                        if (c - 1 > startIdx) merges.push({ s: {r:4, c:startIdx}, e: {r:4, c:c-1} });
-                        if (c < 11 + uniqueDates.length) { currentVal = headerRow1[c]; startIdx = c; }
-                    }
+                // Merge ช่องรายชื่อของนักเรียนแต่ละคน (Row 3 เป็นต้นไป)
+                for(let i = 3; i < excelData.length; i++) {
+                    merges.push({ s: {r: i, c: 2}, e: {r: i, c: 3} });
                 }
-                
-                merges.push({ s: {r:4, c:11+uniqueDates.length}, e: {r:6, c:11+uniqueDates.length} }); // หมายเหตุ
 
                 ws['!merges'] = merges;
 
-                // กำหนดความกว้างคอลัมน์
-                const wscols = [ {wch: 5}, {wch: 12}, {wch: 28}, {wch: 2}, {wch: 12}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 8} ];
-                uniqueDates.forEach(() => wscols.push({wch: 5})); 
+                // กำหนดความกว้างคอลัมน์ให้อ่านง่าย
+                const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
+                uniqueDates.forEach(() => wscols.push({wch: 8})); // ความกว้างช่องวันที่
                 wscols.push({wch: 15}); // คอลัมน์หมายเหตุ
                 ws['!cols'] = wscols;
 
