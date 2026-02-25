@@ -1147,10 +1147,9 @@
         }
 
         // =========================================================================
-        // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง CSV ที่อัปโหลด (แก้ไขใหม่ให้ตรงจุด L1-L3 และการกรองวันที่)
+        // ดาวน์โหลดรายงาน Excel ตามแบบโครงสร้าง CSV (ดึงข้อมูลทั้งหมดเสมอ)
         // =========================================================================
         async function downloadExcel() {
-            const dateRangeStr = document.getElementById('reportDate').value;
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
 
@@ -1171,52 +1170,25 @@
                 }
                 const rawStudents = stuJson.data.slice(1);
 
-                // 2. ดึงประวัติการมาเรียน (ดึงข้อมูลทั้งหมดของวิชานี้)
+                // 2. ดึงประวัติการมาเรียน (ดึงข้อมูลทั้งหมดของวิชานี้แบบไม่กรองวันที่)
                 let attRes, attJson;
                 try {
                     attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
                     attJson = await attRes.json();
                 } catch(err) {
-                    const singleDate = dateRangeStr.split(' to ')[0] || state.currentDate;
+                    const singleDate = state.currentDate;
                     attRes = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${singleDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
                     attJson = await attRes.json();
                 }
                 
                 let reportData = attJson.data || [];
 
-                // 3. กรองข้อมูลตามช่วงวันที่ (ปรับปรุงให้ครอบคลุมการเปรียบเทียบ Timestamp และ Date แบบไม่สนเวลา)
-                if (dateRangeStr && dateRangeStr.includes(' to ')) {
-                    const [startStr, endStr] = dateRangeStr.split(' to ');
-                    const startDate = new Date(startStr);
-                    const endDate = new Date(endStr);
-                    startDate.setHours(0, 0, 0, 0);
-                    endDate.setHours(23, 59, 59, 999);
-
-                    reportData = reportData.filter(r => {
-                        let dateString = r.date;
-                        if (!dateString && r.Timestamp) {
-                             dateString = r.Timestamp.split(' ')[0];
-                        }
-                        if (!dateString) return false;
-
-                        const rDate = new Date(dateString);
-                        rDate.setHours(12, 0, 0, 0); // ตั้งเป็นเที่ยงวันเพื่อเลี่ยงปัญหา Timezone เลื่อนข้ามวัน
-                        
-                        return rDate >= startDate && rDate <= endDate;
-                    });
-                } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => {
-                        const dateString = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
-                        return dateString === dateRangeStr;
-                    });
-                }
-
-                // 4. หาวันที่ที่มีการบันทึกจริงๆ
-                let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : dateRangeStr.split(' to ')[0])))].filter(Boolean);
+                // 3. หาวันที่ที่มีการบันทึกจริงๆ (เอาทั้งหมด ไม่กรอง)
+                let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '')))].filter(Boolean);
                 uniqueDates.sort((a, b) => new Date(a) - new Date(b));
 
                 if(uniqueDates.length === 0) {
-                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาที่เลือก');
+                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้');
                      return;
                 }
 
@@ -1229,7 +1201,7 @@
                 // หัวกระดาษ (แถว 0 - 3)
                 excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
                 excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
-                excelData.push(["ครูผู้สอน:", state.user.name, "ช่วงวันที่:", dateRangeStr || "ทั้งหมด"]);
+                excelData.push(["ครูผู้สอน:", state.user.name]); 
                 excelData.push([]); 
                 
                 // แถวหัวตาราง เริ่มที่แถวที่ 5 ใน Excel (Index 4)
@@ -1237,7 +1209,7 @@
                 let headerRow2 = ["", "", "", "", `${uniqueDates.length} ชม.`, "", "", "", "", "", "วันที่"];
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
                 
-                // --- แก้ไขตรงนี้ให้ช่อง L1 (index 11) แสดงวันที่แบบเต็ม เช่น 17ก.พ.69 ตาม CSV ต้นแบบ ---
+                // ใส่ข้อมูลวันที่ลงคอลัมน์
                 uniqueDates.forEach((d, idx) => {
                     let dObj = new Date(d);
                     if(isNaN(dObj.getTime())) {
@@ -1245,7 +1217,7 @@
                         headerRow2.push(""); 
                         headerRow3.push("");
                     } else {
-                        // สร้างรูปแบบ "17ก.พ.69" แล้วใส่ใน headerRow1 ส่วนบรรทัดล่างปล่อยว่างไว้รอ Merge
+                        // สร้างรูปแบบ "17ก.พ.69"
                         const dateStr = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
                         headerRow1.push(dateStr);
                         headerRow2.push("");
