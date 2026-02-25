@@ -619,7 +619,9 @@
             }
         }
 
+        // 1. ปรับปรุงฟังก์ชันแปลงวันที่ให้รัดกุมขึ้น รองรับหลายรูปแบบ
         function updateHeaderDate(dateObj) {
+            if(!dateObj || !(dateObj instanceof Date) || isNaN(dateObj)) return;
             const day = dateObj.getDate();
             const month = THAI_MONTHS[dateObj.getMonth()];
             const year = dateObj.getFullYear() + 543;
@@ -627,8 +629,18 @@
         }
 
         function formatDate(dateString) {
-            const dObj = new Date(dateString);
-            return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
+            if(!dateString) return "-";
+            try {
+                // พยายามแปลงเป็น Date object
+                let dObj = new Date(dateString);
+                
+                // ถ้าแปลงไม่ได้ (Invalid Date) ให้คืนค่าสตริงเดิมกลับไปก่อน
+                if (isNaN(dObj.getTime())) return dateString;
+                
+                return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
+            } catch (e) {
+                return dateString;
+            }
         }
 
         function populateSubjectDropdown(selectId, dateStr, classFilter = null) {
@@ -1014,17 +1026,18 @@
                 return;
             }
 
-            fpMain.setDate(dateStr, false); 
-            if(fpMain.selectedDates[0]) updateHeaderDate(fpMain.selectedDates[0]);
-            state.currentDate = dateStr;
+            // 3. แก้บั๊กการเลือกวันที่ข้ามแท็บ
+            fpMain.setDate(dateStr, true); // เปลี่ยนเป็น true เพื่อ trigger ให้ดึงข้อมูลวิชาของวันนั้น
             
             switchTab('attendance');
             
             setTimeout(() => {
                 const attSel = document.getElementById('attSubjectSelector');
-                attSel.value = subj;
-                onSubjectSelect('att'); 
-            }, 100);
+                if (attSel) {
+                     attSel.value = subj;
+                     onSubjectSelect('att'); 
+                }
+            }, 300);
         }
 
         // =========================================================================
@@ -1068,11 +1081,12 @@
                     endDate.setHours(23, 59, 59, 999); 
 
                     reportData = reportData.filter(r => {
-                        const rDate = new Date(r.date || r.Timestamp || startStr); 
+                        // 2. ปรับปรุงการใช้ Timestamp/Date ให้ดึงมาได้ชัวร์ขึ้น
+                        let rDate = r.date ? new Date(r.date) : (r.Timestamp ? new Date(r.Timestamp.split(' ')[0]) : new Date(startStr)); 
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => (r.date === dateRangeStr || r.Timestamp?.includes(dateRangeStr)));
+                    reportData = reportData.filter(r => (r.date === dateRangeStr || (r.Timestamp && r.Timestamp.includes(dateRangeStr))));
                 }
 
                 if(reportData.length > 0) {
@@ -1081,7 +1095,10 @@
                         if(r.status && r.status !== 'present') {
                             const info = r.id.split('|');
                             const config = statusConfig[r.status] || { text: 'ไม่ระบุ', color: 'bg-gray-100 text-gray-700' };
-                            const displayDate = r.date ? formatDate(r.date) : formatDate(dateRangeStr);
+                            
+                            // ใช้ formatDate ตัวใหม่
+                            const displayDate = r.date ? formatDate(r.date) : (r.Timestamp ? formatDate(r.Timestamp.split(' ')[0]) : formatDate(dateRangeStr));
+                            
                             detailHtml += `<tr class="border-b hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 align-top font-medium text-gray-600">${displayDate}</td>
                                 <td class="px-4 py-3 align-top"><span class="px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold ${config.color} whitespace-nowrap">${config.text}</span></td>
@@ -1156,15 +1173,16 @@
                     const endDate = new Date(endStr);
                     endDate.setHours(23, 59, 59, 999);
                     reportData = reportData.filter(r => {
-                        const rDate = new Date(r.date || r.Timestamp || startStr);
+                        let rDate = r.date ? new Date(r.date) : (r.Timestamp ? new Date(r.Timestamp.split(' ')[0]) : new Date(startStr));
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => (r.date === dateRangeStr || r.Timestamp?.includes(dateRangeStr)));
+                    reportData = reportData.filter(r => (r.date === dateRangeStr || (r.Timestamp && r.Timestamp.includes(dateRangeStr))));
                 }
 
                 // หาวันที่ที่มีการบันทึก
-                const uniqueDates = [...new Set(reportData.map(r => r.date || dateRangeStr.split(' to ')[0]))].sort((a, b) => new Date(a) - new Date(b));
+                let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : dateRangeStr.split(' to ')[0])))].filter(Boolean);
+                uniqueDates.sort((a, b) => new Date(a) - new Date(b));
 
                 if(uniqueDates.length === 0) {
                      cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาที่เลือก');
@@ -1188,15 +1206,13 @@
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย", "ร้อยละ", "ชั่วโมงที่"];
                 
                 uniqueDates.forEach((d, idx) => {
-                    if(d) {
-                        const dObj = new Date(d);
+                    let dObj = new Date(d);
+                    if(isNaN(dObj.getTime())) {
+                        headerRow1.push("-"); headerRow2.push(d); headerRow3.push("-");
+                    } else {
                         headerRow1.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
                         headerRow2.push(dObj.getDate().toString());
                         headerRow3.push((idx + 1).toString());
-                    } else {
-                        headerRow1.push("-");
-                        headerRow2.push("-");
-                        headerRow3.push("-");
                     }
                 });
                 headerRow1.push("หมายเหตุ");
@@ -1210,7 +1226,8 @@
                 // Map สถานะ
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
-                    const dateKey = r.date || uniqueDates[0];
+                    // ใช้ date หรือตัดเอาเฉพาะส่วนวันที่ของ Timestamp มาใช้เป็น key
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
                     if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
                     studentAttendanceMap[r.id][dateKey] = r.status;
                 });
