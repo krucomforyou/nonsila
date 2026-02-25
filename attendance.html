@@ -1141,60 +1141,52 @@
             cuteAlert.loading('กำลังสร้างไฟล์เอกสาร Excel... 📄');
 
             try {
-                // ดึงรายชื่อนักเรียน
+                // 1. ดึงรายชื่อนักเรียน
                 const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls)}`);
                 const stuJson = await stuRes.json();
-                if(stuJson.status !== 'success' || stuJson.data.length <= 1) {
-                    cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนในห้องนี้ได้');
+                if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) {
+                    cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน หรือการเชื่อมต่อล้มเหลว');
                     return;
                 }
                 const rawStudents = stuJson.data.slice(1);
 
-                // ดึงข้อมูลการเข้าเรียน
-                let attRes, attJson;
-                try {
-                    attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                    attJson = await attRes.json();
-                } catch(err) {
-                    const singleDate = dateRangeStr.split(' to ')[0] || state.currentDate;
-                    attRes = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls)}&date=${singleDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
-                    attJson = await attRes.json();
-                }
+                // 2. ดึงประวัติการมาเรียน (ใช้ getAttendanceReport เพื่อดึงทั้งหมดของวิชานี้)
+                const attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls)}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}`);
+                const attJson = await attRes.json();
                 
-                let reportData = attJson.data || [];
+                let reportData = (attJson.status === 'success') ? attJson.data : [];
 
-                // กรองข้อมูลตามช่วงวันที่
+                // 3. กรองวันที่ (ถ้ามีการเลือกช่วง)
                 if (dateRangeStr && dateRangeStr.includes(' to ')) {
                     const [startStr, endStr] = dateRangeStr.split(' to ');
                     const startDate = new Date(startStr);
                     const endDate = new Date(endStr);
                     endDate.setHours(23, 59, 59, 999);
                     reportData = reportData.filter(r => {
-                        let rDate = r.date ? new Date(r.date) : (r.Timestamp ? new Date(r.Timestamp.split(' ')[0]) : new Date(startStr));
+                        const dStr = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : startStr);
+                        const rDate = new Date(dStr);
                         return rDate >= startDate && rDate <= endDate;
                     });
                 } else if (dateRangeStr) {
-                    reportData = reportData.filter(r => (r.date === dateRangeStr || (r.Timestamp && r.Timestamp.includes(dateRangeStr))));
+                    reportData = reportData.filter(r => (r.date === dateRangeStr));
                 }
 
-                // หาวันที่ที่มีการบันทึก
-                let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : dateRangeStr.split(' to ')[0])))].filter(Boolean);
-                uniqueDates.sort((a, b) => new Date(a) - new Date(b));
+                // 4. หาวันที่ที่มีการบันทึก (Unique Dates)
+                // ดึงวันที่จากข้อมูลที่มีอยู่จริง
+                let uniqueDates = [...new Set(reportData.map(r => r.date))].filter(d => d).sort((a, b) => new Date(a) - new Date(b));
 
                 if(uniqueDates.length === 0) {
-                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาที่เลือก');
+                     cuteAlert.error('ไม่พบข้อมูล', 'ไม่พบประวัติการเช็คชื่อในช่วงเวลาหรือวิชาที่เลือก (อาจจะยังไม่ได้บันทึกข้อมูล)');
                      return;
                 }
 
-                // สัญลักษณ์การเช็คชื่อ
-                // เปลี่ยน "สาย" (late) เป็นคำว่า "หนี" ในส่วนหัวตารางและแมปปิ้ง เพื่อให้ตรงกับ CSV ต้นแบบ
+                // 5. เตรียมข้อมูล Excel ตามฟอร์ม
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
                 const excelData = [];
                 
-                // แถวหัวตาราง (3 ชั้น ให้ตรงกับ CSV ต้นฉบับ)
-                // Row 1: เลขที่, รหัส, ชื่อ-สกุล นักเรียน, เวลาเรียนเต็ม, สรุปเวลาเรียน, (blank), (blank), (blank), (blank), เดือน, ...วัน/เดือน/ปี..., หมายเหตุ
+                // --- ส่วนหัว (3 แถวแรก) ---
                 let headerRow1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "", "", "เดือน"];
                 let headerRow2 = ["", "", "", "", `${uniqueDates.length} ชม.`, "", "", "", "", "", "วันที่"];
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
@@ -1202,13 +1194,13 @@
                 uniqueDates.forEach((d, idx) => {
                     let dObj = new Date(d);
                     if(isNaN(dObj.getTime())) {
-                        headerRow1.push(d); 
-                        headerRow2.push(""); 
+                        // กรณีวันที่มีรูปแบบแปลกๆ
+                        headerRow1.push(""); 
+                        headerRow2.push(d); 
                         headerRow3.push((idx + 1).toString());
                     } else {
-                        // รูปแบบ: 17ก.พ.69
-                        const dateStr = `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${(dObj.getFullYear()+543).toString().slice(-2)}`;
-                        headerRow1.push(dateStr);
+                        // รูปแบบ: ม.ค. | 17 | 1
+                        headerRow1.push(THAI_MONTHS_SHORT[dObj.getMonth()]);
                         headerRow2.push(dObj.getDate().toString());
                         headerRow3.push((idx + 1).toString());
                     }
@@ -1221,33 +1213,33 @@
                 excelData.push(headerRow2);
                 excelData.push(headerRow3);
 
-                // Map สถานะการมาเรียนของแต่ละคน
+                // --- Map ข้อมูลการเช็คชื่อ ---
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
-                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
                     if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
-                    studentAttendanceMap[r.id][dateKey] = r.status;
+                    studentAttendanceMap[r.id][r.date] = r.status;
                 });
 
-                // วนลูปรายชื่อนักเรียนและคำนวณสถิติ
+                // --- วนลูปรายชื่อนักเรียน ---
                 rawStudents.forEach(stuRow => {
                     const number = stuRow[0] || '-';
                     const code = stuRow[1] || '-';
                     const nameParts = stuRow.slice(2, 5).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                    const uniqueId = getStudentUniqueId(stuRow);
+                    const uniqueId = getStudentUniqueId(stuRow); // ใช้ ID เดียวกับตอนบันทึก
 
                     let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
 
+                    // นับสถิติ
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    // คิดร้อยละ
+                    // คิดร้อยละ (มาเรียน / จำนวนคาบทั้งหมด * 100)
                     let percent = uniqueDates.length > 0 ? Math.round((stats.present / uniqueDates.length) * 100) : 0;
 
-                    // ใส่ข้อมูล สรุป ไว้ด้านหน้าก่อนติ๊กรายวัน
+                    // จัดเรียงข้อมูลลงแถว: ข้อมูลส่วนตัว -> สรุป -> รายวัน
                     let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
 
                     uniqueDates.forEach(d => {
@@ -1255,39 +1247,49 @@
                         rowData.push(status ? statusSymbol[status] : ''); 
                     });
 
-                    rowData.push(""); // คอลัมน์หมายเหตุ
+                    rowData.push(""); // หมายเหตุ
                     excelData.push(rowData);
                 });
 
-                // สร้างเอกสาร Excel โดยใช้ SheetJS
+                // --- สร้างไฟล์ Excel ---
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-                // สร้างเงื่อนไขผสานเซลล์ (Merge Cells) เพื่อความสวยงามเหมือนต้นฉบับ
+                // Merge Cells (ผสานเซลล์ส่วนหัว)
                 const merges = [
-                    { s: {r:0, c:0}, e: {r:2, c:0} }, // เลขที่ (Col 0, Row 0-2)
-                    { s: {r:0, c:1}, e: {r:2, c:1} }, // รหัส (Col 1, Row 0-2)
-                    { s: {r:0, c:2}, e: {r:2, c:3} }, // ชื่อ-นามสกุล (Col 2-3, Row 0-2)
-                    { s: {r:0, c:5}, e: {r:0, c:9} }, // สรุปเวลาเรียน (Span over มา ป่วย ลา ขาด สาย ร้อยละ)
-                    { s: {r:0, c:10+uniqueDates.length}, e: {r:2, c:10+uniqueDates.length} } // หมายเหตุ (ริมขวาสุด)
+                    { s: {r:0, c:0}, e: {r:2, c:0} }, // เลขที่
+                    { s: {r:0, c:1}, e: {r:2, c:1} }, // รหัส
+                    { s: {r:0, c:2}, e: {r:2, c:3} }, // ชื่อ-นามสกุล (กินพื้นที่ 2 คอลัมน์)
+                    { s: {r:0, c:5}, e: {r:0, c:9} }, // หัวข้อ "สรุปเวลาเรียน"
+                    { s: {r:0, c:10+uniqueDates.length}, e: {r:2, c:10+uniqueDates.length} } // หมายเหตุ (หลังสุด)
                 ];
 
-                // Merge ช่องรายชื่อของนักเรียนแต่ละคน (Row 3 เป็นต้นไป)
-                for(let i = 3; i < excelData.length; i++) {
-                    merges.push({ s: {r: i, c: 2}, e: {r: i, c: 3} });
+                // Merge "เดือน" (Row 1) แนวนอนอัตโนมัติ ถ้าเป็นเดือนเดียวกัน
+                let startCol = 11;
+                let currentVal = headerRow1[startCol];
+                let startIdx = startCol;
+                for (let c = startCol + 1; c <= 11 + uniqueDates.length; c++) {
+                    if (c === 11 + uniqueDates.length || headerRow1[c] !== currentVal) {
+                        if (c - 1 > startIdx) {
+                            merges.push({ s: {r:0, c:startIdx}, e: {r:0, c:c-1} });
+                        }
+                        if (c < 11 + uniqueDates.length) { 
+                            currentVal = headerRow1[c]; 
+                            startIdx = c; 
+                        }
+                    }
                 }
-
                 ws['!merges'] = merges;
 
-                // กำหนดความกว้างคอลัมน์ให้อ่านง่าย
-                const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
-                uniqueDates.forEach(() => wscols.push({wch: 8})); // ความกว้างช่องวันที่
-                wscols.push({wch: 15}); // คอลัมน์หมายเหตุ
+                // กำหนดความกว้างคอลัมน์
+                const wscols = [ {wch: 5}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 10}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 6}, {wch: 8} ];
+                uniqueDates.forEach(() => wscols.push({wch: 5})); // ช่องวันที่กว้าง 5
+                wscols.push({wch: 15});
                 ws['!cols'] = wscols;
 
                 XLSX.utils.book_append_sheet(wb, ws, "บันทึกเวลาเรียน");
                 
-                // ตั้งชื่อไฟล์
+                // ตั้งชื่อไฟล์ให้ปลอดภัย
                 const safeName = `${cls}_${subj}`.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 30);
                 XLSX.writeFile(wb, `รายงานเวลาเรียน_${safeName}.xlsx`);
 
@@ -1295,7 +1297,7 @@
 
             } catch (e) { 
                 console.error(e);
-                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ กรุณาลองใหม่'); 
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ (กรุณาตรวจสอบ Console)'); 
             }
         }
 
