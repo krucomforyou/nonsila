@@ -1483,7 +1483,18 @@ document.addEventListener('DOMContentLoaded', () => {
             menu.classList.toggle('hidden');
         }
 
-        function disableBodyScroll() { document.body.classList.add('overflow-hidden'); }
+        // ================= ระบบจัดการปุ่ม Back บนมือถือ =================
+        let isModalOpen = false;
+
+        function disableBodyScroll() { 
+            document.body.classList.add('overflow-hidden'); 
+            // เมื่อมีการเปิด Modal ให้จำลองการไปหน้าใหม่
+            if (!isModalOpen) {
+                history.pushState({ modalOpen: true }, "");
+                isModalOpen = true;
+            }
+        }
+
         function enableBodyScroll() {
             setTimeout(() => {
                 const modalsActive = document.querySelectorAll('.modal.active').length > 0;
@@ -1491,11 +1502,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 const buildingImgVisible = !document.getElementById('buildingImageModal').classList.contains('hidden');
                 const loadingVisible = !document.getElementById('loadingOverlay').classList.contains('hidden');
                 
+                // ถ้าไม่มี Modal ไหนเปิดอยู่เลย ให้ปลดล็อคการ Scroll
                 if (!modalsActive && !mourningVisible && !buildingImgVisible && !loadingVisible) {
                     document.body.classList.remove('overflow-hidden');
+                    
+                    // ถ้าปิด Modal ด้วยปุ่ม X เอง (ไม่ได้กดปุ่ม Back) ให้ถอย History ที่สร้างหลอกไว้ออกไป 
+                    // เพื่อไม่ให้ผู้ใช้ต้องกดปุ่ม Back ฟรี 1 ครั้งในภายหลัง
+                    if (isModalOpen) {
+                        isModalOpen = false;
+                        if (history.state && history.state.modalOpen) {
+                            history.back();
+                        }
+                    }
                 }
             }, 10);
         }
+
+        // ดักจับ Event เมื่อผู้ใช้กดปุ่ม Back ของเครื่องมือถือ (หรือของเบราว์เซอร์)
+        window.addEventListener('popstate', function (event) {
+            if (isModalOpen) {
+                isModalOpen = false; // รีเซ็ตค่าเพราะ state ถูก pop ออกไปแล้ว
+                
+                // สั่งปิด Modal ทั่วไปทั้งหมด
+                document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+                
+                // สั่งปิด Modal รูปภาพและป๊อปอัพอื่นๆ
+                document.getElementById('buildingImageModal').classList.add('hidden');
+                document.getElementById('mourningPopup').classList.add('hidden');
+                
+                // ถ้ามีกล่องข้อความแจ้งเตือน (SweetAlert) เปิดอยู่ ให้ปิดด้วย
+                if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+                    Swal.close();
+                }
+                
+                // ปลดล็อคหน้าจอ
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
+        // ==============================================================
 
         function closeAdminModal() { document.getElementById('adminModal').classList.remove('active'); enableBodyScroll(); }
         function closeNewsFormModal() { document.getElementById('newsFormModal').classList.remove('active'); enableBodyScroll(); }
