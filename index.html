@@ -1567,32 +1567,77 @@ document.addEventListener('DOMContentLoaded', () => {
             isMourningPopupShownInSession = true; 
         }
 
-        async function loadData() {
+        const CACHE_KEY = 'nsw_data_cache';
+        const CACHE_TIME_MINUTES = 30; // ตั้งเวลาให้แคชหมดอายุทุกๆ 30 นาที (ปรับได้ครับ)
+
+        async function loadData(forceRefresh = false) {
             showLoading(); 
             try {
-                const [newsRes, settingsRes, teachersRes, buildingsRes, activitiesRes, annRes] = await Promise.all([
-                    fetch(`${API_URL}?action=getNewsletters`),
-                    fetch(`${API_URL}?action=getSettings`),
-                    fetch(`${API_URL}?action=getTeachers`),
-                    fetch(`${API_URL}?action=getBuildings`),
-                    fetch(`${API_URL}?action=getActivities`),
-                    fetch(`${API_URL}?action=getAnnouncements`)
-                ]);
-                
-                state.news = await newsRes.json();
-                state.settings = await settingsRes.json();
+                // 1. ตรวจสอบข้อมูลใน LocalStorage
+                const cachedDataStr = localStorage.getItem(CACHE_KEY);
+                const cacheTimestamp = localStorage.getItem(CACHE_KEY + '_time');
 
-                // --- เพิ่มส่วนนี้เข้าไป ---
+                let shouldUseCache = false;
+                if (cachedDataStr && cacheTimestamp && !forceRefresh) {
+                    const now = new Date().getTime();
+                    const diffMins = (now - parseInt(cacheTimestamp)) / 60000;
+                    if (diffMins < CACHE_TIME_MINUTES) {
+                        shouldUseCache = true;
+                    }
+                }
+
+                if (shouldUseCache) {
+                    // 2. ดึงข้อมูลจาก Cache (ใช้เวลา 0.01 วินาที)
+                    const parsedData = JSON.parse(cachedDataStr);
+                    state.news = parsedData.news || [];
+                    state.settings = parsedData.settings || {};
+                    state.teachers = parsedData.teachers || [];
+                    state.buildings = parsedData.buildings || [];
+                    state.activities = parsedData.activities || [];
+                    state.announcements = parsedData.announcements || [];
+                    console.log("⚡ Loaded data from Local Cache");
+                } else {
+                    // 3. ถ้าไม่มี Cache หรือ Cache หมดอายุ ให้ดึงจาก Google Apps Script ใหม่
+                    console.log("☁️ Fetching fresh data from server...");
+                    const [newsRes, settingsRes, teachersRes, buildingsRes, activitiesRes, annRes] = await Promise.all([
+                        fetch(`${API_URL}?action=getNewsletters`),
+                        fetch(`${API_URL}?action=getSettings`),
+                        fetch(`${API_URL}?action=getTeachers`),
+                        fetch(`${API_URL}?action=getBuildings`),
+                        fetch(`${API_URL}?action=getActivities`),
+                        fetch(`${API_URL}?action=getAnnouncements`)
+                    ]);
+                    
+                    state.news = await newsRes.json();
+                    state.settings = await settingsRes.json();
+                    state.teachers = await teachersRes.json();
+                    state.buildings = await buildingsRes.json();
+                    state.activities = await activitiesRes.json();
+                    state.announcements = await annRes.json();
+
+                    // 4. บันทึกข้อมูลลง LocalStorage เพื่อใช้ครั้งต่อไป
+                    const cacheObject = {
+                        news: state.news,
+                        settings: state.settings,
+                        teachers: state.teachers,
+                        buildings: state.buildings,
+                        activities: state.activities,
+                        announcements: state.announcements
+                    };
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
+                        localStorage.setItem(CACHE_KEY + '_time', new Date().getTime().toString());
+                    } catch(e) {
+                        console.warn("LocalStorage เต็ม จะไม่มีการแคชข้อมูลในรอบนี้");
+                        localStorage.removeItem(CACHE_KEY);
+                    }
+                }
+
+                // ---------------- ส่วนจัดการข้อมูลตั้งค่า (เหมือนเดิม) ----------------
                 if(state.settings.idleTimeout) localStorage.setItem('nswIdleTimeout', state.settings.idleTimeout);
-                checkSessionStatus(); // ลองเช็คอีกรอบหลังจากโหลดการตั้งค่าล่าสุดจากฐานข้อมูลเสร็จ
-                // ---------------------
+                checkSessionStatus();
 
-                state.teachers = await teachersRes.json();
-                state.buildings = await buildingsRes.json();
-                state.activities = await activitiesRes.json();
-                state.announcements = await annRes.json();
-                
-                // พยายามดึง Logs แบบแยกส่วน เพื่อป้องกันไม่ให้เว็บพังหาก Backend ยังไม่ได้อัปเดต
+                // พยายามดึง Logs แยกต่างหาก (ไม่แคช Log เพราะอัปเดตบ่อย)
                 try {
                     fetch(`${API_URL}?action=getLogs`)
                         .then(r => r.json())
@@ -1605,9 +1650,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     try { rolePermissions = JSON.parse(state.settings.rolePermissions); } catch(e) {}
                 }
 
+                // เรนเดอร์หน้าจอ
                 renderAnnouncements();
                 renderNews(); renderSettings(); updateBanner(); renderDirector(); renderBuildings(); renderHomeActivities();
                 
+                // ตรวจสอบ Popup ไว้อาลัย
                 if (state.settings.mourningActive && String(state.settings.mourningActive).toLowerCase() === 'true') {
                     if (state.settings.mourningImage && !isMourningPopupShownInSession) {
                         const today = new Date().toDateString();
@@ -3217,7 +3264,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`${API_URL}?action=${action}`, { method: 'POST', body: formData });
                 const json = await res.json();
                 if(json.status === 'success') { 
-                    await loadData(); 
+                    
+                    // เพิ่ม 2 บรรทัดนี้: ล้างแคชทิ้งทันทีที่มีการบันทึกข้อมูลใหม่
+                    localStorage.removeItem('nsw_data_cache');
+                    localStorage.removeItem('nsw_data_cache_time');
+                    
+                    await loadData(true); // สั่งโหลดข้อมูลใหม่แบบ Force Refresh
                     if(callback) callback(json); 
                     showToast('ดำเนินการเสร็จสิ้น');
                 } 
