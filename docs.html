@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดเก็บเอกสาร - โรงเรียนโนนศิลาสว่างวิทย์</title>
+
+    <link id="favicon" rel="icon" type="image/png" href="https://lh3.google.com/u/0/d/1YkUNkaQc2mfZ3ptjyoH8Nge93eznBWvK=w1920-h919-iv1?auditContext=prefetch">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .sidebar { background-color: #1e3a8a; } 
+        .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #facc15; }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
+        .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="flex h-screen h-[100dvh] overflow-hidden bg-gray-50">
+
+    <!-- OVERLAY LOADING -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
+        <div class="loader mb-4 w-12 h-12 border-4"></div>
+        <p class="text-blue-900 font-bold text-lg animate-pulse" id="loadingText">กำลังโหลดข้อมูล...</p>
+    </div>
+
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebarMenu" class="w-64 sidebar text-white flex flex-col h-screen h-[100dvh] md:h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
+        <div class="p-6 border-b border-blue-800 flex flex-col items-center relative shrink-0">
+            <button class="md:hidden absolute top-4 right-4 text-white hover:text-red-400" onclick="toggleSidebar()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-blue-900 text-3xl shadow-lg mb-3 mt-2 md:mt-0">
+                <i class="fas fa-folder-open"></i>
+            </div>
+            <h1 class="font-bold text-lg">คลังเอกสาร นสว.</h1>
+            <p class="text-xs text-blue-300">Document Storage</p>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4 overscroll-none">
+            <div class="px-4 text-xs font-bold text-blue-300 mb-2 uppercase">เมนูระบบ</div>
+            <a href="#" class="sidebar-item active border-l-4 border-yellow-400 flex items-center px-6 py-3 text-sm transition text-white">
+                <i class="fas fa-file-alt w-6"></i> ค้นหาเอกสารทั้งหมด
+            </a>
+            <div class="px-6 py-3 text-xs text-blue-400 mt-4 border-t border-blue-800 pt-4">
+                <i class="fas fa-info-circle mr-1"></i> ใช้สำหรับจัดเก็บเอกสารเพื่อประกอบการประเมิน
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-blue-800 bg-blue-950 shrink-0">
+            <div class="flex items-center gap-3">
+                <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-blue-400">
+                <div class="flex-1 overflow-hidden">
+                    <div id="sidebarUserName" class="text-sm font-bold truncate">กำลังโหลด...</div>
+                    <div id="sidebarUserRole" class="text-xs text-blue-300 truncate">ตำแหน่ง</div>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2 mt-4">
+                <button onclick="goToMainWeb()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 w-full relative">
+        <!-- HEADER -->
+        <header class="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex justify-between items-center shadow-sm z-10 w-full">
+            <div class="flex items-center gap-3 md:gap-4">
+                <button class="md:hidden text-gray-500 hover:text-blue-900 focus:outline-none" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-xl md:text-2xl"></i>
+                </button>
+                <h2 class="text-lg md:text-xl font-bold text-gray-800 truncate">ระบบจัดเก็บเอกสารออนไลน์</h2>
+            </div>
+            <button onclick="openUploadModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition flex items-center gap-2 text-sm md:text-base whitespace-nowrap">
+                <i class="fas fa-cloud-upload-alt"></i> อัปโหลดเอกสาร
+            </button>
+        </header>
+
+        <!-- CONTENT AREA -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 overscroll-none">
+            
+            <!-- FILTER SECTION -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                <h3 class="font-bold text-gray-700 mb-3 border-l-4 border-blue-500 pl-2">ตัวกรองค้นหาเอกสาร (Filter)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">ประเภทเอกสาร</label>
+                        <select id="filterType" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="คำสั่งปฏิบัติหน้าที่">คำสั่งปฏิบัติหน้าที่ (เวร/สอนชดเชย)</option>
+                            <option value="คำสั่งแต่งตั้งคณะกรรมการ">คำสั่งแต่งตั้งคณะกรรมการ (กิจกรรม)</option>
+                            <option value="คำสั่งพานักเรียนเข้าร่วมแข่งขัน">คำสั่งพานักเรียนเข้าร่วมแข่งขัน</option>
+                            <option value="คำสั่งไปราชการ/อบรม">คำสั่งไปราชการ/อบรม</option>
+                            <option value="ประกาศ/ระเบียบโรงเรียน">ประกาศ/ระเบียบโรงเรียน</option>
+                            <option value="อื่นๆ">อื่นๆ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">ปีการศึกษา/ภาคเรียน</label>
+                        <select id="filterTermYear" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="1/2567">1/2567</option>
+                            <option value="2/2567">2/2567</option>
+                            <option value="1/2568">1/2568</option>
+                            <option value="2/2568">2/2568</option>
+                            <option value="1/2569">1/2569</option>
+                            <option value="2/2569">2/2569</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">กลุ่มงาน 4 ฝ่าย</label>
+                        <select id="filterDept" onchange="applyFilters()" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="งานบริหารวิชาการ">งานบริหารวิชาการ</option>
+                            <option value="งานบริหารงบประมาณ">งานบริหารงบประมาณ</option>
+                            <option value="งานบริหารงานบุคคล">งานบริหารงานบุคคล</option>
+                            <option value="งานบริหารทั่วไป">งานบริหารทั่วไป</option>
+                            <option value="ไม่ระบุ">ไม่ระบุ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">ค้นหาจากชื่อเอกสาร</label>
+                        <input type="text" id="filterSearch" oninput="applyFilters()" placeholder="พิมพ์ชื่อเอกสาร..." class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE SECTION -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[400px]">
+                <div class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+                    <div class="text-sm font-bold text-gray-600">
+                        <i class="fas fa-list text-blue-500 mr-2"></i> รายการเอกสาร 
+                        <span id="docCountBadge" class="bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full text-xs ml-2">0 รายการ</span>
+                    </div>
+                    <button onclick="fetchDocuments()" class="text-xs text-gray-500 hover:text-blue-600 transition flex items-center gap-1"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="bg-white border-b border-gray-100 text-gray-500">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold text-center w-12">ลำดับ</th>
+                                <th class="px-4 py-3 font-semibold min-w-[250px]">ชื่อเอกสาร</th>
+                                <th class="px-4 py-3 font-semibold w-40">ประเภทคำสั่ง</th>
+                                <th class="px-4 py-3 font-semibold text-center w-24">เทอม/ปี</th>
+                                <th class="px-4 py-3 font-semibold w-32">กลุ่มงาน</th>
+                                <th class="px-4 py-3 font-semibold w-32">ผู้อัปโหลด</th>
+                                <th class="px-4 py-3 font-semibold text-center w-32">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="docListContainer" class="divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="7" class="py-20 text-center">
+                                    <div class="loader mx-auto mb-4"></div>
+                                    <p class="text-gray-500 font-medium">กำลังโหลดเอกสาร...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- UPLOAD MODAL -->
+    <div id="uploadModal" class="modal fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-lg mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-lg"><i class="fas fa-cloud-upload-alt mr-2"></i> อัปโหลดเอกสารใหม่</h3>
+                 <button onclick="closeUploadModal()" class="text-gray-300 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                <form id="uploadForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อเอกสาร / คำสั่ง <span class="text-red-500">*</span></label>
+                        <input type="text" id="upTitle" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น คำสั่งไปราชการ กทม., คำสั่งเวรประจำวัน ม.ค. 68">
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">ประเภทของเอกสาร <span class="text-red-500">*</span></label>
+                            <select id="upDocType" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="">-- เลือกประเภท --</option>
+                                <option value="คำสั่งปฏิบัติหน้าที่">คำสั่งปฏิบัติหน้าที่</option>
+                                <option value="คำสั่งแต่งตั้งคณะกรรมการ">คำสั่งแต่งตั้งคณะกรรมการ</option>
+                                <option value="คำสั่งพานักเรียนเข้าร่วมแข่งขัน">คำสั่งพานักเรียนเข้าร่วมแข่งขัน</option>
+                                <option value="คำสั่งไปราชการ/อบรม">คำสั่งไปราชการ/อบรม</option>
+                                <option value="ประกาศ/ระเบียบโรงเรียน">ประกาศ/ระเบียบโรงเรียน</option>
+                                <option value="อื่นๆ">อื่นๆ</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">เทอม/ปีการศึกษา <span class="text-red-500">*</span></label>
+                            <input type="text" id="upTermYear" required class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น 1/2568" list="termList">
+                            <datalist id="termList">
+                                <option value="1/2567"><option value="2/2567"><option value="1/2568"><option value="2/2568"><option value="1/2569"><option value="2/2569">
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มงานที่เกี่ยวข้อง</label>
+                        <select id="upDepartment" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="ไม่ระบุ">ไม่ระบุ</option>
+                            <option value="งานบริหารวิชาการ">งานบริหารวิชาการ</option>
+                            <option value="งานบริหารงบประมาณ">งานบริหารงบประมาณ</option>
+                            <option value="งานบริหารงานบุคคล">งานบริหารงานบุคคล</option>
+                            <option value="งานบริหารทั่วไป">งานบริหารทั่วไป</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">แนบไฟล์ (PDF หรือ รูปภาพ) <span class="text-red-500">*</span></label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:bg-gray-50 transition relative cursor-pointer" onclick="document.getElementById('upFile').click()">
+                            <i class="fas fa-file-upload text-3xl text-blue-400 mb-2"></i>
+                            <p class="text-sm text-gray-600 font-medium" id="fileNameDisplay">คลิกเพื่อเลือกไฟล์ (สูงสุด 10MB)</p>
+                        </div>
+                        <input type="file" id="upFile" required accept=".pdf,image/jpeg,image/png,image/jpg" class="hidden" onchange="handleFileChange(this)">
+                    </div>
+                </form>
+            </div>
+            
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3 shrink-0">
+                <button onclick="closeUploadModal()" class="px-4 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 rounded-lg transition">ยกเลิก</button>
+                <button onclick="submitDocument()" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow hover:bg-blue-700 transition">อัปโหลด</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // *** นำ URL Web App ของ Backend (document_code.gs) มาใส่ที่นี่ ***
+        const DOC_API_URL = 'https://script.google.com/macros/s/AKfycbz8JNFsiJhtcsrZjlpchFlrGaElCNz_Tm0X9VNaAgopyEw6DiGjBVCSjmTJHAbVyGhB6A/exec'; 
+        
+        let state = {
+            user: null,
+            documents: [], // ข้อมูลเอกสารที่โหลดมา
+            filteredDocs: [] // ข้อมูลเอกสารที่ผ่านการกรองแล้ว
+        };
+
+        // Cute Alerts (ใช้ตัวเดียวกับ index.html)
+        const cuteAlert = {
+            loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div><div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div><i class="fas fa-cloud text-xl md:text-2xl text-blue-400"></i></div><h3 class="text-lg md:text-xl font-bold text-blue-900 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false }); },
+            success: (title, text) => { return Swal.fire({ icon: 'success', title: title, text: text, confirmButtonColor: '#3b82f6', confirmButtonText: 'ตกลง' }); },
+            error: (title, text) => { return Swal.fire({ icon: 'error', title: title, text: text, confirmButtonColor: '#ef4444', confirmButtonText: 'ตกลง' }); },
+            confirm: (title, text, btnText) => { return Swal.fire({ icon: 'warning', title: title, text: text, showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก' }); }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+
+        function checkAuth() {
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                state.user = JSON.parse(savedUser);
+                document.getElementById('sidebarUserName').innerText = state.user.name;
+                document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
+                document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=1e3a8a&color=ffffff`;
+                
+                // โหลดข้อมูลเอกสารเมื่อยืนยันตัวตนผ่านแล้ว
+                fetchDocuments();
+            } else {
+                cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน').then(() => { 
+                    window.location.href = 'index.html'; 
+                });
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        function goToMainWeb() { window.location.href = 'index.html'; }
+
+        // ================= Fetch & Render Documents =================
+        async function fetchDocuments() {
+            const container = document.getElementById('docListContainer');
+            container.innerHTML = `<tr><td colspan="7" class="py-20 text-center"><div class="loader mx-auto mb-4"></div><p class="text-gray-500 font-medium">กำลังโหลดเอกสาร...</p></td></tr>`;
+            
+            try {
+                const res = await fetch(`${DOC_API_URL}?action=getDocuments`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    state.documents = json.data;
+                    applyFilters(); // เรียกใช้ filter เพื่อเรนเดอร์ลงจอ
+                } else {
+                    container.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">โหลดข้อมูลล้มเหลว: ${json.message}</td></tr>`;
+                }
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (โปรดตรวจสอบ API URL)</td></tr>`;
+            }
+        }
+
+        function applyFilters() {
+            const fType = document.getElementById('filterType').value;
+            const fTerm = document.getElementById('filterTermYear').value;
+            const fDept = document.getElementById('filterDept').value;
+            const fSearch = document.getElementById('filterSearch').value.toLowerCase();
+
+            state.filteredDocs = state.documents.filter(doc => {
+                const matchType = fType === "" || doc.docType === fType;
+                const matchTerm = fTerm === "" || doc.termYear === fTerm;
+                const matchDept = fDept === "" || doc.department === fDept;
+                const matchSearch = fSearch === "" || doc.title.toLowerCase().includes(fSearch);
+                
+                return matchType && matchTerm && matchDept && matchSearch;
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const container = document.getElementById('docListContainer');
+            document.getElementById('docCountBadge').innerText = `${state.filteredDocs.length} รายการ`;
+
+            if (state.filteredDocs.length === 0) {
+                container.innerHTML = `<tr><td colspan="7" class="py-16 text-center text-gray-500"><i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i><br>ไม่พบเอกสารในหมวดหมู่นี้</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            state.filteredDocs.forEach((doc, idx) => {
+                // เช็คสิทธิ์การลบ: ให้คนอัปโหลดลบได้ หรือ แอดมินหลักลบได้
+                const canDelete = (state.user.name === doc.uploader) || (state.user.role === '🐲 นักรบมังกร');
+                
+                let typeColor = 'text-gray-600 bg-gray-100';
+                if(doc.docType.includes('คณะกรรมการ')) typeColor = 'text-purple-700 bg-purple-100';
+                else if(doc.docType.includes('แข่งขัน')) typeColor = 'text-orange-700 bg-orange-100';
+                else if(doc.docType.includes('ไปราชการ')) typeColor = 'text-green-700 bg-green-100';
+                else if(doc.docType.includes('ปฏิบัติหน้าที่')) typeColor = 'text-blue-700 bg-blue-100';
+                
+                html += `
+                <tr class="hover:bg-blue-50/50 transition border-b border-gray-50">
+                    <td class="px-4 py-3 text-center text-gray-500">${idx + 1}</td>
+                    <td class="px-4 py-3 font-medium text-blue-900 truncate max-w-[250px]" title="${doc.title}">
+                        <a href="${doc.fileUrl}" target="_blank" class="hover:underline flex items-center gap-2">
+                            ${doc.fileUrl.includes('pdf') || doc.title.toLowerCase().includes('pdf') ? '<i class="fas fa-file-pdf text-red-500"></i>' : '<i class="fas fa-file-image text-blue-500"></i>'}
+                            ${doc.title}
+                        </a>
+                        <div class="text-[10px] text-gray-400 mt-0.5">อัปโหลดเมื่อ: ${doc.timestamp}</div>
+                    </td>
+                    <td class="px-4 py-3"><span class="text-xs px-2 py-1 rounded-full ${typeColor} font-bold">${doc.docType}</span></td>
+                    <td class="px-4 py-3 text-center text-gray-700 font-bold">${doc.termYear}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600">${doc.department}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600">
+                        <div class="truncate max-w-[120px]" title="${doc.uploader}">${doc.uploader}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <a href="${doc.fileUrl}" target="_blank" class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition" title="ดูเอกสาร"><i class="fas fa-eye"></i></a>
+                            ${canDelete ? `<button onclick="deleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition" title="ลบเอกสาร"><i class="fas fa-trash"></i></button>` : `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์ลบ"><i class="fas fa-lock"></i></button>`}
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // ================= Upload Logic =================
+        let fileToUpload = null;
+
+        function openUploadModal() {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileNameDisplay').innerText = "คลิกเพื่อเลือกไฟล์ (สูงสุด 10MB)";
+            document.getElementById('fileNameDisplay').classList.remove('text-blue-600', 'font-bold');
+            fileToUpload = null;
+            
+            // แนะนำปีการศึกษา/เทอม อัตโนมัติ (คำนวณแบบคร่าวๆ)
+            const d = new Date();
+            const year = d.getFullYear() + 543;
+            const term = (d.getMonth() >= 4 && d.getMonth() <= 9) ? "1" : "2"; // พ.ค.-ต.ค. = เทอม 1
+            const calculatedYear = term === "2" && d.getMonth() < 4 ? year - 1 : year;
+            document.getElementById('upTermYear').value = `${term}/${calculatedYear}`;
+
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function handleFileChange(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // ตรวจสอบขนาดไฟล์ (ไม่เกิน 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    cuteAlert.error('ไฟล์ใหญ่เกินไป', 'ระบบรองรับไฟล์ขนาดไม่เกิน 10MB เท่านั้น');
+                    input.value = '';
+                    fileToUpload = null;
+                    return;
+                }
+                
+                fileToUpload = file;
+                const display = document.getElementById('fileNameDisplay');
+                display.innerText = file.name;
+                display.classList.add('text-blue-600', 'font-bold');
+            }
+        }
+
+        async function submitDocument() {
+            const title = document.getElementById('upTitle').value;
+            const docType = document.getElementById('upDocType').value;
+            const termYear = document.getElementById('upTermYear').value;
+            const department = document.getElementById('upDepartment').value;
+
+            if (!title || !docType || !termYear || !fileToUpload) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วนและแนบไฟล์');
+                return;
+            }
+
+            cuteAlert.loading('กำลังอัปโหลดเอกสารไปที่ Google Drive... ⏳<br><span class="text-xs text-red-500">อาจใช้เวลา 10-30 วินาที ห้ามปิดหน้าต่าง</span>');
+
+            try {
+                // แปลงไฟล์เป็น Base64
+                const reader = new FileReader();
+                reader.readAsDataURL(fileToUpload);
+                await new Promise(resolve => reader.onload = resolve);
+                
+                const base64Data = reader.result.split(',')[1];
+
+                const form = new FormData();
+                form.append('title', title);
+                form.append('docType', docType);
+                form.append('termYear', termYear);
+                form.append('department', department);
+                form.append('uploader', state.user.name);
+                form.append('uploaderRole', state.user.role);
+                
+                form.append('fileData', base64Data);
+                form.append('fileName', fileToUpload.name);
+                form.append('mimeType', fileToUpload.type);
+
+                const res = await fetch(`${DOC_API_URL}?action=uploadDocument`, { method: 'POST', body: form });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    cuteAlert.success('สำเร็จ!', json.message);
+                    closeUploadModal();
+                    fetchDocuments(); // โหลดข้อมูลใหม่
+                } else {
+                    cuteAlert.error('ผิดพลาด', json.message);
+                }
+            } catch (err) {
+                cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                console.error(err);
+            }
+        }
+
+        // ================= Delete Logic =================
+        function deleteDoc(id) {
+            cuteAlert.confirm('ลบเอกสาร?', 'หากลบแล้วไฟล์บน Google Drive จะถูกย้ายไปที่ถังขยะด้วย ต้องการดำเนินการต่อหรือไม่?', 'ใช่, ลบเลย!').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบเอกสาร... 🗑️');
+                    const form = new FormData();
+                    form.append('id', id);
+                    form.append('requestUser', state.user.name);
+                    form.append('requestRole', state.user.role);
+
+                    try {
+                        const res = await fetch(`${DOC_API_URL}?action=deleteDocument`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        
+                        if (json.status === 'success') {
+                            cuteAlert.success('ลบสำเร็จ', 'ลบเอกสารออกจากระบบแล้ว');
+                            fetchDocuments();
+                        } else {
+                            cuteAlert.error('ลบไม่สำเร็จ', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถลบข้อมูลได้');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
