@@ -361,7 +361,20 @@
                 const json = await res.json();
                 
                 if (json.status === 'success') {
-                    state.documents = json.data;
+                    // ป้องกันบัค Google Sheets แปลงข้อความเป็นวันที่ (Date Auto-Format)
+                    state.documents = json.data.map(doc => {
+                        // ซ่อมแซมช่อง เทอม/ปี (เช่น หากถูกแปลงเป็น 2568-01-31T... จะถูกดึงกลับมาเป็น 1/2568)
+                        if (doc.termYear && doc.termYear.includes('T')) {
+                            const d = new Date(doc.termYear);
+                            if (!isNaN(d)) doc.termYear = `${d.getMonth() + 1}/${d.getFullYear()}`;
+                        }
+                        // ซ่อมแซมช่อง วันที่ออกหนังสือ (เช่น หากถูกแปลงเป็น 2569-02-16T... จะถูกดึงกลับมาเป็น 17/02/2569)
+                        if (doc.issueDate && doc.issueDate.includes('T')) {
+                            const d = new Date(doc.issueDate);
+                            if (!isNaN(d)) doc.issueDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                        }
+                        return doc;
+                    });
                     applyFilters(); 
                 } else {
                     container.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-red-500">โหลดข้อมูลล้มเหลว: ${json.message}</td></tr>`;
@@ -515,11 +528,13 @@
                 const form = new FormData();
                 form.append('title', title);
                 form.append('docType', docType);
-                form.append('termYear', termYear);
+                // ใส่ ' (Single Quote) นำหน้าเพื่อป้องกัน Google Sheets เปลี่ยนค่าเป็น Date Object โดยพลการ
+                form.append('termYear', "'" + termYear); 
                 form.append('department', department);
                 form.append('uploader', state.user.name);
                 form.append('uploaderRole', state.user.role);
-                form.append('issueDate', issueDateStr); // ส่งข้อมูลวันที่แปลงแล้วไป
+                // ใส่ ' นำหน้าวันที่
+                form.append('issueDate', "'" + issueDateStr); 
                 
                 form.append('fileData', base64Data);
                 form.append('fileName', fileToUpload.name);
