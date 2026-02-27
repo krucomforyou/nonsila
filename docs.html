@@ -561,33 +561,95 @@
             const doc = state.documents.find(d => d.id === id);
             if (!doc) return;
             
+            // แปลงวันที่จาก DD/MM/YYYY(พ.ศ.) กลับเป็น YYYY-MM-DD เพื่อยัดใส่ input type="date"
+            let dateVal = '';
+            if (doc.issueDate && doc.issueDate !== '-') {
+                const parts = doc.issueDate.split('/');
+                if (parts.length === 3) {
+                    const dd = parts[0].padStart(2, '0');
+                    const mm = parts[1].padStart(2, '0');
+                    const yyyy = parseInt(parts[2]) - 543;
+                    dateVal = `${yyyy}-${mm}-${dd}`;
+                }
+            }
+
             const { value: formValues } = await Swal.fire({
                 ...cuteSwalOpts,
-                title: '✏️ แก้ไขชื่อเอกสาร',
+                title: '✏️ แก้ไขข้อมูลเอกสาร',
                 html: `
                     <div class="text-left space-y-3 mt-4">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อเอกสารใหม่</label>
                             <input id="swal-edit-title" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sarabun" value="${doc.title}">
                         </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">ประเภทเอกสาร</label>
+                            <select id="swal-edit-docType" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-sarabun">
+                                <option value="คำสั่งปฏิบัติหน้าที่" ${doc.docType === 'คำสั่งปฏิบัติหน้าที่' ? 'selected' : ''}>คำสั่งปฏิบัติหน้าที่ (เวร/สอนชดเชย)</option>
+                                <option value="คำสั่งแต่งตั้งคณะกรรมการ" ${doc.docType === 'คำสั่งแต่งตั้งคณะกรรมการ' ? 'selected' : ''}>คำสั่งแต่งตั้งคณะกรรมการ (กิจกรรม)</option>
+                                <option value="คำสั่งพานักเรียนเข้าร่วมแข่งขัน" ${doc.docType === 'คำสั่งพานักเรียนเข้าร่วมแข่งขัน' ? 'selected' : ''}>คำสั่งพานักเรียนเข้าร่วมแข่งขัน</option>
+                                <option value="คำสั่งไปราชการ/อบรม" ${doc.docType === 'คำสั่งไปราชการ/อบรม' ? 'selected' : ''}>คำสั่งไปราชการ/อบรม</option>
+                                <option value="ประกาศ/ระเบียบโรงเรียน" ${doc.docType === 'ประกาศ/ระเบียบโรงเรียน' ? 'selected' : ''}>ประกาศ/ระเบียบโรงเรียน</option>
+                                <option value="อื่นๆ" ${doc.docType === 'อื่นๆ' ? 'selected' : ''}>อื่นๆ</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">วันที่ออกหนังสือ/ลงนาม</label>
+                            <input type="date" id="swal-edit-issueDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sarabun" value="${dateVal}">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">เทอม/ปี</label>
+                                <input type="text" id="swal-edit-termYear" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-sarabun" value="${doc.termYear}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มงาน</label>
+                                <select id="swal-edit-department" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-sarabun">
+                                    <option value="ไม่ระบุ" ${doc.department === 'ไม่ระบุ' ? 'selected' : ''}>ไม่ระบุ</option>
+                                    <option value="งานบริหารวิชาการ" ${doc.department === 'งานบริหารวิชาการ' ? 'selected' : ''}>งานบริหารวิชาการ</option>
+                                    <option value="งานบริหารงบประมาณ" ${doc.department === 'งานบริหารงบประมาณ' ? 'selected' : ''}>งานบริหารงบประมาณ</option>
+                                    <option value="งานบริหารงานบุคคล" ${doc.department === 'งานบริหารงานบุคคล' ? 'selected' : ''}>งานบริหารงานบุคคล</option>
+                                    <option value="งานบริหารทั่วไป" ${doc.department === 'งานบริหารทั่วไป' ? 'selected' : ''}>งานบริหารทั่วไป</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'บันทึกการแก้ไข',
                 preConfirm: () => {
-                    const val = document.getElementById('swal-edit-title').value;
-                    if(!val) {
-                        Swal.showValidationMessage('กรุณากรอกชื่อเอกสาร');
-                    }
-                    return val;
+                    const title = document.getElementById('swal-edit-title').value;
+                    const docType = document.getElementById('swal-edit-docType').value;
+                    const issueDateRaw = document.getElementById('swal-edit-issueDate').value;
+                    const termYear = document.getElementById('swal-edit-termYear').value;
+                    const department = document.getElementById('swal-edit-department').value;
+                    
+                    if(!title) { Swal.showValidationMessage('กรุณากรอกชื่อเอกสาร'); return false; }
+                    if(!issueDateRaw) { Swal.showValidationMessage('กรุณาระบุวันที่ออกหนังสือ'); return false; }
+                    if(!termYear) { Swal.showValidationMessage('กรุณาระบุเทอม/ปีการศึกษา'); return false; }
+                    
+                    return { title, docType, issueDateRaw, termYear, department };
                 }
             });
 
-            if (formValues && formValues !== doc.title) {
+            if (formValues) {
                 cuteAlert.loading('กำลังบันทึกข้อมูล... ⏳');
+                
+                // แปลง Format วันที่กลับเป็นแบบไทย (DD/MM/YYYY พ.ศ.)
+                let issueDateStr = "-";
+                if (formValues.issueDateRaw) {
+                    const parts = formValues.issueDateRaw.split('-');
+                    issueDateStr = `${parts[2]}/${parts[1]}/${parseInt(parts[0]) + 543}`;
+                }
+
                 const form = new FormData();
                 form.append('id', id);
-                form.append('newTitle', formValues);
+                form.append('newTitle', formValues.title);
+                form.append('newDocType', formValues.docType);
+                form.append('newTermYear', "'" + formValues.termYear);
+                form.append('newDepartment', formValues.department);
+                form.append('newIssueDate', "'" + issueDateStr);
+                
                 form.append('requestUser', state.user.name);
                 form.append('requestRole', state.user.role);
 
@@ -596,8 +658,8 @@
                     const json = await res.json();
                     
                     if (json.status === 'success') {
-                        cuteAlert.success('สำเร็จ!', 'แก้ไขชื่อเอกสารเรียบร้อยแล้ว');
-                        fetchDocuments();
+                        cuteAlert.success('สำเร็จ!', 'แก้ไขข้อมูลเอกสารเรียบร้อยแล้ว');
+                        fetchDocuments(); // รีเฟรชหน้าเพื่อแสดงข้อมูลใหม่
                     } else {
                         cuteAlert.error('ผิดพลาด', json.message);
                     }
