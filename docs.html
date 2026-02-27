@@ -33,6 +33,9 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* ปรับแต่งไอคอน SweetAlert นิดหน่อยให้เนียนตา */
+        .swal2-icon { border: none !important; margin-bottom: 0 !important; }
     </style>
 </head>
 <body class="flex h-screen h-[100dvh] overflow-hidden bg-gray-50">
@@ -267,13 +270,52 @@
             filteredDocs: [] // ข้อมูลเอกสารที่ผ่านการกรองแล้ว
         };
 
-        // Cute Alerts
-        const cuteAlert = {
-            loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div><div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div><i class="fas fa-cloud text-xl md:text-2xl text-blue-400"></i></div><h3 class="text-lg md:text-xl font-bold text-blue-900 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false }); },
-            success: (title, text) => { return Swal.fire({ icon: 'success', title: title, text: text, confirmButtonColor: '#3b82f6', confirmButtonText: 'ตกลง' }); },
-            error: (title, text) => { return Swal.fire({ icon: 'error', title: title, text: text, confirmButtonColor: '#ef4444', confirmButtonText: 'ตกลง' }); },
-            confirm: (title, text, btnText) => { return Swal.fire({ icon: 'warning', title: title, text: text, showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก' }); }
+        // ================= การตั้งค่า SweetAlert ให้น่ารักและป้องกันจอเด้ง =================
+        const cuteSwalOpts = {
+            heightAuto: false, // สำคัญ! ป้องกันไม่ให้ Sidebar เด้งเวลาเปิด Modal
+            buttonsStyling: false,
+            backdrop: 'rgba(15, 23, 42, 0.5) backdrop-blur-sm',
+            customClass: {
+                popup: 'rounded-[2rem] border-4 border-blue-50 shadow-2xl overflow-hidden p-2',
+                title: 'font-sarabun font-bold text-xl md:text-2xl text-blue-900 mt-2',
+                htmlContainer: 'font-sarabun text-sm md:text-base text-gray-600',
+                confirmButton: 'bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6 py-2 md:px-8 md:py-2.5 text-sm md:text-base font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4',
+                cancelButton: 'bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full px-6 py-2 md:px-8 md:py-2.5 text-sm md:text-base font-bold font-sarabun shadow transition-all mx-2 mt-4'
+            }
         };
+
+        // Cute Alerts (อัปเกรดความน่ารัก)
+        const cuteAlert = {
+            loading: (text) => { 
+                return Swal.fire({ 
+                    ...cuteSwalOpts,
+                    html: `
+                        <div class="p-4 text-center">
+                            <div class="relative w-20 h-20 md:w-24 md:h-24 mx-auto mb-6">
+                                <div class="absolute inset-0 bg-blue-200 rounded-full animate-ping opacity-60"></div>
+                                <div class="relative flex items-center justify-center w-full h-full bg-white border-4 border-blue-100 rounded-full shadow-lg">
+                                    <i class="fas fa-folder-open text-4xl text-blue-500 animate-bounce"></i>
+                                </div>
+                            </div>
+                            <h3 class="text-xl font-bold text-blue-900 mb-2 font-sarabun">กำลังดำเนินการ... ☁️</h3>
+                            <p class="text-sm text-gray-500 font-sarabun leading-relaxed">${text}</p>
+                        </div>
+                    `, 
+                    showConfirmButton: false, 
+                    allowOutsideClick: false 
+                }); 
+            },
+            success: (title, text) => { 
+                return Swal.fire({ ...cuteSwalOpts, icon: 'success', title: '✨ ' + title, text: text, confirmButtonText: 'ยอดเยี่ยม!' }); 
+            },
+            error: (title, text) => { 
+                return Swal.fire({ ...cuteSwalOpts, icon: 'error', title: '🥺 ' + title, text: text, confirmButtonText: 'รับทราบ', customClass: { ...cuteSwalOpts.customClass, confirmButton: 'bg-red-400 hover:bg-red-500 text-white rounded-full px-8 py-2.5 font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4' } }); 
+            },
+            confirm: (title, text, btnText) => { 
+                return Swal.fire({ ...cuteSwalOpts, icon: 'question', title: '🤔 ' + title, text: text, showCancelButton: true, confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', customClass: { ...cuteSwalOpts.customClass, confirmButton: 'bg-red-500 hover:bg-red-600 text-white rounded-full px-8 py-2.5 font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4' } }); 
+            }
+        };
+        // ===================================================================================
 
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
@@ -461,7 +503,7 @@
                 issueDateStr = `${parts[2]}/${parts[1]}/${parseInt(parts[0]) + 543}`;
             }
 
-            cuteAlert.loading('กำลังอัปโหลดเอกสารไปที่ Google Drive... ⏳<br><span class="text-xs text-red-500">อาจใช้เวลา 10-30 วินาที ห้ามปิดหน้าต่าง</span>');
+            cuteAlert.loading('กำลังอัปโหลดเอกสารไปที่ Google Drive... ⏳<br><span class="text-xs text-red-500 mt-2 block">อาจใช้เวลา 10-30 วินาที ห้ามปิดหน้าต่าง</span>');
 
             try {
                 const reader = new FileReader();
