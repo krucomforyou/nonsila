@@ -607,12 +607,27 @@
                     sel.innerHTML = '<option value="">เลือกห้องก่อน...</option>';
                     return;
                 }
-                const subjectsForClass = [...new Set(state.schedule.filter(s => s.className === classFilter && s.className !== '-').map(s => s.subjectPeriod))];
-                if (subjectsForClass.length === 0) {
+                
+                // กรองเอาเฉพาะวิชาที่สอนห้องที่เลือก (และไม่ใช่ห้อง '-')
+                const classSchedules = state.schedule.filter(s => s.className === classFilter && s.className !== '-');
+                
+                if (classSchedules.length === 0) {
                     sel.innerHTML = `<option value="">-- ไม่มีวิชาที่สอนห้องนี้ --</option>`;
                 } else {
                     let opts = '<option value="">-- เลือกวิชา --</option>';
-                    subjectsForClass.forEach(s => { opts += `<option value="${s}">${s}</option>`; });
+                    
+                    // ใช้ Set ช่วยกันข้อมูลซ้ำ ในกรณีที่กรอกตารางสอนซ้ำวัน/คาบเดิม
+                    const uniqueOptions = new Set();
+                    
+                    classSchedules.forEach(s => {
+                        // เก็บค่า value เป็น subjectPeriod เหมือนเดิมเพื่อให้ระบบทำงานได้ปกติ
+                        // แต่แสดงผล text ให้มี [วัน...] นำหน้า
+                        const displayValue = `[วัน${s.day}] ${s.subjectPeriod}`;
+                        const optionHTML = `<option value="${s.subjectPeriod}">${displayValue}</option>`;
+                        uniqueOptions.add(optionHTML);
+                    });
+                    
+                    opts += Array.from(uniqueOptions).join('');
                     sel.innerHTML = opts;
                 }
                 return;
