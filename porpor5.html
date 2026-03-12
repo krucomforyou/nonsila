@@ -120,9 +120,13 @@
 
         <!-- HEADER SECTION (สีเขียวเข้ม ตามแบบ) -->
         <header class="bg-nswDarkGreen text-white px-4 py-16 flex flex-col justify-center items-center shadow-md relative">
-            <!-- Icon Search ขวาบน (ตามรูปภาพ) -->
-            <div class="absolute top-6 right-6 text-white cursor-pointer hover:text-gray-300">
-                <i class="fas fa-search text-xl"></i>
+            
+            <!-- ช่องค้นหา (Search Box) -->
+            <div class="absolute top-4 right-4 md:top-6 md:right-6 z-10">
+                <div class="flex items-center bg-black/20 hover:bg-black/30 focus-within:bg-white rounded-full px-3 py-1.5 md:py-2 border border-white/30 transition-all duration-300 group">
+                    <i class="fas fa-search text-white group-focus-within:text-gray-500"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหา (เช่น ป.1)" class="bg-transparent border-none outline-none text-white placeholder-white/70 text-sm ml-2 w-28 sm:w-40 md:w-56 focus:text-gray-800 transition-all">
+                </div>
             </div>
 
             <h1 class="text-4xl md:text-5xl font-bold mb-6 text-center drop-shadow-md">ปพ.5 โนนศิลาสว่างวิทย์</h1>
@@ -352,9 +356,43 @@
             nav.innerHTML = html;
         }
 
+        // ==========================================
+        // ระบบค้นหา (Search)
+        // ==========================================
+        function handleSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim().toLowerCase();
+            
+            if (query === '') {
+                // หากลบข้อความค้นหาออกหมด ให้กลับไปหน้าปัจจุบันที่เลือกไว้
+                selectCategory(currentActiveCategory || 'หน้าแรก');
+                return;
+            }
+
+            // ลบสถานะ Active จากเมนูด้านซ้ายทุกอันเมื่อกำลังค้นหา
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            
+            // กรองข้อมูลที่ชื่อวิชา หรือ ชื่อกลุ่มสาระ ตรงกับคำที่ค้นหา
+            const filteredLinks = linkData.filter(item => 
+                item.title.toLowerCase().includes(query) || 
+                item.category.toLowerCase().includes(query)
+            );
+
+            document.getElementById('currentCategoryTitle').innerText = `ผลการค้นหา: "${query}" (${filteredLinks.length} รายการ)`;
+            
+            // แสดงผลลัพธ์แบบจัดกลุ่ม (ใช้ isAllPage = true เพื่อความสวยงาม)
+            renderGridButtons(filteredLinks, true);
+        }
+
         function selectCategory(categoryName) {
             currentActiveCategory = categoryName;
             
+            // เคลียร์ช่องค้นหาอัตโนมัติหากผู้ใช้คลิกเมนู
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput && searchInput.value !== '') {
+                searchInput.value = '';
+            }
+
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
             
             const activeId = categoryName === 'ทั้งหมด' ? 'nav-ทั้งหมด' : `nav-${categoryName.replace(/\s+/g, '-')}`;
@@ -385,7 +423,9 @@
         function renderGridButtons(links, isAllPage = false) {
             const grid = document.getElementById('linksGrid');
             if(links.length === 0) {
-                grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-400">ไม่มีข้อมูลลิงก์ในหมวดหมู่นี้</div>`;
+                const searchInput = document.getElementById('searchInput');
+                const emptyText = (searchInput && searchInput.value.trim() !== '') ? "ไม่พบข้อมูลที่ค้นหา" : "ไม่มีข้อมูลลิงก์ในหมวดหมู่นี้";
+                grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-400">${emptyText}</div>`;
                 grid.className = "w-full mb-16";
                 return;
             }
@@ -393,7 +433,7 @@
             let html = '';
 
             if (isAllPage) {
-                // แบบหน้าแรก (ทั้งหมด): จัดหมวดหมู่ มีหัวข้อกั้น และเรียงวิชา ก-ฮ
+                // แบบหน้าแรก (ทั้งหมด): จัดหมวดหมู่ มีหัวข้อกั้น และเรียงวิชา ก-ฮ หรือตามระดับชั้น
                 grid.className = "flex flex-col gap-10 w-full mb-16"; 
                 
                 const grouped = {};
