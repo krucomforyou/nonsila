@@ -388,7 +388,7 @@
 
             document.getElementById('currentCategoryTitle').innerText = `ผลการค้นหา: "${query}" (${filteredLinks.length} รายการ)`;
             
-            renderGridButtons(filteredLinks, true);
+            renderGridButtons(filteredLinks, true, true);
         }
 
         function selectCategory(categoryName) {
@@ -468,7 +468,7 @@
             return html;
         }
 
-        function renderGridButtons(links, isAllPage = false) {
+        function renderGridButtons(links, isAllPage = false, isSearch = false) {
             const grid = document.getElementById('linksGrid');
             if(links.length === 0) {
                 const searchInput = document.getElementById('searchInput');
@@ -494,7 +494,18 @@
                     html += `<div class="w-full">`;
                     html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
                     
-                    html += generateColumnLayout(grouped[cat]);
+                    if (isSearch) {
+                        // เมื่อเป็นการค้นหา ให้แสดงผลเป็น 1 คอลัมน์เรียงต่อกัน
+                        html += `<div class="grid grid-cols-1 gap-3 w-full">`;
+                        let sortedItems = grouped[cat].sort((a,b) => (a.order || 999) - (b.order || 999));
+                        sortedItems.forEach(item => {
+                            html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center md:text-left py-3 px-6 shadow-sm hover:shadow-md transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center md:justify-start font-medium text-[15px] border border-nswButtonGreen/50"><i class="fas fa-link mr-2 hidden md:inline"></i> ${item.title}</a>`;
+                        });
+                        html += `</div>`;
+                    } else {
+                        // ถ้าไม่ใช่การค้นหา ให้แสดงผล 6 คอลัมน์ตามปกติ
+                        html += generateColumnLayout(grouped[cat]);
+                    }
                     
                     html += `</div>`;
                 });
@@ -760,20 +771,23 @@
         // ==========================================
         function populateSortCategoryDropdown() {
             const select = document.getElementById('sortCategorySelect');
-            let html = '<option value="">-- เลือกกลุ่มสาระ --</option>';
+            let html = '';
+            let firstCat = '';
+            
             categories.forEach(cat => {
                 if(cat !== 'หน้าแรก') {
                     html += `<option value="${cat}">${cat}</option>`;
+                    if(!firstCat) firstCat = cat; // เก็บค่ากลุ่มสาระแรกที่พบ
                 }
             });
             select.innerHTML = html;
             
-            if (categories.length > 1) {
-                const defaultCat = categories[1] !== 'หน้าแรก' ? categories[1] : categories[0];
-                select.value = defaultCat;
+            if (firstCat) {
+                // บังคับเลือกกลุ่มสาระแรกเสมอและโหลดข้อมูลมาทันที
+                select.value = firstCat;
                 renderSortGrid();
             } else {
-                document.getElementById('sortableGrid').innerHTML = '<div class="text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
+                document.getElementById('sortableGrid').innerHTML = '<div class="text-center text-gray-400 py-10">กรุณาเพิ่มกลุ่มสาระก่อน</div>';
             }
         }
 
