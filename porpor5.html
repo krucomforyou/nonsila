@@ -437,21 +437,45 @@
                 return 99;
             };
 
-            // ฟังก์ชันช่วยแยกข้อมูลเป็น 3 คอลัมน์ (1, 2, และส่วนที่เหลือไปกองคอลัมน์ 3)
+            // ฟังก์ชันดึงชื่อวิชาหลัก (เอาไว้เช็ควิชาเดียวกันที่อยู่คนละชั้น)
+            const getBaseName = (title) => {
+                return title.replace(/\s*(ป\.|ม\.)\d+.*$/, '').trim();
+            };
+
+            // ฟังก์ชันช่วยแยกข้อมูลเป็น 3 คอลัมน์ (ตามกลุ่มวิชาหลัก)
             const buildColumnsHtml = (items) => {
-                // เรียงตามระดับชั้น (ป.1 - ป.6, ม.1 - ม.6) 
+                // 1. เรียงตามชื่อวิชาหลักก่อน แล้วตามด้วยระดับชั้น
                 const sortedItems = items.sort((a,b) => {
+                    const baseA = getBaseName(a.title);
+                    const baseB = getBaseName(b.title);
+                    const baseComp = baseA.localeCompare(baseB, 'th');
+                    if (baseComp !== 0) return baseComp; // ถ้าคนละวิชากัน ให้เรียงตาม ก-ฮ
+
+                    // ถ้าเป็นวิชาเดียวกัน ให้เรียงตามชั้น ป.1 -> ป.6
                     const gradeA = getGradeLevel(a.title);
                     const gradeB = getGradeLevel(b.title);
                     if (gradeA !== gradeB) return gradeA - gradeB;
+                    
                     return a.title.localeCompare(b.title, 'th');
                 });
 
+                // 2. จัดกลุ่มว่าวิชาหลักแต่ละวิชามีลิงก์อะไรบ้าง
+                const subjectsMap = {};
+                const subjectNames = [];
+                sortedItems.forEach(item => {
+                    const base = getBaseName(item.title);
+                    if(!subjectsMap[base]) {
+                        subjectsMap[base] = [];
+                        subjectNames.push(base); // เก็บรายชื่อวิชาหลักเพื่อคงลำดับไว้
+                    }
+                    subjectsMap[base].push(item);
+                });
+
                 const cols = [[], [], []];
-                sortedItems.forEach((item, index) => {
-                    // จำกัด Index ให้เป็น 0, 1, 2 (ถ้าเกินก็ให้อยู่ Index 2 หรือคอลัมน์สุดท้าย)
+                // 3. นำแต่ละกลุ่มวิชา ไปใส่ลงคอลัมน์ (วิชาที่ 1->คอลัมน์ 1, วิชา 2->คอลัมน์ 2, ที่เหลือ->คอลัมน์ 3)
+                subjectNames.forEach((base, index) => {
                     const colIndex = Math.min(index, 2); 
-                    cols[colIndex].push(item);
+                    cols[colIndex].push(...subjectsMap[base]);
                 });
 
                 let colHtml = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">`;
