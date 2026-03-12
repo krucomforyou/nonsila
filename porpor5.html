@@ -121,16 +121,17 @@
         <!-- HEADER SECTION (สีเขียวเข้ม ตามแบบ) -->
         <header class="bg-nswDarkGreen text-white px-4 py-16 flex flex-col justify-center items-center shadow-md relative">
             
-            <!-- ช่องค้นหา (Search Box) -->
+            <!-- ช่องค้นหา (Search Box) ปรับให้ไม่เป็นสีเขียวเวลาเอาเมาส์ชี้ -->
             <div class="absolute top-4 right-4 md:top-6 md:right-6 z-10">
                 <div class="flex items-center bg-gray-100 hover:bg-gray-200 focus-within:bg-white rounded-full px-3 py-1.5 md:py-2 border border-transparent transition-all duration-300 group shadow-sm">
-                    <i class="fas fa-search text-gray-500 group-focus-within:text-nswButtonGreen"></i>
-                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหา (เช่น ป.1)" class="bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm ml-2 w-28 sm:w-40 md:w-56 transition-all">
+                    <i class="fas fa-search text-gray-400 group-focus-within:text-gray-600"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหา (เช่น ป.1)" class="bg-transparent border-none outline-none text-gray-800 placeholder-gray-400 text-sm ml-2 w-28 sm:w-40 md:w-56 transition-all">
                 </div>
             </div>
 
-            <h1 class="text-4xl md:text-5xl font-bold mb-6 text-center drop-shadow-md">ปพ.5 โรงเรียนโนนศิลาสว่างวิทย์</h1>
-            <h2 class="text-xl md:text-2xl font-medium mb-8 text-center drop-shadow-md">ระบบแสดงผลการพัฒนาคุณภาพของผู้เรียนออนไลน์ ปีการศึกษา 2568</h2>
+            <h1 class="text-4xl md:text-5xl font-bold mb-6 text-center drop-shadow-md">ปพ.5 โนนศิลาสว่างวิทย์</h1>
+            <h2 class="text-xl md:text-2xl font-medium mb-8 text-center drop-shadow-md">ระบบแสดงผลการพัฒนาคุณภาพของผู้เรียน ออนไลน์ ปีการศึกษา 2568</h2>
+            <h3 class="text-2xl md:text-3xl font-bold text-center drop-shadow-md">โรงเรียนโนนศิลาสว่างวิทย์</h3>
         </header>
 
         <!-- CONTENT SECTION: ตารางปุ่มลิงก์ -->
@@ -324,7 +325,7 @@
             }
         }
 
-        // ดึงชื่อกลุ่มสาระโดยเรียงลำดับตามการเพิ่ม (ไม่มีการ Sort A-Z)
+        // ดึงชื่อกลุ่มสาระโดยเรียงลำดับตามการเพิ่ม
         function extractCategories() {
             categories = [...new Set(linkData.map(item => item.category))];
             
@@ -363,15 +364,12 @@
             const query = searchInput.value.trim().toLowerCase();
             
             if (query === '') {
-                // หากลบข้อความค้นหาออกหมด ให้กลับไปหน้าปัจจุบันที่เลือกไว้
                 selectCategory(currentActiveCategory || 'หน้าแรก');
                 return;
             }
 
-            // ลบสถานะ Active จากเมนูด้านซ้ายทุกอันเมื่อกำลังค้นหา
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
             
-            // กรองข้อมูลที่ชื่อวิชา หรือ ชื่อกลุ่มสาระ ตรงกับคำที่ค้นหา
             const filteredLinks = linkData.filter(item => 
                 item.title.toLowerCase().includes(query) || 
                 item.category.toLowerCase().includes(query)
@@ -379,14 +377,12 @@
 
             document.getElementById('currentCategoryTitle').innerText = `ผลการค้นหา: "${query}" (${filteredLinks.length} รายการ)`;
             
-            // แสดงผลลัพธ์แบบจัดกลุ่ม (ใช้ isAllPage = true เพื่อความสวยงาม)
             renderGridButtons(filteredLinks, true);
         }
 
         function selectCategory(categoryName) {
             currentActiveCategory = categoryName;
             
-            // เคลียร์ช่องค้นหาอัตโนมัติหากผู้ใช้คลิกเมนู
             const searchInput = document.getElementById('searchInput');
             if (searchInput && searchInput.value !== '') {
                 searchInput.value = '';
@@ -407,7 +403,6 @@
                 filteredLinks = linkData;
                 isAllPage = true;
             } else {
-                // สำหรับหมวดหมู่เดี่ยว เรียงตามลำดับที่บันทึก (ใหม่ไปต่อท้าย)
                 filteredLinks = linkData.filter(item => item.category === categoryName);
             }
             
@@ -419,6 +414,9 @@
             }
         }
 
+        // ==========================================
+        // สร้าง Grid แสดงปุ่ม (เรียงเป็นคอลัมน์)
+        // ==========================================
         function renderGridButtons(links, isAllPage = false) {
             const grid = document.getElementById('linksGrid');
             if(links.length === 0) {
@@ -431,8 +429,50 @@
 
             let html = '';
 
+            const getGradeLevel = (title) => {
+                const pMatch = title.match(/ป\.(\d+)/);
+                if (pMatch) return parseInt(pMatch[1]);
+                const mMatch = title.match(/ม\.(\d+)/);
+                if (mMatch) return parseInt(mMatch[1]) + 6;
+                return 99;
+            };
+
+            // ฟังก์ชันช่วยแยกข้อมูลเป็น 3 คอลัมน์ (1, 2, และส่วนที่เหลือไปกองคอลัมน์ 3)
+            const buildColumnsHtml = (items) => {
+                // เรียงตามระดับชั้น (ป.1 - ป.6, ม.1 - ม.6) 
+                const sortedItems = items.sort((a,b) => {
+                    const gradeA = getGradeLevel(a.title);
+                    const gradeB = getGradeLevel(b.title);
+                    if (gradeA !== gradeB) return gradeA - gradeB;
+                    return a.title.localeCompare(b.title, 'th');
+                });
+
+                const cols = [[], [], []];
+                sortedItems.forEach((item, index) => {
+                    // จำกัด Index ให้เป็น 0, 1, 2 (ถ้าเกินก็ให้อยู่ Index 2 หรือคอลัมน์สุดท้าย)
+                    const colIndex = Math.min(index, 2); 
+                    cols[colIndex].push(item);
+                });
+
+                let colHtml = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">`;
+                cols.forEach(colItems => {
+                    // เริ่มสร้าง Flex Column
+                    colHtml += `<div class="flex flex-col gap-4">`;
+                    colItems.forEach(item => {
+                        colHtml += `
+                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50 w-full">
+                            ${item.title}
+                        </a>`;
+                    });
+                    colHtml += `</div>`;
+                });
+                colHtml += `</div>`;
+                
+                return colHtml;
+            };
+
             if (isAllPage) {
-                // แบบหน้าแรก (ทั้งหมด): จัดหมวดหมู่ มีหัวข้อกั้น และเรียงวิชา ก-ฮ หรือตามระดับชั้น
+                // แบบหน้ารวม: จัดกลุ่มแล้วสร้างชุดคอลัมน์ของแต่ละกลุ่ม
                 grid.className = "flex flex-col gap-10 w-full mb-16"; 
                 
                 const grouped = {};
@@ -441,52 +481,18 @@
                     grouped[item.category].push(item);
                 });
                 
-                // นำหมวดหมู่มาเรียงลำดับให้ตรงกับที่ปรากฏบน Sidebar
                 const sortedCats = categories.filter(cat => grouped[cat]);
-                
-                // ฟังก์ชันช่วยดึงระดับชั้นเพื่อนำมาเรียงลำดับ (ดึงเลขหลังจาก ป. หรือ ม.)
-                const getGradeLevel = (title) => {
-                    const pMatch = title.match(/ป\.(\d+)/);
-                    if (pMatch) return parseInt(pMatch[1]);
-                    const mMatch = title.match(/ม\.(\d+)/);
-                    if (mMatch) return parseInt(mMatch[1]) + 6; // ม.1-6 ให้คะแนน 7-12 เพื่อต่อท้าย ป.6
-                    return 99; // ถ้าไม่มีระบุชั้น ให้ไปอยู่ท้ายๆ
-                };
                 
                 sortedCats.forEach(cat => {
                     html += `<div class="w-full">`;
                     html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
-                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">`;
-                    
-                    // วิชาในหมวดหมู่ ให้เรียงตามระดับชั้น (ป.1 - ป.6, ม.1 - ม.6) 
-                    const subjects = grouped[cat].sort((a,b) => {
-                        const gradeA = getGradeLevel(a.title);
-                        const gradeB = getGradeLevel(b.title);
-                        if (gradeA !== gradeB) {
-                            return gradeA - gradeB; // เรียงจากค่าน้อยไปมาก
-                        }
-                        // ถ้าอยู่ชั้นเดียวกัน หรือไม่มีชั้นทั้งคู่ ให้เรียง ก-ฮ เป็นตัวสำรอง
-                        return a.title.localeCompare(b.title, 'th');
-                    });
-                    
-                    subjects.forEach(item => {
-                        html += `
-                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
-                            ${item.title}
-                        </a>`;
-                    });
-                    html += `</div></div>`;
+                    html += buildColumnsHtml(grouped[cat]);
+                    html += `</div>`;
                 });
             } else {
-                // แบบหน้าหมวดหมู่เดี่ยว: ไม่มีหัวข้อกั้น และเรียงลำดับการเพิ่ม
-                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 w-full mb-16";
-                
-                links.forEach(item => {
-                    html += `
-                    <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
-                        ${item.title}
-                    </a>`;
-                });
+                // แบบหน้าหมวดหมู่เดี่ยว
+                grid.className = "w-full mb-16";
+                html += buildColumnsHtml(links);
             }
 
             grid.innerHTML = html;
@@ -521,7 +527,6 @@
             resetAdminForm();
         }
 
-        // โหลดข้อมูลเข้า Dropdown
         function populateCategoryDropdown() {
             const select = document.getElementById('adminCategorySelect');
             let html = '<option value="">-- เลือกกลุ่มสาระ --</option>';
@@ -536,7 +541,6 @@
             select.innerHTML = html;
         }
 
-        // จัดการเมื่อเปลี่ยนตัวเลือก Dropdown
         function handleCategorySelect() {
             const select = document.getElementById('adminCategorySelect');
             const input = document.getElementById('adminCategoryInput');
@@ -551,7 +555,6 @@
             }
         }
 
-        // รีเซ็ตฟอร์มกลับเป็นโหมด "เพิ่มใหม่"
         function resetAdminForm() {
             document.getElementById('adminEditId').value = '';
             
@@ -572,7 +575,6 @@
             document.getElementById('adminCancelBtn').classList.add('hidden');
         }
 
-        // โหลดข้อมูลเข้าฟอร์มสำหรับ "แก้ไข"
         function editLink(id) {
             const link = linkData.find(item => item.id === id);
             if (!link) return;
@@ -614,14 +616,13 @@
             }
 
             let html = '';
-            // ตารางแอดมิน: จัดเรียงตามหมวดหมู่ Sidebar เพื่อให้หาได้ง่าย และวิชาภายในเรียงตามลำดับการเพิ่ม
             const sortedData = [...linkData].sort((a,b) => {
                 const catIndexA = categories.indexOf(a.category);
                 const catIndexB = categories.indexOf(b.category);
                 if (catIndexA !== catIndexB) {
                     return catIndexA - catIndexB;
                 }
-                return 0; // ไม่สลับลำดับวิชาเดิม (อันใหม่ก็จะอยู่ล่างสุดในกลุ่มสาระนั้นๆ)
+                return 0; 
             });
             
             sortedData.forEach(item => {
@@ -646,7 +647,6 @@
             const selectVal = document.getElementById('adminCategorySelect').value;
             const inputVal = document.getElementById('adminCategoryInput').value.trim();
             
-            // เลือกใช้ค่าจาก Input ถ้าเลือก NEW นอกนั้นใช้จาก Select
             const cat = selectVal === 'NEW' ? inputVal : selectVal;
             const title = document.getElementById('adminTitle').value.trim();
             const url = document.getElementById('adminUrl').value.trim();
@@ -664,7 +664,6 @@
             form.append('title', title);
             form.append('url', url);
             
-            // ระบุว่าเป็นการเพิ่มใหม่ หรือแก้ไข
             let actionName = 'savePorPor5Link';
             if (editId) {
                 form.append('id', editId);
