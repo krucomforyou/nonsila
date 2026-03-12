@@ -57,7 +57,7 @@
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
         
-        .sortable-ghost { opacity: 0.4; }
+        .sortable-ghost { opacity: 0.4; border: 2px dashed #1b8066 !important; background-color: #e6f2ef !important; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -226,7 +226,7 @@
                     </div>
                 </div>
 
-                <!-- SECTION 2: จัดเรียง 3 คอลัมน์ (ลากวางอิสระ) -->
+                <!-- SECTION 2: จัดเรียง 6 คอลัมน์ (2 แถว x 3 คอลัมน์) -->
                 <div id="adminSortSection" class="hidden flex-col gap-4">
                     <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
@@ -245,10 +245,10 @@
                         
                         <div class="bg-yellow-50 text-yellow-800 text-sm p-3 rounded-lg mb-4 border border-yellow-200 flex items-start gap-2">
                             <i class="fas fa-info-circle mt-0.5"></i>
-                            <p>สามารถลากสลับกล่องวิชาไปมา <b>ข้ามคอลัมน์ได้อย่างอิสระ</b> <br class="hidden md:block">ไม่จำเป็นต้องจัดแต่ละคอลัมน์ให้เท่ากัน และสามารถจัดรวมไว้คอลัมน์เดียวได้เลย (มี 2 แถว แถวละ 3 คอลัมน์ รวมเป็น 6 คอลัมน์)</p>
+                            <p>สามารถลากสลับกล่องวิชาไปมา <b>ข้ามคอลัมน์และแถวได้อย่างอิสระ</b> <br class="hidden md:block">ไม่จำเป็นต้องจัดแต่ละคอลัมน์ให้เท่ากัน (มี 2 แถว แถวละ 3 คอลัมน์ รวมเป็น 6 คอลัมน์)</p>
                         </div>
                         
-                        <!-- คอนเทนเนอร์สำหรับลากวาง (6 คอลัมน์อิสระ) -->
+                        <!-- คอนเทนเนอร์สำหรับลากวาง (6 คอลัมน์อิสระ 2 แถว) -->
                         <div id="sortableGrid" class="bg-gray-50 p-4 rounded-xl min-h-[300px] border border-gray-300">
                             <!-- จะถูกสร้างเป็นโครงสร้าง 6 คอลัมน์ด้วย JS -->
                         </div>
@@ -267,7 +267,7 @@
         let linkData = [];
         let categories = [];
         let currentActiveCategory = '';
-        let sortableInstances = []; // รองรับ 3 กล่องสำหรับ SortableJS
+        let sortableInstances = []; // รองรับกล่อง SortableJS ทั้งหมด
 
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -410,7 +410,22 @@
             let filteredLinks = [];
             let isAllPage = false;
 
-        // --- Render คอลัมน์อิสระ 1 ถึง 6 ให้แสดงผลสำหรับผู้ใช้ทั่วไป ---
+            if (categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก') {
+                filteredLinks = [...linkData]; 
+                isAllPage = true;
+            } else {
+                filteredLinks = linkData.filter(item => item.category === categoryName);
+            }
+            
+            renderGridButtons(filteredLinks, isAllPage);
+
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebarMenu');
+                if (!sidebar.classList.contains('-translate-x-full')) toggleSidebar();
+            }
+        }
+
+        // --- Render คอลัมน์ 1 ถึง 6 สำหรับหน้าแสดงผลฝั่งผู้ใช้ (2 แถว แถวละ 3) ---
         function generateColumnLayout(itemsArray) {
             let cols = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             itemsArray.forEach(it => {
@@ -424,7 +439,7 @@
                 cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
             }
 
-            // แสดงผลเป็น Grid 2 แถว แถวละ 3 คอลัมน์ บนจอใหญ่
+            // แสดงผลเป็น Grid 2 แถว แถวละ 3 คอลัมน์
             let html = `<div class="flex flex-col gap-10 w-full">`;
             
             // แถวที่ 1 (คอลัมน์ 1-3)
@@ -438,7 +453,7 @@
             }
             html += `</div>`;
 
-            // แถวที่ 2 (คอลัมน์ 4-6)
+            // แถวที่ 2 (คอลัมน์ 4-6) - มีเส้นแบ่งข้างบน
             html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full pt-4 border-t border-gray-200 border-dashed">`;
             for (let i = 4; i <= 6; i++) {
                 html += `<div class="flex flex-col gap-4">`;
@@ -741,7 +756,7 @@
         }
 
         // ==========================================
-        // SORTABLE (ลากวาง 3 คอลัมน์อิสระ - KANBAN)
+        // SORTABLE (ลากวาง 6 คอลัมน์อิสระ - KANBAN)
         // ==========================================
         function populateSortCategoryDropdown() {
             const select = document.getElementById('sortCategorySelect');
@@ -789,11 +804,11 @@
             // สร้าง UI แผงสำหรับ 6 คอลัมน์ (2 แถว แถวละ 3 คอลัมน์)
             let html = '<div class="flex flex-col gap-8 w-full">';
             
-            // แถวที่ 1 (คอลัมน์ 1-3)
+            // ---------------- แถวที่ 1 (คอลัมน์ 1-3) ----------------
             html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">';
             for (let i = 1; i <= 3; i++) {
                 html += `
-                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper" data-col="${i}">
+                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper border border-transparent hover:border-gray-300 transition" data-col="${i}">
                     <div class="text-sm font-bold text-gray-600 mb-2 text-center border-b border-gray-300 pb-2 flex items-center justify-center gap-2">
                         <i class="fas fa-columns opacity-50"></i> แถว 1 คอลัมน์ ${i}
                     </div>
@@ -816,11 +831,11 @@
             }
             html += '</div>';
 
-            // แถวที่ 2 (คอลัมน์ 4-6)
+            // ---------------- แถวที่ 2 (คอลัมน์ 4-6) ----------------
             html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-6 border-t border-gray-300 border-dashed">';
             for (let i = 4; i <= 6; i++) {
                 html += `
-                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper" data-col="${i}">
+                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper border border-transparent hover:border-gray-300 transition" data-col="${i}">
                     <div class="text-sm font-bold text-gray-600 mb-2 text-center border-b border-gray-300 pb-2 flex items-center justify-center gap-2">
                         <i class="fas fa-columns opacity-50"></i> แถว 2 คอลัมน์ ${i-3}
                     </div>
@@ -843,7 +858,7 @@
             }
             html += '</div>';
 
-            html += '</div>';
+            html += '</div>'; // ปิดคอนเทนเนอร์รวม
             grid.innerHTML = html;
 
             // ลบ Instance เก่าออกเพื่อป้องกันบัก
@@ -856,7 +871,7 @@
             const lists = grid.querySelectorAll('.sortable-list');
             lists.forEach(list => {
                 sortableInstances.push(new Sortable(list, {
-                    group: 'sharedColumnDrop', // กำหนด Group เดียวกัน ทำให้ลากข้ามคอลัมน์ได้
+                    group: 'sharedColumnDrop', // กำหนด Group เดียวกัน ทำให้ลากข้ามคอลัมน์และแถวได้
                     animation: 200,
                     ghostClass: 'sortable-ghost',
                     easing: "cubic-bezier(1, 0, 0, 1)",
@@ -879,7 +894,7 @@
                     updates.push({
                         id: item.getAttribute('data-id'),
                         order: index + 1,        // ลำดับที่อยู่ในคอลัมน์นี้
-                        colIndex: colIndex       // บันทึกหมายเลขคอลัมน์ลงไป
+                        colIndex: colIndex       // บันทึกหมายเลขคอลัมน์ (1 ถึง 6) ลงไป
                     });
                 });
             });
