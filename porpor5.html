@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ปพ.5 ออนไลน์ โนนศิลาสว่างวิทย์</title>
+
+    <link id="favicon" rel="icon" type="image/png" href="https://lh3.google.com/u/0/d/1YkUNkaQc2mfZ3ptjyoH8Nge93eznBWvK=w1920-h919-iv1?auditContext=prefetch">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nswDarkGreen: '#144637', // สีเขียวเข้มพื้นหลังหลัก
+                        nswButtonGreen: '#1b8066', // สีเขียวปุ่ม
+                        nswButtonHover: '#136b54',
+                        nswBlack: '#000000', // สีดำแถบเมนู
+                    },
+                    fontFamily: {
+                        sans: ['Sarabun', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #ffffff; }
+        
+        /* สไตล์ Sidebar สีดำ */
+        .sidebar { background-color: #000000; } 
+        .sidebar-item { color: #ffffff; transition: all 0.2s; border-left: 4px solid transparent; }
+        .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #ffffff; font-weight: bold; }
+        
+        /* สไตล์ Scrollbar สำหรับ Sidebar */
+        .sidebar-nav::-webkit-scrollbar { width: 5px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: #000000; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: #333333; border-radius: 10px; }
+        .sidebar-nav::-webkit-scrollbar-thumb:hover { background: #555555; }
+
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1b8066; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
+        .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR (สีดำ ตามแบบ) -->
+    <aside id="sidebarMenu" class="w-64 sidebar flex flex-col h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
+        
+        <!-- Header Sidebar -->
+        <div class="p-6 border-b border-gray-800 flex flex-col mt-4">
+            <button class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white" onclick="toggleSidebar()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h1 class="font-bold text-xl text-white leading-relaxed">
+                ปพ.5 ออนไลน์<br>โนนศิลาสว่าง<br>วิทย์
+            </h1>
+        </div>
+        
+        <!-- Navigation เมนูกลุ่มสาระ (สร้างอัตโนมัติจากข้อมูล) -->
+        <nav id="categoryNav" class="flex-1 overflow-y-auto py-4 sidebar-nav text-sm">
+            <!-- เมนูจะถูกสร้างด้วย Javascript -->
+            <div class="flex justify-center py-10"><div class="loader"></div></div>
+        </nav>
+
+        <!-- โซนจัดการ Admin (ซ่อน/แสดง ตามสิทธิ์) -->
+        <div class="p-4 border-t border-gray-800">
+            <button id="adminManageBtn" onclick="openAdminModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-xs py-3 rounded shadow transition flex items-center justify-center gap-2 border border-gray-600">
+                <i class="fas fa-cogs"></i> จัดการข้อมูล (Admin)
+            </button>
+            <button onclick="goToSystem()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white text-xs py-3 rounded shadow transition flex items-center justify-center gap-2 mt-2">
+                <i class="fas fa-home"></i> กลับหน้าระบบเช็คชื่อ
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto bg-white w-full relative">
+        
+        <!-- ปุ่มเปิด Sidebar บนมือถือ -->
+        <div class="md:hidden absolute top-4 left-4 z-50">
+            <button class="text-white hover:text-gray-200 focus:outline-none bg-nswDarkGreen/50 p-2 rounded" onclick="toggleSidebar()">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <!-- HEADER SECTION (สีเขียวเข้ม ตามแบบ) -->
+        <header class="bg-nswDarkGreen text-white px-4 py-16 flex flex-col justify-center items-center shadow-md relative">
+            <!-- Icon Search ขวาบน (ตามรูปภาพ) -->
+            <div class="absolute top-6 right-6 text-white cursor-pointer hover:text-gray-300">
+                <i class="fas fa-search text-xl"></i>
+            </div>
+
+            <h1 class="text-4xl md:text-5xl font-bold mb-6 text-center drop-shadow-md">ปพ.5 โนนศิลาสว่างวิทย์</h1>
+            <h2 class="text-xl md:text-2xl font-medium mb-8 text-center drop-shadow-md">ระบบแสดงผลการพัฒนาคุณภาพของผู้เรียน ออนไลน์ ปีการศึกษา 2568</h2>
+            <h3 class="text-2xl md:text-3xl font-bold text-center drop-shadow-md">โรงเรียนโนนศิลาสว่างวิทย์</h3>
+        </header>
+
+        <!-- CONTENT SECTION: ตารางปุ่มลิงก์ -->
+        <div class="flex-1 p-6 md:p-12 w-full max-w-7xl mx-auto flex flex-col">
+            
+            <div class="flex justify-between items-end mb-6">
+                <h3 id="currentCategoryTitle" class="text-xl font-bold text-gray-800 border-l-4 border-nswButtonGreen pl-3">กรุณาเลือกกลุ่มสาระด้านซ้ายมือ</h3>
+            </div>
+
+            <!-- Grid สำหรับแสดงปุ่ม -->
+            <div id="linksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-16">
+                <!-- ปุ่มจะถูกสร้างด้วย Javascript -->
+            </div>
+
+            <!-- Footer Notes -->
+            <div class="mt-auto pt-10 pb-6 text-center">
+                <p class="font-bold text-gray-700 mb-4">วิธีใช้งาน ปพ.5 ออนไลน์</p>
+                <p class="text-gray-600 mb-10 text-sm md:text-base"><span class="font-bold underline">ข้อเสนอแนะ</span> ควรเปิดแก้ไขคราวละ 1 วิชา เพื่อลดปัญหาการโหลดช้า</p>
+                
+                <p class="text-red-600 font-bold text-lg">ใช้ภายในโรงเรียนโนนศิลาสว่างวิทย์เท่านั้นห้ามเผยแพร่</p>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- MODAL: จัดการฐานข้อมูลลิงก์ (ADMIN ONLY) -->
+    <!-- ========================================== -->
+    <div id="adminModal" class="modal fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-4xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-nswDarkGreen px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-lg"><i class="fas fa-database mr-2"></i> จัดการลิงก์ ปพ.5 ออนไลน์</h3>
+                 <button onclick="closeAdminModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col md:flex-row gap-6">
+                
+                <!-- ฟอร์มเพิ่มข้อมูล -->
+                <div class="w-full md:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
+                    <h4 class="font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่</h4>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มสาระ / หมวดหมู่</label>
+                            <input type="text" id="adminCategory" placeholder="เช่น กลุ่มสาระคณิตศาสตร์" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            <p class="text-[10px] text-gray-500 mt-1">พิมพ์ชื่อกลุ่มสาระ หากพิมพ์ชื่อใหม่ระบบจะสร้างเมนูใหม่ให้</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อวิชา / ข้อความบนปุ่ม</label>
+                            <input type="text" id="adminTitle" placeholder="เช่น คณิตศาสตร์ ม.1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">URL (ลิงก์ Google Sheet)</label>
+                            <input type="url" id="adminUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                        </div>
+                        
+                        <button onclick="saveNewLink()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow">
+                            บันทึกข้อมูล
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ตารางแสดงข้อมูลทั้งหมด -->
+                <div class="w-full md:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                        <h4 class="font-bold text-gray-700 text-sm">รายการลิงก์ในระบบทั้งหมด</h4>
+                        <span id="adminTotalLinks" class="bg-nswButtonGreen text-white text-xs px-2 py-1 rounded-full">0 รายการ</span>
+                    </div>
+                    <div class="overflow-y-auto max-h-[400px]">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
+                                <tr>
+                                    <th class="px-4 py-3 w-1/3">กลุ่มสาระ</th>
+                                    <th class="px-4 py-3 w-1/3">ชื่อปุ่ม</th>
+                                    <th class="px-4 py-3 text-center w-24">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminLinksTable" class="divide-y divide-gray-100">
+                                <!-- Render from JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // *** เปลี่ยน URL ด้านล่างเป็น URL ของ Apps Script ที่คุณ Deploy ***
+        const API_URL = 'https://script.google.com/macros/s/AKfycbypTd-6EOzpMzeidON_U1tFU7oHAdJDuY49OD47WmGCbYsKjGXDTuKYYTXf6TwnEyEg/exec';
+        
+        let linkData = [];
+        let categories = [];
+        let currentActiveCategory = '';
+
+        // Cute Alerts (ดีไซน์เดียวกับระบบเช็คชื่อ)
+        const cuteAlert = {
+            loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-xl font-bold text-green-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            error: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-times"></i></div><h3 class="text-xl font-bold text-red-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            confirm: (title, text, btnText) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLinks();
+            checkUserRole();
+        });
+
+        // เปิด-ปิด Sidebar สำหรับมือถือ
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // เช็คว่ามีสิทธิ์ Admin หรือไม่ (เพื่อซ่อน/แสดงปุ่ม จัดการข้อมูล)
+        function checkUserRole() {
+            // สมมติฐาน: คุณบันทึกข้อมูล User ไว้ใน localStorage จากระบบหน้าล็อกอินเช็คชื่อ
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                // ตรวจสอบ Role (ปรับเปลี่ยนเงื่อนไขตาม Role จริงของคุณ)
+                if (user.role && (user.role.includes('Admin') || user.role.includes('จอมเวทย์อาวุโส') || user.role.includes('ผู้ดูแล'))) {
+                    document.getElementById('adminManageBtn').classList.remove('hidden');
+                } else {
+                    // หากไม่ใช่ Admin สามารถคอมเมนต์บรรทัดล่างออกเพื่ออนุญาตให้ทุกคนลองทดสอบเพิ่มข้อมูลได้
+                    // document.getElementById('adminManageBtn').classList.add('hidden'); 
+                }
+            }
+        }
+
+        // ดึงข้อมูลจาก Backend
+        async function fetchLinks() {
+            try {
+                const res = await fetch(`${API_URL}?action=getPorPor5Links`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    linkData = json.data;
+                    extractCategories();
+                    renderSidebarNav();
+                    
+                    // เลือกหมวดหมู่แรกอัตโนมัติ (ถ้ามี)
+                    if(categories.length > 0) {
+                        // ลองหาหมวดหมู่หลักๆ ให้แสดงก่อน หรือเลือกอันแรก
+                        selectCategory(categories.includes('หน้าแรก') ? 'หน้าแรก' : categories[0]);
+                    } else {
+                        document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ<br>กรุณาเพิ่มในเมนู Admin</div>`;
+                        document.getElementById('linksGrid').innerHTML = '';
+                    }
+                } else {
+                    cuteAlert.error('ผิดพลาด', 'ไม่สามารถโหลดข้อมูล ปพ.5 ได้');
+                }
+            } catch (e) { 
+                console.error(e);
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'กรุณาตรวจสอบ URL ของ Apps Script');
+            }
+        }
+
+        // แยกหมวดหมู่ที่ไม่ซ้ำกัน
+        function extractCategories() {
+            categories = [...new Set(linkData.map(item => item.category))];
+            // จัดเรียงหมวดหมู่ให้ 'หน้าแรก' อยู่บนสุด (ถ้ามี)
+            categories.sort((a, b) => {
+                if (a === 'หน้าแรก') return -1;
+                if (b === 'หน้าแรก') return 1;
+                return a.localeCompare(b, 'th');
+            });
+        }
+
+        // สร้างเมนูใน Sidebar
+        function renderSidebarNav() {
+            const nav = document.getElementById('categoryNav');
+            let html = '';
+            
+            // เพิ่มปุ่ม ไอคอนลูกศร ขึ้น (หน้าแรก) เลียนแบบตามรูป
+            if(categories.includes('หน้าแรก')) {
+                html += `<a href="#" onclick="selectCategory('หน้าแรก')" id="nav-หน้าแรก" class="sidebar-item block px-8 py-3.5 flex items-center gap-2"><i class="fas fa-chevron-up text-xs"></i> หน้าแรก</a>`;
+            } else {
+                html += `<a href="#" onclick="selectCategory('ทั้งหมด')" id="nav-ทั้งหมด" class="sidebar-item block px-8 py-3.5 flex items-center gap-2"><i class="fas fa-home text-xs"></i> หน้าแรก (ทั้งหมด)</a>`;
+            }
+
+            categories.forEach(cat => {
+                if(cat !== 'หน้าแรก') {
+                    html += `<a href="#" onclick="selectCategory('${cat}')" id="nav-${cat.replace(/\s+/g, '-')}" class="sidebar-item block px-8 py-3.5 pl-12">${cat}</a>`;
+                }
+            });
+
+            nav.innerHTML = html;
+        }
+
+        // เมื่อคลิกเลือกกลุ่มสาระ
+        function selectCategory(categoryName) {
+            currentActiveCategory = categoryName;
+            
+            // เปลี่ยนสีเมนูที่ถูกเลือก
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            const activeId = categoryName === 'ทั้งหมด' ? 'nav-ทั้งหมด' : `nav-${categoryName.replace(/\s+/g, '-')}`;
+            const activeMenu = document.getElementById(activeId);
+            if(activeMenu) activeMenu.classList.add('active');
+
+            // เปลี่ยน Title ด้านบน Grid
+            document.getElementById('currentCategoryTitle').innerText = categoryName === 'ทั้งหมด' ? 'รวมทุกลิงก์ ปพ.5' : categoryName;
+
+            // กรองข้อมูลและสร้างปุ่ม
+            const filteredLinks = categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก'
+                                ? linkData 
+                                : linkData.filter(item => item.category === categoryName);
+            
+            renderGridButtons(filteredLinks);
+
+            // ปิด Sidebar หากเปิดบนมือถือ
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebarMenu');
+                if (!sidebar.classList.contains('-translate-x-full')) toggleSidebar();
+            }
+        }
+
+        // สร้างปุ่มลิงก์ (สีเขียว ตามรูปภาพ)
+        function renderGridButtons(links) {
+            const grid = document.getElementById('linksGrid');
+            if(links.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-400">ไม่มีข้อมูลลิงก์ในหมวดหมู่นี้</div>`;
+                return;
+            }
+
+            let html = '';
+            links.forEach(item => {
+                html += `
+                <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
+                    ${item.title}
+                </a>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        // ลิงก์กลับไประบบเช็คชื่อ
+        function goToSystem() {
+            window.location.href = 'index.html'; // เปลี่ยนเป็นลิงก์หน้าแรกระบบเช็คชื่อของคุณ
+        }
+
+        // ==========================================
+        // ADMIN FUNCTIONS
+        // ==========================================
+        function openAdminModal() {
+            renderAdminTable();
+            document.getElementById('adminModal').classList.add('active');
+        }
+
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.remove('active');
+            document.getElementById('adminCategory').value = '';
+            document.getElementById('adminTitle').value = '';
+            document.getElementById('adminUrl').value = '';
+        }
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('adminLinksTable');
+            document.getElementById('adminTotalLinks').innerText = `${linkData.length} รายการ`;
+            
+            if(linkData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-gray-400">ยังไม่มีข้อมูลในระบบ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            // เรียงตามหมวดหมู่
+            const sortedData = [...linkData].sort((a,b) => a.category.localeCompare(b.category, 'th'));
+            
+            sortedData.forEach(item => {
+                html += `
+                <tr class="hover:bg-blue-50 transition border-b border-gray-100">
+                    <td class="px-4 py-3 text-xs md:text-sm font-bold text-gray-700">${item.category}</td>
+                    <td class="px-4 py-3 text-xs md:text-sm text-gray-600">${item.title}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="deleteLink('${item.id}', '${item.title}')" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition shadow-sm" title="ลบลิงก์">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function saveNewLink() {
+            const cat = document.getElementById('adminCategory').value.trim();
+            const title = document.getElementById('adminTitle').value.trim();
+            const url = document.getElementById('adminUrl').value.trim();
+
+            if(!cat || !title || !url) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูล กลุ่มสาระ, ชื่อปุ่ม และ URL ให้ครบถ้วน');
+                return;
+            }
+
+            cuteAlert.loading('กำลังบันทึกข้อมูลเข้าสู่ระบบ...');
+
+            const form = new FormData();
+            form.append('category', cat);
+            form.append('title', title);
+            form.append('url', url);
+
+            try {
+                const res = await fetch(`${API_URL}?action=savePorPor5Link`, { method: 'POST', body: form });
+                const json = await res.json();
+
+                if(json.status === 'success') {
+                    cuteAlert.success('บันทึกสำเร็จ!', json.message);
+                    // เคลียร์ฟอร์ม
+                    document.getElementById('adminTitle').value = '';
+                    document.getElementById('adminUrl').value = '';
+                    
+                    // รีโหลดข้อมูลใหม่
+                    fetchLinks().then(() => {
+                        renderAdminTable(); // อัปเดตตารางใน Modal
+                    });
+                } else {
+                    cuteAlert.error('เกิดข้อผิดพลาด', json.message);
+                }
+            } catch(e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถส่งข้อมูลได้');
+            }
+        }
+
+        function deleteLink(id, title) {
+            cuteAlert.confirm(`ยืนยันการลบ?`, `คุณต้องการลบปุ่ม "${title}" ใช่หรือไม่?`, 'ใช่, ลบเลย!').then(async (res) => {
+                if(res.isConfirmed) {
+                    cuteAlert.loading('กำลังลบข้อมูล...');
+                    
+                    const form = new FormData();
+                    form.append('id', id);
+
+                    try {
+                        const response = await fetch(`${API_URL}?action=deletePorPor5Link`, { method: 'POST', body: form });
+                        const json = await response.json();
+
+                        if(json.status === 'success') {
+                            cuteAlert.success('ลบสำเร็จ!', json.message);
+                            fetchLinks().then(() => {
+                                renderAdminTable();
+                            });
+                        } else {
+                            cuteAlert.error('ผิดพลาด', json.message);
+                        }
+                    } catch(e) {
+                        cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถส่งคำสั่งลบได้');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
