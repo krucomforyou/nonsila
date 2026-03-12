@@ -245,12 +245,12 @@
                         
                         <div class="bg-yellow-50 text-yellow-800 text-sm p-3 rounded-lg mb-4 border border-yellow-200 flex items-start gap-2">
                             <i class="fas fa-info-circle mt-0.5"></i>
-                            <p>สามารถลากสลับกล่องวิชาไปมา <b>ข้ามคอลัมน์ได้อย่างอิสระ</b> <br class="hidden md:block">ไม่จำเป็นต้องจัดแต่ละคอลัมน์ให้เท่ากัน และสามารถจัดรวมไว้คอลัมน์เดียวได้เลย</p>
+                            <p>สามารถลากสลับกล่องวิชาไปมา <b>ข้ามคอลัมน์ได้อย่างอิสระ</b> <br class="hidden md:block">ไม่จำเป็นต้องจัดแต่ละคอลัมน์ให้เท่ากัน และสามารถจัดรวมไว้คอลัมน์เดียวได้เลย (มี 2 แถว แถวละ 3 คอลัมน์ รวมเป็น 6 คอลัมน์)</p>
                         </div>
                         
-                        <!-- คอนเทนเนอร์สำหรับลากวาง (3 คอลัมน์อิสระ) -->
+                        <!-- คอนเทนเนอร์สำหรับลากวาง (6 คอลัมน์อิสระ) -->
                         <div id="sortableGrid" class="bg-gray-50 p-4 rounded-xl min-h-[300px] border border-gray-300">
-                            <!-- จะถูกสร้างเป็นโครงสร้าง 3 คอลัมน์ด้วย JS -->
+                            <!-- จะถูกสร้างเป็นโครงสร้าง 6 คอลัมน์ด้วย JS -->
                         </div>
                     </div>
                 </div>
@@ -410,37 +410,25 @@
             let filteredLinks = [];
             let isAllPage = false;
 
-            if (categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก') {
-                filteredLinks = [...linkData]; 
-                isAllPage = true;
-            } else {
-                filteredLinks = linkData.filter(item => item.category === categoryName);
-            }
-            
-            renderGridButtons(filteredLinks, isAllPage);
-
-            if (window.innerWidth < 768) {
-                const sidebar = document.getElementById('sidebarMenu');
-                if (!sidebar.classList.contains('-translate-x-full')) toggleSidebar();
-            }
-        }
-
-        // --- Render คอลัมน์อิสระ 1, 2, 3 ให้แสดงผลสำหรับผู้ใช้ทั่วไป ---
+        // --- Render คอลัมน์อิสระ 1 ถึง 6 ให้แสดงผลสำหรับผู้ใช้ทั่วไป ---
         function generateColumnLayout(itemsArray) {
-            let cols = { 1: [], 2: [], 3: [] };
+            let cols = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             itemsArray.forEach(it => {
                 let c = it.colIndex || 1;
-                if (c > 3 || c < 1) c = 1;
+                if (c > 6 || c < 1) c = 1;
                 cols[c].push(it);
             });
             
             // เรียงลำดับย่อยในแต่ละคอลัมน์ด้วย Order
-            for (let i = 1; i <= 3; i++) {
+            for (let i = 1; i <= 6; i++) {
                 cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
             }
 
-            // แสดงผลเป็น Grid 3 คอลัมน์บนจอใหญ่ (md:grid-cols-3) ยุบเหลือ 1 บนจอมือถือ
-            let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full">`;
+            // แสดงผลเป็น Grid 2 แถว แถวละ 3 คอลัมน์ บนจอใหญ่
+            let html = `<div class="flex flex-col gap-10 w-full">`;
+            
+            // แถวที่ 1 (คอลัมน์ 1-3)
+            html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full">`;
             for (let i = 1; i <= 3; i++) {
                 html += `<div class="flex flex-col gap-4">`;
                 cols[i].forEach(item => {
@@ -448,6 +436,19 @@
                 });
                 html += `</div>`;
             }
+            html += `</div>`;
+
+            // แถวที่ 2 (คอลัมน์ 4-6)
+            html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full pt-4 border-t border-gray-200 border-dashed">`;
+            for (let i = 4; i <= 6; i++) {
+                html += `<div class="flex flex-col gap-4">`;
+                cols[i].forEach(item => {
+                    html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+
             html += `</div>`;
             return html;
         }
@@ -772,26 +773,29 @@
 
             let items = linkData.filter(item => item.category === cat);
 
-            // แยกปุ่มในกลุ่มสาระนี้ออกเป็น 3 คอลัมน์ (ตามข้อมูล ColIndex ที่บันทึกไว้)
-            let cols = { 1: [], 2: [], 3: [] };
+            // แยกปุ่มในกลุ่มสาระนี้ออกเป็น 6 คอลัมน์ (ตามข้อมูล ColIndex ที่บันทึกไว้)
+            let cols = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             items.forEach(it => {
                 let c = it.colIndex || 1;
-                if(c > 3 || c < 1) c = 1;
+                if(c > 6 || c < 1) c = 1;
                 cols[c].push(it);
             });
             
             // จัดเรียงแต่ละคอลัมน์ด้วย order
-            for(let i = 1; i <= 3; i++) {
+            for(let i = 1; i <= 6; i++) {
                 cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
             }
 
-            // สร้าง UI แผงสำหรับ 3 คอลัมน์ (หน้าจอคอมแสดงเป็น 3, มือถือแสดงต่อกัน 1 คอลัมน์)
-            let html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">';
+            // สร้าง UI แผงสำหรับ 6 คอลัมน์ (2 แถว แถวละ 3 คอลัมน์)
+            let html = '<div class="flex flex-col gap-8 w-full">';
+            
+            // แถวที่ 1 (คอลัมน์ 1-3)
+            html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">';
             for (let i = 1; i <= 3; i++) {
                 html += `
                 <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper" data-col="${i}">
                     <div class="text-sm font-bold text-gray-600 mb-2 text-center border-b border-gray-300 pb-2 flex items-center justify-center gap-2">
-                        <i class="fas fa-columns opacity-50"></i> คอลัมน์ที่ ${i}
+                        <i class="fas fa-columns opacity-50"></i> แถว 1 คอลัมน์ ${i}
                     </div>
                     <div class="flex-1 flex flex-col gap-3 sortable-list min-h-[100px]" id="sortList${i}">`;
                 
@@ -811,6 +815,35 @@
                 </div>`;
             }
             html += '</div>';
+
+            // แถวที่ 2 (คอลัมน์ 4-6)
+            html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-6 border-t border-gray-300 border-dashed">';
+            for (let i = 4; i <= 6; i++) {
+                html += `
+                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper" data-col="${i}">
+                    <div class="text-sm font-bold text-gray-600 mb-2 text-center border-b border-gray-300 pb-2 flex items-center justify-center gap-2">
+                        <i class="fas fa-columns opacity-50"></i> แถว 2 คอลัมน์ ${i-3}
+                    </div>
+                    <div class="flex-1 flex flex-col gap-3 sortable-list min-h-[100px]" id="sortList${i}">`;
+                
+                cols[i].forEach(item => {
+                    html += `
+                    <div class="sortable-item bg-white p-3.5 rounded-lg shadow-sm border border-gray-200 cursor-move flex items-center justify-between hover:border-nswButtonGreen hover:shadow-md transition-all group" data-id="${item.id}">
+                        <div class="flex items-center gap-3 w-full">
+                            <div class="w-6 h-6 rounded bg-green-50 text-nswButtonGreen flex items-center justify-center font-bold text-[10px] pointer-events-none border border-green-100 group-hover:bg-nswButtonGreen group-hover:text-white shrink-0">
+                                <i class="fas fa-bars"></i>
+                            </div>
+                            <span class="font-medium text-gray-700 pointer-events-none text-sm truncate w-full">${item.title}</span>
+                        </div>
+                    </div>`;
+                });
+                
+                html += `   </div>
+                </div>`;
+            }
+            html += '</div>';
+
+            html += '</div>';
             grid.innerHTML = html;
 
             // ลบ Instance เก่าออกเพื่อป้องกันบัก
@@ -819,7 +852,7 @@
             }
             sortableInstances = [];
             
-            // สร้างกลไกลากวาง (Sortable) ใหม่ให้ทั้ง 3 คอลัมน์
+            // สร้างกลไกลากวาง (Sortable) ใหม่ให้ทั้ง 6 คอลัมน์
             const lists = grid.querySelectorAll('.sortable-list');
             lists.forEach(list => {
                 sortableInstances.push(new Sortable(list, {
