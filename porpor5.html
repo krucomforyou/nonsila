@@ -160,7 +160,7 @@
             <!-- Tabs Navigation -->
             <div class="bg-white border-b px-6 pt-4 flex gap-4 shrink-0 overflow-x-auto">
                 <button id="tabManage" onclick="switchAdminTab('manage')" class="px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-edit"></i> เพิ่ม/แก้ไขข้อมูล</button>
-                <button id="tabSort" onclick="switchAdminTab('sort')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-arrows-alt"></i> จัดเรียงลำดับ (ลากวาง)</button>
+                <button id="tabSort" onclick="switchAdminTab('sort')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-arrows-alt"></i> จัดเรียงคอลัมน์และลำดับ</button>
             </div>
             
             <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
@@ -226,7 +226,7 @@
                     </div>
                 </div>
 
-                <!-- SECTION 2: จัดเรียงลำดับ (ลากวาง) -->
+                <!-- SECTION 2: จัดเรียง 3 คอลัมน์ (ลากวางอิสระ) -->
                 <div id="adminSortSection" class="hidden flex-col gap-4">
                     <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
@@ -245,14 +245,12 @@
                         
                         <div class="bg-yellow-50 text-yellow-800 text-sm p-3 rounded-lg mb-4 border border-yellow-200 flex items-start gap-2">
                             <i class="fas fa-info-circle mt-0.5"></i>
-                            <p>คลิกค้างที่กล่องวิชาด้านล่างแล้วลากเพื่อสลับตำแหน่ง <b>(แสดงผลเป็นกริด 3 คอลัมน์)</b> <br class="hidden md:block">เมื่อจัดเรียงเสร็จแล้วอย่าลืมกดปุ่ม <b>"บันทึกลำดับใหม่"</b> ด้านบนขวา</p>
+                            <p>สามารถลากสลับกล่องวิชาไปมา <b>ข้ามคอลัมน์ได้อย่างอิสระ</b> <br class="hidden md:block">ไม่จำเป็นต้องจัดแต่ละคอลัมน์ให้เท่ากัน และสามารถจัดรวมไว้คอลัมน์เดียวได้เลย</p>
                         </div>
                         
-                        <!-- คอนเทนเนอร์สำหรับลากวาง -->
-                        <div class="bg-gray-50 p-6 rounded-xl min-h-[300px] border border-gray-300 border-dashed">
-                            <div id="sortableGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <!-- กล่องวิชาจะถูกสร้างด้วย JS ที่นี่ -->
-                            </div>
+                        <!-- คอนเทนเนอร์สำหรับลากวาง (3 คอลัมน์อิสระ) -->
+                        <div id="sortableGrid" class="bg-gray-50 p-4 rounded-xl min-h-[300px] border border-gray-300">
+                            <!-- จะถูกสร้างเป็นโครงสร้าง 3 คอลัมน์ด้วย JS -->
                         </div>
                     </div>
                 </div>
@@ -269,7 +267,7 @@
         let linkData = [];
         let categories = [];
         let currentActiveCategory = '';
-        let sortableInstance = null; // ตัวแปรสำหรับเก็บ Instance ของ Sortable.js
+        let sortableInstances = []; // รองรับ 3 กล่องสำหรับ SortableJS
 
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -413,7 +411,7 @@
             let isAllPage = false;
 
             if (categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก') {
-                filteredLinks = [...linkData]; // Copy array
+                filteredLinks = [...linkData]; 
                 isAllPage = true;
             } else {
                 filteredLinks = linkData.filter(item => item.category === categoryName);
@@ -427,13 +425,31 @@
             }
         }
 
-        // ฟังก์ชันช่วยสำหรับการจัดเรียงหากค่า order เท่ากัน
-        function getGradeLevel(title) {
-            const pMatch = title.match(/ป\.(\d+)/);
-            if (pMatch) return parseInt(pMatch[1]);
-            const mMatch = title.match(/ม\.(\d+)/);
-            if (mMatch) return parseInt(mMatch[1]) + 6; 
-            return 99; 
+        // --- Render คอลัมน์อิสระ 1, 2, 3 ให้แสดงผลสำหรับผู้ใช้ทั่วไป ---
+        function generateColumnLayout(itemsArray) {
+            let cols = { 1: [], 2: [], 3: [] };
+            itemsArray.forEach(it => {
+                let c = it.colIndex || 1;
+                if (c > 3 || c < 1) c = 1;
+                cols[c].push(it);
+            });
+            
+            // เรียงลำดับย่อยในแต่ละคอลัมน์ด้วย Order
+            for (let i = 1; i <= 3; i++) {
+                cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
+            }
+
+            // แสดงผลเป็น Grid 3 คอลัมน์บนจอใหญ่ (md:grid-cols-3) ยุบเหลือ 1 บนจอมือถือ
+            let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full">`;
+            for (let i = 1; i <= 3; i++) {
+                html += `<div class="flex flex-col gap-4">`;
+                cols[i].forEach(item => {
+                    html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+            return html;
         }
 
         function renderGridButtons(links, isAllPage = false) {
@@ -450,7 +466,6 @@
 
             if (isAllPage) {
                 grid.className = "flex flex-col gap-10 w-full mb-16"; 
-                
                 const grouped = {};
                 links.forEach(item => {
                     if (!grouped[item.category]) grouped[item.category] = [];
@@ -462,46 +477,14 @@
                 sortedCats.forEach(cat => {
                     html += `<div class="w-full">`;
                     html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
-                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">`;
                     
-                    // ปรับการเรียงลำดับ: เรียงด้วย Order ก่อน
-                    const subjects = grouped[cat].sort((a,b) => {
-                        const orderA = a.order !== undefined ? a.order : 999;
-                        const orderB = b.order !== undefined ? b.order : 999;
-                        if (orderA !== orderB) return orderA - orderB;
-                        
-                        // ถ้าย้าย order เท่ากัน ให้จัดตามระดับชั้น หรือตัวอักษรเป็นสำรอง
-                        const gradeA = getGradeLevel(a.title);
-                        const gradeB = getGradeLevel(b.title);
-                        if (gradeA !== gradeB) return gradeA - gradeB;
-                        return a.title.localeCompare(b.title, 'th');
-                    });
+                    html += generateColumnLayout(grouped[cat]);
                     
-                    subjects.forEach(item => {
-                        html += `
-                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
-                            ${item.title}
-                        </a>`;
-                    });
-                    html += `</div></div>`;
+                    html += `</div>`;
                 });
             } else {
-                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 w-full mb-16";
-                
-                // เรียงลำดับด้วย Order ก่อนแสดงผลในหมวดหมู่เดี่ยว
-                const subjects = [...links].sort((a,b) => {
-                    const orderA = a.order !== undefined ? a.order : 999;
-                    const orderB = b.order !== undefined ? b.order : 999;
-                    if (orderA !== orderB) return orderA - orderB;
-                    return 0;
-                });
-
-                subjects.forEach(item => {
-                    html += `
-                    <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
-                        ${item.title}
-                    </a>`;
-                });
+                grid.className = "w-full mb-16";
+                html += generateColumnLayout(links);
             }
 
             grid.innerHTML = html;
@@ -528,7 +511,7 @@
 
             resetAdminForm();
             renderAdminTable();
-            switchAdminTab('manage'); // เปิดมาหน้าแรกให้เป็นแท็บจัดการ
+            switchAdminTab('manage'); 
             document.getElementById('adminModal').classList.add('active');
         }
 
@@ -553,7 +536,7 @@
                 secSort.classList.add('hidden');
                 secSort.classList.remove('flex');
                 
-                renderAdminTable(); // โหลดข้อมูลตารางใหม่
+                renderAdminTable(); 
             } else if (tab === 'sort') {
                 tabSort.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
                 tabManage.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
@@ -563,7 +546,7 @@
                 secSort.classList.remove('hidden');
                 secSort.classList.add('flex');
                 
-                populateSortCategoryDropdown(); // โหลด Dropdown
+                populateSortCategoryDropdown(); 
             }
         }
 
@@ -660,7 +643,10 @@
                 const catIndexB = categories.indexOf(b.category);
                 if (catIndexA !== catIndexB) return catIndexA - catIndexB;
                 
-                // ในหมวดหมู่เดียวกัน เรียงตาม order ด้วย
+                const colA = a.colIndex !== undefined ? a.colIndex : 1;
+                const colB = b.colIndex !== undefined ? b.colIndex : 1;
+                if (colA !== colB) return colA - colB;
+
                 const orderA = a.order !== undefined ? a.order : 999;
                 const orderB = b.order !== undefined ? b.order : 999;
                 return orderA - orderB;
@@ -754,7 +740,7 @@
         }
 
         // ==========================================
-        // SORTABLE (ลากวางจัดเรียงลำดับ)
+        // SORTABLE (ลากวาง 3 คอลัมน์อิสระ - KANBAN)
         // ==========================================
         function populateSortCategoryDropdown() {
             const select = document.getElementById('sortCategorySelect');
@@ -766,13 +752,12 @@
             });
             select.innerHTML = html;
             
-            // เลือกอันแรกให้อัตโนมัติ (ข้าม "หน้าแรก")
             if (categories.length > 1) {
                 const defaultCat = categories[1] !== 'หน้าแรก' ? categories[1] : categories[0];
                 select.value = defaultCat;
                 renderSortGrid();
             } else {
-                document.getElementById('sortableGrid').innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
+                document.getElementById('sortableGrid').innerHTML = '<div class="text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
             }
         }
 
@@ -781,63 +766,92 @@
             const grid = document.getElementById('sortableGrid');
             
             if (!cat) {
-                grid.innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
+                grid.innerHTML = '<div class="text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
                 return;
             }
 
-            // ดึงวิชาในหมวดนั้นและจัดเรียงตาม order เดิมก่อน
             let items = linkData.filter(item => item.category === cat);
-            items.sort((a,b) => {
-                const orderA = a.order !== undefined ? a.order : 999;
-                const orderB = b.order !== undefined ? b.order : 999;
-                return orderA - orderB;
-            });
 
-            if (items.length === 0) {
-                grid.innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">ไม่มีข้อมูลวิชาในกลุ่มสาระนี้</div>';
-                return;
+            // แยกปุ่มในกลุ่มสาระนี้ออกเป็น 3 คอลัมน์ (ตามข้อมูล ColIndex ที่บันทึกไว้)
+            let cols = { 1: [], 2: [], 3: [] };
+            items.forEach(it => {
+                let c = it.colIndex || 1;
+                if(c > 3 || c < 1) c = 1;
+                cols[c].push(it);
+            });
+            
+            // จัดเรียงแต่ละคอลัมน์ด้วย order
+            for(let i = 1; i <= 3; i++) {
+                cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
             }
 
-            let html = '';
-            items.forEach(item => {
+            // สร้าง UI แผงสำหรับ 3 คอลัมน์ (หน้าจอคอมแสดงเป็น 3, มือถือแสดงต่อกัน 1 คอลัมน์)
+            let html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">';
+            for (let i = 1; i <= 3; i++) {
                 html += `
-                <div class="sortable-item bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-move flex items-center justify-between hover:border-nswButtonGreen hover:shadow transition-all group" data-id="${item.id}">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-green-50 text-nswButtonGreen flex items-center justify-center font-bold text-xs pointer-events-none border border-green-100 group-hover:bg-nswButtonGreen group-hover:text-white transition-colors">
-                            <i class="fas fa-bars"></i>
-                        </div>
-                        <span class="font-medium text-gray-700 pointer-events-none text-sm">${item.title}</span>
+                <div class="bg-gray-200/50 p-3 rounded-xl min-h-[150px] flex flex-col gap-2 sortable-column-wrapper" data-col="${i}">
+                    <div class="text-sm font-bold text-gray-600 mb-2 text-center border-b border-gray-300 pb-2 flex items-center justify-center gap-2">
+                        <i class="fas fa-columns opacity-50"></i> คอลัมน์ที่ ${i}
                     </div>
+                    <div class="flex-1 flex flex-col gap-3 sortable-list min-h-[100px]" id="sortList${i}">`;
+                
+                cols[i].forEach(item => {
+                    html += `
+                    <div class="sortable-item bg-white p-3.5 rounded-lg shadow-sm border border-gray-200 cursor-move flex items-center justify-between hover:border-nswButtonGreen hover:shadow-md transition-all group" data-id="${item.id}">
+                        <div class="flex items-center gap-3 w-full">
+                            <div class="w-6 h-6 rounded bg-green-50 text-nswButtonGreen flex items-center justify-center font-bold text-[10px] pointer-events-none border border-green-100 group-hover:bg-nswButtonGreen group-hover:text-white shrink-0">
+                                <i class="fas fa-bars"></i>
+                            </div>
+                            <span class="font-medium text-gray-700 pointer-events-none text-sm truncate w-full">${item.title}</span>
+                        </div>
+                    </div>`;
+                });
+                
+                html += `   </div>
                 </div>`;
-            });
+            }
+            html += '</div>';
             grid.innerHTML = html;
 
-            // ตรวจสอบว่าถ้าเคยมี Instance อยู่แล้วให้ทำลายทิ้งก่อนสร้างใหม่
-            if (sortableInstance) sortableInstance.destroy();
+            // ลบ Instance เก่าออกเพื่อป้องกันบัก
+            if (sortableInstances && sortableInstances.length > 0) {
+                sortableInstances.forEach(inst => inst.destroy());
+            }
+            sortableInstances = [];
             
-            // สร้างระบบลากวางด้วย SortableJS
-            sortableInstance = new Sortable(grid, {
-                animation: 200,
-                ghostClass: 'sortable-ghost',
-                easing: "cubic-bezier(1, 0, 0, 1)",
+            // สร้างกลไกลากวาง (Sortable) ใหม่ให้ทั้ง 3 คอลัมน์
+            const lists = grid.querySelectorAll('.sortable-list');
+            lists.forEach(list => {
+                sortableInstances.push(new Sortable(list, {
+                    group: 'sharedColumnDrop', // กำหนด Group เดียวกัน ทำให้ลากข้ามคอลัมน์ได้
+                    animation: 200,
+                    ghostClass: 'sortable-ghost',
+                    easing: "cubic-bezier(1, 0, 0, 1)",
+                }));
             });
         }
 
         async function saveSortOrder() {
-            const grid = document.getElementById('sortableGrid');
-            const items = grid.querySelectorAll('.sortable-item');
-            if (items.length === 0) return;
+            const columns = document.querySelectorAll('.sortable-column-wrapper');
+            if (columns.length === 0) return;
 
-            // สร้าง Array ใหม่เพื่อเก็บค่าการเรียงลำดับ (ยึดตามที่โชว์บนหน้าจอ)
             let updates = [];
-            items.forEach((item, index) => {
-                updates.push({
-                    id: item.getAttribute('data-id'),
-                    order: index + 1 // ให้เริ่มจากลำดับที่ 1
+            
+            // วนลูปตามคอลัมน์เพื่อจัดเก็บ colIndex และ order ใหม่
+            columns.forEach(colEl => {
+                const colIndex = parseInt(colEl.getAttribute('data-col'));
+                const items = colEl.querySelectorAll('.sortable-item');
+                
+                items.forEach((item, index) => {
+                    updates.push({
+                        id: item.getAttribute('data-id'),
+                        order: index + 1,        // ลำดับที่อยู่ในคอลัมน์นี้
+                        colIndex: colIndex       // บันทึกหมายเลขคอลัมน์ลงไป
+                    });
                 });
             });
 
-            cuteAlert.loading('กำลังบันทึกลำดับ...');
+            cuteAlert.loading('กำลังบันทึกลำดับและการจัดกลุ่ม...');
 
             const form = new FormData();
             form.append('data', JSON.stringify(updates));
