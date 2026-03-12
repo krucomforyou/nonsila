@@ -276,6 +276,29 @@
             confirm: (title, text, btnText) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); }
         };
 
+        // --- Helper Function สำหรับเรียงลำดับ ป้องกันปัญหาเรียงมั่ว ---
+        // เรียงตาม Order ที่กำหนดในระบบก่อน -> จากนั้นเรียงตามชั้นปี (ป.1 - ม.6) -> เรียงตามตัวอักษรเป็นลำดับสุดท้าย
+        function sortLinksHelper(a, b) {
+            const orderA = a.order !== undefined ? a.order : 999;
+            const orderB = b.order !== undefined ? b.order : 999;
+            
+            if (orderA !== orderB) return orderA - orderB;
+            
+            // กรณี order เท่ากัน (เช่นเพิ่งเพิ่มใหม่ทั้งหมด) ให้พยายามดึงชั้นปีมาจัดเรียง
+            const getGrade = (t) => {
+                const p = t.match(/ป\.(\d+)/); if(p) return parseInt(p[1]);
+                const m = t.match(/ม\.(\d+)/); if(m) return parseInt(m[1]) + 6;
+                return 99;
+            };
+            
+            const gradeA = getGrade(a.title);
+            const gradeB = getGrade(b.title);
+            if (gradeA !== gradeB) return gradeA - gradeB;
+
+            // กรณีไม่มีชั้นปี หรือชั้นปีเดียวกัน ให้เรียงตามชื่อตัวอักษร
+            return a.title.localeCompare(b.title, 'th');
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             checkUserRole(); 
             fetchLinks();
@@ -417,7 +440,7 @@
                 filteredLinks = linkData.filter(item => item.category === categoryName);
             }
             
-            renderGridButtons(filteredLinks, isAllPage);
+            renderGridButtons(filteredLinks, isAllPage, false);
 
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
@@ -425,18 +448,21 @@
             }
         }
 
-        // --- Render คอลัมน์ 1 ถึง 6 สำหรับหน้าแสดงผลฝั่งผู้ใช้ (2 แถว แถวละ 3) ---
-        function generateColumnLayout(itemsArray) {
+        // --- Render คอลัมน์ 1 ถึง 6 สำหรับหน้าแสดงผลฝั่งผู้ใช้ ---
+        // หาก forceFirstColumn เป็น true (เช่น ตอนค้นหา) ทุกปุ่มจะถูกบังคับให้อยู่ที่คอลัมน์ 1 ทั้งหมด
+        function generateColumnLayout(itemsArray, forceFirstColumn = false) {
             let cols = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+            
             itemsArray.forEach(it => {
-                let c = it.colIndex || 1;
+                // ถ้าค้นหา บังคับให้เป็น 1 หมด (เพื่อไปกองรวมกันที่ซ้ายสุดคอลัมน์เดียว)
+                let c = forceFirstColumn ? 1 : (it.colIndex || 1);
                 if (c > 6 || c < 1) c = 1;
                 cols[c].push(it);
             });
             
-            // เรียงลำดับย่อยในแต่ละคอลัมน์ด้วย Order
+            // เรียงลำดับอย่างเป็นระเบียบ (ด้วย sortLinksHelper) 
             for (let i = 1; i <= 6; i++) {
-                cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
+                cols[i].sort(sortLinksHelper);
             }
 
             // แสดงผลเป็น Grid 2 แถว แถวละ 3 คอลัมน์
@@ -453,16 +479,21 @@
             }
             html += `</div>`;
 
-            // แถวที่ 2 (คอลัมน์ 4-6) - มีเส้นแบ่งข้างบน
-            html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full pt-4 border-t border-gray-200 border-dashed">`;
-            for (let i = 4; i <= 6; i++) {
-                html += `<div class="flex flex-col gap-4">`;
-                cols[i].forEach(item => {
-                    html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
-                });
+            // แถวที่ 2 (คอลัมน์ 4-6)
+            // เช็คว่าแถวที่ 2 มีข้อมูลหรือไม่ ถ้าไม่มีเลย (เช่น โดนบังคับไปคอลัมน์ 1 หมด) ก็จะไม่แสดงเส้นประเปล่าๆ ออกมา
+            const hasRow2Items = cols[4].length > 0 || cols[5].length > 0 || cols[6].length > 0;
+            
+            if (hasRow2Items) {
+                html += `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full pt-4 border-t border-gray-200 border-dashed">`;
+                for (let i = 4; i <= 6; i++) {
+                    html += `<div class="flex flex-col gap-4">`;
+                    cols[i].forEach(item => {
+                        html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                    });
+                    html += `</div>`;
+                }
                 html += `</div>`;
             }
-            html += `</div>`;
 
             html += `</div>`;
             return html;
@@ -494,24 +525,14 @@
                     html += `<div class="w-full">`;
                     html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
                     
-                    if (isSearch) {
-                        // เมื่อเป็นการค้นหา ให้แสดงผลเป็น 1 คอลัมน์เรียงต่อกัน
-                        html += `<div class="grid grid-cols-1 gap-3 w-full">`;
-                        let sortedItems = grouped[cat].sort((a,b) => (a.order || 999) - (b.order || 999));
-                        sortedItems.forEach(item => {
-                            html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center md:text-left py-3 px-6 shadow-sm hover:shadow-md transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center md:justify-start font-medium text-[15px] border border-nswButtonGreen/50"><i class="fas fa-link mr-2 hidden md:inline"></i> ${item.title}</a>`;
-                        });
-                        html += `</div>`;
-                    } else {
-                        // ถ้าไม่ใช่การค้นหา ให้แสดงผล 6 คอลัมน์ตามปกติ
-                        html += generateColumnLayout(grouped[cat]);
-                    }
+                    // ส่ง isSearch (true/false) เข้าไป ถ้าเป็น true มันจะบังคับไปอยู่คอลัมน์ 1 ทั้งหมด
+                    html += generateColumnLayout(grouped[cat], isSearch);
                     
                     html += `</div>`;
                 });
             } else {
                 grid.className = "w-full mb-16";
-                html += generateColumnLayout(links);
+                html += generateColumnLayout(links, isSearch);
             }
 
             grid.innerHTML = html;
@@ -674,9 +695,8 @@
                 const colB = b.colIndex !== undefined ? b.colIndex : 1;
                 if (colA !== colB) return colA - colB;
 
-                const orderA = a.order !== undefined ? a.order : 999;
-                const orderB = b.order !== undefined ? b.order : 999;
-                return orderA - orderB;
+                // ใช้ helper ป้องกันการเรียงมั่ว
+                return sortLinksHelper(a, b);
             });
             
             let html = '';
@@ -810,9 +830,9 @@
                 cols[c].push(it);
             });
             
-            // จัดเรียงแต่ละคอลัมน์ด้วย order
+            // จัดเรียงแต่ละคอลัมน์เพื่อไม่ให้มั่ว
             for(let i = 1; i <= 6; i++) {
-                cols[i].sort((a,b) => (a.order || 999) - (b.order || 999));
+                cols[i].sort(sortLinksHelper);
             }
 
             // สร้าง UI แผงสำหรับ 6 คอลัมน์ (2 แถว แถวละ 3 คอลัมน์)
