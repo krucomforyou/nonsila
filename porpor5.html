@@ -153,7 +153,7 @@
     <!-- MODAL: จัดการฐานข้อมูลลิงก์ (ADMIN ONLY) -->
     <!-- ========================================== -->
     <div id="adminModal" class="modal fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-        <div class="modal-content bg-white w-full max-w-4xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="modal-content bg-white w-full max-w-5xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-nswDarkGreen px-6 py-4 flex justify-between items-center text-white shrink-0">
                  <h3 class="font-bold text-lg"><i class="fas fa-database mr-2"></i> จัดการลิงก์ ปพ.5 ออนไลน์</h3>
                  <button onclick="closeAdminModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times text-xl"></i></button>
@@ -161,28 +161,46 @@
             
             <div class="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col md:flex-row gap-6">
                 
-                <!-- ฟอร์มเพิ่มข้อมูล -->
+                <!-- ฟอร์มเพิ่ม/แก้ไขข้อมูล -->
                 <div class="w-full md:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
-                    <h4 class="font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่</h4>
+                    <h4 id="adminFormTitle" class="font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่</h4>
                     
                     <div class="space-y-4">
+                        <input type="hidden" id="adminEditId" value="">
+                        
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มสาระ / หมวดหมู่</label>
-                            <input type="text" id="adminCategory" placeholder="เช่น กลุ่มสาระคณิตศาสตร์" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
-                            <p class="text-[10px] text-gray-500 mt-1">พิมพ์ชื่อกลุ่มสาระ หากพิมพ์ชื่อใหม่ระบบจะสร้างเมนูใหม่ให้</p>
+                            <!-- Dropdown เลือกกลุ่มสาระ -->
+                            <select id="adminCategorySelect" onchange="handleCategorySelect()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none mb-2">
+                                <option value="">-- เลือกกลุ่มสาระ --</option>
+                                <!-- ตัวเลือกจะถูกสร้างอัตโนมัติจากข้อมูลที่มี -->
+                                <option value="NEW" class="font-bold text-nswButtonGreen">+ เพิ่มกลุ่มสาระใหม่</option>
+                            </select>
+                            
+                            <!-- ช่องกรอกกลุ่มสาระใหม่ (ซ่อนไว้ เริ่มต้น) -->
+                            <input type="text" id="adminCategoryInput" placeholder="พิมพ์ชื่อกลุ่มสาระใหม่..." class="hidden w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            <p class="text-[10px] text-gray-500 mt-1">หากไม่มีในตัวเลือก ให้เลือก "+ เพิ่มกลุ่มสาระใหม่"</p>
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อวิชา / ข้อความบนปุ่ม</label>
                             <input type="text" id="adminTitle" placeholder="เช่น คณิตศาสตร์ ม.1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">URL (ลิงก์ Google Sheet)</label>
                             <input type="url" id="adminUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                         </div>
                         
-                        <button onclick="saveNewLink()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow">
-                            บันทึกข้อมูล
-                        </button>
+                        <!-- กลุ่มปุ่มบันทึก/ยกเลิก -->
+                        <div class="flex gap-2 pt-2">
+                            <button id="adminCancelBtn" onclick="resetAdminForm()" class="hidden w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-lg transition shadow">
+                                ยกเลิก
+                            </button>
+                            <button id="adminSaveBtn" onclick="saveLinkData()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow">
+                                บันทึกข้อมูล
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -192,13 +210,13 @@
                         <h4 class="font-bold text-gray-700 text-sm">รายการลิงก์ในระบบทั้งหมด</h4>
                         <span id="adminTotalLinks" class="bg-nswButtonGreen text-white text-xs px-2 py-1 rounded-full">0 รายการ</span>
                     </div>
-                    <div class="overflow-y-auto max-h-[400px]">
+                    <div class="overflow-y-auto max-h-[500px]">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
                                 <tr>
                                     <th class="px-4 py-3 w-1/3">กลุ่มสาระ</th>
                                     <th class="px-4 py-3 w-1/3">ชื่อปุ่ม</th>
-                                    <th class="px-4 py-3 text-center w-24">จัดการ</th>
+                                    <th class="px-4 py-3 text-center w-28">จัดการ</th>
                                 </tr>
                             </thead>
                             <tbody id="adminLinksTable" class="divide-y divide-gray-100">
@@ -230,7 +248,7 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            checkUserRole(); // เช็คสิทธิ์ตั้งแต่หน้าโหลดเสร็จ
+            checkUserRole(); 
             fetchLinks();
         });
 
@@ -256,21 +274,17 @@
             if (savedUser) {
                 const user = JSON.parse(savedUser);
                 
-                // 1. นำข้อมูลมาแสดงที่ Profile ด้านล่าง Sidebar
                 document.getElementById('sidebarUserName').innerText = user.name || 'ไม่ระบุชื่อ';
                 document.getElementById('sidebarUserRole').innerText = user.role || 'บุคลากร';
                 
-                // โหลดรูปภาพ ถ้าไม่มีให้สร้างจากตัวอักษรแรก (เปลี่ยนพื้นหลังรูป Default เป็นสีเขียวเข้ม)
                 document.getElementById('sidebarUserImg').src = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=144637&color=ffffff`;
 
-                // 2. ตรวจสอบสิทธิ์ Admin เพื่อแสดงปุ่มจัดการข้อมูล
                 if (user.role && (user.role.includes('Admin') || user.role.includes('จอมเวทย์อาวุโส') || user.role.includes('ผู้ดูแล'))) {
                     document.getElementById('adminManageBtn').classList.remove('hidden');
                 } else {
                     document.getElementById('adminManageBtn').classList.add('hidden'); 
                 }
             } else {
-                // หากไม่มีข้อมูลล็อกอิน ให้เด้งกลับไปหน้าแรกทันที
                 cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบก่อนใช้งาน').then(() => {
                     window.location.href = 'index.html';
                 });
@@ -291,7 +305,7 @@
                     if(categories.length > 0) {
                         selectCategory(categories.includes('หน้าแรก') ? 'หน้าแรก' : categories[0]);
                     } else {
-                        document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ</div>`;
+                        document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ<br>กรุณาเพิ่มในเมนู Admin</div>`;
                         document.getElementById('linksGrid').innerHTML = '';
                     }
                 } else {
@@ -334,10 +348,8 @@
         function selectCategory(categoryName) {
             currentActiveCategory = categoryName;
             
-            // ลบคลาส active จากเมนูทั้งหมด
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
             
-            // เพิ่มคลาส active ให้เมนูที่เลือก
             const activeId = categoryName === 'ทั้งหมด' ? 'nav-ทั้งหมด' : `nav-${categoryName.replace(/\s+/g, '-')}`;
             const activeMenu = document.getElementById(activeId);
             if(activeMenu) activeMenu.classList.add('active');
@@ -381,7 +393,6 @@
         // ADMIN FUNCTIONS
         // ==========================================
         function openAdminModal() {
-            // ป้องกันชั้นที่ 2: เช็คสิทธิ์ซ้ำอีกรอบก่อนเปิด
             const savedUser = localStorage.getItem('nswUser');
             if (savedUser) {
                 const user = JSON.parse(savedUser);
@@ -390,18 +401,100 @@
                     return;
                 }
             } else {
-                return; // ถ้าไม่ได้ล็อกอิน ไม่ต้องเปิด
+                return; 
             }
 
+            resetAdminForm();
             renderAdminTable();
             document.getElementById('adminModal').classList.add('active');
         }
 
         function closeAdminModal() {
             document.getElementById('adminModal').classList.remove('active');
-            document.getElementById('adminCategory').value = '';
+            resetAdminForm();
+        }
+
+        // โหลดข้อมูลเข้า Dropdown
+        function populateCategoryDropdown() {
+            const select = document.getElementById('adminCategorySelect');
+            let html = '<option value="">-- เลือกกลุ่มสาระ --</option>';
+            
+            categories.forEach(cat => {
+                if(cat !== 'หน้าแรก') {
+                    html += `<option value="${cat}">${cat}</option>`;
+                }
+            });
+            
+            html += '<option value="NEW" class="font-bold text-nswButtonGreen">+ เพิ่มกลุ่มสาระใหม่</option>';
+            select.innerHTML = html;
+        }
+
+        // จัดการเมื่อเปลี่ยนตัวเลือก Dropdown
+        function handleCategorySelect() {
+            const select = document.getElementById('adminCategorySelect');
+            const input = document.getElementById('adminCategoryInput');
+            
+            if (select.value === 'NEW') {
+                input.classList.remove('hidden');
+                input.value = '';
+                input.focus();
+            } else {
+                input.classList.add('hidden');
+                input.value = '';
+            }
+        }
+
+        // รีเซ็ตฟอร์มกลับเป็นโหมด "เพิ่มใหม่"
+        function resetAdminForm() {
+            document.getElementById('adminEditId').value = '';
+            
+            populateCategoryDropdown();
+            document.getElementById('adminCategorySelect').value = '';
+            document.getElementById('adminCategoryInput').value = '';
+            document.getElementById('adminCategoryInput').classList.add('hidden');
+            
             document.getElementById('adminTitle').value = '';
             document.getElementById('adminUrl').value = '';
+            
+            document.getElementById('adminFormTitle').innerHTML = '<i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่';
+            
+            const saveBtn = document.getElementById('adminSaveBtn');
+            saveBtn.className = 'w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow';
+            saveBtn.innerHTML = 'บันทึกข้อมูล';
+            
+            document.getElementById('adminCancelBtn').classList.add('hidden');
+        }
+
+        // โหลดข้อมูลเข้าฟอร์มสำหรับ "แก้ไข"
+        function editLink(id) {
+            const link = linkData.find(item => item.id === id);
+            if (!link) return;
+            
+            resetAdminForm();
+            
+            document.getElementById('adminEditId').value = link.id;
+            
+            const select = document.getElementById('adminCategorySelect');
+            if (categories.includes(link.category)) {
+                select.value = link.category;
+                document.getElementById('adminCategoryInput').classList.add('hidden');
+            } else {
+                select.value = 'NEW';
+                const input = document.getElementById('adminCategoryInput');
+                input.classList.remove('hidden');
+                input.value = link.category;
+            }
+            
+            document.getElementById('adminTitle').value = link.title;
+            document.getElementById('adminUrl').value = link.url;
+            
+            document.getElementById('adminFormTitle').innerHTML = '<i class="fas fa-edit text-blue-500 mr-1"></i> แก้ไขปุ่มลิงก์';
+            
+            const saveBtn = document.getElementById('adminSaveBtn');
+            saveBtn.className = 'w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow';
+            saveBtn.innerHTML = 'บันทึกการแก้ไข';
+            
+            document.getElementById('adminCancelBtn').classList.remove('hidden');
         }
 
         function renderAdminTable() {
@@ -421,7 +514,10 @@
                 <tr class="hover:bg-blue-50 transition border-b border-gray-100">
                     <td class="px-4 py-3 text-xs md:text-sm font-bold text-gray-700">${item.category}</td>
                     <td class="px-4 py-3 text-xs md:text-sm text-gray-600">${item.title}</td>
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        <button onclick="editLink('${item.id}')" class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 rounded-lg transition shadow-sm mr-1" title="แก้ไข">
+                            <i class="fas fa-edit"></i>
+                        </button>
                         <button onclick="deleteLink('${item.id}', '${item.title}')" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition shadow-sm" title="ลบลิงก์">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -431,10 +527,15 @@
             tbody.innerHTML = html;
         }
 
-        async function saveNewLink() {
-            const cat = document.getElementById('adminCategory').value.trim();
+        async function saveLinkData() {
+            const selectVal = document.getElementById('adminCategorySelect').value;
+            const inputVal = document.getElementById('adminCategoryInput').value.trim();
+            
+            // เลือกใช้ค่าจาก Input ถ้าเลือก NEW นอกนั้นใช้จาก Select
+            const cat = selectVal === 'NEW' ? inputVal : selectVal;
             const title = document.getElementById('adminTitle').value.trim();
             const url = document.getElementById('adminUrl').value.trim();
+            const editId = document.getElementById('adminEditId').value;
 
             if(!cat || !title || !url) {
                 cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูล กลุ่มสาระ, ชื่อปุ่ม และ URL ให้ครบถ้วน');
@@ -447,15 +548,21 @@
             form.append('category', cat);
             form.append('title', title);
             form.append('url', url);
+            
+            // ระบุว่าเป็นการเพิ่มใหม่ หรือแก้ไข
+            let actionName = 'savePorPor5Link';
+            if (editId) {
+                form.append('id', editId);
+                actionName = 'editPorPor5Link';
+            }
 
             try {
-                const res = await fetch(`${API_URL}?action=savePorPor5Link`, { method: 'POST', body: form });
+                const res = await fetch(`${API_URL}?action=${actionName}`, { method: 'POST', body: form });
                 const json = await res.json();
 
                 if(json.status === 'success') {
                     cuteAlert.success('บันทึกสำเร็จ!', json.message);
-                    document.getElementById('adminTitle').value = '';
-                    document.getElementById('adminUrl').value = '';
+                    resetAdminForm();
                     
                     fetchLinks().then(() => {
                         renderAdminTable(); 
