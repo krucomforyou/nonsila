@@ -138,7 +138,7 @@
             </div>
 
             <!-- Grid สำหรับแสดงปุ่ม -->
-            <div id="linksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-16">
+            <div id="linksGrid" class="mb-16">
                 <!-- ปุ่มจะถูกสร้างด้วย Javascript -->
             </div>
 
@@ -243,7 +243,7 @@
         let categories = [];
         let currentActiveCategory = '';
 
-        // Cute Alerts (ปรับปรุง scrollbarPadding และ heightAuto เพื่อป้องกันหน้าจอหด)
+        // Cute Alerts
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
             success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-xl font-bold text-green-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -321,13 +321,16 @@
             }
         }
 
+        // ดึงชื่อกลุ่มสาระโดยเรียงลำดับตามการเพิ่ม (ไม่มีการ Sort A-Z)
         function extractCategories() {
             categories = [...new Set(linkData.map(item => item.category))];
-            categories.sort((a, b) => {
-                if (a === 'หน้าแรก') return -1;
-                if (b === 'หน้าแรก') return 1;
-                return a.localeCompare(b, 'th');
-            });
+            
+            // ยกเว้น "หน้าแรก" ดึงเอาไว้บนสุด
+            const homeIndex = categories.indexOf('หน้าแรก');
+            if (homeIndex > -1) {
+                categories.splice(homeIndex, 1);
+                categories.unshift('หน้าแรก');
+            }
         }
 
         function renderSidebarNav() {
@@ -360,11 +363,18 @@
 
             document.getElementById('currentCategoryTitle').innerText = categoryName === 'ทั้งหมด' ? 'รวมทุกลิงก์ ปพ.5' : categoryName;
 
-            const filteredLinks = categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก'
-                                ? linkData 
-                                : linkData.filter(item => item.category === categoryName);
+            let filteredLinks = [];
+            let isAllPage = false;
+
+            if (categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก') {
+                filteredLinks = linkData;
+                isAllPage = true;
+            } else {
+                // สำหรับหมวดหมู่เดี่ยว เรียงตามลำดับที่บันทึก (ใหม่ไปต่อท้าย)
+                filteredLinks = linkData.filter(item => item.category === categoryName);
+            }
             
-            renderGridButtons(filteredLinks);
+            renderGridButtons(filteredLinks, isAllPage);
 
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
@@ -372,20 +382,74 @@
             }
         }
 
-        function renderGridButtons(links) {
+        function renderGridButtons(links, isAllPage = false) {
             const grid = document.getElementById('linksGrid');
             if(links.length === 0) {
                 grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-400">ไม่มีข้อมูลลิงก์ในหมวดหมู่นี้</div>`;
+                grid.className = "w-full mb-16";
                 return;
             }
 
             let html = '';
-            links.forEach(item => {
-                html += `
-                <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
-                    ${item.title}
-                </a>`;
-            });
+
+            if (isAllPage) {
+                // แบบหน้าแรก (ทั้งหมด): จัดหมวดหมู่ มีหัวข้อกั้น และเรียงวิชา ก-ฮ
+                grid.className = "flex flex-col gap-10 w-full mb-16"; 
+                
+                const grouped = {};
+                links.forEach(item => {
+                    if (!grouped[item.category]) grouped[item.category] = [];
+                    grouped[item.category].push(item);
+                });
+                
+                // นำหมวดหมู่มาเรียงลำดับให้ตรงกับที่ปรากฏบน Sidebar
+                const sortedCats = categories.filter(cat => grouped[cat]);
+                
+                // ฟังก์ชันช่วยดึงระดับชั้นเพื่อนำมาเรียงลำดับ (ดึงเลขหลังจาก ป. หรือ ม.)
+                const getGradeLevel = (title) => {
+                    const pMatch = title.match(/ป\.(\d+)/);
+                    if (pMatch) return parseInt(pMatch[1]);
+                    const mMatch = title.match(/ม\.(\d+)/);
+                    if (mMatch) return parseInt(mMatch[1]) + 6; // ม.1-6 ให้คะแนน 7-12 เพื่อต่อท้าย ป.6
+                    return 99; // ถ้าไม่มีระบุชั้น ให้ไปอยู่ท้ายๆ
+                };
+                
+                sortedCats.forEach(cat => {
+                    html += `<div class="w-full">`;
+                    html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">`;
+                    
+                    // วิชาในหมวดหมู่ ให้เรียงตามระดับชั้น (ป.1 - ป.6, ม.1 - ม.6) 
+                    const subjects = grouped[cat].sort((a,b) => {
+                        const gradeA = getGradeLevel(a.title);
+                        const gradeB = getGradeLevel(b.title);
+                        if (gradeA !== gradeB) {
+                            return gradeA - gradeB; // เรียงจากค่าน้อยไปมาก
+                        }
+                        // ถ้าอยู่ชั้นเดียวกัน หรือไม่มีชั้นทั้งคู่ ให้เรียง ก-ฮ เป็นตัวสำรอง
+                        return a.title.localeCompare(b.title, 'th');
+                    });
+                    
+                    subjects.forEach(item => {
+                        html += `
+                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
+                            ${item.title}
+                        </a>`;
+                    });
+                    html += `</div></div>`;
+                });
+            } else {
+                // แบบหน้าหมวดหมู่เดี่ยว: ไม่มีหัวข้อกั้น และเรียงลำดับการเพิ่ม
+                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 w-full mb-16";
+                
+                links.forEach(item => {
+                    html += `
+                    <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
+                        ${item.title}
+                    </a>`;
+                });
+            }
+
             grid.innerHTML = html;
         }
 
@@ -511,7 +575,15 @@
             }
 
             let html = '';
-            const sortedData = [...linkData].sort((a,b) => a.category.localeCompare(b.category, 'th'));
+            // ตารางแอดมิน: จัดเรียงตามหมวดหมู่ Sidebar เพื่อให้หาได้ง่าย และวิชาภายในเรียงตามลำดับการเพิ่ม
+            const sortedData = [...linkData].sort((a,b) => {
+                const catIndexA = categories.indexOf(a.category);
+                const catIndexB = categories.indexOf(b.category);
+                if (catIndexA !== catIndexB) {
+                    return catIndexA - catIndexB;
+                }
+                return 0; // ไม่สลับลำดับวิชาเดิม (อันใหม่ก็จะอยู่ล่างสุดในกลุ่มสาระนั้นๆ)
+            });
             
             sortedData.forEach(item => {
                 html += `
