@@ -14,14 +14,16 @@
     
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SortableJS (ลากวาง) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        nswDarkGreen: '#144637', // สีเขียวเข้มพื้นหลังหลัก
-                        nswButtonGreen: '#1b8066', // สีเขียวปุ่ม
+                        nswDarkGreen: '#144637', 
+                        nswButtonGreen: '#1b8066', 
                         nswButtonHover: '#136b54',
                     },
                     fontFamily: {
@@ -35,18 +37,15 @@
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #ffffff; }
         
-        /* สไตล์ Sidebar (สีเขียวเข้ม) */
         .sidebar { background-color: #144637; } 
         .sidebar-item { color: #d1d5db; transition: all 0.2s; border-left: 4px solid transparent; }
         .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left-color: #facc15; color: #ffffff; }
         
-        /* สไตล์ Scrollbar สำหรับ Sidebar */
         .sidebar-nav::-webkit-scrollbar { width: 5px; }
         .sidebar-nav::-webkit-scrollbar-track { background: #144637; }
         .sidebar-nav::-webkit-scrollbar-thumb { background: #1b8066; border-radius: 10px; }
         .sidebar-nav::-webkit-scrollbar-thumb:hover { background: #136b54; }
 
-        /* แก้ปัญหาหน้าจอขยับ/Sidebar หด เวลา SweetAlert ทำงาน */
         body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { padding-right: 0 !important; overflow: hidden !important; }
         .swal2-container { z-index: 9999 !important; padding-right: 0 !important; }
 
@@ -57,6 +56,8 @@
         .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
+        
+        .sortable-ghost { opacity: 0.4; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -64,10 +65,9 @@
     <!-- Mobile Overlay -->
     <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
 
-    <!-- SIDEBAR (เปลี่ยนเป็นสีเขียวเข้ม) -->
+    <!-- SIDEBAR -->
     <aside id="sidebarMenu" class="w-64 sidebar text-white flex flex-col h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
         
-        <!-- Header Sidebar -->
         <div class="p-6 border-b border-white/20 flex flex-col items-center relative">
             <button class="md:hidden absolute top-4 right-4 text-white hover:text-red-400" onclick="toggleSidebar()">
                 <i class="fas fa-times text-xl"></i>
@@ -78,16 +78,13 @@
             <h1 class="font-bold text-lg text-center">ปพ.5 ออนไลน์</h1>
         </div>
         
-        <!-- Navigation เมนูกลุ่มสาระ -->
         <nav class="flex-1 overflow-y-auto py-4 sidebar-nav">
             <div class="px-4 text-xs font-bold text-green-200 mb-2 uppercase">กลุ่มสาระการเรียนรู้</div>
             <div id="categoryNav">
-                <!-- เมนูจะถูกสร้างด้วย Javascript -->
                 <div class="flex justify-center py-10"><div class="loader" style="border-top-color: #fff;"></div></div>
             </div>
         </nav>
 
-        <!-- โซน Profile และปุ่มเมนูด้านล่าง -->
         <div class="p-4 border-t border-white/20 bg-black/20">
             <div class="flex items-center gap-3">
                 <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
@@ -97,7 +94,6 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2 mt-4">
-                <!-- ปุ่ม Admin จะถูกแสดงเมื่อมีสิทธิ์เท่านั้น -->
                 <button id="adminManageBtn" onclick="openAdminModal()" class="hidden w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-cogs"></i> จัดการลิงก์ (Admin)
                 </button>
@@ -111,21 +107,18 @@
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col h-full overflow-y-auto bg-white w-full relative">
         
-        <!-- ปุ่มเปิด Sidebar บนมือถือ -->
         <div class="md:hidden absolute top-4 left-4 z-50">
             <button class="text-white hover:text-gray-200 focus:outline-none bg-nswDarkGreen/50 p-2 rounded" onclick="toggleSidebar()">
                 <i class="fas fa-bars text-xl"></i>
             </button>
         </div>
 
-        <!-- HEADER SECTION (สีเขียวเข้ม ตามแบบ) -->
         <header class="bg-nswDarkGreen text-white px-4 py-16 flex flex-col justify-center items-center shadow-md relative">
             
-            <!-- ช่องค้นหา (Search Box) ปรับให้ไม่เป็นสีเขียวเวลาเอาเมาส์ชี้ -->
             <div class="absolute top-4 right-4 md:top-6 md:right-6 z-10">
                 <div class="flex items-center bg-gray-100 hover:bg-gray-200 focus-within:bg-white rounded-full px-3 py-1.5 md:py-2 border border-transparent transition-all duration-300 group shadow-sm">
-                    <i class="fas fa-search text-gray-400 group-focus-within:text-gray-600"></i>
-                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหา (เช่น ป.1)" class="bg-transparent border-none outline-none text-gray-800 placeholder-gray-400 text-sm ml-2 w-28 sm:w-40 md:w-56 transition-all">
+                    <i class="fas fa-search text-gray-500 group-focus-within:text-nswButtonGreen"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหา (เช่น ป.1)" class="bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm ml-2 w-28 sm:w-40 md:w-56 transition-all">
                 </div>
             </div>
 
@@ -134,23 +127,19 @@
             <h3 class="text-2xl md:text-3xl font-bold text-center drop-shadow-md">โรงเรียนโนนศิลาสว่างวิทย์</h3>
         </header>
 
-        <!-- CONTENT SECTION: ตารางปุ่มลิงก์ -->
         <div class="flex-1 p-6 md:p-12 w-full max-w-7xl mx-auto flex flex-col">
             
             <div class="flex justify-between items-end mb-6">
                 <h3 id="currentCategoryTitle" class="text-xl font-bold text-gray-800 border-l-4 border-nswButtonGreen pl-3">กรุณาเลือกกลุ่มสาระด้านซ้ายมือ</h3>
             </div>
 
-            <!-- Grid สำหรับแสดงปุ่ม -->
             <div id="linksGrid" class="mb-16">
                 <!-- ปุ่มจะถูกสร้างด้วย Javascript -->
             </div>
 
-            <!-- Footer Notes -->
             <div class="mt-auto pt-10 pb-6 text-center">
                 <p class="font-bold text-gray-700 mb-4">วิธีใช้งาน ปพ.5 ออนไลน์</p>
                 <p class="text-gray-600 mb-10 text-sm md:text-base"><span class="font-bold underline">ข้อเสนอแนะ</span> ควรเปิดแก้ไขคราวละ 1 วิชา เพื่อลดปัญหาการโหลดช้า</p>
-                
                 <p class="text-red-600 font-bold text-lg">ใช้ภายในโรงเรียนโนนศิลาสว่างวิทย์เท่านั้นห้ามเผยแพร่</p>
             </div>
             
@@ -161,76 +150,110 @@
     <!-- MODAL: จัดการฐานข้อมูลลิงก์ (ADMIN ONLY) -->
     <!-- ========================================== -->
     <div id="adminModal" class="modal fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-        <div class="modal-content bg-white w-full max-w-5xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="modal-content bg-white w-full max-w-6xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[95vh] min-h-[50vh]">
+            
             <div class="bg-nswDarkGreen px-6 py-4 flex justify-between items-center text-white shrink-0">
                  <h3 class="font-bold text-lg"><i class="fas fa-database mr-2"></i> จัดการลิงก์ ปพ.5 ออนไลน์</h3>
                  <button onclick="closeAdminModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times text-xl"></i></button>
             </div>
+
+            <!-- Tabs Navigation -->
+            <div class="bg-white border-b px-6 pt-4 flex gap-4 shrink-0 overflow-x-auto">
+                <button id="tabManage" onclick="switchAdminTab('manage')" class="px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-edit"></i> เพิ่ม/แก้ไขข้อมูล</button>
+                <button id="tabSort" onclick="switchAdminTab('sort')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-arrows-alt"></i> จัดเรียงลำดับ (ลากวาง)</button>
+            </div>
             
-            <div class="p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col md:flex-row gap-6">
+            <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
                 
-                <!-- ฟอร์มเพิ่ม/แก้ไขข้อมูล -->
-                <div class="w-full md:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
-                    <h4 id="adminFormTitle" class="font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่</h4>
-                    
-                    <div class="space-y-4">
-                        <input type="hidden" id="adminEditId" value="">
+                <!-- SECTION 1: จัดการข้อมูล (เพิ่ม/แก้ไข/ลบ) -->
+                <div id="adminManageSection" class="flex flex-col lg:flex-row gap-6">
+                    <div class="w-full lg:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
+                        <h4 id="adminFormTitle" class="font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มปุ่มลิงก์ใหม่</h4>
                         
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มสาระ / หมวดหมู่</label>
-                            <!-- Dropdown เลือกกลุ่มสาระ -->
-                            <select id="adminCategorySelect" onchange="handleCategorySelect()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none mb-2">
-                                <option value="">-- เลือกกลุ่มสาระ --</option>
-                                <!-- ตัวเลือกจะถูกสร้างอัตโนมัติจากข้อมูลที่มี -->
-                                <option value="NEW" class="font-bold text-nswButtonGreen">+ เพิ่มกลุ่มสาระใหม่</option>
-                            </select>
+                        <div class="space-y-4">
+                            <input type="hidden" id="adminEditId" value="">
                             
-                            <!-- ช่องกรอกกลุ่มสาระใหม่ (ซ่อนไว้ เริ่มต้น) -->
-                            <input type="text" id="adminCategoryInput" placeholder="พิมพ์ชื่อกลุ่มสาระใหม่..." class="hidden w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
-                            <p class="text-[10px] text-gray-500 mt-1">หากไม่มีในตัวเลือก ให้เลือก "+ เพิ่มกลุ่มสาระใหม่"</p>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">กลุ่มสาระ / หมวดหมู่</label>
+                                <select id="adminCategorySelect" onchange="handleCategorySelect()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none mb-2">
+                                    <option value="">-- เลือกกลุ่มสาระ --</option>
+                                    <option value="NEW" class="font-bold text-nswButtonGreen">+ เพิ่มกลุ่มสาระใหม่</option>
+                                </select>
+                                <input type="text" id="adminCategoryInput" placeholder="พิมพ์ชื่อกลุ่มสาระใหม่..." class="hidden w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                <p class="text-[10px] text-gray-500 mt-1">หากไม่มีในตัวเลือก ให้เลือก "+ เพิ่มกลุ่มสาระใหม่"</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อวิชา / ข้อความบนปุ่ม</label>
+                                <input type="text" id="adminTitle" placeholder="เช่น คณิตศาสตร์ ม.1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">URL (ลิงก์ Google Sheet)</label>
+                                <input type="url" id="adminUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            </div>
+                            
+                            <div class="flex gap-2 pt-2">
+                                <button id="adminCancelBtn" onclick="resetAdminForm()" class="hidden w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-lg transition shadow">
+                                    ยกเลิก
+                                </button>
+                                <button id="adminSaveBtn" onclick="saveLinkData()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow">
+                                    บันทึกข้อมูล
+                                </button>
+                            </div>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อวิชา / ข้อความบนปุ่ม</label>
-                            <input type="text" id="adminTitle" placeholder="เช่น คณิตศาสตร์ ม.1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                    </div>
+
+                    <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                            <h4 class="font-bold text-gray-700 text-sm">รายการลิงก์ในระบบทั้งหมด</h4>
+                            <span id="adminTotalLinks" class="bg-nswButtonGreen text-white text-xs px-2 py-1 rounded-full">0 รายการ</span>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">URL (ลิงก์ Google Sheet)</label>
-                            <input type="url" id="adminUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
-                        </div>
-                        
-                        <!-- กลุ่มปุ่มบันทึก/ยกเลิก -->
-                        <div class="flex gap-2 pt-2">
-                            <button id="adminCancelBtn" onclick="resetAdminForm()" class="hidden w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-lg transition shadow">
-                                ยกเลิก
-                            </button>
-                            <button id="adminSaveBtn" onclick="saveLinkData()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg transition shadow">
-                                บันทึกข้อมูล
-                            </button>
+                        <div class="overflow-y-auto max-h-[500px]">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
+                                    <tr>
+                                        <th class="px-4 py-3 w-1/3">กลุ่มสาระ</th>
+                                        <th class="px-4 py-3 w-1/3">ชื่อปุ่ม</th>
+                                        <th class="px-4 py-3 text-center w-28">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminLinksTable" class="divide-y divide-gray-100">
+                                    <!-- Render from JS -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- ตารางแสดงข้อมูลทั้งหมด -->
-                <div class="w-full md:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                    <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
-                        <h4 class="font-bold text-gray-700 text-sm">รายการลิงก์ในระบบทั้งหมด</h4>
-                        <span id="adminTotalLinks" class="bg-nswButtonGreen text-white text-xs px-2 py-1 rounded-full">0 รายการ</span>
-                    </div>
-                    <div class="overflow-y-auto max-h-[500px]">
-                        <table class="w-full text-sm text-left">
-                            <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
-                                <tr>
-                                    <th class="px-4 py-3 w-1/3">กลุ่มสาระ</th>
-                                    <th class="px-4 py-3 w-1/3">ชื่อปุ่ม</th>
-                                    <th class="px-4 py-3 text-center w-28">จัดการ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="adminLinksTable" class="divide-y divide-gray-100">
-                                <!-- Render from JS -->
-                            </tbody>
-                        </table>
+                <!-- SECTION 2: จัดเรียงลำดับ (ลากวาง) -->
+                <div id="adminSortSection" class="hidden flex-col gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <div class="w-full md:w-1/2">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">เลือกกลุ่มสาระที่ต้องการจัดเรียง</label>
+                                <select id="sortCategorySelect" onchange="renderSortGrid()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                    <!-- ตัวเลือกกลุ่มสาระมาจากการดึงข้อมูล -->
+                                </select>
+                            </div>
+                            <div class="w-full md:w-auto mt-auto">
+                                <button onclick="saveSortOrder()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg transition shadow flex justify-center items-center gap-2">
+                                    <i class="fas fa-save"></i> บันทึกลำดับใหม่
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 text-yellow-800 text-sm p-3 rounded-lg mb-4 border border-yellow-200 flex items-start gap-2">
+                            <i class="fas fa-info-circle mt-0.5"></i>
+                            <p>คลิกค้างที่กล่องวิชาด้านล่างแล้วลากเพื่อสลับตำแหน่ง <b>(แสดงผลเป็นกริด 3 คอลัมน์)</b> <br class="hidden md:block">เมื่อจัดเรียงเสร็จแล้วอย่าลืมกดปุ่ม <b>"บันทึกลำดับใหม่"</b> ด้านบนขวา</p>
+                        </div>
+                        
+                        <!-- คอนเทนเนอร์สำหรับลากวาง -->
+                        <div class="bg-gray-50 p-6 rounded-xl min-h-[300px] border border-gray-300 border-dashed">
+                            <div id="sortableGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- กล่องวิชาจะถูกสร้างด้วย JS ที่นี่ -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -246,8 +269,8 @@
         let linkData = [];
         let categories = [];
         let currentActiveCategory = '';
+        let sortableInstance = null; // ตัวแปรสำหรับเก็บ Instance ของ Sortable.js
 
-        // Cute Alerts
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
             success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-xl font-bold text-green-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -260,7 +283,6 @@
             fetchLinks();
         });
 
-        // เปิด-ปิด Sidebar สำหรับมือถือ
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebarMenu');
             const overlay = document.getElementById('mobileOverlay');
@@ -273,9 +295,6 @@
             }
         }
 
-        // ==========================================
-        // ระบบตรวจสอบสิทธิ์ผู้ใช้งาน (Auth & Admin)
-        // ==========================================
         function checkUserRole() {
             const savedUser = localStorage.getItem('nswUser');
             
@@ -299,7 +318,6 @@
             }
         }
 
-        // ดึงข้อมูลลิงก์ ปพ.5
         async function fetchLinks() {
             try {
                 const res = await fetch(`${API_URL}?action=getPorPor5Links`);
@@ -311,7 +329,7 @@
                     renderSidebarNav();
                     
                     if(categories.length > 0) {
-                        selectCategory(categories.includes('หน้าแรก') ? 'หน้าแรก' : categories[0]);
+                        selectCategory(currentActiveCategory || (categories.includes('หน้าแรก') ? 'หน้าแรก' : categories[0]));
                     } else {
                         document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ<br>กรุณาเพิ่มในเมนู Admin</div>`;
                         document.getElementById('linksGrid').innerHTML = '';
@@ -325,11 +343,9 @@
             }
         }
 
-        // ดึงชื่อกลุ่มสาระโดยเรียงลำดับตามการเพิ่ม
         function extractCategories() {
             categories = [...new Set(linkData.map(item => item.category))];
             
-            // ยกเว้น "หน้าแรก" ดึงเอาไว้บนสุด
             const homeIndex = categories.indexOf('หน้าแรก');
             if (homeIndex > -1) {
                 categories.splice(homeIndex, 1);
@@ -356,9 +372,6 @@
             nav.innerHTML = html;
         }
 
-        // ==========================================
-        // ระบบค้นหา (Search)
-        // ==========================================
         function handleSearch() {
             const searchInput = document.getElementById('searchInput');
             const query = searchInput.value.trim().toLowerCase();
@@ -400,7 +413,7 @@
             let isAllPage = false;
 
             if (categoryName === 'ทั้งหมด' || categoryName === 'หน้าแรก') {
-                filteredLinks = linkData;
+                filteredLinks = [...linkData]; // Copy array
                 isAllPage = true;
             } else {
                 filteredLinks = linkData.filter(item => item.category === categoryName);
@@ -414,9 +427,15 @@
             }
         }
 
-        // ==========================================
-        // สร้าง Grid แสดงปุ่ม (เรียงเป็นคอลัมน์)
-        // ==========================================
+        // ฟังก์ชันช่วยสำหรับการจัดเรียงหากค่า order เท่ากัน
+        function getGradeLevel(title) {
+            const pMatch = title.match(/ป\.(\d+)/);
+            if (pMatch) return parseInt(pMatch[1]);
+            const mMatch = title.match(/ม\.(\d+)/);
+            if (mMatch) return parseInt(mMatch[1]) + 6; 
+            return 99; 
+        }
+
         function renderGridButtons(links, isAllPage = false) {
             const grid = document.getElementById('linksGrid');
             if(links.length === 0) {
@@ -429,74 +448,7 @@
 
             let html = '';
 
-            const getGradeLevel = (title) => {
-                const pMatch = title.match(/ป\.(\d+)/);
-                if (pMatch) return parseInt(pMatch[1]);
-                const mMatch = title.match(/ม\.(\d+)/);
-                if (mMatch) return parseInt(mMatch[1]) + 6;
-                return 99;
-            };
-
-            // ฟังก์ชันดึงชื่อวิชาหลัก (เอาไว้เช็ควิชาเดียวกันที่อยู่คนละชั้น)
-            const getBaseName = (title) => {
-                return title.replace(/\s*(ป\.|ม\.)\d+.*$/, '').trim();
-            };
-
-            // ฟังก์ชันช่วยแยกข้อมูลเป็น 3 คอลัมน์ (ตามกลุ่มวิชาหลัก)
-            const buildColumnsHtml = (items) => {
-                // 1. เรียงตามชื่อวิชาหลักก่อน แล้วตามด้วยระดับชั้น
-                const sortedItems = items.sort((a,b) => {
-                    const baseA = getBaseName(a.title);
-                    const baseB = getBaseName(b.title);
-                    const baseComp = baseA.localeCompare(baseB, 'th');
-                    if (baseComp !== 0) return baseComp; // ถ้าคนละวิชากัน ให้เรียงตาม ก-ฮ
-
-                    // ถ้าเป็นวิชาเดียวกัน ให้เรียงตามชั้น ป.1 -> ป.6
-                    const gradeA = getGradeLevel(a.title);
-                    const gradeB = getGradeLevel(b.title);
-                    if (gradeA !== gradeB) return gradeA - gradeB;
-                    
-                    return a.title.localeCompare(b.title, 'th');
-                });
-
-                // 2. จัดกลุ่มว่าวิชาหลักแต่ละวิชามีลิงก์อะไรบ้าง
-                const subjectsMap = {};
-                const subjectNames = [];
-                sortedItems.forEach(item => {
-                    const base = getBaseName(item.title);
-                    if(!subjectsMap[base]) {
-                        subjectsMap[base] = [];
-                        subjectNames.push(base); // เก็บรายชื่อวิชาหลักเพื่อคงลำดับไว้
-                    }
-                    subjectsMap[base].push(item);
-                });
-
-                const cols = [[], [], []];
-                // 3. นำแต่ละกลุ่มวิชา ไปใส่ลงคอลัมน์ (วิชาที่ 1->คอลัมน์ 1, วิชา 2->คอลัมน์ 2, ที่เหลือ->คอลัมน์ 3)
-                subjectNames.forEach((base, index) => {
-                    const colIndex = Math.min(index, 2); 
-                    cols[colIndex].push(...subjectsMap[base]);
-                });
-
-                let colHtml = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">`;
-                cols.forEach(colItems => {
-                    // เริ่มสร้าง Flex Column
-                    colHtml += `<div class="flex flex-col gap-4">`;
-                    colItems.forEach(item => {
-                        colHtml += `
-                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50 w-full">
-                            ${item.title}
-                        </a>`;
-                    });
-                    colHtml += `</div>`;
-                });
-                colHtml += `</div>`;
-                
-                return colHtml;
-            };
-
             if (isAllPage) {
-                // แบบหน้ารวม: จัดกลุ่มแล้วสร้างชุดคอลัมน์ของแต่ละกลุ่ม
                 grid.className = "flex flex-col gap-10 w-full mb-16"; 
                 
                 const grouped = {};
@@ -510,13 +462,46 @@
                 sortedCats.forEach(cat => {
                     html += `<div class="w-full">`;
                     html += `<h4 class="font-bold text-nswDarkGreen mb-4 border-b-2 border-nswButtonGreen/20 pb-2 text-lg flex items-center"><i class="fas fa-folder-open mr-2 text-nswButtonGreen"></i> ${cat}</h4>`;
-                    html += buildColumnsHtml(grouped[cat]);
-                    html += `</div>`;
+                    html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">`;
+                    
+                    // ปรับการเรียงลำดับ: เรียงด้วย Order ก่อน
+                    const subjects = grouped[cat].sort((a,b) => {
+                        const orderA = a.order !== undefined ? a.order : 999;
+                        const orderB = b.order !== undefined ? b.order : 999;
+                        if (orderA !== orderB) return orderA - orderB;
+                        
+                        // ถ้าย้าย order เท่ากัน ให้จัดตามระดับชั้น หรือตัวอักษรเป็นสำรอง
+                        const gradeA = getGradeLevel(a.title);
+                        const gradeB = getGradeLevel(b.title);
+                        if (gradeA !== gradeB) return gradeA - gradeB;
+                        return a.title.localeCompare(b.title, 'th');
+                    });
+                    
+                    subjects.forEach(item => {
+                        html += `
+                        <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
+                            ${item.title}
+                        </a>`;
+                    });
+                    html += `</div></div>`;
                 });
             } else {
-                // แบบหน้าหมวดหมู่เดี่ยว
-                grid.className = "w-full mb-16";
-                html += buildColumnsHtml(links);
+                grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 w-full mb-16";
+                
+                // เรียงลำดับด้วย Order ก่อนแสดงผลในหมวดหมู่เดี่ยว
+                const subjects = [...links].sort((a,b) => {
+                    const orderA = a.order !== undefined ? a.order : 999;
+                    const orderB = b.order !== undefined ? b.order : 999;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return 0;
+                });
+
+                subjects.forEach(item => {
+                    html += `
+                    <a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">
+                        ${item.title}
+                    </a>`;
+                });
             }
 
             grid.innerHTML = html;
@@ -543,12 +528,43 @@
 
             resetAdminForm();
             renderAdminTable();
+            switchAdminTab('manage'); // เปิดมาหน้าแรกให้เป็นแท็บจัดการ
             document.getElementById('adminModal').classList.add('active');
         }
 
         function closeAdminModal() {
             document.getElementById('adminModal').classList.remove('active');
             resetAdminForm();
+        }
+
+        // --- ระบบสลับแท็บ (Tab) ---
+        function switchAdminTab(tab) {
+            const tabManage = document.getElementById('tabManage');
+            const tabSort = document.getElementById('tabSort');
+            const secManage = document.getElementById('adminManageSection');
+            const secSort = document.getElementById('adminSortSection');
+
+            if (tab === 'manage') {
+                tabManage.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+                tabSort.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+                
+                secManage.classList.remove('hidden');
+                secManage.classList.add('flex');
+                secSort.classList.add('hidden');
+                secSort.classList.remove('flex');
+                
+                renderAdminTable(); // โหลดข้อมูลตารางใหม่
+            } else if (tab === 'sort') {
+                tabSort.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+                tabManage.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+                
+                secManage.classList.add('hidden');
+                secManage.classList.remove('flex');
+                secSort.classList.remove('hidden');
+                secSort.classList.add('flex');
+                
+                populateSortCategoryDropdown(); // โหลด Dropdown
+            }
         }
 
         function populateCategoryDropdown() {
@@ -639,16 +655,18 @@
                 return;
             }
 
-            let html = '';
             const sortedData = [...linkData].sort((a,b) => {
                 const catIndexA = categories.indexOf(a.category);
                 const catIndexB = categories.indexOf(b.category);
-                if (catIndexA !== catIndexB) {
-                    return catIndexA - catIndexB;
-                }
-                return 0; 
+                if (catIndexA !== catIndexB) return catIndexA - catIndexB;
+                
+                // ในหมวดหมู่เดียวกัน เรียงตาม order ด้วย
+                const orderA = a.order !== undefined ? a.order : 999;
+                const orderB = b.order !== undefined ? b.order : 999;
+                return orderA - orderB;
             });
             
+            let html = '';
             sortedData.forEach(item => {
                 html += `
                 <tr class="hover:bg-blue-50 transition border-b border-gray-100">
@@ -670,7 +688,6 @@
         async function saveLinkData() {
             const selectVal = document.getElementById('adminCategorySelect').value;
             const inputVal = document.getElementById('adminCategoryInput').value.trim();
-            
             const cat = selectVal === 'NEW' ? inputVal : selectVal;
             const title = document.getElementById('adminTitle').value.trim();
             const url = document.getElementById('adminUrl').value.trim();
@@ -702,9 +719,7 @@
                     cuteAlert.success('บันทึกสำเร็จ!', json.message);
                     resetAdminForm();
                     
-                    fetchLinks().then(() => {
-                        renderAdminTable(); 
-                    });
+                    fetchLinks().then(() => { renderAdminTable(); });
                 } else {
                     cuteAlert.error('เกิดข้อผิดพลาด', json.message);
                 }
@@ -727,9 +742,7 @@
 
                         if(responseJson.status === 'success') {
                             cuteAlert.success('ลบสำเร็จ!', responseJson.message);
-                            fetchLinks().then(() => {
-                                renderAdminTable();
-                            });
+                            fetchLinks().then(() => { renderAdminTable(); });
                         } else {
                             cuteAlert.error('ผิดพลาด', responseJson.message);
                         }
@@ -738,6 +751,112 @@
                     }
                 }
             });
+        }
+
+        // ==========================================
+        // SORTABLE (ลากวางจัดเรียงลำดับ)
+        // ==========================================
+        function populateSortCategoryDropdown() {
+            const select = document.getElementById('sortCategorySelect');
+            let html = '<option value="">-- เลือกกลุ่มสาระ --</option>';
+            categories.forEach(cat => {
+                if(cat !== 'หน้าแรก') {
+                    html += `<option value="${cat}">${cat}</option>`;
+                }
+            });
+            select.innerHTML = html;
+            
+            // เลือกอันแรกให้อัตโนมัติ (ข้าม "หน้าแรก")
+            if (categories.length > 1) {
+                const defaultCat = categories[1] !== 'หน้าแรก' ? categories[1] : categories[0];
+                select.value = defaultCat;
+                renderSortGrid();
+            } else {
+                document.getElementById('sortableGrid').innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
+            }
+        }
+
+        function renderSortGrid() {
+            const cat = document.getElementById('sortCategorySelect').value;
+            const grid = document.getElementById('sortableGrid');
+            
+            if (!cat) {
+                grid.innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">กรุณาเลือกกลุ่มสาระ</div>';
+                return;
+            }
+
+            // ดึงวิชาในหมวดนั้นและจัดเรียงตาม order เดิมก่อน
+            let items = linkData.filter(item => item.category === cat);
+            items.sort((a,b) => {
+                const orderA = a.order !== undefined ? a.order : 999;
+                const orderB = b.order !== undefined ? b.order : 999;
+                return orderA - orderB;
+            });
+
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="col-span-1 md:col-span-3 text-center text-gray-400 py-10">ไม่มีข้อมูลวิชาในกลุ่มสาระนี้</div>';
+                return;
+            }
+
+            let html = '';
+            items.forEach(item => {
+                html += `
+                <div class="sortable-item bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-move flex items-center justify-between hover:border-nswButtonGreen hover:shadow transition-all group" data-id="${item.id}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-green-50 text-nswButtonGreen flex items-center justify-center font-bold text-xs pointer-events-none border border-green-100 group-hover:bg-nswButtonGreen group-hover:text-white transition-colors">
+                            <i class="fas fa-bars"></i>
+                        </div>
+                        <span class="font-medium text-gray-700 pointer-events-none text-sm">${item.title}</span>
+                    </div>
+                </div>`;
+            });
+            grid.innerHTML = html;
+
+            // ตรวจสอบว่าถ้าเคยมี Instance อยู่แล้วให้ทำลายทิ้งก่อนสร้างใหม่
+            if (sortableInstance) sortableInstance.destroy();
+            
+            // สร้างระบบลากวางด้วย SortableJS
+            sortableInstance = new Sortable(grid, {
+                animation: 200,
+                ghostClass: 'sortable-ghost',
+                easing: "cubic-bezier(1, 0, 0, 1)",
+            });
+        }
+
+        async function saveSortOrder() {
+            const grid = document.getElementById('sortableGrid');
+            const items = grid.querySelectorAll('.sortable-item');
+            if (items.length === 0) return;
+
+            // สร้าง Array ใหม่เพื่อเก็บค่าการเรียงลำดับ (ยึดตามที่โชว์บนหน้าจอ)
+            let updates = [];
+            items.forEach((item, index) => {
+                updates.push({
+                    id: item.getAttribute('data-id'),
+                    order: index + 1 // ให้เริ่มจากลำดับที่ 1
+                });
+            });
+
+            cuteAlert.loading('กำลังบันทึกลำดับ...');
+
+            const form = new FormData();
+            form.append('data', JSON.stringify(updates));
+
+            try {
+                // ส่งค่าไปยัง Backend
+                const res = await fetch(`${API_URL}?action=updatePorPor5Order`, { method: 'POST', body: form });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    cuteAlert.success('บันทึกสำเร็จ!', 'อัปเดตการจัดเรียงเรียบร้อยแล้ว');
+                    await fetchLinks(); // อัปเดตข้อมูลบนหน้าเว็บใหม่ทั้งหมด
+                    renderSortGrid();   // วาดกล่องลากวางใหม่
+                } else {
+                    cuteAlert.error('เกิดข้อผิดพลาด', json.message);
+                }
+            } catch (e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถส่งข้อมูลได้');
+            }
         }
     </script>
 </body>
