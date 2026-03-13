@@ -970,7 +970,14 @@
 
                 if (json.status === 'success' && json.data && json.data.length > 0) {
                     json.data.forEach(historyRow => {
-                        const target = state.attendance.find(a => a.id == historyRow.id);
+                        // ดักจับข้อมูลเก่าที่เคยบันทึกไว้แบบ "เลขที่|รหัส|ชื่อ" ให้ดึงมาแค่รหัส
+                        let historyId = String(historyRow.id);
+                        if (historyId.includes('|')) {
+                            historyId = historyId.split('|')[1].trim(); 
+                        }
+                        
+                        // หาตัวนักเรียนจากรหัสประจำตัว
+                        const target = state.attendance.find(a => String(a.id) === historyId);
                         if(target) {
                             target.status = historyRow.status;
                             target.note = historyRow.note;
@@ -981,7 +988,10 @@
             } catch (e) { renderStudentTable(); }
         }
 
-        function getStudentUniqueId(row) { return row.slice(0,3).join('|'); }
+        function getStudentUniqueId(row) { 
+            // ใช้รหัสประจำตัวนักเรียน (คอลัมน์ 2) เป็น ID หลักอย่างเดียว เพื่อไม่ให้พังเวลาสลับเลขที่
+            return String(row[1]).trim(); 
+        }
 
         function renderStudentTable() {
             const container = document.getElementById('studentListContainer');
@@ -1143,8 +1153,12 @@
                 // สร้าง Map ข้อมูลการเช็คชื่อ
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
-                    if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
-                    studentAttendanceMap[r.id][r.date] = r.status;
+                    // ดักจับข้อมูลเก่าให้แปลงเป็นรหัสอย่างเดียว
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+                    
+                    if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
+                    studentAttendanceMap[historyId][r.date] = r.status;
                 });
 
                 // คำนวณสถิติรวม (Total) - แปลงเป็นร้อยละ
@@ -1323,8 +1337,13 @@
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
                     const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
-                    if(!studentAttendanceMap[r.id]) studentAttendanceMap[r.id] = {};
-                    studentAttendanceMap[r.id][dateKey] = r.status;
+                    
+                    // ดักจับข้อมูลเก่า
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+
+                    if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
+                    studentAttendanceMap[historyId][dateKey] = r.status;
                 });
 
                 // วนลูปรายชื่อนักเรียนและคำนวณสถิติ
