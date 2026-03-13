@@ -17,10 +17,10 @@
 
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
-        .sidebar { background-color: #4c1d95; } /* เปลี่ยนพื้นหลัง Sidebar เป็นสีม่วงเข้ม (purple-900) */
+        .sidebar { background-color: #4c1d95; }
         .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #facc15; }
         
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4c1d95; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; } /* วงแหวนโหลดสีม่วงเข้ม */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4c1d95; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
@@ -28,13 +28,10 @@
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        /* ปรับแต่งไอคอน SweetAlert นิดหน่อยให้เนียนตา */
         .swal2-icon { border: none !important; margin-bottom: 0 !important; }
     </style>
 </head>
@@ -62,10 +59,23 @@
             <p class="text-xs text-purple-300">Document Storage</p>
         </div>
         
-        <nav class="flex-1 overflow-y-auto py-4 overscroll-none">
-            <div class="px-4 text-xs font-bold text-purple-300 mb-2 uppercase">เมนูระบบ</div>
-            <a href="#" class="sidebar-item active border-l-4 border-yellow-400 flex items-center px-6 py-3 text-sm transition text-white">
-                <i class="fas fa-file-alt w-6"></i> ค้นหาเอกสารทั้งหมด
+        <!-- ปรับส่วนนี้ให้เป็น flex-col เพื่อดันเมนูถังขยะลงไปข้างล่าง -->
+        <nav class="flex-1 flex flex-col overflow-y-auto py-4 overscroll-none">
+            <div>
+                <div class="px-4 text-xs font-bold text-purple-300 mb-2 uppercase">เมนูระบบ</div>
+                <a href="#" onclick="switchView('active')" id="menuActive" class="sidebar-item active border-l-4 border-yellow-400 flex items-center justify-between px-6 py-3 text-sm transition text-white">
+                    <span class="flex items-center"><i class="fas fa-file-alt w-6"></i> ค้นหาเอกสารทั้งหมด</span>
+                    <span id="activeCountBadge" class="bg-purple-800 text-purple-200 text-xs px-2 py-0.5 rounded-full">0</span>
+                </a>
+            </div>
+
+            <!-- ใช้ mt-auto เพื่อดันลงไปอยู่ข้างล่างสุดของโซนพื้นสีม่วงอ่อน -->
+            <a href="#" onclick="switchView('trashed')" id="menuTrash" class="sidebar-item border-l-4 border-transparent flex items-center justify-between px-6 py-3 mt-auto text-sm transition text-gray-300">
+                <span class="flex items-center"><i class="fas fa-trash-alt w-6"></i> ถังขยะ</span>
+                <div class="flex items-center gap-2 relative">
+                    <span id="trashTotalBadge" class="bg-purple-800 text-purple-200 text-xs px-2 py-0.5 rounded-full">0</span>
+                    <span id="trashNewBadge" class="bg-red-500 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full absolute -top-1 -right-2 shadow-lg hidden">0</span>
+                </div>
             </a>
         </nav>
 
@@ -93,9 +103,9 @@
                 <button class="md:hidden text-gray-500 hover:text-purple-900 focus:outline-none" onclick="toggleSidebar()">
                     <i class="fas fa-bars text-xl md:text-2xl"></i>
                 </button>
-                <h2 class="text-lg md:text-xl font-bold text-gray-800 truncate">ระบบจัดเก็บเอกสารออนไลน์</h2>
+                <h2 id="pageTitle" class="text-lg md:text-xl font-bold text-gray-800 truncate">ระบบจัดเก็บเอกสารออนไลน์</h2>
             </div>
-            <button onclick="openUploadModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition flex items-center gap-2 text-sm md:text-base whitespace-nowrap">
+            <button id="btnUpload" onclick="openUploadModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition flex items-center gap-2 text-sm md:text-base whitespace-nowrap">
                 <i class="fas fa-cloud-upload-alt"></i> อัปโหลดเอกสาร
             </button>
         </header>
@@ -153,7 +163,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[400px]">
                 <div class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
                     <div class="text-sm font-bold text-gray-600">
-                        <i class="fas fa-list text-purple-500 mr-2"></i> รายการเอกสาร 
+                        <i id="tableIcon" class="fas fa-list text-purple-500 mr-2"></i> <span id="tableLabel">รายการเอกสาร</span> 
                         <span id="docCountBadge" class="bg-purple-100 text-purple-800 py-0.5 px-2 rounded-full text-xs ml-2">0 รายการ</span>
                     </div>
                     <button onclick="fetchDocuments()" class="text-xs text-gray-500 hover:text-purple-600 transition flex items-center gap-1"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
@@ -266,13 +276,13 @@
         
         let state = {
             user: null,
-            documents: [], // ข้อมูลเอกสารที่โหลดมา
-            filteredDocs: [] // ข้อมูลเอกสารที่ผ่านการกรองแล้ว
+            documents: [], // ข้อมูลเอกสารทั้งหมด
+            filteredDocs: [], // ข้อมูลเอกสารที่ผ่านการกรอง
+            viewMode: 'active' // สถานะการดู: 'active' หรือ 'trashed'
         };
 
-        // ================= การตั้งค่า SweetAlert ให้น่ารักและป้องกันจอเด้ง (ปรับเป็นสีม่วง) =================
         const cuteSwalOpts = {
-            heightAuto: false, // สำคัญ! ป้องกันไม่ให้ Sidebar เด้งเวลาเปิด Modal
+            heightAuto: false,
             buttonsStyling: false,
             backdrop: 'rgba(15, 23, 42, 0.5) backdrop-blur-sm',
             customClass: {
@@ -284,7 +294,6 @@
             }
         };
 
-        // Cute Alerts (ปรับโทนสีเป็นสีม่วง)
         const cuteAlert = {
             loading: (text) => { 
                 return Swal.fire({ 
@@ -311,11 +320,10 @@
             error: (title, text) => { 
                 return Swal.fire({ ...cuteSwalOpts, icon: 'error', title: '🥺 ' + title, text: text, confirmButtonText: 'รับทราบ', customClass: { ...cuteSwalOpts.customClass, confirmButton: 'bg-red-400 hover:bg-red-500 text-white rounded-full px-8 py-2.5 font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4' } }); 
             },
-            confirm: (title, text, btnText) => { 
-                return Swal.fire({ ...cuteSwalOpts, icon: 'question', title: '🤔 ' + title, text: text, showCancelButton: true, confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', customClass: { ...cuteSwalOpts.customClass, confirmButton: 'bg-red-500 hover:bg-red-600 text-white rounded-full px-8 py-2.5 font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4' } }); 
+            confirm: (title, text, btnText, btnColor = 'bg-red-500') => { 
+                return Swal.fire({ ...cuteSwalOpts, icon: 'question', title: '🤔 ' + title, text: text, showCancelButton: true, confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', customClass: { ...cuteSwalOpts.customClass, confirmButton: `${btnColor} hover:brightness-90 text-white rounded-full px-8 py-2.5 font-bold font-sarabun shadow-lg hover:shadow-xl transition-all mx-2 mt-4` } }); 
             }
         };
-        // ===================================================================================
 
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
@@ -327,9 +335,7 @@
                 state.user = JSON.parse(savedUser);
                 document.getElementById('sidebarUserName').innerText = state.user.name;
                 document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
-                // ปรับสีพื้นหลังของรูปโปรไฟล์เริ่มต้นเป็นโทนม่วง (4c1d95)
                 document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=4c1d95&color=ffffff`;
-                
                 fetchDocuments();
             } else {
                 cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน').then(() => { 
@@ -352,6 +358,53 @@
 
         function goToMainWeb() { window.location.href = 'index.html'; }
 
+        // ================= สลับหน้าจอ ดูเอกสาร/ถังขยะ =================
+        function switchView(mode) {
+            state.viewMode = mode;
+            
+            const menuActive = document.getElementById('menuActive');
+            const menuTrash = document.getElementById('menuTrash');
+            const pageTitle = document.getElementById('pageTitle');
+            const btnUpload = document.getElementById('btnUpload');
+            const tableIcon = document.getElementById('tableIcon');
+            const tableLabel = document.getElementById('tableLabel');
+
+            if (mode === 'active') {
+                menuActive.classList.add('active', 'border-yellow-400', 'text-white');
+                menuActive.classList.remove('border-transparent', 'text-gray-300');
+                
+                menuTrash.classList.remove('active', 'border-yellow-400', 'text-white');
+                menuTrash.classList.add('border-transparent', 'text-gray-300');
+                
+                pageTitle.innerText = "ระบบจัดเก็บเอกสารออนไลน์";
+                btnUpload.style.display = "flex";
+                tableIcon.className = "fas fa-list text-purple-500 mr-2";
+                tableLabel.innerText = "รายการเอกสาร";
+            } else {
+                menuTrash.classList.add('active', 'border-yellow-400', 'text-white');
+                menuTrash.classList.remove('border-transparent', 'text-gray-300');
+                
+                menuActive.classList.remove('active', 'border-yellow-400', 'text-white');
+                menuActive.classList.add('border-transparent', 'text-gray-300');
+                
+                pageTitle.innerText = "ถังขยะ (Recycle Bin)";
+                btnUpload.style.display = "none";
+                tableIcon.className = "fas fa-trash-alt text-red-500 mr-2";
+                tableLabel.innerText = "เอกสารในถังขยะ";
+                
+                // ลบจุดแจ้งเตือนสีแดง และบันทึก ID เอกสารในถังขยะที่ดูแล้วลง LocalStorage
+                const trashedDocs = state.documents.filter(d => d.status === 'trashed');
+                const currentTrashedIds = trashedDocs.map(d => parseInt(d.id));
+                if (state.user) {
+                    localStorage.setItem('nsw_seen_trash_' + state.user.name, JSON.stringify(currentTrashedIds));
+                }
+                document.getElementById('trashNewBadge').classList.add('hidden');
+            }
+            
+            if(window.innerWidth < 768) toggleSidebar();
+            applyFilters();
+        }
+
         // ================= Fetch & Render Documents =================
         async function fetchDocuments() {
             const container = document.getElementById('docListContainer');
@@ -362,27 +415,52 @@
                 const json = await res.json();
                 
                 if (json.status === 'success') {
-                    // ป้องกันบัค Google Sheets แปลงข้อความเป็นวันที่ (Date Auto-Format)
                     state.documents = json.data.map(doc => {
-                        // ซ่อมแซมช่อง เทอม/ปี (เช่น หากถูกแปลงเป็น 2568-01-31T... จะถูกดึงกลับมาเป็น 1/2568)
                         if (doc.termYear && doc.termYear.includes('T')) {
                             const d = new Date(doc.termYear);
                             if (!isNaN(d)) doc.termYear = `${d.getMonth() + 1}/${d.getFullYear()}`;
                         }
-                        // ซ่อมแซมช่อง วันที่ออกหนังสือ (เช่น หากถูกแปลงเป็น 2569-02-16T... จะถูกดึงกลับมาเป็น 17/02/2569)
                         if (doc.issueDate && doc.issueDate.includes('T')) {
                             const d = new Date(doc.issueDate);
                             if (!isNaN(d)) doc.issueDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
                         }
                         return doc;
                     });
+
+                    // นับจำนวนเอกสารเพื่อแสดงผลใน Sidebar
+                    const activeCount = state.documents.filter(d => d.status !== 'trashed').length;
+                    const trashedDocs = state.documents.filter(d => d.status === 'trashed');
+                    const trashCount = trashedDocs.length;
+
+                    document.getElementById('activeCountBadge').innerText = activeCount;
+                    document.getElementById('trashTotalBadge').innerText = trashCount;
+
+                    // ตรวจสอบเอกสารใหม่ในถังขยะที่ยังไม่เคยดู
+                    let seenTrashedIds = [];
+                    if (state.user) {
+                        seenTrashedIds = JSON.parse(localStorage.getItem('nsw_seen_trash_' + state.user.name) || '[]');
+                    }
+                    const currentTrashedIds = trashedDocs.map(d => parseInt(d.id));
+                    const unreadCount = currentTrashedIds.filter(id => !seenTrashedIds.includes(id)).length;
+
+                    const trashNewBadge = document.getElementById('trashNewBadge');
+                    if (unreadCount > 0 && state.viewMode !== 'trashed') {
+                        trashNewBadge.innerText = unreadCount;
+                        trashNewBadge.classList.remove('hidden');
+                    } else {
+                        trashNewBadge.classList.add('hidden');
+                        if (state.viewMode === 'trashed' && state.user) {
+                            localStorage.setItem('nsw_seen_trash_' + state.user.name, JSON.stringify(currentTrashedIds));
+                        }
+                    }
+
                     applyFilters(); 
                 } else {
                     container.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-red-500">โหลดข้อมูลล้มเหลว: ${json.message}</td></tr>`;
                 }
             } catch (e) {
                 console.error(e);
-                container.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (โปรดตรวจสอบ API URL)</td></tr>`;
+                container.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
             }
         }
 
@@ -393,12 +471,16 @@
             const fSearch = document.getElementById('filterSearch').value.toLowerCase();
 
             state.filteredDocs = state.documents.filter(doc => {
+                // กรองตามโหมดที่ดูอยู่ (Active / Trashed)
+                const docStatus = doc.status || 'active';
+                const matchMode = state.viewMode === 'active' ? (docStatus !== 'trashed') : (docStatus === 'trashed');
+
                 const matchType = fType === "" || doc.docType === fType;
                 const matchTerm = fTerm === "" || doc.termYear === fTerm;
                 const matchDept = fDept === "" || doc.department === fDept;
                 const matchSearch = fSearch === "" || doc.title.toLowerCase().includes(fSearch);
                 
-                return matchType && matchTerm && matchDept && matchSearch;
+                return matchMode && matchType && matchTerm && matchDept && matchSearch;
             });
 
             renderTable();
@@ -409,28 +491,57 @@
             document.getElementById('docCountBadge').innerText = `${state.filteredDocs.length} รายการ`;
 
             if (state.filteredDocs.length === 0) {
-                container.innerHTML = `<tr><td colspan="8" class="py-16 text-center text-gray-500"><i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i><br>ไม่พบเอกสารในหมวดหมู่นี้</td></tr>`;
+                let emptyMsg = state.viewMode === 'active' ? 'ไม่พบเอกสารในหมวดหมู่นี้' : 'ถังขยะว่างเปล่า';
+                let emptyIcon = state.viewMode === 'active' ? 'fa-folder-open' : 'fa-trash-restore';
+                container.innerHTML = `<tr><td colspan="8" class="py-16 text-center text-gray-500"><i class="fas ${emptyIcon} text-4xl mb-3 text-gray-300"></i><br>${emptyMsg}</td></tr>`;
                 return;
             }
 
             let html = '';
+            // ตรวจสอบสิทธิ์ผู้ดูแลระบบ (นักรบมังกร หรือ จอมเวทย์อาวุโส)
+            const isAdmin = (state.user.role === '🐲 นักรบมังกร') || (state.user.role === '🧙‍♂️ จอมเวทย์อาวุโส');
+
             state.filteredDocs.forEach((doc, idx) => {
-                const canManage = (state.user.name === doc.uploader) || (state.user.role === '🐲 นักรบมังกร');
+                const canManage = (state.user.name === doc.uploader) || isAdmin;
                 
-                // ให้สีป้ายกำกับยังคงความแตกต่างตามประเภท แต่ใช้สีหลักให้เข้ากับหน้าเว็บถ้าเป็นเอกสารทั่วไป
                 let typeColor = 'text-gray-600 bg-gray-100';
                 if(doc.docType.includes('คณะกรรมการ')) typeColor = 'text-purple-700 bg-purple-100';
                 else if(doc.docType.includes('แข่งขัน')) typeColor = 'text-orange-700 bg-orange-100';
                 else if(doc.docType.includes('ไปราชการ')) typeColor = 'text-green-700 bg-green-100';
                 else if(doc.docType.includes('ปฏิบัติหน้าที่')) typeColor = 'text-blue-700 bg-blue-100';
                 
+                let actionButtons = '';
+                
+                if (state.viewMode === 'active') {
+                    // ปุ่มสำหรับหน้าเอกสารปกติ
+                    if (canManage) {
+                        actionButtons = `
+                            <button onclick="editDoc(${doc.id})" class="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center hover:bg-yellow-200 transition" title="แก้ไขเอกสาร"><i class="fas fa-pen"></i></button>
+                            <button onclick="softDeleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition" title="ย้ายไปถังขยะ"><i class="fas fa-trash"></i></button>
+                        `;
+                    } else {
+                        actionButtons = `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์จัดการ"><i class="fas fa-lock"></i></button>`;
+                    }
+                } else {
+                    // ปุ่มสำหรับหน้าถังขยะ
+                    if (canManage) {
+                        actionButtons += `<button onclick="restoreDoc(${doc.id})" class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition" title="กู้คืนเอกสาร"><i class="fas fa-trash-restore"></i></button>`;
+                    }
+                    if (isAdmin) {
+                        actionButtons += `<button onclick="hardDeleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition shadow" title="ลบถาวร"><i class="fas fa-times"></i></button>`;
+                    }
+                    if (!canManage && !isAdmin) {
+                        actionButtons = `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์จัดการ"><i class="fas fa-lock"></i></button>`;
+                    }
+                }
+
                 html += `
-                <tr class="hover:bg-purple-50/50 transition border-b border-gray-50">
+                <tr class="hover:bg-purple-50/50 transition border-b border-gray-50 ${state.viewMode === 'trashed' ? 'opacity-70 grayscale-[30%]' : ''}">
                     <td class="px-4 py-3 text-center text-gray-500">${idx + 1}</td>
                     <td class="px-4 py-3 font-medium text-purple-900 truncate max-w-[200px]" title="${doc.title}">
                         <a href="${doc.fileUrl}" target="_blank" class="hover:underline flex items-center gap-2">
                             ${doc.fileUrl.includes('pdf') || doc.title.toLowerCase().includes('pdf') ? '<i class="fas fa-file-pdf text-red-500"></i>' : '<i class="fas fa-file-image text-purple-500"></i>'}
-                            ${doc.title}
+                            <span class="${state.viewMode === 'trashed' ? 'line-through text-gray-500' : ''}">${doc.title}</span>
                         </a>
                         <div class="text-[10px] text-gray-400 mt-0.5">อัปโหลดเมื่อ: ${doc.timestamp}</div>
                     </td>
@@ -443,8 +554,7 @@
                     </td>
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            ${canManage ? `<button onclick="editDoc(${doc.id})" class="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center hover:bg-yellow-200 transition" title="แก้ไขเอกสาร"><i class="fas fa-pen"></i></button>` : ''}
-                            ${canManage ? `<button onclick="deleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition" title="ลบเอกสาร"><i class="fas fa-trash"></i></button>` : `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์จัดการ"><i class="fas fa-lock"></i></button>`}
+                            ${actionButtons}
                         </div>
                     </td>
                 </tr>`;
@@ -461,14 +571,12 @@
             document.getElementById('fileNameDisplay').classList.remove('text-purple-600', 'font-bold');
             fileToUpload = null;
             
-            // แนะนำปีการศึกษา/เทอม อัตโนมัติ 
             const d = new Date();
             const year = d.getFullYear() + 543;
             const term = (d.getMonth() >= 4 && d.getMonth() <= 9) ? "1" : "2"; 
             const calculatedYear = term === "2" && d.getMonth() < 4 ? year - 1 : year;
             document.getElementById('upTermYear').value = `${term}/${calculatedYear}`;
 
-            // เซ็ตวันที่ออกหนังสือเริ่มต้นเป็น "วันที่ปัจจุบัน" (รูปแบบ YYYY-MM-DD เพื่อแสดงผลใน input=date)
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
@@ -484,14 +592,12 @@
         function handleFileChange(input) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                
                 if (file.size > 10 * 1024 * 1024) {
                     cuteAlert.error('ไฟล์ใหญ่เกินไป', 'ระบบรองรับไฟล์ขนาดไม่เกิน 10MB เท่านั้น');
                     input.value = '';
                     fileToUpload = null;
                     return;
                 }
-                
                 fileToUpload = file;
                 const display = document.getElementById('fileNameDisplay');
                 display.innerText = file.name;
@@ -511,10 +617,9 @@
                 return;
             }
 
-            // แปลงรูปแบบวันที่เป็น DD/MM/YYYY(พ.ศ.) ก่อนส่งขึ้นไปบันทึก
             let issueDateStr = "-";
             if (issueDateRaw) {
-                const parts = issueDateRaw.split('-'); // แปลงจาก YYYY-MM-DD
+                const parts = issueDateRaw.split('-');
                 issueDateStr = `${parts[2]}/${parts[1]}/${parseInt(parts[0]) + 543}`;
             }
 
@@ -530,14 +635,11 @@
                 const form = new FormData();
                 form.append('title', title);
                 form.append('docType', docType);
-                // ใส่ ' (Single Quote) นำหน้าเพื่อป้องกัน Google Sheets เปลี่ยนค่าเป็น Date Object โดยพลการ
                 form.append('termYear', "'" + termYear); 
                 form.append('department', department);
                 form.append('uploader', state.user.name);
                 form.append('uploaderRole', state.user.role);
-                // ใส่ ' นำหน้าวันที่
                 form.append('issueDate', "'" + issueDateStr); 
-                
                 form.append('fileData', base64Data);
                 form.append('fileName', fileToUpload.name);
                 form.append('mimeType', fileToUpload.type);
@@ -554,7 +656,6 @@
                 }
             } catch (err) {
                 cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-                console.error(err);
             }
         }
 
@@ -563,7 +664,6 @@
             const doc = state.documents.find(d => d.id === id);
             if (!doc) return;
             
-            // แปลงวันที่จาก DD/MM/YYYY(พ.ศ.) กลับเป็น YYYY-MM-DD เพื่อยัดใส่ input type="date"
             let dateVal = '';
             if (doc.issueDate && doc.issueDate !== '-') {
                 const parts = doc.issueDate.split('/');
@@ -637,7 +737,6 @@
             if (formValues) {
                 cuteAlert.loading('กำลังบันทึกข้อมูล... ⏳');
                 
-                // แปลง Format วันที่กลับเป็นแบบไทย (DD/MM/YYYY พ.ศ.)
                 let issueDateStr = "-";
                 if (formValues.issueDateRaw) {
                     const parts = formValues.issueDateRaw.split('-');
@@ -651,7 +750,6 @@
                 form.append('newTermYear', "'" + formValues.termYear);
                 form.append('newDepartment', formValues.department);
                 form.append('newIssueDate', "'" + issueDateStr);
-                
                 form.append('requestUser', state.user.name);
                 form.append('requestRole', state.user.role);
 
@@ -661,22 +759,21 @@
                     
                     if (json.status === 'success') {
                         cuteAlert.success('สำเร็จ!', 'แก้ไขข้อมูลเอกสารเรียบร้อยแล้ว');
-                        fetchDocuments(); // รีเฟรชหน้าเพื่อแสดงข้อมูลใหม่
+                        fetchDocuments();
                     } else {
                         cuteAlert.error('ผิดพลาด', json.message);
                     }
                 } catch (e) {
-                    console.error('API Error:', e);
-                    cuteAlert.error('ข้อผิดพลาดการเชื่อมต่อ API', 'กรุณาตรวจสอบว่าคุณได้กด "การทำให้ใช้งานได้รายการใหม่ (New Deployment)" ใน Apps Script แล้วนำ URL ใหม่มาใส่ในโค้ดหรือยัง');
+                    cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
                 }
             }
         }
 
-        // ================= Delete Logic =================
-        function deleteDoc(id) {
-            cuteAlert.confirm('ลบเอกสาร?', 'หากลบแล้วไฟล์บน Google Drive จะถูกย้ายไปที่ถังขยะด้วย ต้องการดำเนินการต่อหรือไม่?', 'ใช่, ลบเลย!').then(async (result) => {
+        // ================= Soft Delete (ย้ายลงถังขยะ) =================
+        function softDeleteDoc(id) {
+            cuteAlert.confirm('ย้ายลงถังขยะ?', 'เอกสารจะถูกซ่อนจากหน้าหลัก สามารถกู้คืนได้ภายหลัง', 'ย้ายไปถังขยะ').then(async (result) => {
                 if (result.isConfirmed) {
-                    cuteAlert.loading('กำลังลบเอกสาร... 🗑️');
+                    cuteAlert.loading('กำลังย้ายเอกสาร... 🗑️');
                     const form = new FormData();
                     form.append('id', id);
                     form.append('requestUser', state.user.name);
@@ -685,15 +782,66 @@
                     try {
                         const res = await fetch(`${DOC_API_URL}?action=deleteDocument`, { method: 'POST', body: form });
                         const json = await res.json();
-                        
                         if (json.status === 'success') {
-                            cuteAlert.success('ลบสำเร็จ', 'ลบเอกสารออกจากระบบแล้ว');
+                            cuteAlert.success('ย้ายสำเร็จ', 'เอกสารถูกย้ายไปที่ถังขยะแล้ว');
                             fetchDocuments();
                         } else {
                             cuteAlert.error('ลบไม่สำเร็จ', json.message);
                         }
                     } catch (e) {
-                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถลบข้อมูลได้');
+                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                    }
+                }
+            });
+        }
+
+        // ================= Restore (กู้คืนเอกสาร) =================
+        function restoreDoc(id) {
+            cuteAlert.confirm('กู้คืนเอกสาร?', 'เอกสารจะถูกนำกลับไปแสดงที่หน้าหลัก', 'กู้คืนเลย!', 'bg-green-500').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังกู้คืนเอกสาร... 🔄');
+                    const form = new FormData();
+                    form.append('id', id);
+                    form.append('requestUser', state.user.name);
+                    form.append('requestRole', state.user.role);
+
+                    try {
+                        const res = await fetch(`${DOC_API_URL}?action=restoreDocument`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            cuteAlert.success('กู้คืนสำเร็จ', 'เอกสารกลับสู่หน้าหลักแล้ว');
+                            fetchDocuments();
+                        } else {
+                            cuteAlert.error('กู้คืนไม่สำเร็จ', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                    }
+                }
+            });
+        }
+
+        // ================= Hard Delete (ลบถาวร - เฉพาะระดับบริหาร) =================
+        function hardDeleteDoc(id) {
+            cuteAlert.confirm('เตือน! ลบถาวร?', 'การลบนี้จะไม่สามารถกู้คืนได้ และไฟล์บน Google Drive จะถูกลบทิ้ง ต้องการดำเนินการต่อหรือไม่?', 'ใช่, ลบถาวร!').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบเอกสารแบบถาวร... ⚠️');
+                    const form = new FormData();
+                    form.append('id', id);
+                    form.append('requestUser', state.user.name);
+                    form.append('requestRole', state.user.role);
+
+                    try {
+                        const res = await fetch(`${DOC_API_URL}?action=permanentDeleteDocument`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            cuteAlert.success('ลบถาวรสำเร็จ', 'ลบเอกสารออกจากระบบอย่างถาวรแล้ว');
+                            fetchDocuments();
+                        } else {
+                            cuteAlert.error('ลบไม่สำเร็จ', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
                     }
                 }
             });
