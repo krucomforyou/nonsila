@@ -1429,26 +1429,26 @@
         // ADMIN: จัดการข้อมูลนักเรียน
         // =========================================================================
         function openManageStudentModal() { 
-            // 1. ตรวจสอบสิทธิ์การเข้าถึง (เช็คจาก Role ของผู้ใช้งาน)
-            const allowedRoles = ['admin', 'ผู้อำนวยการ', 'จอมเวทย์อาวุโส'];
-            const userRole = (state.user.role || '').toLowerCase(); 
+            document.getElementById('manageStudentModal').classList.add('active'); 
             
-            // ตรวจสอบว่าตำแหน่งของผู้ใช้ มีคำที่อนุญาตอยู่หรือไม่
-            const hasPermission = allowedRoles.some(role => userRole.includes(role.toLowerCase()));
-            
-            if (!hasPermission) {
-                cuteAlert.error('ปฏิเสธการเข้าถึง 🛑', 'เมนูนี้สงวนสิทธิ์เฉพาะ Admin, ผู้อำนวยการ และจอมเวทย์อาวุโส เท่านั้นครับ');
-                return; // สั่งหยุดการทำงาน ไม่เปิดหน้าต่าง
+            // ค้นหาปุ่ม "เพิ่มนักเรียน" และซ่อน/แสดง ตามสิทธิ์
+            const addBtn = document.querySelector('button[onclick="openEditStudentForm(\'add\')"]');
+            if (addBtn) {
+                if (checkAdminPermission()) {
+                    addBtn.style.display = 'flex'; // ถ้ามีสิทธิ์ ให้แสดงปุ่ม
+                } else {
+                    addBtn.style.display = 'none'; // ถ้าไม่มีสิทธิ์ ให้ซ่อนปุ่ม
+                }
             }
 
-            // 2. ถ้ามีสิทธิ์ ให้แสดงหน้าต่างและโหลดข้อมูลตามปกติ
-            document.getElementById('manageStudentModal').classList.add('active'); 
             if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
                 document.getElementById('manageClassSelector').value = state.currentClass; 
                 loadManageStudents(); 
             } 
             disableBodyScroll(); 
         }
+
+
         function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); enableBodyScroll(); }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
         function disableBodyScroll() { document.body.style.overflow = 'hidden'; }
@@ -1476,28 +1476,31 @@
             const tbody = document.getElementById('manageTableBody');
             if(state.manageData.length === 0) return;
             
+            // ดึงค่าสิทธิ์มาเช็คก่อนว่ามีสิทธิ์แก้ไขหรือไม่
+            const isAdmin = checkAdminPermission(); 
+
             tbody.innerHTML = state.manageData.map((row, idx) => {
-                // ดึงข้อมูลให้ตรงกับ Google Sheet (0=ลำดับ, 1=รหัส, 2=ชื่อ, 3=สกุล)
                 const no = row[0] || '-';
                 const stuId = row[1] || '-';
-                const fname = row[2] || '-'; // ดึงชื่อ (ซึ่งมีคำนำหน้ารวมอยู่แล้ว)
-                const lname = row[3] || '-'; // ดึงนามสกุล
+                const fname = row[2] || '-'; 
+                const lname = row[3] || '-'; 
                 
+                // ถ้าเป็น Admin ให้โชว์ปุ่ม ถ้าไม่ใช่ให้โชว์แค่ไอคอนรูปแม่กุญแจ
+                const actionHtml = isAdmin 
+                    ? `<div class="flex items-center justify-center gap-1.5 sm:gap-2">
+                        <button onclick="openEditStudentForm('edit', ${idx})" class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteStudent(${idx})" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-trash"></i></button>
+                    </div>`
+                    : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
+
                 return `
                 <tr class="hover:bg-blue-50 bg-white transition-colors border-b border-gray-100">
                     <td class="p-3 md:p-4 text-center font-bold text-gray-600 align-middle">${no}</td>
-                    
                     <td class="p-3 md:p-4 text-sm text-blue-600 font-mono font-bold align-middle whitespace-nowrap">${stuId}</td>
-                    
                     <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fname}</td>
-                    
                     <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${lname}</td>
-                    
                     <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">
-                        <div class="flex items-center justify-center gap-1.5 sm:gap-2">
-                            <button onclick="openEditStudentForm('edit', ${idx})" class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-edit"></i></button>
-                            <button onclick="deleteStudent(${idx})" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-trash"></i></button>
-                        </div>
+                        ${actionHtml}
                     </td>
                 </tr>`
             }).join('');
