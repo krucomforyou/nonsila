@@ -1420,7 +1420,27 @@
         // =========================================================================
         // ADMIN: จัดการข้อมูลนักเรียน
         // =========================================================================
-        function openManageStudentModal() { document.getElementById('manageStudentModal').classList.add('active'); if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { document.getElementById('manageClassSelector').value = state.currentClass; loadManageStudents(); } disableBodyScroll(); }
+        function openManageStudentModal() { 
+            // 1. ตรวจสอบสิทธิ์การเข้าถึง (เช็คจาก Role ของผู้ใช้งาน)
+            const allowedRoles = ['admin', 'ผู้อำนวยการ', 'จอมเวทย์อาวุโส'];
+            const userRole = (state.user.role || '').toLowerCase(); 
+            
+            // ตรวจสอบว่าตำแหน่งของผู้ใช้ มีคำที่อนุญาตอยู่หรือไม่
+            const hasPermission = allowedRoles.some(role => userRole.includes(role.toLowerCase()));
+            
+            if (!hasPermission) {
+                cuteAlert.error('ปฏิเสธการเข้าถึง 🛑', 'เมนูนี้สงวนสิทธิ์เฉพาะ Admin, ผู้อำนวยการ และจอมเวทย์อาวุโส เท่านั้นครับ');
+                return; // สั่งหยุดการทำงาน ไม่เปิดหน้าต่าง
+            }
+
+            // 2. ถ้ามีสิทธิ์ ให้แสดงหน้าต่างและโหลดข้อมูลตามปกติ
+            document.getElementById('manageStudentModal').classList.add('active'); 
+            if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
+                document.getElementById('manageClassSelector').value = state.currentClass; 
+                loadManageStudents(); 
+            } 
+            disableBodyScroll(); 
+        }
         function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); enableBodyScroll(); }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
         function disableBodyScroll() { document.body.style.overflow = 'hidden'; }
