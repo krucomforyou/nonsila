@@ -698,14 +698,41 @@
 
         function populateReportClassDropdown() {
             const sel = document.getElementById('reportClassSel');
-            if (state.schedule.length === 0) {
+            const prevVal = sel.value; // จำค่าเก่าที่เคยเลือกไว้
+
+            if (!state.schedule || state.schedule.length === 0) {
+                 sel.innerHTML = '<option value="">-- กำลังโหลดตารางสอน... --</option>';
+                 return;
+            }
+            
+            const uniqueClasses = [...new Set(state.schedule.map(s => s.className).filter(c => c !== '-'))];
+            
+            if (uniqueClasses.length === 0) {
                  sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
                  return;
             }
-            const uniqueClasses = [...new Set(state.schedule.map(s => s.className).filter(c => c !== '-'))];
+
             let opts = '<option value="">-- เลือกห้องเรียน --</option>';
             uniqueClasses.sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
             sel.innerHTML = opts;
+
+            // คืนค่าที่เคยเลือกไว้ และสั่งให้ช่องวิชาทำงานตามด้วย
+            if (prevVal && uniqueClasses.includes(prevVal)) {
+                sel.value = prevVal;
+                
+                // คืนค่าช่องวิชาด้วย
+                const subjSel = document.getElementById('reportSubjectSel');
+                const prevSubj = subjSel.value;
+                populateSubjectDropdown('reportSubjectSel', null, prevVal);
+                
+                setTimeout(() => {
+                    if (prevSubj && Array.from(subjSel.options).some(opt => opt.value === prevSubj)) {
+                        subjSel.value = prevSubj;
+                    }
+                }, 50);
+            } else {
+                document.getElementById('reportSubjectSel').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+            }
         }
 
         function onSubjectSelect(prefix) {
@@ -765,6 +792,7 @@
                     renderScheduleTable();
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
+                    populateReportClassDropdown(); // อัปเดต Dropdown ในหน้ารายงานทันทีที่โหลดเสร็จ
                 } else {
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
@@ -949,6 +977,8 @@
                 if (json.status === 'success') {
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                    populateSubjectDropdown('manageTimeSubject', state.currentDate);
+                    populateReportClassDropdown(); // อัปเดต Dropdown ในหน้ารายงานด้วย
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
         }
