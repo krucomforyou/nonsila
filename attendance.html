@@ -364,7 +364,7 @@
                              <div class="bg-purple-50 border border-purple-100 p-4 md:p-5 rounded-2xl text-center col-span-2 md:col-span-1"><div class="text-purple-600 text-xs md:text-sm font-bold">ป่วย (ร้อยละ)</div><div id="repSick" class="text-2xl md:text-3xl font-black mt-2 text-purple-700">0%</div></div>
                          </div>
                          
-                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">ตารางบันทึกเวลาเรียนรายวัน</h4>
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">ตารางบันทึกเวลาเรียนรายวัน <span class="text-xs text-gray-400 ml-2 font-normal">(เอาเมาส์ชี้ที่ช่องสีเหลืองเพื่อดูหมายเหตุ)</span></h4>
                          <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
                             <div class="overflow-x-auto" id="reportTableContainer">
                                 <!-- ตารางจะถูกสร้างที่นี่ -->
@@ -1216,7 +1216,9 @@
                     if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
                     
                     if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
-                    studentAttendanceMap[historyId][r.date] = r.status;
+                    
+                    // ปรับปรุงใหม่ ให้เก็บข้อมูล status และ note ไว้ด้วยกัน
+                    studentAttendanceMap[historyId][r.date] = { status: r.status, note: r.note };
                 });
 
                 // คำนวณสถิติรวม (Total) - แปลงเป็นร้อยละ
@@ -1274,12 +1276,29 @@
                     let rowCells = '';
 
                     uniqueDates.forEach(d => {
-                        const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        const status = record ? record.status : null;
+                        
+                        // ดึงข้อมูลหมายเหตุมาประมวลผล
+                        const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
+                        const hasNote = noteStr.trim() !== '';
+
                         if(status && rowStats[status] !== undefined) rowStats[status]++;
                         
                         const symbol = status ? statusSymbol[status] : '-';
                         const colorClass = status ? statusColor[status] : 'text-gray-300';
-                        rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                        
+                        if (hasNote) {
+                            // ป้องกันการใส่เครื่องหมายคำพูดแล้ว HTML พัง
+                            const safeNote = noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            // ใส่สีพื้นหลังอ่อนๆ, cursor-help, กล่องข้อความ (title) และไอคอนจุดเล็กๆ มุมขวา
+                            rowCells += `<td class="border text-center relative ${colorClass} cursor-help bg-yellow-50 hover:bg-yellow-100 transition-colors" title="หมายเหตุ: ${safeNote}">
+                                ${symbol}
+                                <i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i>
+                            </td>`;
+                        } else {
+                            rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                        }
                     });
 
                     tableHtml += `<tr class="hover:bg-gray-50 border-b">
