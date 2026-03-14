@@ -1051,7 +1051,12 @@
 
                 const att = state.attendance[index];
                 const s = att.status;
-                const hasNote = att.note && att.note.trim() !== '';
+                
+                // การแก้ไขปัญหาหมายเหตุ: ดักจับและแปลงค่าหมายเหตุให้เป็นข้อความ (String) อย่างปลอดภัย
+                const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
+                const hasNote = noteStr.trim() !== '';
+                // แปลงเครื่องหมายคำพูดให้เป็นโค้ด HTML เพื่อไม่ให้ tag พังเวลาแสดงบน attribute title
+                const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
 
                 html += `
                 <tr class="hover:bg-blue-50/50 transition border-b border-gray-50">
@@ -1067,7 +1072,7 @@
                         </div>
                     </td>
                     <td class="px-3 sm:px-6 py-3 text-center">
-                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-inner' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${hasNote ? att.note : 'เพิ่มหมายเหตุ'}">
+                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-inner' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${safeNoteTitle}">
                             <i class="fas fa-comment-alt text-xs"></i>
                         </button>
                     </td>
@@ -1081,7 +1086,8 @@
 
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
-            document.getElementById('noteTextarea').value = state.attendance[index].note || '';
+            // ดักจับและแปลงค่าหมายเหตุให้เป็นข้อความที่นี่ด้วยเพื่อความปลอดภัย
+            document.getElementById('noteTextarea').value = state.attendance[index].note !== undefined && state.attendance[index].note !== null ? String(state.attendance[index].note) : '';
             
             // ปรับให้อ่านชื่อแบบยืดหยุ่นด้วย
             const nameParts = state.students[index].slice(2).filter(Boolean);
