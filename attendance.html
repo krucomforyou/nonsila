@@ -179,6 +179,9 @@
                         <div class="text-sm font-bold text-gray-600 flex items-center whitespace-nowrap mr-4">
                             <i class="fas fa-clipboard-list text-blue-500 mr-2 text-lg"></i> รายชื่อนักเรียน 
                             <span id="studentCountBadge" class="bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full text-xs ml-2">0 คน</span>
+                            <button id="btnRefreshStudents" onclick="loadStudents()" class="ml-2 text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition text-[10px] sm:text-xs hidden" title="รีเฟรชข้อมูลนักเรียน">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
                         <div id="btnGroupStatus" class="flex items-center gap-1.5 sm:gap-2 bg-white px-2 sm:px-3 py-1.5 rounded-lg border shadow-sm whitespace-nowrap overflow-x-auto w-full md:w-auto hidden">
                             <span class="text-[10px] sm:text-xs font-bold text-gray-500 mr-1 hidden sm:inline">ตั้งค่าทั้งหมด:</span>
@@ -531,7 +534,24 @@
             };
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
             
-            if(tabId === 'attendance') populateSubjectDropdown('attSubjectSelector', state.currentDate);
+            if(tabId === 'attendance') {
+                const prevSubj = state.currentSubjectPeriod;
+                populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                
+                // คืนค่า Dropdown เดิมถ้ามี และโหลดข้อมูลนักเรียนใหม่ (Auto-refresh)
+                if (prevSubj) {
+                    const attSel = document.getElementById('attSubjectSelector');
+                    const exists = Array.from(attSel.options).some(opt => opt.value === prevSubj);
+                    if (exists) {
+                        attSel.value = prevSubj;
+                        if (state.currentClass && state.currentClass !== '-') {
+                            loadStudents(); // Auto-refresh เมื่อกลับมาหน้าเดิม
+                        }
+                    } else {
+                        onSubjectSelect('att');
+                    }
+                }
+            }
             if(tabId === 'manage-time') populateSubjectDropdown('manageTimeSubject', state.currentDate);
             if(tabId === 'report') populateReportClassDropdown();
 
@@ -576,6 +596,11 @@
                     document.getElementById('studentCountBadge').innerText = '0 คน';
                     document.getElementById('btnSaveAttendance').classList.add('hidden');
                     document.getElementById('btnGroupStatus').classList.add('hidden');
+                    const refreshBtn = document.getElementById('btnRefreshStudents');
+                    if(refreshBtn) refreshBtn.classList.add('hidden');
+                    
+                    state.currentSubjectPeriod = '';
+                    state.currentClass = '';
                 }
             }
         }
@@ -693,9 +718,11 @@
                         document.getElementById('studentCountBadge').innerText = '0 คน';
                         document.getElementById('btnSaveAttendance').classList.add('hidden');
                         document.getElementById('btnGroupStatus').classList.add('hidden');
+                        document.getElementById('btnRefreshStudents').classList.add('hidden');
                     } else {
                         document.getElementById('btnSaveAttendance').classList.remove('hidden');
                         document.getElementById('btnGroupStatus').classList.remove('hidden');
+                        document.getElementById('btnRefreshStudents').classList.remove('hidden');
                         loadStudents(); 
                     }
                 }
@@ -706,6 +733,9 @@
                     document.getElementById('attClassDisplay').classList.add('hidden');
                     document.getElementById('btnSaveAttendance').classList.add('hidden');
                     document.getElementById('btnGroupStatus').classList.add('hidden');
+                    document.getElementById('btnRefreshStudents').classList.add('hidden');
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4"><i class="fas fa-hand-pointer text-2xl text-gray-400"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกวิชาเรียนด้านบน เพื่อแสดงรายชื่อ</p></td></tr>`;
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
                 }
             }
         }
