@@ -163,6 +163,7 @@
             <div class="bg-white border-b px-6 pt-4 flex gap-4 shrink-0 overflow-x-auto">
                 <button id="tabManage" onclick="switchAdminTab('manage')" class="px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-edit"></i> เพิ่ม/แก้ไขข้อมูล</button>
                 <button id="tabSort" onclick="switchAdminTab('sort')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-arrows-alt"></i> จัดเรียงคอลัมน์และลำดับ</button>
+                <button id="tabLog" onclick="switchAdminTab('log')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-history"></i> ประวัติการใช้งาน</button>
             </div>
             
             <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
@@ -213,7 +214,7 @@
                         </div>
                         <div class="overflow-y-auto max-h-[500px]">
                             <table class="w-full text-sm text-left">
-                                <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
+                                <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b z-10">
                                     <tr>
                                         <th class="px-4 py-3 w-1/3">กลุ่มสาระ</th>
                                         <th class="px-4 py-3 w-1/3">ชื่อปุ่ม</th>
@@ -256,6 +257,33 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- SECTION 3: ประวัติการใช้งาน (LOGS) -->
+                <div id="adminLogSection" class="hidden flex-col gap-4">
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full max-h-[600px]">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                            <h4 class="font-bold text-gray-700 text-sm"><i class="fas fa-history text-gray-500 mr-2"></i> ประวัติการดำเนินการ (50 รายการล่าสุด)</h4>
+                            <button onclick="loadLogs()" class="text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1 rounded shadow-sm flex items-center gap-2 transition">
+                                <i class="fas fa-sync-alt"></i> รีเฟรช
+                            </button>
+                        </div>
+                        <div class="overflow-y-auto flex-1 p-0">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b shadow-sm z-10">
+                                    <tr>
+                                        <th class="px-4 py-3 w-32 whitespace-nowrap">วัน-เวลา</th>
+                                        <th class="px-4 py-3 w-40">ผู้ทำรายการ</th>
+                                        <th class="px-4 py-3 w-32">การกระทำ</th>
+                                        <th class="px-4 py-3">รายละเอียด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminLogsTable" class="divide-y divide-gray-100">
+                                    <tr><td colspan="4" class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูลประวัติ...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
             </div>
         </div>
@@ -269,7 +297,8 @@
         let linkData = [];
         let categories = [];
         let currentActiveCategory = '';
-        let sortableInstances = []; // รองรับกล่อง SortableJS ทั้งหมด
+        let sortableInstances = []; 
+        let searchTimeout = null; // ตัวแปรสำหรับจัดการการหน่วงเวลาค้นหา
 
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -278,7 +307,34 @@
             confirm: (title, text, btnText) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); }
         };
 
-        // --- Helper Function สำหรับโหมดปกติ (นำ Order ที่ลากมาคำนวณด้วย) ---
+        // โหลดข้อมูลผู้ใช้งานปัจจุบัน
+        function getCurrentUser() {
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                try { return JSON.parse(savedUser).name || 'Unknown User'; } 
+                catch(e) { return 'Unknown User'; }
+            }
+            return 'System';
+        }
+
+        // ฟังก์ชันส่ง Log พื้นหลัง (ค้นหา และ คลิก) โดยไม่บล็อก UI
+        function sendActivityLog(action, details) {
+            const form = new FormData();
+            form.append('user', getCurrentUser());
+            form.append('activityType', action);
+            form.append('details', details);
+
+            // ส่งข้อมูลไปแบบไม่ต้องรอ (fire and forget)
+            fetch(`${API_URL}?action=logActivity`, { method: 'POST', body: form })
+                .catch(e => console.error("Log failed", e));
+        }
+
+        // ดักจับการคลิกลิงก์
+        function trackLinkClick(title, category) {
+            sendActivityLog('เข้าดูวิชา', `หมวดหมู่: [${category}] - เปิดดูวิชา: ${title}`);
+        }
+
+        // --- Helper Function สำหรับโหมดปกติ ---
         function sortLinksHelper(a, b) {
             const orderA = a.order !== undefined ? a.order : 999;
             const orderB = b.order !== undefined ? b.order : 999;
@@ -397,9 +453,18 @@
             const clearSearchBtn = document.getElementById('clearSearchBtn');
             const query = searchInput.value.trim().toLowerCase();
             
+            // ยกเลิก Timeout เดิมเมื่อผู้ใช้ยังพิมพ์อยู่
+            clearTimeout(searchTimeout);
+
             // แสดง/ซ่อน ปุ่มเคลียร์ข้อความ X
             if (query !== '') {
                 clearSearchBtn.classList.remove('hidden');
+                
+                // --- ระบบหน่วงเวลาบันทึก Log การค้นหา (รอ 1.5 วินาทีหลังจากหยุดพิมพ์) ---
+                searchTimeout = setTimeout(() => {
+                    sendActivityLog('ค้นหาข้อมูล', `ค้นหาคำว่า: "${query}"`);
+                }, 1500);
+
             } else {
                 clearSearchBtn.classList.add('hidden');
             }
@@ -424,8 +489,9 @@
         function clearSearch() {
             const searchInput = document.getElementById('searchInput');
             searchInput.value = '';
+            clearTimeout(searchTimeout); // ยกเลิก log ถ้ากดเคลียร์ทันที
             handleSearch();
-            searchInput.focus(); // ให้เคอร์เซอร์กลับไปที่ช่องค้นหา
+            searchInput.focus(); 
         }
 
         function selectCategory(categoryName) {
@@ -436,6 +502,7 @@
             if (searchInput && searchInput.value !== '') {
                 searchInput.value = '';
                 if(clearSearchBtn) clearSearchBtn.classList.add('hidden');
+                clearTimeout(searchTimeout);
             }
 
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
@@ -463,28 +530,23 @@
                 if (!sidebar.classList.contains('-translate-x-full')) toggleSidebar();
             }
 
-            // เลื่อนหน้าจอกลับขึ้นไปด้านบนเมื่อเลือกกลุ่มสาระใหม่
             const mainContent = document.getElementById('mainContent');
             if (mainContent) {
                 mainContent.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
 
-        // --- Layout Generator แก้ไขใหม่เพื่อรองรับการค้นหาที่สมบูรณ์แบบ ---
+        // --- Layout Generator (อัปเดตเพิ่ม onclick ดักการคลิก) ---
         function generateColumnLayout(itemsArray, isSearchMode = false) {
             if (isSearchMode) {
-                // โหมดค้นหา: เรียงตาม ชื่อวิชา (ตัดชั้นปีออก) -> ชั้นปี -> ชื่อเต็ม
                 let sortedItems = [...itemsArray].sort((a, b) => {
-                    // ดึงเฉพาะชื่อวิชา โดยตัดคำว่า ป. หรือ ม. และตัวเลขด้านหลังทิ้ง
                     const getBaseName = (t) => t.replace(/\s*(ป\.|ม\.)\s*\d+(\/\d+)?.*$/, '').trim();
                     const baseNameA = getBaseName(a.title);
                     const baseNameB = getBaseName(b.title);
                     
-                    // 1. เรียงตามชื่อวิชาล้วนๆ ก่อน
                     const nameCompare = baseNameA.localeCompare(baseNameB, 'th');
                     if (nameCompare !== 0) return nameCompare;
 
-                    // 2. ถ้าชื่อวิชาเหมือนกัน ให้เรียงตามชั้นปี
                     const getGrade = (t) => {
                         const p = t.match(/ป\.\s*(\d+)/); if(p) return parseInt(p[1]);
                         const m = t.match(/ม\.\s*(\d+)/); if(m) return parseInt(m[1]) + 6;
@@ -494,21 +556,19 @@
                     const gradeB = getGrade(b.title);
                     if (gradeA !== gradeB) return gradeA - gradeB;
                     
-                    // 3. ถ้าชั้นปีเดียวกันอีก (เช่น ป.4/1, ป.4/2) ให้เรียงตามชื่อเต็ม
                     return a.title.localeCompare(b.title, 'th');
                 });
 
-                // สร้างโครงสร้าง Grid ปกติ 3 คอลัมน์ แต่เอาข้อมูลไปใส่ในคอลัมน์ซ้ายสุดอันเดียว
                 let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full">`;
                 
-                // คอลัมน์ที่ 1 (แสดงข้อมูลทั้งหมด)
                 html += `<div class="flex flex-col gap-4">`;
                 sortedItems.forEach(item => {
-                    html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                    const safeTitle = item.title.replace(/'/g, "\\'");
+                    const safeCategory = item.category.replace(/'/g, "\\'");
+                    html += `<a href="${item.url}" target="_blank" onclick="trackLinkClick('${safeTitle}', '${safeCategory}')" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
                 });
                 html += `</div>`;
                 
-                // คอลัมน์ที่ 2 และ 3 ว่างเปล่า เพื่อดันให้คอลัมน์แรกมีขนาดความกว้างที่เหมาะสมและอยู่ด้านซ้าย
                 html += `<div class="hidden md:block"></div><div class="hidden md:block"></div>`;
                 
                 html += `</div>`;
@@ -534,7 +594,9 @@
             for (let i = 1; i <= 3; i++) {
                 html += `<div class="flex flex-col gap-4">`;
                 cols[i].forEach(item => {
-                    html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                    const safeTitle = item.title.replace(/'/g, "\\'");
+                    const safeCategory = item.category.replace(/'/g, "\\'");
+                    html += `<a href="${item.url}" target="_blank" onclick="trackLinkClick('${safeTitle}', '${safeCategory}')" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
                 });
                 html += `</div>`;
             }
@@ -547,7 +609,9 @@
                 for (let i = 4; i <= 6; i++) {
                     html += `<div class="flex flex-col gap-4">`;
                     cols[i].forEach(item => {
-                        html += `<a href="${item.url}" target="_blank" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
+                        const safeTitle = item.title.replace(/'/g, "\\'");
+                        const safeCategory = item.category.replace(/'/g, "\\'");
+                        html += `<a href="${item.url}" target="_blank" onclick="trackLinkClick('${safeTitle}', '${safeCategory}')" class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
                     });
                     html += `</div>`;
                 }
@@ -630,29 +694,36 @@
         function switchAdminTab(tab) {
             const tabManage = document.getElementById('tabManage');
             const tabSort = document.getElementById('tabSort');
+            const tabLog = document.getElementById('tabLog');
+            
             const secManage = document.getElementById('adminManageSection');
             const secSort = document.getElementById('adminSortSection');
+            const secLog = document.getElementById('adminLogSection');
+
+            // Reset styles
+            [tabManage, tabSort, tabLog].forEach(t => {
+                t.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+            });
+            [secManage, secSort, secLog].forEach(s => {
+                s.classList.add('hidden');
+                s.classList.remove('flex');
+            });
 
             if (tab === 'manage') {
                 tabManage.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
-                tabSort.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
-                
                 secManage.classList.remove('hidden');
                 secManage.classList.add('flex');
-                secSort.classList.add('hidden');
-                secSort.classList.remove('flex');
-                
                 renderAdminTable(); 
             } else if (tab === 'sort') {
                 tabSort.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
-                tabManage.className = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
-                
-                secManage.classList.add('hidden');
-                secManage.classList.remove('flex');
                 secSort.classList.remove('hidden');
                 secSort.classList.add('flex');
-                
                 populateSortCategoryDropdown(); 
+            } else if (tab === 'log') {
+                tabLog.className = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+                secLog.classList.remove('hidden');
+                secLog.classList.add('flex');
+                loadLogs();
             }
         }
 
@@ -794,6 +865,7 @@
             form.append('category', cat);
             form.append('title', title);
             form.append('url', url);
+            form.append('user', getCurrentUser()); // ส่งชื่อ User ไปบันทึก Log
             
             let actionName = 'savePorPor5Link';
             if (editId) {
@@ -825,6 +897,8 @@
                     
                     const form = new FormData();
                     form.append('id', id);
+                    form.append('title', title); // ส่งชื่อไปบันทึก Log
+                    form.append('user', getCurrentUser()); // ส่งชื่อ User ไปบันทึก Log
 
                     try {
                         const response = await fetch(`${API_URL}?action=deletePorPor5Link`, { method: 'POST', body: form });
@@ -854,13 +928,12 @@
             categories.forEach(cat => {
                 if(cat !== 'หน้าแรก') {
                     html += `<option value="${cat}">${cat}</option>`;
-                    if(!firstCat) firstCat = cat; // เก็บค่ากลุ่มสาระแรกที่พบ
+                    if(!firstCat) firstCat = cat; 
                 }
             });
             select.innerHTML = html;
             
             if (firstCat) {
-                // บังคับเลือกกลุ่มสาระแรกเสมอและโหลดข้อมูลมาทันที
                 select.value = firstCat;
                 renderSortGrid();
             } else {
@@ -879,7 +952,6 @@
 
             let items = linkData.filter(item => item.category === cat);
 
-            // แยกปุ่มในกลุ่มสาระนี้ออกเป็น 6 คอลัมน์ (ตามข้อมูล ColIndex ที่บันทึกไว้)
             let cols = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             items.forEach(it => {
                 let c = it.colIndex || 1;
@@ -970,6 +1042,8 @@
             const columns = document.querySelectorAll('.sortable-column-wrapper');
             if (columns.length === 0) return;
 
+            const categoryName = document.getElementById('sortCategorySelect').value;
+
             let updates = [];
             
             columns.forEach(colEl => {
@@ -989,6 +1063,8 @@
 
             const form = new FormData();
             form.append('data', JSON.stringify(updates));
+            form.append('category', categoryName); // ส่งชื่อกลุ่มสาระไปเพื่อบันทึก log ให้ชัดเจน
+            form.append('user', getCurrentUser()); // ส่งชื่อ User ไปบันทึก Log
 
             try {
                 const res = await fetch(`${API_URL}?action=updatePorPor5Order`, { method: 'POST', body: form });
@@ -1005,6 +1081,84 @@
                 cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถส่งข้อมูลได้');
             }
         }
+
+        // ==========================================
+        // LOGS SYSTEM
+        // ==========================================
+        async function loadLogs() {
+            const tbody = document.getElementById('adminLogsTable');
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูลประวัติ...</td></tr>`;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getPorPor5Logs`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    renderLogs(json.data);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-400">เกิดข้อผิดพลาดในการโหลดประวัติ</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-400">เชื่อมต่อระบบล้มเหลว</td></tr>`;
+            }
+        }
+
+        function renderLogs(logs) {
+            const tbody = document.getElementById('adminLogsTable');
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400">ยังไม่มีประวัติการใช้งาน</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            logs.forEach(log => {
+                // เลือกสีและไอคอนตาม Action
+                let actionStyle = '';
+                let actionIcon = '';
+                
+                if (log.action.includes('เพิ่ม')) {
+                    actionStyle = 'bg-green-100 text-green-700';
+                    actionIcon = '<i class="fas fa-plus mr-1"></i>';
+                } else if (log.action.includes('แก้ไข')) {
+                    actionStyle = 'bg-blue-100 text-blue-700';
+                    actionIcon = '<i class="fas fa-edit mr-1"></i>';
+                } else if (log.action.includes('ลบ')) {
+                    actionStyle = 'bg-red-100 text-red-700';
+                    actionIcon = '<i class="fas fa-trash mr-1"></i>';
+                } else if (log.action.includes('จัดเรียง')) {
+                    actionStyle = 'bg-purple-100 text-purple-700';
+                    actionIcon = '<i class="fas fa-sort mr-1"></i>';
+                } else if (log.action.includes('ค้นหา')) {
+                    actionStyle = 'bg-yellow-100 text-yellow-700';
+                    actionIcon = '<i class="fas fa-search mr-1"></i>';
+                } else if (log.action.includes('เข้าดูวิชา')) {
+                    actionStyle = 'bg-cyan-100 text-cyan-700';
+                    actionIcon = '<i class="fas fa-external-link-alt mr-1"></i>';
+                } else {
+                    actionStyle = 'bg-gray-100 text-gray-700';
+                    actionIcon = '<i class="fas fa-info-circle mr-1"></i>';
+                }
+
+                html += `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100 text-xs md:text-sm">
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">${log.timestamp}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800 flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-nswDarkGreen text-white flex items-center justify-center text-[10px] shrink-0">
+                            ${log.user.charAt(0)}
+                        </div>
+                        <span class="truncate w-32">${log.user}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded text-[11px] font-bold ${actionStyle} whitespace-nowrap">
+                            ${actionIcon} ${log.action}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 truncate max-w-xs" title="${log.details}">${log.details}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
     </script>
 </body>
 </html>
