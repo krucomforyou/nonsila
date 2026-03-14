@@ -55,7 +55,6 @@
     <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
 
     <!-- SIDEBAR -->
-    <!-- เปลี่ยนจาก shrink-0 เป็น flex-none ป้องกันการถูกบีบแบบเด็ดขาด -->
     <aside id="sidebarMenu" class="w-64 flex-none sidebar text-white flex flex-col h-[100dvh] md:h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
         <div class="p-6 border-b border-purple-800 flex flex-col items-center relative shrink-0">
             <button class="md:hidden absolute top-4 right-4 text-white hover:text-red-400" onclick="toggleSidebar()">
@@ -74,6 +73,11 @@
                 <a href="#" onclick="switchView('active')" id="menuActive" class="sidebar-item active border-l-4 border-yellow-400 flex items-center justify-between px-6 py-3 text-sm transition text-white">
                     <span class="flex items-center"><i class="fas fa-file-alt w-6"></i> ค้นหาเอกสารทั้งหมด</span>
                     <span id="activeCountBadge" class="bg-purple-800 text-purple-200 text-xs px-2 py-0.5 rounded-full">0</span>
+                </a>
+                
+                <!-- ปุ่มเมนู Log (จะแสดงผลเฉพาะ Admin ผ่าน JS) -->
+                <a href="#" onclick="openLogModal()" id="menuLogs" class="sidebar-item border-l-4 border-transparent flex items-center justify-between px-6 py-3 mt-1 text-sm transition text-gray-300 hidden">
+                    <span class="flex items-center"><i class="fas fa-history w-6"></i> ประวัติการใช้งาน (Log)</span>
                 </a>
             </div>
 
@@ -98,9 +102,8 @@
                 <button onclick="goToMainWeb()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
-                <!-- ป้ายแสดง Version ระบบ (สำหรับตรวจสอบการอัปเดต) -->
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.2 (อัปเดต 15/03/2569)
+                    Version 1.0.3 (อัปเดตระบบ Log)
                 </div>
             </div>
         </div>
@@ -281,6 +284,41 @@
         </div>
     </div>
 
+    <!-- LOG MODAL (ประวัติการใช้งาน - สำหรับ Admin) -->
+    <div id="logModal" class="modal fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-4xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
+            <div class="bg-gray-800 px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-lg"><i class="fas fa-history mr-2"></i> ประวัติการใช้งานระบบ (System Logs)</h3>
+                 <button onclick="closeLogModal()" class="text-gray-300 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-4 bg-gray-50 border-b border-gray-200 shrink-0">
+                <div class="relative max-w-md">
+                    <input type="text" id="logSearch" oninput="filterLogs()" placeholder="ค้นหาประวัติ (ชื่อผู้ใช้, การกระทำ, ชื่อเอกสาร)..." class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-500 outline-none bg-white">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-auto relative bg-white">
+                <table class="w-full text-left whitespace-nowrap md:whitespace-normal">
+                    <thead class="bg-gray-100 text-gray-600 sticky top-0 shadow-sm z-10 text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="px-4 py-3 w-36 whitespace-nowrap">วัน/เวลา</th>
+                            <th class="px-4 py-3 w-32 whitespace-nowrap">การกระทำ</th>
+                            <th class="px-4 py-3 w-40 whitespace-nowrap">ผู้ใช้งาน</th>
+                            <th class="px-4 py-3 min-w-[200px]">รายละเอียด</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logListContainer" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="4" class="py-10 text-center text-gray-500">กำลังโหลดประวัติ...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
         // *** นำ URL Web App ของ Backend (document_code.gs) มาใส่ที่นี่ ***
         const DOC_API_URL = 'https://script.google.com/macros/s/AKfycbz8JNFsiJhtcsrZjlpchFlrGaElCNz_Tm0X9VNaAgopyEw6DiGjBVCSjmTJHAbVyGhB6A/exec'; 
@@ -348,6 +386,20 @@
                 document.getElementById('sidebarUserName').innerText = state.user.name;
                 document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
                 document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=4c1d95&color=ffffff`;
+                
+                // ตรวจสอบสิทธิ์สำหรับเมนู Log
+                const userRoleStr = (state.user.role || '').toLowerCase();
+                const isAdmin = userRoleStr.includes('นักรบมังกร') || userRoleStr.includes('จอมเวทย์อาวุโส') || userRoleStr.includes('จอมเวทอาวุโส') || userRoleStr.includes('admin');
+                if (isAdmin) {
+                    document.getElementById('menuLogs').classList.remove('hidden');
+                }
+
+                // ส่งคำสั่งบันทึกการเข้าสู่ระบบ 1 ครั้งต่อการเปิดเบราว์เซอร์
+                if (!sessionStorage.getItem('nsw_doc_logged_in')) {
+                    logSystemAccess();
+                    sessionStorage.setItem('nsw_doc_logged_in', 'true');
+                }
+
                 fetchDocuments();
             } else {
                 cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน').then(() => { 
@@ -369,6 +421,14 @@
         }
 
         function goToMainWeb() { window.location.href = 'index.html'; }
+
+        // ส่งข้อมูลเข้าบันทึก Log การเข้าใช้งาน
+        async function logSystemAccess() {
+            const form = new FormData();
+            form.append('requestUser', state.user.name);
+            form.append('requestRole', state.user.role);
+            fetch(`${DOC_API_URL}?action=logAccess`, { method: 'POST', body: form }).catch(e => {});
+        }
 
         // ================= สลับหน้าจอ ดูเอกสาร/ถังขยะ =================
         function switchView(mode) {
@@ -866,6 +926,75 @@
                     }
                 }
             });
+        }
+
+        // ================= ระบบจัดการ LOG (สำหรับ ADMIN) =================
+        let allLogs = [];
+
+        async function openLogModal() {
+            document.getElementById('logModal').classList.add('active');
+            document.getElementById('logListContainer').innerHTML = '<tr><td colspan="4" class="py-10 text-center"><div class="loader mx-auto mb-2 border-gray-600"></div><p class="text-gray-500">กำลังโหลดประวัติ...</p></td></tr>';
+            
+            try {
+                const form = new FormData();
+                form.append('requestRole', state.user.role);
+                // ดึงข้อมูล Log แบบห้ามติดแคช
+                const res = await fetch(`${DOC_API_URL}?action=getLogs&_t=${new Date().getTime()}`, { method: 'POST', body: form });
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    allLogs = json.data;
+                    document.getElementById('logSearch').value = '';
+                    renderLogs(allLogs);
+                } else {
+                    document.getElementById('logListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500">${json.message}</td></tr>`;
+                }
+            } catch(e) {
+                document.getElementById('logListContainer').innerHTML = '<tr><td colspan="4" class="py-10 text-center text-red-500">ไม่สามารถโหลดข้อมูลประวัติได้</td></tr>';
+            }
+        }
+
+        function closeLogModal() { 
+            document.getElementById('logModal').classList.remove('active'); 
+        }
+
+        function filterLogs() {
+            const txt = document.getElementById('logSearch').value.toLowerCase();
+            const filtered = allLogs.filter(l => 
+                (l.action || '').toLowerCase().includes(txt) || 
+                (l.user || '').toLowerCase().includes(txt) || 
+                (l.details || '').toLowerCase().includes(txt)
+            );
+            renderLogs(filtered);
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logListContainer');
+            if (logs.length === 0) {
+                container.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-gray-500">ไม่พบประวัติที่ค้นหา</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            logs.forEach(l => {
+                // กำหนดสีป้ายกำกับตามประเภทของการกระทำ (Action)
+                let actionColor = 'text-gray-600 bg-gray-100';
+                if (l.action.includes('อัปโหลด')) actionColor = 'text-blue-700 bg-blue-100';
+                else if (l.action.includes('แก้ไข')) actionColor = 'text-yellow-700 bg-yellow-100';
+                else if (l.action.includes('ย้ายลงถังขยะ')) actionColor = 'text-orange-700 bg-orange-100';
+                else if (l.action.includes('กู้คืน')) actionColor = 'text-green-700 bg-green-100';
+                else if (l.action.includes('ลบถาวร')) actionColor = 'text-red-700 bg-red-100';
+                else if (l.action.includes('เข้าสู่ระบบ')) actionColor = 'text-purple-700 bg-purple-100';
+                
+                html += `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-50">
+                    <td class="px-4 py-3 text-[11px] text-gray-500 whitespace-nowrap align-top pt-4">${l.timestamp}</td>
+                    <td class="px-4 py-3 align-top pt-4"><span class="px-2 py-1 rounded text-[10px] font-bold ${actionColor} whitespace-nowrap">${l.action}</span></td>
+                    <td class="px-4 py-3 text-xs font-medium text-gray-700 align-top pt-4 whitespace-nowrap">${l.user}</td>
+                    <td class="px-4 py-3 text-[11px] md:text-xs text-gray-600 break-words min-w-[200px] leading-relaxed">${l.details}</td>
+                </tr>`;
+            });
+            container.innerHTML = html;
         }
     </script>
 </body>
