@@ -587,6 +587,9 @@
             <h3 id="footerTitle" class="font-bold text-lg">โรงเรียนโนนศิลาสว่างวิทย์</h3>
             <p id="footerSubtitle" class="text-sm opacity-70 mb-4">สำนักงานเขตพื้นที่การศึกษาประถมศึกษา เขต 2 (สพป.กาฬสินธุ์ เขต 2)</p>
             <p id="footerCopyright" class="text-xs opacity-50">&copy; 2024 Non Sila Sawang Wit School. All rights reserved.</p>
+            <p class="text-[10px] md:text-xs opacity-40 mt-2 font-mono tracking-wide">
+                Version 1.0.1 | อัพเดทเมื่อ 15/03/2569
+            </p>
         </div>
     </footer>
 
@@ -952,14 +955,20 @@
                     
                     <!-- LOGS TAB (บันทึกการใช้งาน) -->
                     <div id="logsTab" class="admin-content hidden space-y-6">
-                        <div class="flex justify-between items-center mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                             <div>
                                 <h4 class="font-bold text-2xl text-gray-800"><i class="fas fa-history text-blue-500 mr-2"></i> บันทึกการใช้งานระบบ (Audit Log)</h4>
-                                <p class="text-gray-500 text-sm">ประวัติการกระทำต่างๆ ของแอดมินในระบบ (เฉพาะนักรบมังกรและระดับสูงที่ได้รับสิทธิ์)</p>
+                                <p class="text-gray-500 text-sm">ประวัติการกระทำต่างๆ ของแอดมิน (เฉพาะนักรบมังกรและจอมเวทย์อาวุโส)</p>
                             </div>
-                            <button onclick="loadSystemLogs()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition text-sm font-bold border">
-                                <i class="fas fa-sync-alt"></i> โหลดข้อมูลใหม่
-                            </button>
+                            <div class="flex items-center gap-2 w-full md:w-auto">
+                                <div class="relative w-full md:w-64">
+                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" id="searchLogInput" onkeyup="filterLogs()" placeholder="ค้นหา ชื่อ, การกระทำ, รายละเอียด..." class="border rounded-lg pl-10 pr-3 py-2 text-sm w-full focus:ring-1 focus:ring-blue-500 outline-none">
+                                </div>
+                                <button onclick="loadSystemLogs()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition text-sm font-bold border whitespace-nowrap">
+                                    <i class="fas fa-sync-alt"></i> โหลดใหม่
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1392,33 +1401,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const tbody = document.getElementById('adminLogsList');
             tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400"><div class="loader mx-auto mb-2"></div> กำลังโหลดบันทึก...</td></tr>';
             try {
-                const res = await fetch(`${API_URL}?action=getLogs`);
+                // ส่ง Role ของคนที่ Login อยู่ไปตรวจสอบด้วย
+                const res = await fetch(`${API_URL}?action=getLogs&role=${encodeURIComponent(state.user.role)}`);
                 const json = await res.json();
                 state.logs = Array.isArray(json) ? json : [];
-                renderAdminLogsList();
+                renderAdminLogsList(state.logs);
             } catch(e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล (อาจจะยังไม่ได้อัปเดตไฟล์ code.gs)</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
             }
         }
 
-        function renderAdminLogsList() {
+        function filterLogs() {
+            const query = document.getElementById('searchLogInput').value.toLowerCase();
+            const filtered = state.logs.filter(log =>
+                (log.User || '').toLowerCase().includes(query) ||
+                (log.Action || '').toLowerCase().includes(query) ||
+                (log.Detail || '').toLowerCase().includes(query) ||
+                (log.Role || '').toLowerCase().includes(query)
+            );
+            renderAdminLogsList(filtered);
+        }
+
+        function renderAdminLogsList(dataToRender = state.logs) {
             const tbody = document.getElementById('adminLogsList');
-            if(!state.logs || state.logs.length === 0) { 
-                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">ยังไม่มีประวัติการใช้งาน</td></tr>'; 
+            if(!dataToRender || dataToRender.length === 0) { 
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">ไม่พบประวัติการใช้งาน</td></tr>'; 
                 return; 
             }
             
-            // แสดง 100 รายการล่าสุด
-            tbody.innerHTML = state.logs.slice(0, 100).map(log => `
+            tbody.innerHTML = dataToRender.slice(0, 100).map(log => {
+                // จัดการแยกสี Action ให้ชัดเจน
+                let actionColor = 'bg-gray-100 text-gray-700 border-gray-200';
+                const actLower = (log.Action || '').toLowerCase();
+                
+                if (actLower.includes('add') || actLower.includes('เพิ่ม')) actionColor = 'bg-green-100 text-green-700 border-green-200';
+                else if (actLower.includes('edit') || actLower.includes('แก้')) actionColor = 'bg-blue-100 text-blue-700 border-blue-200';
+                else if (actLower.includes('delete') || actLower.includes('ลบ')) actionColor = 'bg-red-100 text-red-700 border-red-200';
+                else if (actLower.includes('login') || actLower.includes('เข้าสู่ระบบ')) actionColor = 'bg-purple-100 text-purple-700 border-purple-200';
+
+                return `
                 <tr class="hover:bg-blue-50 border-b transition text-xs">
-                    <td class="p-3 text-gray-500">${log.DateTime || '-'}</td>
-                    <td class="p-3 font-bold text-gray-700">${log.User || '-'} <br><span class="text-[10px] font-normal text-blue-500">${log.Role || '-'}</span></td>
-                    <td class="p-3">
-                        <span class="bg-gray-100 border border-gray-200 text-gray-700 px-2 py-1 rounded font-bold">${log.Action || '-'}</span>
+                    <td class="p-3 text-gray-500 whitespace-nowrap">${log.DateTime || '-'}</td>
+                    <td class="p-3 font-bold text-gray-700 whitespace-nowrap">${log.User || '-'} <br><span class="text-[10px] font-normal text-blue-500">${log.Role || '-'}</span></td>
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="${actionColor} border px-2 py-1 rounded font-bold inline-block text-center min-w-[80px]">${log.Action || '-'}</span>
                     </td>
-                    <td class="p-3 text-gray-600 truncate max-w-[300px]" title="${log.Detail || '-'}">${log.Detail || '-'}</td>
-                </tr>
-            `).join('');
+                    <td class="p-3 text-gray-600 leading-relaxed">${log.Detail || '-'}</td>
+                </tr>`;
+            }).join('');
         }
         // =====================================================================
 
@@ -2508,7 +2538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ADMIN_FEATURES.forEach(feature => {
                 // เพิ่มเงื่อนไข Tab Log อนุญาตเฉพาะ Dragon Warrior เท่านั้น (หรือตามที่คุณตั้งค่าได้)
                 let hasAccess = isDragonWarrior || allowedFeatures.includes(feature.id);
-                if(feature.id === 'logsTab' && !isDragonWarrior) { hasAccess = false; } // Log ดูได้เฉพาะแอดมินสูงสุด
+                if(feature.id === 'logsTab' && !(isDragonWarrior || userRole.includes('นักรบมังกร') || userRole.includes('จอมเวทย์อาวุโส'))) { hasAccess = false; }
 
                 if (hasAccess) {
                     if(!firstAllowedTab) firstAllowedTab = feature.id;
@@ -2752,6 +2782,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if ((currentT.Role || '') !== role) changes.push(`สิทธิ์การเข้าถึง (จาก "${currentT.Role}" เป็น "${role}")`);
                 
                 if (file) changes.push(`เปลี่ยนรูปโปรไฟล์ใหม่`);
+
+                if ((currentT.Username || '') !== document.getElementById('teacherUser').value) changes.push(`เปลี่ยนชื่อผู้ใช้งาน (Username)`);
+                if (document.getElementById('teacherPass').value.trim() !== '') changes.push(`เปลี่ยนรหัสผ่าน (Password) ใหม่`);
                 
                 detailMsg = `แก้ไขข้อมูลบุคลากร "${currentT.Name}"` + (changes.length > 0 ? `: ` + changes.join(', ') : '');
             } else {
@@ -2919,8 +2952,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('newsTitle').value;
             const date = document.getElementById('newsDate').value;
             const detail = document.getElementById('newsDetail').value;
-            
+
             if(!title || !date) { showAlert('ข้อผิดพลาด', 'กรุณาระบุหัวข้อข่าวและวันที่', 'warning'); return; }
+
+            // ====== 1. ส่วนที่เพิ่มเข้ามาใหม่: วิเคราะห์ความเปลี่ยนแปลงก่อน ======
+            const currentN = state.news.find(n => n.ID == id);
+            let detailMsg = '';
+            
+            if (id && currentN) {
+                let changes = [];
+                if ((currentN.Title || '') !== title) changes.push(`หัวข้อ (จาก "${currentN.Title}" เป็น "${title}")`);
+                if ((currentN.Detail || '') !== detail) changes.push(`รายละเอียดเนื้อหาข่าว`);
+                if (uploadQueue.length > 0) changes.push(`อัปโหลดเพิ่ม ${uploadQueue.length} รูป`);
+                
+                detailMsg = `แก้ไขข่าวประชาสัมพันธ์ "${currentN.Title}"` + (changes.length > 0 ? `: ` + changes.join(', ') : '');
+            } else {
+                detailMsg = `โพสต์ข่าวใหม่ "${title}"`;
+                if(uploadQueue.length > 0) detailMsg += ` (พร้อมรูปภาพ ${uploadQueue.length} รูป)`;
+            }
+            // =======================================================
 
             const form = new FormData();
             if(id) form.append('id', id);
@@ -2930,20 +2980,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if(id) { form.append('keptImages', JSON.stringify(currentServerImages)); }
 
             if(uploadQueue.length > 0) {
-                 for(let i=0; i<uploadQueue.length; i++) {
-                     const file = uploadQueue[i];
-                     const reader = new FileReader();
-                     reader.readAsDataURL(file);
-                     await new Promise(r => reader.onload = r);
-                     form.append('files', reader.result.split(',')[1]);
-                     form.append('fileNames', file.name);
-                     form.append('fileTypes', file.type);
-                 }
+                for(let i=0; i<uploadQueue.length; i++) {
+                    const file = uploadQueue[i];
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    await new Promise(r => reader.onload = r);
+                    form.append('files', reader.result.split(',')[1]);
+                    form.append('fileNames', file.name);
+                    form.append('fileTypes', file.type);
+                }
             }
+            
             sendData(id ? 'editNewsletter' : 'addNewsletter', form, () => {
-                logAction(id ? 'Edit News' : 'Add News', id ? `แก้ไขข่าวประชาสัมพันธ์ "${title}"` : `โพสต์ข่าวใหม่ "${title}"`);
+                // ====== 2. แก้ไขตรงนี้: เรียกใช้ detailMsg ที่เราเตรียมไว้ด้านบน ======
+                logAction(id ? 'Edit News' : 'Add News', detailMsg);
+                // ========================================================
+                
                 closeNewsFormModal();
-                document.getElementById('newsFiles').value = ''; 
+                document.getElementById('newsFiles').value = '';
                 fetch(`${API_URL}?action=getNewsletters`).then(r=>r.json()).then(data => {
                     state.news = data;
                     renderAdminNewsList();
