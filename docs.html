@@ -100,7 +100,7 @@
                 </button>
                 <!-- ป้ายแสดง Version ระบบ (สำหรับตรวจสอบการอัปเดต) -->
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.1 (อัปเดต 15/03/2569)
+                    Version 1.0.2 (อัปเดต 15/03/2569)
                 </div>
             </div>
         </div>
@@ -511,11 +511,14 @@
             }
 
             let html = '';
-            // ตรวจสอบสิทธิ์ผู้ดูแลระบบ (นักรบมังกร หรือ จอมเวทย์อาวุโส)
-            const isAdmin = (state.user.role === '🐲 นักรบมังกร') || (state.user.role === '🧙‍♂️ จอมเวทย์อาวุโส');
+            
+            // ฟังก์ชันตรวจสอบสิทธิ์ Admin
+            const userRoleStr = (state.user && state.user.role ? state.user.role : '').toLowerCase();
+            const isAdmin = userRoleStr.includes('นักรบมังกร') || userRoleStr.includes('จอมเวทย์อาวุโส') || userRoleStr.includes('จอมเวทอาวุโส') || userRoleStr.includes('admin');
 
             state.filteredDocs.forEach((doc, idx) => {
-                const canManage = (state.user.name === doc.uploader) || isAdmin;
+                const isUploader = (state.user.name === doc.uploader);
+                const canEdit = isUploader || isAdmin; // เฉพาะคนอัปโหลด หรือแอดมิน ที่มีสิทธิ์แก้ไข
                 
                 let typeColor = 'text-gray-600 bg-gray-100';
                 if(doc.docType.includes('คณะกรรมการ')) typeColor = 'text-purple-700 bg-purple-100';
@@ -526,25 +529,30 @@
                 let actionButtons = '';
                 
                 if (state.viewMode === 'active') {
-                    // ปุ่มสำหรับหน้าเอกสารปกติ
-                    if (canManage) {
-                        actionButtons = `
-                            <button onclick="editDoc(${doc.id})" class="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center hover:bg-yellow-200 transition" title="แก้ไขเอกสาร"><i class="fas fa-pen"></i></button>
-                            <button onclick="softDeleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition" title="ย้ายไปถังขยะ"><i class="fas fa-trash"></i></button>
-                        `;
-                    } else {
-                        actionButtons = `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์จัดการ"><i class="fas fa-lock"></i></button>`;
+                    // --- หน้าเอกสารปกติ ---
+                    // ปุ่มแก้ไข (จำกัดสิทธิ์เฉพาะคนอัปโหลดหรือแอดมิน)
+                    if (canEdit) {
+                        actionButtons += `<button onclick="editDoc(${doc.id})" class="w-8 h-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center hover:bg-yellow-200 transition" title="แก้ไขเอกสาร"><i class="fas fa-pen"></i></button>`;
                     }
+                    
+                    // ปุ่มลบ / ย้ายลงถังขยะ (อนุญาตให้ทุกคนกดได้)
+                    actionButtons += `<button onclick="softDeleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition" title="ย้ายไปถังขยะ"><i class="fas fa-trash"></i></button>`;
+                    
                 } else {
-                    // ปุ่มสำหรับหน้าถังขยะ
-                    if (canManage) {
+                    // --- หน้าถังขยะ ---
+                    // ปุ่มกู้คืน (จำกัดสิทธิ์เฉพาะคนอัปโหลดหรือแอดมิน)
+                    if (canEdit) {
                         actionButtons += `<button onclick="restoreDoc(${doc.id})" class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition" title="กู้คืนเอกสาร"><i class="fas fa-trash-restore"></i></button>`;
                     }
+                    
+                    // ปุ่มลบถาวร (จำกัดสิทธิ์ให้เฉพาะ Admin เท่านั้น)
                     if (isAdmin) {
                         actionButtons += `<button onclick="hardDeleteDoc(${doc.id})" class="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition shadow" title="ลบถาวร"><i class="fas fa-times"></i></button>`;
                     }
-                    if (!canManage && !isAdmin) {
-                        actionButtons = `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="ไม่มีสิทธิ์จัดการ"><i class="fas fa-lock"></i></button>`;
+                    
+                    // หากไม่มีสิทธิ์ทำอะไรเลย ให้แสดงรูปแม่กุญแจ
+                    if (!canEdit && !isAdmin) {
+                        actionButtons = `<button class="w-8 h-8 rounded-full bg-gray-100 text-gray-300 flex items-center justify-center cursor-not-allowed" title="รอให้แอดมินตรวจสอบ"><i class="fas fa-lock"></i></button>`;
                     }
                 }
 
@@ -782,9 +790,9 @@
             }
         }
 
-        // ================= Soft Delete (ย้ายลงถังขยะ) =================
+        // ================= Soft Delete (ย้ายลงถังขยะ) - อนุญาตทุกคน =================
         function softDeleteDoc(id) {
-            cuteAlert.confirm('ย้ายลงถังขยะ?', 'เอกสารจะถูกซ่อนจากหน้าหลัก สามารถกู้คืนได้ภายหลัง', 'ย้ายไปถังขยะ').then(async (result) => {
+            cuteAlert.confirm('ย้ายลงถังขยะ?', 'เอกสารจะถูกซ่อนจากหน้าหลัก สามารถกู้คืนได้ในภายหลัง', 'ย้ายไปถังขยะ').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังย้ายเอกสาร... 🗑️');
                     const form = new FormData();
