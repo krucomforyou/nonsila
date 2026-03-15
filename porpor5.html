@@ -100,8 +100,11 @@
                 <button onclick="goToSystem()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
+                <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+                </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.4 (อัปเดตระบบ SSO)
+                    Version 1.0.4 (อัปเดตระบบ Login สมบูรณ์)
                 </div>
             </div>
         </div>
@@ -146,7 +149,7 @@
             <div class="mt-auto pt-10 pb-6 text-center">
                 <p class="text-gray-600 mb-10 text-sm md:text-base"><span class="font-bold underline">ข้อเสนอแนะ</span> ควรเปิดแก้ไขคราวละ 1 วิชา เพื่อลดปัญหาการโหลดช้า</p>
                 <p class="text-red-600 font-bold text-lg mb-4">ใช้ภายในโรงเรียนโนนศิลาสว่างวิทย์เท่านั้นห้ามเผยแพร่</p>
-                <p class="text-gray-400 text-xs font-medium">Version 1.0.3 (อัปเดตระบบ SSO)</p>
+                <p class="text-gray-400 text-xs font-medium">Version 1.0.4 (อัปเดตระบบ Login สมบูรณ์)</p>
             </div>
             
         </div>
@@ -305,6 +308,74 @@
         let sortableInstances = []; 
         let isFirstLoadLogSent = false; // ป้องกันการส่ง Log ซ้ำซ้อนตอนโหลดหน้า
 
+        // === เพิ่มระบบจัดการ Session เหมือนเว็บหลัก ===
+        let idleTimer;
+        const DEFAULT_IDLE_MINUTES = 60;
+
+        function normalizeFrontendRole(r) {
+            if(!r) return '🎒 นักผจญภัยฝึกหัด';
+            if(r.includes('Dragon')) return '🐲 นักรบมังกร';
+            if(r.includes('High Mage')) return '🧙‍♂️ จอมเวทย์อาวุโส';
+            if(r.includes('Grand Master')) return '⚔️ ปรมาจารย์ชั้นยอด';
+            if(r.includes('Vanguard')) return '🏹 นักผจญภัยแนวหน้า';
+            if(r.includes('Apprentice')) return '🎒 นักผจญภัยฝึกหัด';
+            return r;
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            const savedUser = localStorage.getItem('nswUser');
+            if (!savedUser) return;
+            
+            localStorage.setItem('nswLastActive', Date.now().toString());
+            let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+            
+            idleTimer = setTimeout(() => {
+                sessionExpiredLogout();
+            }, minutes * 60 * 1000);
+        }
+
+        function sessionExpiredLogout() {
+            const savedUser = localStorage.getItem('nswUser');
+            if(!savedUser) return;
+            
+            sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
+            localStorage.removeItem('nswUser');
+            localStorage.removeItem('nswLastActive');
+            
+            Swal.fire({
+                icon: 'info',
+                title: 'หมดเวลาการเชื่อมต่อ',
+                text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน',
+                confirmButtonText: 'ตกลง',
+                confirmButtonColor: '#1b8066',
+                customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' }
+            }).then(() => {
+                window.location.reload();
+            });
+        }
+
+        // ดักจับ Event ขยับเมาส์เพื่อรีเซ็ตเวลา
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
+            document.addEventListener(evt, resetIdleTimer, true)
+        );
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkUserRole(); 
+        });
+
+        function logout() {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบ ปพ.5 ใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
+                if (res.isConfirmed) {
+                    sendLogActivity('Logout', 'ออกจากระบบ ปพ.5 ออนไลน์');
+                    clearTimeout(idleTimer);
+                    localStorage.removeItem('nswUser');
+                    localStorage.removeItem('nswLastActive');
+                    window.location.reload();
+                }
+            });
+        }
+        // ============================================
+
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
             success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-xl font-bold text-green-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -424,15 +495,17 @@
             cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             
             try {
-                // อัปเดต URL API ไปใช้ระบบยืนยันตัวตนศูนย์กลางตามที่คุณให้มา
-                const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbyxV01xP0fUw-m6IVQ_cTpIzIPbgKxkcDG5r_A42E6MACeWQQK4FKHUcRS4iutsP28/exec';
+                // กลับมาใช้ API ของเว็บหลักโรงเรียน เพื่อดึงข้อมูล User ได้ครบถ้วนสมบูรณ์ (รูปโปรไฟล์, สิทธิ์)
+                const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
                 const res = await fetch(`${LOGIN_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { 
                     method: 'POST' 
                 });
                 const json = await res.json();
 
                 if (json.status === 'success') {
+                    // เซฟข้อมูล และบันทึกเวลาล่าสุดเพื่อใช้กับระบบ Idle Timeout
                     localStorage.setItem('nswUser', JSON.stringify(json.user));
+                    localStorage.setItem('nswLastActive', Date.now().toString());
 
                     Swal.fire({
                         toast: true,
@@ -485,10 +558,26 @@
             const savedUser = localStorage.getItem('nswUser');
             
             if (savedUser) {
+                // เช็ค Session Timeout ก่อน
+                const lastActive = localStorage.getItem('nswLastActive');
+                const savedTimeout = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+                if (lastActive) {
+                    const diffMs = Date.now() - parseInt(lastActive);
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins >= savedTimeout) {
+                        localStorage.removeItem('nswUser');
+                        localStorage.removeItem('nswLastActive');
+                        showLoginPopup();
+                        return;
+                    }
+                }
+
                 const user = JSON.parse(savedUser);
+                user.role = normalizeFrontendRole(user.role); // แปลง Role ให้มี Emoji และรูปแบบที่ถูกต้อง
                 
                 document.getElementById('sidebarUserName').innerText = user.name || 'ไม่ระบุชื่อ';
-                document.getElementById('sidebarUserRole').innerText = user.role || 'บุคลากร';
+                // แสดง Position ถ้ามี หากไม่มีให้แสดง Role
+                document.getElementById('sidebarUserRole').innerText = user.position || user.role || 'บุคลากร';
                 document.getElementById('sidebarUserImg').src = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=144637&color=ffffff`;
 
                 // ตรวจสอบสิทธิ์ สำหรับเปิดปุ่ม Admin 
@@ -506,6 +595,8 @@
                     sendLogActivity('เข้าสู่ระบบ', 'เข้าหน้าแรก ปพ.5 ออนไลน์');
                     sessionStorage.setItem('session_logged_in', 'true');
                 }
+                
+                resetIdleTimer(); // เริ่มจับเวลา Idle ใหม่อีกครั้ง
                 
                 // ถ้ายืนยันตัวตนผ่าน โหลดลิงก์มาแสดง
                 fetchLinks();
