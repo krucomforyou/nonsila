@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ศูนย์รวมระบบสารสนเทศ - โนนศิลาสว่างวิทย์</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .bg-animated {
+            background: linear-gradient(-45deg, #1e3a8a, #4c1d95, #144637, #0f766e);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-animated min-h-screen flex items-center justify-center p-4">
+
+    <!-- Container หลัก -->
+    <div class="glass-panel rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative transition-all duration-500 transform" id="mainContainer">
+        
+        <!-- แถบสีตกแต่งด้านบน -->
+        <div class="h-2 w-full bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 absolute top-0 left-0"></div>
+
+        <!-- Section: หน้าต่างล็อกอิน (แสดงเมื่อยังไม่ Login) -->
+        <div id="loginSection" class="p-8 pt-12 flex flex-col items-center">
+            <div class="w-24 h-24 bg-white rounded-full shadow-lg flex items-center justify-center mb-6 border-4 border-gray-50 relative">
+                <i class="fas fa-shield-alt text-5xl text-blue-600 relative z-10"></i>
+                <div class="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-40"></div>
+            </div>
+            
+            <h1 class="text-2xl font-bold text-gray-800 text-center mb-1">เข้าสู่ระบบส่วนกลาง</h1>
+            <p class="text-sm text-gray-500 mb-8 text-center font-medium">NSW Single Sign-On (SSO)</p>
+
+            <form id="loginForm" class="w-full space-y-5" onsubmit="event.preventDefault(); submitLogin();">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fas fa-user text-gray-400"></i>
+                    </div>
+                    <input type="text" id="username" required class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block pl-10 p-3.5 transition-all outline-none" placeholder="ชื่อผู้ใช้งาน">
+                </div>
+                
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fas fa-lock text-gray-400"></i>
+                    </div>
+                    <input type="password" id="password" required class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block pl-10 p-3.5 transition-all outline-none" placeholder="รหัสผ่าน">
+                </div>
+
+                <button type="submit" id="loginBtn" class="w-full text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-bold rounded-xl text-sm px-5 py-3.5 text-center shadow-md hover:shadow-lg transition-all flex justify-center items-center">
+                    <span>เข้าสู่ระบบ</span> <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+            
+            <div class="mt-8 text-center">
+                <p class="text-xs text-gray-400">© 2026 โรงเรียนโนนศิลาสว่างวิทย์</p>
+            </div>
+        </div>
+
+        <!-- Section: หน้าต่างศูนย์รวมระบบ (แสดงเมื่อ Login ผ่านแล้ว) -->
+        <div id="portalSection" class="p-8 flex flex-col items-center hidden">
+            <!-- ข้อมูลโปรไฟล์ -->
+            <div class="flex flex-col items-center mb-8 w-full border-b border-gray-100 pb-6">
+                <img id="userAvatar" src="https://placehold.co/100" class="w-20 h-20 rounded-full border-4 border-white shadow-md mb-3 object-cover">
+                <h2 id="userName" class="text-xl font-bold text-gray-800">ชื่อผู้ใช้งาน</h2>
+                <span id="userRole" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full mt-2">ตำแหน่ง</span>
+            </div>
+
+            <div class="w-full">
+                <h3 class="text-sm font-bold text-gray-500 mb-4 uppercase tracking-wider">เลือกระบบที่ต้องการเข้าใช้งาน</h3>
+                
+                <!-- แผงปุ่มแอปพลิเคชัน -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- ระบบที่ 1: จัดเก็บเอกสาร -->
+                    <a href="docs.html" class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-purple-300 hover:bg-purple-50 transition-all group cursor-pointer text-decoration-none">
+                        <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-folder-open"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-700 text-center">คลังเอกสาร<br>นสว.</span>
+                    </a>
+
+                    <!-- ระบบที่ 2: ปพ.5 ออนไลน์ -->
+                    <a href="porpor5.html" class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-green-300 hover:bg-green-50 transition-all group cursor-pointer text-decoration-none">
+                        <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-700 text-center">ปพ.5<br>ออนไลน์</span>
+                    </a>
+
+                    <!-- ระบบที่ 3: ระบบแจ้งซ่อม (ตัวอย่าง) -->
+                    <div onclick="alert('กำลังพัฒนาระบบนี้...')" class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-orange-300 hover:bg-orange-50 transition-all group cursor-pointer opacity-70">
+                        <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-700 text-center">ระบบแจ้งซ่อม<br>(เร็วๆนี้)</span>
+                    </div>
+
+                    <!-- ระบบที่ 4: ลางาน (ตัวอย่าง) -->
+                    <div onclick="alert('กำลังพัฒนาระบบนี้...')" class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-300 hover:bg-blue-50 transition-all group cursor-pointer opacity-70">
+                        <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-700 text-center">ระบบลางาน<br>(เร็วๆนี้)</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ปุ่มออกจากระบบ -->
+            <button onclick="logout()" class="mt-8 w-full bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 font-bold rounded-xl text-sm px-5 py-3 text-center transition-all flex justify-center items-center border border-gray-200 hover:border-red-200">
+                <i class="fas fa-sign-out-alt mr-2"></i> ออกจากระบบส่วนกลาง
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // *** นำ URL ของระบบ Auth API ที่ Deploy ใหม่มาใส่ที่นี่ ***
+        const AUTH_API_URL = 'https://script.google.com/macros/s/AKfycb.../exec'; 
+
+        // สไตล์ของ SweetAlert ที่ใช้ซ้ำ
+        const swalOpts = {
+            scrollbarPadding: false,
+            heightAuto: false,
+            buttonsStyling: false,
+            customClass: {
+                popup: 'rounded-3xl shadow-2xl font-sarabun p-2',
+                confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-2.5 text-sm font-bold shadow-md transition-all m-2',
+                cancelButton: 'bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl px-6 py-2.5 text-sm font-bold shadow-md transition-all m-2',
+                title: 'text-xl font-bold text-gray-800 mt-2',
+                htmlContainer: 'text-sm text-gray-600'
+            }
+        };
+
+        // เมื่อเปิดหน้าเว็บ เช็คว่าเคยล็อกอินหรือยัง
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                showPortal(JSON.parse(savedUser));
+            }
+        });
+
+        // ฟังก์ชันล็อกอิน
+        async function submitLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> <span class="ml-2">กำลังตรวจสอบ...</span>';
+            btn.disabled = true;
+            btn.classList.add('opacity-70');
+
+            try {
+                // ยิง API ยืนยันตัวตน
+                const res = await fetch(`${AUTH_API_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`, { method: 'POST' });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    // เซฟข้อมูลลงเครื่อง
+                    localStorage.setItem('nswUser', JSON.stringify(json.user));
+                    
+                    Swal.fire({
+                        ...swalOpts,
+                        icon: 'success',
+                        title: 'เข้าสู่ระบบสำเร็จ!',
+                        text: `ยินดีต้อนรับคุณ ${json.user.name}`,
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        showPortal(json.user);
+                    });
+                } else {
+                    Swal.fire({
+                        ...swalOpts,
+                        icon: 'error',
+                        title: 'เข้าสู่ระบบไม่สำเร็จ',
+                        text: json.message
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    ...swalOpts,
+                    icon: 'error',
+                    title: 'เชื่อมต่อล้มเหลว',
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่'
+                });
+            } finally {
+                btn.innerHTML = '<span>เข้าสู่ระบบ</span> <i class="fas fa-arrow-right ml-2"></i>';
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+            }
+        }
+
+        // ฟังก์ชันสลับไปหน้า Portal
+        function showPortal(user) {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('portalSection').classList.remove('hidden');
+            
+            document.getElementById('userName').innerText = user.name;
+            document.getElementById('userRole').innerText = user.role;
+            document.getElementById('userAvatar').src = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=2563eb&color=ffffff`;
+            
+            // ทำให้การสลับหน้าเนียนขึ้น
+            const container = document.getElementById('mainContainer');
+            container.classList.add('animate-pulse');
+            setTimeout(() => container.classList.remove('animate-pulse'), 300);
+        }
+
+        // ฟังก์ชันออกจากระบบ
+        function logout() {
+            Swal.fire({
+                ...swalOpts,
+                icon: 'question',
+                title: 'ออกจากระบบ?',
+                text: 'คุณต้องการออกจากระบบส่วนกลางใช่หรือไม่?',
+                showCancelButton: true,
+                confirmButtonText: 'ใช่, ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#ef4444'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('nswUser');
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    
+                    document.getElementById('portalSection').classList.add('hidden');
+                    document.getElementById('loginSection').classList.remove('hidden');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
