@@ -104,7 +104,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.2 (ระบบ Session กลาง)
+                    Version 1.0.3 (เพิ่มบันทึก Log ออกจากระบบ)
                 </div>
             </div>
         </div>
@@ -362,17 +362,17 @@
             localStorage.setItem('nswLastActive', Date.now().toString());
             let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
             
-            idleTimer = setTimeout(() => {
-                sessionExpiredLogout();
+            idleTimer = setTimeout(async () => {
+                await sessionExpiredLogout();
             }, minutes * 60 * 1000);
         }
 
-        function sessionExpiredLogout() {
+        async function sessionExpiredLogout() {
             const savedUser = localStorage.getItem('nswUser');
             if(!savedUser) return;
             
-            // ส่งบันทึก Log การออกจากระบบอัตโนมัติ (ผ่าน API ที่มีอยู่)
-            // (ในระบบจริงอาจต้องเพิ่ม endpoint สำหรับบันทึก log แบบเจาะจง)
+            // ส่งบันทึก Log การออกจากระบบอัตโนมัติ
+            await sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
             
             localStorage.removeItem('nswUser');
             localStorage.removeItem('nswLastActive');
@@ -400,8 +400,10 @@
 
         // ฟังก์ชันออกจากระบบแบบแมนนวล
         function logout() {
-            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคลังจัดเก็บเอกสารใช่หรือไม่?', 'ออกจากระบบ', 'bg-red-500').then((res) => {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคลังจัดเก็บเอกสารใช่หรือไม่?', 'ออกจากระบบ', 'bg-red-500').then(async (res) => {
                 if (res.isConfirmed) {
+                    // ส่ง Log ก่อนที่จะเคลียร์ข้อมูล
+                    await sendLogActivity('Logout', 'ออกจากระบบจัดเก็บเอกสารออนไลน์');
                     clearTimeout(idleTimer);
                     localStorage.removeItem('nswUser');
                     localStorage.removeItem('nswLastActive');
@@ -455,6 +457,35 @@
             }
         };
 
+        // --- ระบบส่ง Log เข้า Google Sheet แบบทั่วไป ---
+        let lastLogTime = 0;
+        let lastLogKey = '';
+
+        async function sendLogActivity(actionType, details) {
+            const savedUser = localStorage.getItem('nswUser');
+            if (!savedUser) return;
+            
+            // ป้องกันการส่ง Log ซ้ำซ้อนภายใน 2 วินาที (Debounce)
+            const now = Date.now();
+            const currentLogKey = actionType + '|' + details;
+            if (now - lastLogTime < 2000 && lastLogKey === currentLogKey) return;
+            lastLogTime = now;
+            lastLogKey = currentLogKey;
+
+            const user = JSON.parse(savedUser);
+            const form = new FormData();
+            form.append('requestUser', user.name);
+            form.append('requestRole', user.role);
+            form.append('actionType', actionType);
+            form.append('details', details);
+
+            try {
+                await fetch(`${DOC_API_URL}?action=saveLog`, { method: 'POST', body: form });
+            } catch(e) {
+                console.error("Log access error:", e);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
         });
@@ -499,7 +530,7 @@
 
                 // ส่งคำสั่งบันทึกการเข้าสู่ระบบ 1 ครั้งต่อการโหลด
                 if (!sessionStorage.getItem('nsw_doc_logged_in')) {
-                    logSystemAccess();
+                    sendLogActivity('เข้าสู่ระบบ', 'เข้าใช้งานหน้าคลังจัดเก็บเอกสาร');
                     sessionStorage.setItem('nsw_doc_logged_in', 'true');
                 }
 
@@ -606,7 +637,8 @@
                     localStorage.setItem('nswLastActive', Date.now().toString());
                     state.user = json.user;
 
-                    await logSystemAccess();
+                    // บันทึก Log ทันที และรอให้เสร็จก่อนโหลดหน้าใหม่
+                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าใช้งานหน้าคลังจัดเก็บเอกสาร');
                     sessionStorage.setItem('nsw_doc_logged_in', 'true');
 
                     Swal.fire({
@@ -653,19 +685,6 @@
         }
 
         function goToMainWeb() { window.location.href = 'index.html'; }
-
-        // ส่งข้อมูลเข้าบันทึก Log การเข้าใช้งาน
-        async function logSystemAccess() {
-            if (!state.user) return;
-            const form = new FormData();
-            form.append('requestUser', state.user.name);
-            form.append('requestRole', state.user.role);
-            try {
-                await fetch(`${DOC_API_URL}?action=logAccess`, { method: 'POST', body: form });
-            } catch(e) {
-                console.error("Log access error:", e);
-            }
-        }
 
         // ================= สลับหน้าจอ ดูเอกสาร/ถังขยะ =================
         function switchView(mode) {
@@ -1240,6 +1259,8 @@
                     actionBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-times mr-1"></i>${l.action}</span>`;
                 } else if (l.action.includes('เข้าสู่ระบบ')) {
                     actionBadge = `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-sign-in-alt mr-1"></i>${l.action}</span>`;
+                } else if (l.action.includes('Logout') || l.action.includes('Auto-Logout')) {
+                    actionBadge = `<span class="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-sign-out-alt mr-1"></i>${l.action}</span>`;
                 }
 
                 // 3. แสดงผลตารางแบบคลีนๆ คล้ายปพ.5
