@@ -1399,15 +1399,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadSystemLogs() {
             const tbody = document.getElementById('adminLogsList');
-            tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400"><div class="loader mx-auto mb-2"></div> กำลังโหลดบันทึก...</td></tr>';
+            // เปลี่ยนเป็น colspan="5" ตามตารางใหม่
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div> กำลังโหลดบันทึก...</td></tr>';
             try {
-                // ส่ง Role ของคนที่ Login อยู่ไปตรวจสอบด้วย
                 const res = await fetch(`${API_URL}?action=getLogs&role=${encodeURIComponent(state.user.role)}`);
                 const json = await res.json();
                 state.logs = Array.isArray(json) ? json : [];
                 renderAdminLogsList(state.logs);
             } catch(e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-red-400">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
             }
         }
 
@@ -1425,28 +1425,58 @@ document.addEventListener('DOMContentLoaded', () => {
         function renderAdminLogsList(dataToRender = state.logs) {
             const tbody = document.getElementById('adminLogsList');
             if(!dataToRender || dataToRender.length === 0) { 
-                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">ไม่พบประวัติการใช้งาน</td></tr>'; 
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">ไม่พบประวัติการใช้งาน</td></tr>'; 
                 return; 
             }
             
-            tbody.innerHTML = dataToRender.slice(0, 100).map(log => {
-                // จัดการแยกสี Action ให้ชัดเจน
-                let actionColor = 'bg-gray-100 text-gray-700 border-gray-200';
-                const actLower = (log.Action || '').toLowerCase();
+            tbody.innerHTML = dataToRender.slice(0, 200).map(log => {
                 
-                if (actLower.includes('add') || actLower.includes('เพิ่ม')) actionColor = 'bg-green-100 text-green-700 border-green-200';
-                else if (actLower.includes('edit') || actLower.includes('แก้')) actionColor = 'bg-blue-100 text-blue-700 border-blue-200';
-                else if (actLower.includes('delete') || actLower.includes('ลบ')) actionColor = 'bg-red-100 text-red-700 border-red-200';
-                else if (actLower.includes('login') || actLower.includes('เข้าสู่ระบบ')) actionColor = 'bg-purple-100 text-purple-700 border-purple-200';
+                // 1. เพิ่มไอคอนให้แสดงตามตำแหน่ง (ป้องกันการแสดงผลซ้ำหากมีอีโมจิอยู่แล้ว)
+                let roleWithIcon = log.Role || '-';
+                if ((roleWithIcon.includes('จอมเวทย์อาวุโส') || roleWithIcon.includes('จอมเวทอาวุโส')) && !roleWithIcon.includes('🧙‍♂️')) roleWithIcon = `🧙‍♂️ ${log.Role}`;
+                else if (roleWithIcon.includes('นักรบมังกร') && !roleWithIcon.includes('🐲')) roleWithIcon = `🐲 ${log.Role}`;
+                else if (roleWithIcon.includes('ปรมาจารย์') && !roleWithIcon.includes('⚔️')) roleWithIcon = `⚔️ ${log.Role}`;
+                else if (roleWithIcon.includes('แนวหน้า') && !roleWithIcon.includes('🏹')) roleWithIcon = `🏹 ${log.Role}`;
+                else if (roleWithIcon.includes('ฝึกหัด') && !roleWithIcon.includes('🎒')) roleWithIcon = `🎒 ${log.Role}`;
+                else if ((roleWithIcon.includes('Admin') || roleWithIcon.includes('แอดมิน')) && !roleWithIcon.includes('🛡️')) roleWithIcon = `🛡️ ${log.Role}`;
 
+                // 2. กำหนดสีและไอคอนของประเภทการกระทำ (Action Badge)
+                let actionBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">${log.Action || '-'}</span>`;
+                const actLower = (log.Action || '').toLowerCase();
+
+                if(actLower.includes('login') || actLower.includes('เข้าสู่ระบบ')) {
+                    actionBadge = `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-sign-in-alt mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('search') || actLower.includes('ค้นหา')) {
+                    actionBadge = `<span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-search mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('click') || actLower.includes('คลิก') || actLower.includes('download') || actLower.includes('โหลด')) {
+                    actionBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-mouse-pointer mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('add') || actLower.includes('เพิ่ม') || actLower.includes('upload') || actLower.includes('อัปโหลด')) {
+                    actionBadge = `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-plus-circle mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('edit') || actLower.includes('แก้') || actLower.includes('จัดเรียง') || actLower.includes('เปลี่ยน')) {
+                    actionBadge = `<span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-edit mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('delete') || actLower.includes('ลบ')) {
+                    actionBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-trash mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('restore') || actLower.includes('กู้คืน')) {
+                    actionBadge = `<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-trash-restore mr-1"></i>${log.Action}</span>`;
+                }
+                else if(actLower.includes('logout') || actLower.includes('ออก')) {
+                    actionBadge = `<span class="bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-sign-out-alt mr-1"></i>${log.Action}</span>`;
+                }
+
+                // 3. แสดงผลตาราง 5 คอลัมน์แบบหน้า ปพ.5
                 return `
-                <tr class="hover:bg-blue-50 border-b transition text-xs">
-                    <td class="p-3 text-gray-500 whitespace-nowrap">${log.DateTime || '-'}</td>
-                    <td class="p-3 font-bold text-gray-700 whitespace-nowrap">${log.User || '-'} <br><span class="text-[10px] font-normal text-blue-500">${log.Role || '-'}</span></td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="${actionColor} border px-2 py-1 rounded font-bold inline-block text-center min-w-[80px]">${log.Action || '-'}</span>
-                    </td>
-                    <td class="p-3 text-gray-600 leading-relaxed">${log.Detail || '-'}</td>
+                <tr class="hover:bg-blue-50 transition border-b border-gray-100 text-xs md:text-sm">
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">${log.DateTime || '-'}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">${log.User || '-'}</td>
+                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">${roleWithIcon}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${actionBadge}</td>
+                    <td class="px-4 py-3 text-gray-600 break-words">${log.Detail || '-'}</td>
                 </tr>`;
             }).join('');
         }
