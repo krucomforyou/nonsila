@@ -146,7 +146,7 @@
             <div class="mt-auto pt-10 pb-6 text-center">
                 <p class="text-gray-600 mb-10 text-sm md:text-base"><span class="font-bold underline">ข้อเสนอแนะ</span> ควรเปิดแก้ไขคราวละ 1 วิชา เพื่อลดปัญหาการโหลดช้า</p>
                 <p class="text-red-600 font-bold text-lg mb-4">ใช้ภายในโรงเรียนโนนศิลาสว่างวิทย์เท่านั้นห้ามเผยแพร่</p>
-                <p class="text-gray-400 text-xs font-medium">Version 1.0.1 อัพเดทเมื่อ 15/03/2569</p>
+                <p class="text-gray-400 text-xs font-medium">Version 1.0.2 อัพเดทเมื่อ 15/03/2569</p>
             </div>
             
         </div>
@@ -332,7 +332,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             checkUserRole(); 
-            fetchLinks();
         });
 
         function toggleSidebar() {
@@ -344,6 +343,123 @@
             } else {
                 sidebar.classList.add('-translate-x-full');
                 overlay.classList.add('hidden');
+            }
+        }
+
+        // --- ระบบล็อกอินตรงที่หน้าเว็บ ---
+        function showLoginPopup() {
+            Swal.fire({
+                scrollbarPadding: false,
+                heightAuto: false,
+                width: '22rem',
+                padding: '2rem 1rem 1rem 1rem',
+                showTitle: false,
+                backdrop: 'rgba(15, 23, 42, 0.7) backdrop-blur-sm',
+                html: `
+                    <div class="text-center font-sarabun">
+                        <div class="w-20 h-20 mx-auto bg-green-50 rounded-full flex items-center justify-center mb-4 shadow-inner border-4 border-white relative">
+                            <i class="fas fa-user-shield text-4xl text-nswButtonGreen relative z-10"></i>
+                            <div class="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-30"></div>
+                        </div>
+                        <h2 class="text-xl font-bold text-nswDarkGreen mb-1">เข้าสู่ระบบ ปพ.5</h2>
+                        <p class="text-xs text-green-600 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งาน</p>
+
+                        <div class="space-y-3 text-left px-2">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-user text-green-500 text-sm"></i>
+                                </div>
+                                <input type="text" id="swal-login-user" class="w-full bg-green-50/50 border border-green-200 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-nswButtonGreen focus:bg-white outline-none transition-all placeholder-green-400 text-nswDarkGreen font-medium" placeholder="ชื่อผู้ใช้งาน">
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-key text-green-500 text-sm"></i>
+                                </div>
+                                <input type="password" id="swal-login-pass" class="w-full bg-green-50/50 border border-green-200 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-nswButtonGreen focus:bg-white outline-none transition-all placeholder-green-400 text-nswDarkGreen font-medium" placeholder="รหัสผ่าน">
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'เข้าสู่ระบบ <i class="fas fa-arrow-right ml-1"></i>',
+                cancelButtonText: '<i class="fas fa-home mr-1"></i> กลับเว็บโรงเรียน',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'rounded-[2rem] shadow-2xl border-4 border-green-50 bg-white overflow-hidden',
+                    actions: 'flex flex-col gap-2 w-full px-6 mt-6 pb-2',
+                    confirmButton: 'w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white rounded-2xl px-4 py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all m-0 font-sarabun',
+                    cancelButton: 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl px-4 py-3 text-sm font-bold border border-gray-200 transition-all m-0 font-sarabun'
+                },
+                didOpen: () => {
+                    const userIn = document.getElementById('swal-login-user');
+                    const passIn = document.getElementById('swal-login-pass');
+                    const handleEnter = (e) => {
+                        if (e.key === 'Enter') Swal.clickConfirm();
+                    };
+                    userIn.addEventListener('keyup', handleEnter);
+                    passIn.addEventListener('keyup', handleEnter);
+                    userIn.focus();
+                },
+                preConfirm: () => {
+                    const user = document.getElementById('swal-login-user').value;
+                    const pass = document.getElementById('swal-login-pass').value;
+                    if (!user || !pass) {
+                        Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน 🥺');
+                        return false;
+                    }
+                    return { user, pass };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await handleDirectLogin(result.value.user, result.value.pass);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    goToSystem();
+                }
+            });
+        }
+
+        async function handleDirectLogin(username, password) {
+            cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
+            
+            try {
+                // ยิง API เข้าสู่ระบบของ ปพ.5 (URL เดียวกันที่ดึงข้อมูลลิ้งก์)
+                const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { 
+                    method: 'POST' 
+                });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    localStorage.setItem('nswUser', JSON.stringify(json.user));
+
+                    Swal.fire({
+                        toast: true,
+                        position: 'top',
+                        icon: 'success',
+                        title: 'เข้าสู่ระบบสำเร็จ! 🥳',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        background: '#f0fdf4',
+                        color: '#144637',
+                        iconColor: '#1b8066',
+                        customClass: {
+                            popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center',
+                            title: 'text-sm md:text-base font-bold m-0 p-0 ml-2'
+                        }
+                    }).then(() => {
+                        window.location.reload(); 
+                    });
+                } else {
+                    cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => {
+                        showLoginPopup();
+                    });
+                }
+            } catch (error) {
+                console.error("Login Error: ", error);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้').then(() => {
+                    showLoginPopup();
+                });
             }
         }
 
@@ -389,11 +505,13 @@
                     sendLogActivity('เข้าสู่ระบบ', 'เข้าหน้าแรก ปพ.5 ออนไลน์');
                     sessionStorage.setItem('session_logged_in', 'true');
                 }
+                
+                // ถ้ายืนยันตัวตนผ่าน โหลดลิงก์มาแสดง
+                fetchLinks();
 
             } else {
-                cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบก่อนใช้งาน').then(() => {
-                    window.location.href = 'index.html';
-                });
+                // แสดงป็อปอัพล็อกอินแทนการเด้งกลับหน้าหลัก
+                showLoginPopup();
             }
         }
 
