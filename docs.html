@@ -101,7 +101,7 @@
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.2 (อัปเดต 15/03/2569)
+                    Version 1.0.1 (อัปเดต 15/03/2569)
                 </div>
             </div>
         </div>
@@ -410,6 +410,8 @@
 
                 fetchDocuments();
             } else {
+                // เคลียร์ค่า Session เดิมทิ้ง เผื่อกรณีล็อกเอาต์จากหน้าอื่นแล้วใช้แท็บเดิม
+                sessionStorage.removeItem('nsw_doc_logged_in');
                 // เปลี่ยนจากการเด้งกลับทันที เป็นการแสดงหน้าต่าง Login Popup
                 showLoginPopup();
             }
@@ -508,6 +510,11 @@
                 if (json.status === 'success') {
                     // ในระบบหลัก ข้อมูลถูกส่งกลับมาในชื่อ json.user
                     localStorage.setItem('nswUser', JSON.stringify(json.user));
+                    state.user = json.user; // อัปเดต state เพื่อให้ฟังก์ชัน log ดึงชื่อไปใช้ได้ทันที
+
+                    // ส่งคำสั่งบันทึก Log การล็อกอินเข้าระบบทันที (และรอจนกว่าจะส่งเสร็จ)
+                    await logSystemAccess();
+                    sessionStorage.setItem('nsw_doc_logged_in', 'true');
 
                     // เปลี่ยนแจ้งเตือนเป็นแบบ Toast เล็กๆ น่ารัก
                     Swal.fire({
@@ -557,10 +564,15 @@
 
         // ส่งข้อมูลเข้าบันทึก Log การเข้าใช้งาน
         async function logSystemAccess() {
+            if (!state.user) return;
             const form = new FormData();
             form.append('requestUser', state.user.name);
             form.append('requestRole', state.user.role);
-            fetch(`${DOC_API_URL}?action=logAccess`, { method: 'POST', body: form }).catch(e => {});
+            try {
+                await fetch(`${DOC_API_URL}?action=logAccess`, { method: 'POST', body: form });
+            } catch(e) {
+                console.error("Log access error:", e);
+            }
         }
 
         // ================= สลับหน้าจอ ดูเอกสาร/ถังขยะ =================
