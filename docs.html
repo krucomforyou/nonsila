@@ -94,7 +94,6 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2 mt-4">
-                <!-- ปุ่มเมนู Log ย้ายมาที่นี่ (จะแสดงผลเฉพาะ Admin ผ่าน JS) -->
                 <button id="menuLogs" onclick="openLogModal()" class="hidden w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-history"></i> ประวัติการใช้งาน (Logs)
                 </button>
@@ -102,7 +101,7 @@
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.1 (อัปเดต 15/03/2569)
+                    Version 1.0.2 (อัปเดต 15/03/2569)
                 </div>
             </div>
         </div>
@@ -283,7 +282,7 @@
         </div>
     </div>
 
-    <!-- LOG MODAL (ประวัติการใช้งาน - ดีไซน์ใหม่) -->
+    <!-- LOG MODAL (ประวัติการใช้งาน) -->
     <div id="logModal" class="modal fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
         <div class="modal-content bg-white w-full max-w-5xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
             
@@ -387,6 +386,7 @@
             checkAuth();
         });
 
+        // ================= ระบบตรวจสอบและเข้าสู่ระบบ (ปรับปรุงใหม่) =================
         function checkAuth() {
             const savedUser = localStorage.getItem('nswUser');
             if (savedUser) {
@@ -410,11 +410,111 @@
 
                 fetchDocuments();
             } else {
-                cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าเว็บไซต์หลักก่อนใช้งาน').then(() => { 
-                    window.location.href = 'index.html'; 
+                // เปลี่ยนจากการเด้งกลับทันที เป็นการแสดงหน้าต่าง Login Popup
+                showLoginPopup();
+            }
+        }
+
+        // ฟังก์ชันแสดงหน้าต่าง Login Popup เล็กๆ น่ารัก
+        function showLoginPopup() {
+            Swal.fire({
+                ...cuteSwalOpts,
+                width: '22rem',
+                padding: '2rem 1rem 1rem 1rem',
+                showTitle: false,
+                html: `
+                    <div class="text-center font-sarabun">
+                        <div class="w-20 h-20 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-4 shadow-inner border-4 border-white relative">
+                            <i class="fas fa-lock text-4xl text-purple-500 relative z-10"></i>
+                            <div class="absolute inset-0 bg-purple-200 rounded-full animate-ping opacity-30"></div>
+                        </div>
+                        <h2 class="text-xl font-bold text-purple-900 mb-1">เข้าสู่ระบบ</h2>
+                        <p class="text-xs text-purple-400 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งาน</p>
+
+                        <div class="space-y-3 text-left px-2">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-user text-purple-300 text-sm"></i>
+                                </div>
+                                <input type="text" id="swal-login-user" class="w-full bg-purple-50/50 border border-purple-100 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-purple-400 focus:bg-white outline-none transition-all placeholder-purple-300 text-purple-900 font-medium" placeholder="ชื่อผู้ใช้งาน">
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-key text-purple-300 text-sm"></i>
+                                </div>
+                                <input type="password" id="swal-login-pass" class="w-full bg-purple-50/50 border border-purple-100 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-purple-400 focus:bg-white outline-none transition-all placeholder-purple-300 text-purple-900 font-medium" placeholder="รหัสผ่าน">
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'เข้าสู่ระบบ <i class="fas fa-arrow-right ml-1"></i>',
+                cancelButtonText: '<i class="fas fa-home mr-1"></i> กลับเว็บโรงเรียน',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'rounded-[2rem] shadow-2xl border-4 border-purple-50 bg-white overflow-hidden',
+                    actions: 'flex flex-col gap-2 w-full px-6 mt-6 pb-2',
+                    confirmButton: 'w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-2xl px-4 py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all m-0',
+                    cancelButton: 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl px-4 py-3 text-sm font-bold border border-gray-200 transition-all m-0'
+                },
+                preConfirm: () => {
+                    const user = document.getElementById('swal-login-user').value;
+                    const pass = document.getElementById('swal-login-pass').value;
+                    if (!user || !pass) {
+                        Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน 🥺');
+                        return false;
+                    }
+                    return { user, pass };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await handleDirectLogin(result.value.user, result.value.pass);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    // หากผู้ใช้กดปุ่มกลับหน้าเว็บโรงเรียน
+                    goToMainWeb();
+                }
+            });
+        }
+
+        // ฟังก์ชันจัดการการล็อคอินที่หน้าเอกสารโดยตรง
+        async function handleDirectLogin(username, password) {
+            cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
+            
+            try {
+                // ⚠️ สำคัญ: ใส่ URL API สำหรับการ Login (Google Apps Script) ที่นี่
+                // หากคุณใช้ Web App เดียวกับระบบเอกสาร ต้องแน่ใจว่าในฝั่ง code.gs มีฟังก์ชันรองรับ `action === 'login'`
+                const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbz8JNFsiJhtcsrZjlpchFlrGaElCNz_Tm0X9VNaAgopyEw6DiGjBVCSjmTJHAbVyGhB6A/exec';
+
+                const form = new FormData();
+                form.append('action', 'login'); // สมมติว่าในระบบคุณใช้พารามิเตอร์นี้
+                form.append('username', username);
+                form.append('password', password);
+
+                const res = await fetch(LOGIN_API_URL, { method: 'POST', body: form });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    // โครงสร้างที่คาดหวัง: json.data = { name: '...', role: '...', image: '...' }
+                    localStorage.setItem('nswUser', JSON.stringify(json.data));
+
+                    cuteAlert.success('สำเร็จ!', 'เข้าสู่ระบบเรียบร้อยแล้ว').then(() => {
+                        window.location.reload(); // โหลดหน้าใหม่เพื่อให้ฟังก์ชัน checkAuth ทำงานปกติ
+                    });
+                } else {
+                    cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => {
+                        showLoginPopup(); // เด้งให้กรอกใหม่
+                    });
+                }
+            } catch (error) {
+                console.error("Login Error: ", error);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือ URL API').then(() => {
+                    showLoginPopup();
                 });
             }
         }
+        // =======================================================================
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebarMenu');
