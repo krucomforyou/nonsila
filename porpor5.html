@@ -104,7 +104,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.5 (แก้บั๊ก Log ซ้ำซ้อน)
+                    Version 1.0.6 (แก้บั๊ก Log ซ้ำซ้อน 100%)
                 </div>
             </div>
         </div>
@@ -329,16 +329,16 @@
             localStorage.setItem('nswLastActive', Date.now().toString());
             let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
             
-            idleTimer = setTimeout(() => {
-                sessionExpiredLogout();
+            idleTimer = setTimeout(async () => {
+                await sessionExpiredLogout();
             }, minutes * 60 * 1000);
         }
 
-        function sessionExpiredLogout() {
+        async function sessionExpiredLogout() {
             const savedUser = localStorage.getItem('nswUser');
             if(!savedUser) return;
             
-            sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
+            await sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
             localStorage.removeItem('nswUser');
             localStorage.removeItem('nswLastActive');
             
@@ -363,9 +363,9 @@
         });
 
         function logout() {
-            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบ ปพ.5 ใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบ ปพ.5 ใช่หรือไม่?', 'ออกจากระบบ').then(async (res) => {
                 if (res.isConfirmed) {
-                    sendLogActivity('Logout', 'ออกจากระบบ ปพ.5 ออนไลน์');
+                    await sendLogActivity('Logout', 'ออกจากระบบ ปพ.5 ออนไลน์');
                     clearTimeout(idleTimer);
                     localStorage.removeItem('nswUser');
                     localStorage.removeItem('nswLastActive');
@@ -540,7 +540,7 @@
         let lastLogTime = 0;
         let lastLogKey = '';
 
-        function sendLogActivity(actionType, details) {
+        async function sendLogActivity(actionType, details) {
             const savedUser = localStorage.getItem('nswUser');
             if (!savedUser) return;
             
@@ -562,8 +562,11 @@
             form.append('details', details);
 
             // ส่งข้อมูลเงียบๆ ไม่ต้องโชว์แจ้งเตือน
-            fetch(`${API_URL}?action=saveLog`, { method: 'POST', body: form })
-                .catch(err => console.log('Log Error:', err));
+            try {
+                await fetch(`${API_URL}?action=saveLog`, { method: 'POST', body: form });
+            } catch(err) {
+                console.log('Log Error:', err);
+            }
         }
 
         function checkUserRole() {
