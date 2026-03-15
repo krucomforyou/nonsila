@@ -100,8 +100,11 @@
                 <button onclick="goToMainWeb()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
+                <button id="logoutBtn" onclick="logout()" class="hidden w-full bg-red-600 hover:bg-red-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+                </button>
                 <div class="text-[10px] text-purple-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.1 (อัปเดต 15/03/2569)
+                    Version 1.0.2 (ระบบ Session กลาง)
                 </div>
             </div>
         </div>
@@ -337,6 +340,76 @@
             viewMode: 'active' // สถานะการดู: 'active' หรือ 'trashed'
         };
 
+        // ================= ระบบจัดการ Session และ Idle Timeout =================
+        let idleTimer;
+        const DEFAULT_IDLE_MINUTES = 60; // ตัดการเชื่อมต่อเมื่อไม่ใช้งาน 60 นาที
+
+        function normalizeFrontendRole(r) {
+            if(!r) return '🎒 นักผจญภัยฝึกหัด';
+            if(r.includes('Dragon')) return '🐲 นักรบมังกร';
+            if(r.includes('High Mage')) return '🧙‍♂️ จอมเวทย์อาวุโส';
+            if(r.includes('Grand Master')) return '⚔️ ปรมาจารย์ชั้นยอด';
+            if(r.includes('Vanguard')) return '🏹 นักผจญภัยแนวหน้า';
+            if(r.includes('Apprentice')) return '🎒 นักผจญภัยฝึกหัด';
+            return r;
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            const savedUser = localStorage.getItem('nswUser');
+            if (!savedUser) return;
+            
+            localStorage.setItem('nswLastActive', Date.now().toString());
+            let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+            
+            idleTimer = setTimeout(() => {
+                sessionExpiredLogout();
+            }, minutes * 60 * 1000);
+        }
+
+        function sessionExpiredLogout() {
+            const savedUser = localStorage.getItem('nswUser');
+            if(!savedUser) return;
+            
+            // ส่งบันทึก Log การออกจากระบบอัตโนมัติ (ผ่าน API ที่มีอยู่)
+            // (ในระบบจริงอาจต้องเพิ่ม endpoint สำหรับบันทึก log แบบเจาะจง)
+            
+            localStorage.removeItem('nswUser');
+            localStorage.removeItem('nswLastActive');
+            
+            Swal.fire({
+                ...cuteSwalOpts,
+                icon: 'info',
+                title: 'หมดเวลาการเชื่อมต่อ',
+                text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน',
+                confirmButtonText: 'ตกลง',
+            }).then(() => {
+                window.location.reload();
+            });
+        }
+
+        // ดักจับ Event ขยับเมาส์ พิมพ์ หรือเลื่อนจอ เพื่อรีเซ็ตเวลา
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
+            document.addEventListener(evt, resetIdleTimer, true)
+        );
+        
+        // ตรวจสอบสถานะเมื่อกลับมาเปิดแท็บนี้ใหม่
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkAuth(); 
+        });
+
+        // ฟังก์ชันออกจากระบบแบบแมนนวล
+        function logout() {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคลังจัดเก็บเอกสารใช่หรือไม่?', 'ออกจากระบบ', 'bg-red-500').then((res) => {
+                if (res.isConfirmed) {
+                    clearTimeout(idleTimer);
+                    localStorage.removeItem('nswUser');
+                    localStorage.removeItem('nswLastActive');
+                    window.location.reload();
+                }
+            });
+        }
+
         const cuteSwalOpts = {
             heightAuto: false,
             scrollbarPadding: false,
@@ -386,15 +459,37 @@
             checkAuth();
         });
 
-        // ================= ระบบตรวจสอบและเข้าสู่ระบบ (ปรับปรุงใหม่) =================
+        // ================= ระบบตรวจสอบและเข้าสู่ระบบ =================
         function checkAuth() {
             const savedUser = localStorage.getItem('nswUser');
+            
             if (savedUser) {
+                // เช็ค Session Timeout
+                const lastActive = localStorage.getItem('nswLastActive');
+                const savedTimeout = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+                if (lastActive) {
+                    const diffMs = Date.now() - parseInt(lastActive);
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins >= savedTimeout) {
+                        localStorage.removeItem('nswUser');
+                        localStorage.removeItem('nswLastActive');
+                        showLoginPopup();
+                        return;
+                    }
+                }
+
                 state.user = JSON.parse(savedUser);
+                state.user.role = normalizeFrontendRole(state.user.role); // ใส่ Emoji ให้ตำแหน่ง
+                
                 document.getElementById('sidebarUserName').innerText = state.user.name;
-                document.getElementById('sidebarUserRole').innerText = state.user.role || 'บุคลากร';
+                // แสดงตำแหน่ง หรือ Role 
+                document.getElementById('sidebarUserRole').innerText = state.user.position || state.user.role || 'บุคลากร';
                 document.getElementById('sidebarUserImg').src = state.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name)}&background=4c1d95&color=ffffff`;
                 
+                // แสดงปุ่มออกจากระบบ
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.classList.remove('hidden');
+
                 // ตรวจสอบสิทธิ์สำหรับเมนู Log
                 const userRoleStr = (state.user.role || '').toLowerCase();
                 const isAdmin = userRoleStr.includes('นักรบมังกร') || userRoleStr.includes('จอมเวทย์อาวุโส') || userRoleStr.includes('จอมเวทอาวุโส') || userRoleStr.includes('admin');
@@ -402,17 +497,20 @@
                     document.getElementById('menuLogs').classList.remove('hidden');
                 }
 
-                // ส่งคำสั่งบันทึกการเข้าสู่ระบบ 1 ครั้งต่อการเปิดเบราว์เซอร์
+                // ส่งคำสั่งบันทึกการเข้าสู่ระบบ 1 ครั้งต่อการโหลด
                 if (!sessionStorage.getItem('nsw_doc_logged_in')) {
                     logSystemAccess();
                     sessionStorage.setItem('nsw_doc_logged_in', 'true');
                 }
 
+                resetIdleTimer(); // เริ่มจับเวลาใหม่
                 fetchDocuments();
             } else {
-                // เคลียร์ค่า Session เดิมทิ้ง เผื่อกรณีล็อกเอาต์จากหน้าอื่นแล้วใช้แท็บเดิม
+                // ซ่อนปุ่มออกจากระบบ
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.classList.add('hidden');
+                
                 sessionStorage.removeItem('nsw_doc_logged_in');
-                // เปลี่ยนจากการเด้งกลับทันที เป็นการแสดงหน้าต่าง Login Popup
                 showLoginPopup();
             }
         }
@@ -462,17 +560,14 @@
                     cancelButton: 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl px-4 py-3 text-sm font-bold border border-gray-200 transition-all m-0'
                 },
                 didOpen: () => {
-                    // ดักจับการกดปุ่ม Enter
                     const userIn = document.getElementById('swal-login-user');
                     const passIn = document.getElementById('swal-login-pass');
                     const handleEnter = (e) => {
-                        if (e.key === 'Enter') {
-                            Swal.clickConfirm();
-                        }
+                        if (e.key === 'Enter') Swal.clickConfirm();
                     };
                     userIn.addEventListener('keyup', handleEnter);
                     passIn.addEventListener('keyup', handleEnter);
-                    userIn.focus(); // ให้เคอร์เซอร์กระพริบที่ช่องแรกอัตโนมัติ
+                    userIn.focus();
                 },
                 preConfirm: () => {
                     const user = document.getElementById('swal-login-user').value;
@@ -487,7 +582,6 @@
                 if (result.isConfirmed) {
                     await handleDirectLogin(result.value.user, result.value.pass);
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
-                    // หากผู้ใช้กดปุ่มกลับหน้าเว็บโรงเรียน
                     goToMainWeb();
                 }
             });
@@ -498,25 +592,23 @@
             cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             
             try {
-                // ⚠️ URL API สำหรับการ Login จากหน้า index.html
+                // URL API สำหรับการ Login จากหน้าเว็บหลัก
                 const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
 
-                // ส่ง Request แบบเดียวกับหน้าเว็บหลัก (ผ่าน URL parameters)
                 const res = await fetch(`${LOGIN_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { 
                     method: 'POST' 
                 });
                 const json = await res.json();
 
                 if (json.status === 'success') {
-                    // ในระบบหลัก ข้อมูลถูกส่งกลับมาในชื่อ json.user
+                    // เซฟข้อมูลพร้อมเวลาอัปเดตล่าสุด
                     localStorage.setItem('nswUser', JSON.stringify(json.user));
-                    state.user = json.user; // อัปเดต state เพื่อให้ฟังก์ชัน log ดึงชื่อไปใช้ได้ทันที
+                    localStorage.setItem('nswLastActive', Date.now().toString());
+                    state.user = json.user;
 
-                    // ส่งคำสั่งบันทึก Log การล็อกอินเข้าระบบทันที (และรอจนกว่าจะส่งเสร็จ)
                     await logSystemAccess();
                     sessionStorage.setItem('nsw_doc_logged_in', 'true');
 
-                    // เปลี่ยนแจ้งเตือนเป็นแบบ Toast เล็กๆ น่ารัก
                     Swal.fire({
                         toast: true,
                         position: 'top',
@@ -532,16 +624,16 @@
                             title: 'text-sm md:text-base font-bold m-0 p-0 ml-2'
                         }
                     }).then(() => {
-                        window.location.reload(); // โหลดหน้าใหม่เพื่อให้ฟังก์ชัน checkAuth ทำงานปกติ
+                        window.location.reload(); 
                     });
                 } else {
                     cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => {
-                        showLoginPopup(); // เด้งให้กรอกใหม่
+                        showLoginPopup();
                     });
                 }
             } catch (error) {
                 console.error("Login Error: ", error);
-                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือ URL API').then(() => {
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต').then(() => {
                     showLoginPopup();
                 });
             }
