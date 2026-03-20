@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.13 (แก้ Login/Logout สมบูรณ์)
+                    Version 1.0.14 (Central Auth)
                 </div>
             </div>
         </div>
@@ -625,6 +625,9 @@
         // ==========================================
         const API_URL = 'https://script.google.com/macros/s/AKfycbyQA3s34DlVrQv99WRVtk-5awOyKIJIW9FxZ307pF4Z_-5pKZv3LZF4xc3T0SGbNRto/exec'; 
         
+        // 2. URL ระบบล็อกอินกลาง (จากระบบ ปพ.5)
+        const AUTH_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
+
         // Data State
         let appData = { subjects: [], students: [], scores: {} };
         let logsData = [];
@@ -748,9 +751,21 @@
 
         // ฟังก์ชันกดปุ่มออกจากระบบ (ใช้งานแบบต้นฉบับ 100%)
         function logout() {
-            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
+            Swal.fire({
+                title: 'ยืนยันออกจากระบบ?',
+                text: 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#d1d5db',
+                cancelButtonText: '<span class="text-gray-700">ยกเลิก</span>',
+                confirmButtonText: 'ออกจากระบบ',
+                scrollbarPadding: false,
+                heightAuto: false,
+                customClass: { popup: 'rounded-[2rem] shadow-2xl w-11/12 md:w-auto font-sarabun' }
+            }).then((res) => {
                 if (res.isConfirmed) {
-                    // ส่งประวัติแจ้งเบื้องหลัง (Fire-and-Forget ไม่ต้องใช้ await)
+                    // ส่งประวัติแจ้งเบื้องหลัง ไม่ต้องใช้ await ป้องกันหน้าจอค้าง
                     sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
                     
                     // ทำการลบข้อมูลและรีเฟรชหน้าเว็บทันที
@@ -834,8 +849,8 @@
         async function handleDirectLogin(username, password) {
             cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             try {
-                // ใช้ API ของตัวระบบนี้เองในการเข้าสู่ระบบ (API_URL)
-                const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: 'POST' });
+                // ใช้ API ของระบบล็อกอินส่วนกลาง
+                const res = await fetch(`${AUTH_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: 'POST' });
                 const json = await res.json();
                 
                 if (json.status === 'success') {
@@ -843,8 +858,8 @@
                     localStorage.setItem('nswLastActive', Date.now().toString());
                     sessionStorage.setItem('session_logged_in', 'true');
                     
-                    // บันทึก Log แบบรอให้เสร็จ เพื่อความชัวร์ตอนล็อกอิน
-                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
+                    // บันทึก Log เบื้องหลัง ไม่ต้องใช้ await แล้วจะทำให้หน้าเว็บไม่อืด
+                    sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
                     
                     Swal.fire({ 
                         toast: true, 
@@ -897,6 +912,7 @@
             form.append('details', details);
 
             try {
+                // ส่ง Log เข้า Google Sheet ระบบจัดห้อง
                 await fetch(`${API_URL}?action=saveLog`, { method: 'POST', body: form });
             } catch(err) {
                 console.log('Log Error:', err);
