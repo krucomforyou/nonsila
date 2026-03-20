@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.7 (เพิ่มตัวกรองเพศ)
+                    Version 1.0.8 (แก้ไขปุ่ม Logout)
                 </div>
             </div>
         </div>
@@ -711,24 +711,27 @@
             clearTimeout(idleTimer);
             if (!localStorage.getItem('nswUser')) return;
             localStorage.setItem('nswLastActive', Date.now().toString());
-            idleTimer = setTimeout(async () => { 
-                await sessionExpiredLogout(); 
+            idleTimer = setTimeout(() => { 
+                sessionExpiredLogout(); 
             }, (parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES) * 60000);
         }
 
-        async function sessionExpiredLogout() {
+        function sessionExpiredLogout() {
             if(!localStorage.getItem('nswUser')) return;
-            await sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
-            localStorage.removeItem('nswUser');
-            localStorage.removeItem('nswLastActive');
-            Swal.fire({ 
-                icon: 'info', 
-                title: 'หมดเวลาการเชื่อมต่อ', 
-                text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 
-                confirmButtonText: 'ตกลง', 
-                confirmButtonColor: '#1b8066', 
-                customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' } 
-            }).then(() => window.location.reload());
+            
+            sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ').finally(() => {
+                localStorage.removeItem('nswUser');
+                localStorage.removeItem('nswLastActive');
+                sessionStorage.removeItem('session_logged_in');
+                Swal.fire({ 
+                    icon: 'info', 
+                    title: 'หมดเวลาการเชื่อมต่อ', 
+                    text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 
+                    confirmButtonText: 'ตกลง', 
+                    confirmButtonColor: '#1b8066', 
+                    customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' } 
+                }).then(() => window.location.reload());
+            });
         }
 
         ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
@@ -739,13 +742,17 @@
         });
 
         function logout() {
-            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then(async (res) => {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
                 if (res.isConfirmed) {
-                    await sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
-                    clearTimeout(idleTimer);
-                    localStorage.removeItem('nswUser'); 
-                    localStorage.removeItem('nswLastActive');
-                    window.location.reload();
+                    Swal.fire({ title: 'กำลังออกจากระบบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    
+                    sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน').finally(() => {
+                        clearTimeout(idleTimer);
+                        localStorage.removeItem('nswUser'); 
+                        localStorage.removeItem('nswLastActive');
+                        sessionStorage.removeItem('session_logged_in');
+                        window.location.reload();
+                    });
                 }
             });
         }
@@ -829,21 +836,22 @@
                 if (json.status === 'success') {
                     localStorage.setItem('nswUser', JSON.stringify(json.user)); 
                     localStorage.setItem('nswLastActive', Date.now().toString());
-                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน'); 
                     sessionStorage.setItem('session_logged_in', 'true');
                     
-                    Swal.fire({ 
-                        toast: true, 
-                        position: 'top', 
-                        icon: 'success', 
-                        title: 'เข้าสู่ระบบสำเร็จ! 🥳', 
-                        showConfirmButton: false, 
-                        timer: 1500, 
-                        background: '#f0fdf4', 
-                        color: '#144637', 
-                        iconColor: '#1b8066', 
-                        customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' } 
-                    }).then(() => window.location.reload());
+                    sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน').finally(() => {
+                        Swal.fire({ 
+                            toast: true, 
+                            position: 'top', 
+                            icon: 'success', 
+                            title: 'เข้าสู่ระบบสำเร็จ! 🥳', 
+                            showConfirmButton: false, 
+                            timer: 1500, 
+                            background: '#f0fdf4', 
+                            color: '#144637', 
+                            iconColor: '#1b8066', 
+                            customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' } 
+                        }).then(() => window.location.reload());
+                    });
                 } else {
                     cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => showLoginPopup());
                 }
