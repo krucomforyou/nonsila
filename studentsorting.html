@@ -64,6 +64,12 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { padding-right: 0 !important; overflow: hidden !important; }
+
+        /* Modal Styles */
+        .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; z-index: 200; }
+        .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -87,17 +93,9 @@
             <a href="#" onclick="switchMenu('dashboard')" id="menu-dashboard" class="sidebar-item active flex items-center px-6 py-3 text-sm"><i class="fas fa-chart-pie w-6"></i> ภาพรวม & ประมวลผล</a>
             <a href="#" onclick="switchMenu('scores')" id="menu-scores" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-table w-6"></i> ตารางกรอกคะแนน</a>
             <a href="#" onclick="switchMenu('manual')" id="menu-manual" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-hand-pointer w-6"></i> แก้ไขจัดห้อง (ลากวาง)</a>
-            
-            <!-- เมนูการจัดการ (ส่วนใหม่ที่เพิ่มเข้ามา) -->
-            <div id="adminMenuSection" class="hidden">
-                <div class="px-6 text-[10px] font-bold text-yellow-300 mt-6 mb-2 uppercase tracking-wider border-t border-white/10 pt-4">ส่วนการจัดการ (Admin)</div>
-                <a href="#" onclick="switchMenu('subjects')" id="menu-subjects" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-book w-6"></i> จัดการวิชา & ค่าน้ำหนัก</a>
-                <a href="#" onclick="switchMenu('students')" id="menu-students" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-user-graduate w-6"></i> จัดการข้อมูลนักเรียน</a>
-                <a href="#" onclick="switchMenu('logs')" id="menu-logs" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-history w-6"></i> ประวัติการใช้งาน (Logs)</a>
-            </div>
         </nav>
 
-        <!-- ส่วนแสดงข้อมูลผู้ใช้งานและปุ่มออกจากระบบ (นำรูปแบบจาก ปพ.5 มา) -->
+        <!-- ส่วนแสดงข้อมูลผู้ใช้งานและปุ่มออกจากระบบ -->
         <div class="p-4 border-t border-white/20 bg-black/20 mt-auto">
             <div class="flex items-center gap-3">
                 <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
@@ -107,7 +105,7 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2 mt-4">
-                <button id="adminManageBtn" onclick="switchMenu('subjects')" class="hidden w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                <button id="adminManageBtn" onclick="openAdminModal()" class="hidden w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-cogs"></i> จัดการระบบ (Admin)
                 </button>
                 <button onclick="goToSystem()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
@@ -126,7 +124,6 @@
     <!-- MAIN CONTENT -->
     <main id="mainContent" class="flex-1 flex flex-col h-full overflow-y-auto relative bg-gray-50">
         
-        <!-- Header มีปุ่มแฮมเบอร์เกอร์สำหรับมือถือ -->
         <header class="bg-white shadow-sm px-4 md:px-6 py-4 flex justify-between items-center z-10 sticky top-0">
             <div class="flex items-center gap-3">
                 <button class="md:hidden text-gray-600 hover:text-nswDarkGreen focus:outline-none" onclick="toggleSidebar()">
@@ -203,9 +200,31 @@
                 </div>
             </div>
 
-            <!-- SECTION 4: จัดการวิชา & ค่าน้ำหนัก -->
-            <div id="sec-subjects" class="page-section hidden">
-                <div class="flex flex-col lg:flex-row gap-6">
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- MODAL: จัดการระบบ (ADMIN ONLY) -->
+    <!-- ========================================== -->
+    <div id="adminModal" class="modal fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-6xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[95vh] min-h-[60vh]">
+            
+            <div class="bg-nswDarkGreen px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-lg"><i class="fas fa-cogs mr-2"></i> จัดการระบบคัดแยกนักเรียน</h3>
+                 <button onclick="closeAdminModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="bg-white border-b px-6 pt-4 flex gap-4 shrink-0 overflow-x-auto">
+                <button id="tabSubjects" onclick="switchAdminTab('subjects')" class="px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-book"></i> จัดการวิชาและค่าน้ำหนัก</button>
+                <button id="tabStudents" onclick="switchAdminTab('students')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-user-graduate"></i> จัดการข้อมูลนักเรียน</button>
+                <button id="tabLogs" onclick="switchAdminTab('logs')" class="px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap"><i class="fas fa-history"></i> ประวัติการใช้งาน (Logs)</button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 bg-gray-50 relative">
+                
+                <!-- SECTION: จัดการวิชา & ค่าน้ำหนัก -->
+                <div id="adminSubjectsSection" class="flex flex-col lg:flex-row gap-6">
                     <div class="w-full lg:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
                         <h4 class="font-bold text-gray-800 mb-4 border-b pb-2" id="subjFormTitle"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มวิชาใหม่</h4>
                         <div class="space-y-4">
@@ -228,11 +247,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[600px]">
                         <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
                             <h4 class="font-bold text-gray-700 text-sm">รายการวิชาเรียนทั้งหมด</h4>
                         </div>
-                        <div class="overflow-y-auto max-h-[500px]">
+                        <div class="overflow-y-auto flex-1">
                             <table class="w-full text-sm text-left">
                                 <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
                                     <tr>
@@ -249,11 +268,9 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- SECTION 5: จัดการข้อมูลนักเรียน -->
-            <div id="sec-students" class="page-section hidden">
-                <div class="flex flex-col lg:flex-row gap-6">
+                <!-- SECTION: จัดการข้อมูลนักเรียน -->
+                <div id="adminStudentsSection" class="hidden flex-col lg:flex-row gap-6">
                     <div class="w-full lg:w-1/3 bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-fit">
                         <h4 class="font-bold text-gray-800 mb-4 border-b pb-2" id="stdFormTitle"><i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มนักเรียนใหม่</h4>
                         <div class="space-y-4">
@@ -284,16 +301,15 @@
                             </div>
                         </div>
                     </div>
-                    <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[600px]">
                         <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-2">
                             <h4 class="font-bold text-gray-700 text-sm">รายชื่อนักเรียนทั้งหมด</h4>
-                            <!-- Search -->
                             <div class="relative w-full sm:w-48">
                                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                                 <input type="text" id="stdSearchInput" oninput="renderStudentsTable()" placeholder="ค้นหารหัส, ชื่อ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                             </div>
                         </div>
-                        <div class="overflow-y-auto max-h-[500px]">
+                        <div class="overflow-y-auto flex-1">
                             <table class="w-full text-sm text-left">
                                 <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b">
                                     <tr>
@@ -311,41 +327,41 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- SECTION 6: ประวัติการใช้งาน (LOGS) -->
-            <div id="sec-logs" class="page-section hidden">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[75vh] md:h-[80vh]">
-                    <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
-                        <h4 class="font-bold text-gray-700 text-sm"><i class="fas fa-list-alt text-blue-500 mr-2"></i> ประวัติการเข้าใช้งานและแก้ไขข้อมูล</h4>
-                        <div class="flex items-center gap-2 w-full sm:w-auto">
-                            <button onclick="fetchLogs()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg px-3 py-1.5 text-sm shadow-sm transition whitespace-nowrap"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
-                            <div class="relative w-full sm:w-48">
-                                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <input type="text" id="logSearchInput" oninput="renderLogsTable()" placeholder="ค้นหาประวัติ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <!-- SECTION: ประวัติการใช้งาน (LOGS) -->
+                <div id="adminLogsSection" class="hidden flex-col gap-4 h-full min-h-[500px]">
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full max-h-[600px]">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
+                            <h4 class="font-bold text-gray-700 text-sm"><i class="fas fa-list-alt text-blue-500 mr-2"></i> ประวัติการเข้าใช้งานและแก้ไขข้อมูล</h4>
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <button onclick="fetchLogs()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg px-3 py-1.5 text-sm shadow-sm transition whitespace-nowrap"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
+                                <div class="relative w-full sm:w-48">
+                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input type="text" id="logSearchInput" oninput="renderLogsTable()" placeholder="ค้นหาประวัติ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="overflow-y-auto flex-1">
-                        <table class="w-full text-sm text-left">
-                            <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b z-10">
-                                <tr>
-                                    <th class="px-4 py-3 whitespace-nowrap">วัน-เวลา</th>
-                                    <th class="px-4 py-3">ผู้ใช้งาน</th>
-                                    <th class="px-4 py-3">การกระทำ</th>
-                                    <th class="px-4 py-3 w-1/3">รายละเอียด</th>
-                                </tr>
-                            </thead>
-                            <tbody id="logsTableBody" class="divide-y divide-gray-100">
-                                <tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div>กำลังโหลดประวัติ...</td></tr>
-                            </tbody>
-                        </table>
+                        <div class="overflow-y-auto flex-1">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 text-gray-600 sticky top-0 border-b z-10">
+                                    <tr>
+                                        <th class="px-4 py-3 whitespace-nowrap">วัน-เวลา</th>
+                                        <th class="px-4 py-3">ผู้ใช้งาน</th>
+                                        <th class="px-4 py-3">การกระทำ</th>
+                                        <th class="px-4 py-3 w-1/3">รายละเอียด</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logsTableBody" class="divide-y divide-gray-100">
+                                    <tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div>กำลังโหลดประวัติ...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
 
+            </div>
         </div>
-    </main>
+    </div>
 
     <script>
         // ==========================================
@@ -588,7 +604,6 @@
                 
                 if(hasAdminAccess) {
                     document.getElementById('adminManageBtn').classList.remove('hidden');
-                    document.getElementById('adminMenuSection').classList.remove('hidden');
                 }
 
                 if (!sessionStorage.getItem('session_logged_in')) {
@@ -625,6 +640,58 @@
 
         function goToSystem() {
             window.location.href = 'index.html'; 
+        }
+
+        // ==========================================
+        // ADMIN MODAL & TABS LOGIC
+        // ==========================================
+        function openAdminModal() {
+            const savedUser = localStorage.getItem('nswUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                const allowedRoles = ['Admin', 'จอมเวทย์อาวุโส', 'ผู้ดูแล', 'ผู้ดูแลระบบ', 'นักรบมังกร', 'Dragon', 'High Mage'];
+                const hasAdminAccess = allowedRoles.some(role => user.role.includes(role));
+
+                if (!hasAdminAccess) {
+                    cuteAlert.error('ปฏิเสธการเข้าถึง', 'คุณไม่มีสิทธิ์เข้าถึงส่วนจัดการข้อมูลนี้');
+                    return;
+                }
+            } else { return; }
+
+            switchAdminTab('subjects'); 
+            document.getElementById('adminModal').classList.add('active');
+        }
+
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.remove('active');
+        }
+
+        function switchAdminTab(tab) {
+            const tabs = ['Subjects', 'Students', 'Logs'];
+            
+            const activeClass = "px-4 py-2 font-bold text-nswButtonGreen border-b-2 border-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+            const inactiveClass = "px-4 py-2 font-bold text-gray-500 border-b-2 border-transparent hover:text-nswButtonGreen flex items-center gap-2 whitespace-nowrap";
+
+            tabs.forEach(t => {
+                const tLower = t.toLowerCase();
+                const tabBtn = document.getElementById('tab' + t);
+                if(tabBtn) tabBtn.className = (tLower === tab) ? activeClass : inactiveClass;
+                
+                const section = document.getElementById('admin' + t + 'Section');
+                if (section) {
+                    if (tLower === tab) {
+                        section.classList.remove('hidden');
+                        if (t !== 'Logs') section.classList.add('flex'); 
+                    } else {
+                        section.classList.add('hidden');
+                        if (t !== 'Logs') section.classList.remove('flex');
+                    }
+                }
+            });
+
+            if (tab === 'logs') {
+                fetchLogs();
+            }
         }
 
         // ==========================================
@@ -762,15 +829,14 @@
             const titles = {
                 'dashboard': 'ภาพรวม & ประมวลผลอัตโนมัติ',
                 'scores': 'ตารางกรอกคะแนนดิบรายวิชา',
-                'manual': 'แก้ไขการจัดห้องเรียน (ลากวาง)',
-                'subjects': 'จัดการรายวิชาและค่าน้ำหนัก',
-                'students': 'จัดการข้อมูลนักเรียน',
-                'logs': 'ประวัติการใช้งาน (Logs)'
+                'manual': 'แก้ไขการจัดห้องเรียน (ลากวาง)'
             };
-            document.getElementById('pageTitle').innerText = titles[menuId];
+            
+            if (titles[menuId]) {
+                document.getElementById('pageTitle').innerText = titles[menuId];
+            }
             
             if(menuId === 'manual') renderDragDropGrid(); 
-            if(menuId === 'logs') fetchLogs(); 
         }
 
         // ==========================================
