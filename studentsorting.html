@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.12 (ปรับแก้การ Logout)
+                    Version 1.0.13 (แก้ Login/Logout สมบูรณ์)
                 </div>
             </div>
         </div>
@@ -748,21 +748,9 @@
 
         // ฟังก์ชันกดปุ่มออกจากระบบ (ใช้งานแบบต้นฉบับ 100%)
         function logout() {
-            Swal.fire({
-                title: 'ยืนยันออกจากระบบ?',
-                text: 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#d1d5db',
-                cancelButtonText: '<span class="text-gray-700">ยกเลิก</span>',
-                confirmButtonText: 'ออกจากระบบ',
-                scrollbarPadding: false,
-                heightAuto: false,
-                customClass: { popup: 'rounded-[2rem] shadow-2xl w-11/12 md:w-auto font-sarabun' }
-            }).then((res) => {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
                 if (res.isConfirmed) {
-                    // ส่งประวัติแจ้งเบื้องหลัง ไม่ต้องใช้ await ป้องกันหน้าจอค้าง
+                    // ส่งประวัติแจ้งเบื้องหลัง (Fire-and-Forget ไม่ต้องใช้ await)
                     sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
                     
                     // ทำการลบข้อมูลและรีเฟรชหน้าเว็บทันที
@@ -812,7 +800,7 @@
                 allowEscapeKey: false, 
                 buttonsStyling: false,
                 customClass: { 
-                    popup: 'rounded-[2rem] shadow-2xl border-4 border-green-50 bg-white', 
+                    popup: 'rounded-[2rem] shadow-2xl border-4 border-green-50 bg-white overflow-hidden', 
                     actions: 'flex flex-col gap-2 w-full px-6 mt-6 pb-2', 
                     confirmButton: 'w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white rounded-2xl px-4 py-3 text-sm font-bold shadow-md m-0 font-sarabun', 
                     cancelButton: 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl px-4 py-3 text-sm font-bold border border-gray-200 m-0 font-sarabun' 
@@ -846,9 +834,8 @@
         async function handleDirectLogin(username, password) {
             cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             try {
-                // ใช้ API ของ ปพ.5 กลางในการยืนยันตัวตน
-                const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
-                const res = await fetch(`${LOGIN_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: 'POST' });
+                // ใช้ API ของตัวระบบนี้เองในการเข้าสู่ระบบ (API_URL)
+                const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: 'POST' });
                 const json = await res.json();
                 
                 if (json.status === 'success') {
@@ -856,8 +843,8 @@
                     localStorage.setItem('nswLastActive', Date.now().toString());
                     sessionStorage.setItem('session_logged_in', 'true');
                     
-                    // บันทึก Log เบื้องหลัง ไม่ต้องใช้ await แล้วจะทำให้หน้าเว็บไม่อืด
-                    sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
+                    // บันทึก Log แบบรอให้เสร็จ เพื่อความชัวร์ตอนล็อกอิน
+                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
                     
                     Swal.fire({ 
                         toast: true, 
@@ -871,13 +858,48 @@
                         iconColor: '#1b8066', 
                         scrollbarPadding: false, 
                         heightAuto: false,
-                        customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' } 
+                        customClass: { 
+                            popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center',
+                            title: 'text-sm md:text-base font-bold m-0 p-0 ml-2'
+                        } 
                     }).then(() => window.location.reload());
                 } else {
                     cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => showLoginPopup());
                 }
             } catch (error) { 
                 cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้').then(() => showLoginPopup()); 
+            }
+        }
+
+        // --- ระบบส่ง Log เข้า Google Sheet ---
+        let lastLogTime = 0;
+        let lastLogKey = '';
+
+        async function sendLogActivity(actionType, details) {
+            const savedUser = localStorage.getItem('nswUser');
+            if (!savedUser) return;
+            
+            // ป้องกันการส่ง Log ซ้ำซ้อนภายใน 2 วินาทีสำหรับเหตุการณ์เดิม (Debounce)
+            const now = Date.now();
+            const currentLogKey = actionType + '|' + details;
+            if (now - lastLogTime < 2000 && lastLogKey === currentLogKey) {
+                return; 
+            }
+            lastLogTime = now;
+            lastLogKey = currentLogKey;
+
+            const user = JSON.parse(savedUser);
+
+            const form = new FormData();
+            form.append('name', user.name || 'ไม่ระบุชื่อ');
+            form.append('role', user.role || 'ไม่ระบุตำแหน่ง');
+            form.append('actionType', actionType);
+            form.append('details', details);
+
+            try {
+                await fetch(`${API_URL}?action=saveLog`, { method: 'POST', body: form });
+            } catch(err) {
+                console.log('Log Error:', err);
             }
         }
 
