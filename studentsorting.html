@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.5 (คลิกห้อง & ยึดหัวตาราง)
+                    Version 1.0.6 (คลิกดูห้อง & ตัวกรองเพศ)
                 </div>
             </div>
         </div>
@@ -373,6 +373,52 @@
 
         </div>
     </main>
+
+    <!-- ========================================== -->
+    <!-- MODAL: รายละเอียดห้องเรียน (Room Details) -->
+    <!-- ========================================== -->
+    <div id="roomDetailsModal" class="modal fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 z-[200]">
+        <div class="modal-content bg-white w-full max-w-4xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div class="bg-nswDarkGreen px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-lg" id="roomDetailsTitle"><i class="fas fa-users mr-2"></i> รายชื่อนักเรียน</h3>
+                 <button onclick="closeRoomDetailsModal()" class="text-gray-300 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 bg-gray-50 relative">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
+                    <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                        <h4 class="font-bold text-gray-700 text-sm">ข้อมูลนักเรียน</h4>
+                        
+                        <!-- ตัวกรองเพศใน Modal -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-bold text-gray-700 hidden sm:inline-block">เพศ:</label>
+                            <select id="roomDetailsGenderFilter" onchange="renderRoomDetailsTable()" class="border border-gray-300 rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="ชาย">ชาย</option>
+                                <option value="หญิง">หญิง</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-y-auto flex-1 max-h-[500px]">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-white text-gray-600 sticky top-0 border-b shadow-sm z-10">
+                                <tr>
+                                    <th class="px-6 py-3">รหัส</th>
+                                    <th class="px-6 py-3">ชื่อ-สกุล</th>
+                                    <th class="px-6 py-3 text-center">เพศ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roomDetailsTableBody" class="divide-y divide-gray-100">
+                                <!-- JS Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ========================================== -->
     <!-- MODAL: จัดการระบบ (ADMIN ONLY) -->
@@ -1443,17 +1489,58 @@
             });
         }
 
-        // เพิ่มฟังก์ชันสำหรับดูข้อมูลห้องโดยเฉพาะ
-        function viewRoomDetails(level, room) {
-            switchMenu('scores'); // ไปที่หน้าตารางกรอกคะแนน
+        // จัดการเปิด Modal แสดงรายชื่อนักเรียนในห้องที่จัดแล้ว
+        let currentViewLevel = '';
+        let currentViewRoom = '';
+
+        function openRoomDetailsModal(level, room) {
+            currentViewLevel = level;
+            currentViewRoom = room;
             
-            const levelFilter = document.getElementById('scoreLevelFilter');
-            const roomFilter = document.getElementById('scoreRoomFilter');
+            let titleText = `รายชื่อนักเรียน ชั้น ${level} `;
+            titleText += room === 'ยังไม่จัด' ? '(ยังไม่จัดห้อง)' : `ห้อง ${room}`;
             
-            if (levelFilter) levelFilter.value = level;
-            if (roomFilter) roomFilter.value = room;
+            document.getElementById('roomDetailsTitle').innerHTML = `<i class="fas fa-users mr-2"></i> ${titleText}`;
+            document.getElementById('roomDetailsGenderFilter').value = 'all';
             
-            renderScoreTable(); // เรียกให้วาดตารางใหม่
+            renderRoomDetailsTable();
+            document.getElementById('roomDetailsModal').classList.add('active');
+        }
+
+        function closeRoomDetailsModal() {
+            document.getElementById('roomDetailsModal').classList.remove('active');
+        }
+
+        function renderRoomDetailsTable() {
+            const tbody = document.getElementById('roomDetailsTableBody');
+            const genderFilter = document.getElementById('roomDetailsGenderFilter').value;
+            
+            let filtered = appData.students.filter(std => 
+                (std.level || 'ไม่ระบุ') === currentViewLevel && 
+                (std.room || 'ยังไม่จัด') === currentViewRoom
+            );
+            
+            if(genderFilter !== 'all') {
+                filtered = filtered.filter(std => std.gender === genderFilter);
+            }
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-400">ไม่พบข้อมูลนักเรียน</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            // เรียงตามรหัสนักเรียนเพื่อให้ดูง่ายขึ้น
+            filtered.sort((a,b) => a.id.localeCompare(b.id)).forEach(std => {
+                let genderIcon = std.gender === 'ชาย' ? '<i class="fas fa-male text-blue-500"></i> ชาย' : '<i class="fas fa-female text-pink-500"></i> หญิง';
+                html += `
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                    <td class="px-6 py-3 font-medium text-gray-700">${std.id}</td>
+                    <td class="px-6 py-3 text-gray-800">${std.name}</td>
+                    <td class="px-6 py-3 text-center">${genderIcon}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
         }
 
         function renderDashboard() {
@@ -1482,11 +1569,11 @@
                 sortedKeys.forEach(key => {
                     let g = groups[key];
                     html += `
-                        <div onclick="viewRoomDetails('${g.level}', '${g.room}')" class="bg-gray-50 p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between transition hover:shadow-md hover:border-nswButtonGreen cursor-pointer group">
+                        <div onclick="openRoomDetailsModal('${g.level}', '${g.room}')" class="bg-gray-50 p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between transition hover:shadow-md hover:border-nswButtonGreen cursor-pointer group">
                             <div>
                                 <div class="text-xs font-bold text-nswButtonGreen uppercase tracking-wider mb-1 flex justify-between items-center">
                                     <span><i class="fas fa-layer-group mr-1"></i> ชั้น ${g.level}</span>
-                                    <span class="text-gray-400 group-hover:text-nswButtonGreen transition transform group-hover:translate-x-1"><i class="fas fa-arrow-right"></i></span>
+                                    <span class="text-gray-400 group-hover:text-nswButtonGreen transition transform group-hover:translate-x-1"><i class="fas fa-search"></i></span>
                                 </div>
                                 <div class="text-xl font-bold text-gray-800 mb-4">${g.room === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : 'ห้อง ' + g.room}</div>
                             </div>
