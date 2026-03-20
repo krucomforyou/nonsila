@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.9 (แก้ไขปุ่ม Logout สมบูรณ์)
+                    Version 1.0.10 (แก้ไขปุ่ม Logout ต้นฉบับ)
                 </div>
             </div>
         </div>
@@ -719,19 +719,21 @@
         function sessionExpiredLogout() {
             if(!localStorage.getItem('nswUser')) return;
             
-            sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ').finally(() => {
-                localStorage.removeItem('nswUser');
-                localStorage.removeItem('nswLastActive');
-                sessionStorage.removeItem('session_logged_in');
-                Swal.fire({ 
-                    icon: 'info', 
-                    title: 'หมดเวลาการเชื่อมต่อ', 
-                    text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 
-                    confirmButtonText: 'ตกลง', 
-                    confirmButtonColor: '#1b8066', 
-                    customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' } 
-                }).then(() => window.location.reload());
-            });
+            // ส่งประวัติเข้าสู่ระบบแล้วลบข้อมูลทันที ไม่ต้องรอ (.finally) เพื่อป้องกันหน้าจอค้าง
+            sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
+            
+            localStorage.removeItem('nswUser');
+            localStorage.removeItem('nswLastActive');
+            sessionStorage.removeItem('session_logged_in');
+            
+            Swal.fire({ 
+                icon: 'info', 
+                title: 'หมดเวลาการเชื่อมต่อ', 
+                text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 
+                confirmButtonText: 'ตกลง', 
+                confirmButtonColor: '#1b8066', 
+                customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' } 
+            }).then(() => window.location.reload());
         }
 
         ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
@@ -744,15 +746,15 @@
         function logout() {
             cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
                 if (res.isConfirmed) {
-                    Swal.fire({ title: 'กำลังออกจากระบบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    // ส่งประวัติเข้าสู่ระบบ (Fire-and-Forget ไม่ใช้ await ไม่รอ)
+                    sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
                     
-                    sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน').finally(() => {
-                        clearTimeout(idleTimer);
-                        localStorage.removeItem('nswUser'); 
-                        localStorage.removeItem('nswLastActive');
-                        sessionStorage.removeItem('session_logged_in');
-                        window.location.reload();
-                    });
+                    // สั่งลบข้อมูลและรีเฟรชทันที ป้องกันหน้าค้างหรือ Sidebar หด
+                    clearTimeout(idleTimer);
+                    localStorage.removeItem('nswUser'); 
+                    localStorage.removeItem('nswLastActive');
+                    sessionStorage.removeItem('session_logged_in');
+                    window.location.reload();
                 }
             });
         }
