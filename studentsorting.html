@@ -68,8 +68,6 @@
         .sidebar-nav::-webkit-scrollbar-thumb:hover { background: #136b54; }
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1b8066; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { padding-right: 0 !important; overflow: hidden !important; }
 
         /* Modal Styles */
         .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; z-index: 200; }
@@ -130,7 +128,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.10 (แก้ไขปุ่ม Logout ต้นฉบับ)
+                    Version 1.0.11 (แก้ไข Logout สมบูรณ์)
                 </div>
             </div>
         </div>
@@ -674,19 +672,6 @@
                     heightAuto: false, 
                     customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }
                 }); 
-            },
-            confirm: (title, text, btnText) => { 
-                return Swal.fire({ 
-                    html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, 
-                    showCancelButton: true, 
-                    confirmButtonColor: '#1b8066', 
-                    cancelButtonColor: '#ef4444', 
-                    cancelButtonText: 'ยกเลิก', 
-                    confirmButtonText: btnText, 
-                    scrollbarPadding: false, 
-                    heightAuto: false, 
-                    customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }
-                }); 
             }
         };
 
@@ -719,9 +704,10 @@
         function sessionExpiredLogout() {
             if(!localStorage.getItem('nswUser')) return;
             
-            // ส่งประวัติเข้าสู่ระบบแล้วลบข้อมูลทันที ไม่ต้องรอ (.finally) เพื่อป้องกันหน้าจอค้าง
+            // ส่งข้อมูลแจ้งเบื้องหลัง โดยไม่ต้องรอให้เสร็จ (Fire-and-Forget)
             sendLogActivity('Auto-Logout', 'ระบบตัดการเชื่อมต่ออัตโนมัติ');
             
+            // ลบข้อมูลทั้งหมดทันที
             localStorage.removeItem('nswUser');
             localStorage.removeItem('nswLastActive');
             sessionStorage.removeItem('session_logged_in');
@@ -732,6 +718,8 @@
                 text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน', 
                 confirmButtonText: 'ตกลง', 
                 confirmButtonColor: '#1b8066', 
+                scrollbarPadding: false, 
+                heightAuto: false,
                 customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' } 
             }).then(() => window.location.reload());
         }
@@ -743,13 +731,26 @@
             if (!document.hidden) checkUserRole(false); 
         });
 
+        // ฟังก์ชันกดปุ่มออกจากระบบ (ใช้งานแบบต้นฉบับ 100%)
         function logout() {
-            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?', 'ออกจากระบบ').then((res) => {
+            Swal.fire({
+                title: 'ยืนยันออกจากระบบ?',
+                text: 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#d1d5db',
+                cancelButtonText: '<span class="text-gray-700">ยกเลิก</span>',
+                confirmButtonText: 'ออกจากระบบ',
+                scrollbarPadding: false,
+                heightAuto: false,
+                customClass: { popup: 'rounded-[2rem] shadow-2xl w-11/12 md:w-auto font-sarabun' }
+            }).then((res) => {
                 if (res.isConfirmed) {
-                    // ส่งประวัติเข้าสู่ระบบ (Fire-and-Forget ไม่ใช้ await ไม่รอ)
+                    // ส่งประวัติแจ้งเบื้องหลัง ไม่ต้องใช้ await ป้องกันหน้าจอค้าง
                     sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
                     
-                    // สั่งลบข้อมูลและรีเฟรชทันที ป้องกันหน้าค้างหรือ Sidebar หด
+                    // ทำการลบข้อมูลและรีเฟรชหน้าเว็บทันที
                     clearTimeout(idleTimer);
                     localStorage.removeItem('nswUser'); 
                     localStorage.removeItem('nswLastActive');
@@ -840,20 +841,23 @@
                     localStorage.setItem('nswLastActive', Date.now().toString());
                     sessionStorage.setItem('session_logged_in', 'true');
                     
-                    sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน').finally(() => {
-                        Swal.fire({ 
-                            toast: true, 
-                            position: 'top', 
-                            icon: 'success', 
-                            title: 'เข้าสู่ระบบสำเร็จ! 🥳', 
-                            showConfirmButton: false, 
-                            timer: 1500, 
-                            background: '#f0fdf4', 
-                            color: '#144637', 
-                            iconColor: '#1b8066', 
-                            customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' } 
-                        }).then(() => window.location.reload());
-                    });
+                    // บันทึก Log เบื้องหลัง ไม่ต้องใช้ await แล้วจะทำให้หน้าเว็บไม่อืด
+                    sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
+                    
+                    Swal.fire({ 
+                        toast: true, 
+                        position: 'top', 
+                        icon: 'success', 
+                        title: 'เข้าสู่ระบบสำเร็จ! 🥳', 
+                        showConfirmButton: false, 
+                        timer: 1500, 
+                        background: '#f0fdf4', 
+                        color: '#144637', 
+                        iconColor: '#1b8066', 
+                        scrollbarPadding: false, 
+                        heightAuto: false,
+                        customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' } 
+                    }).then(() => window.location.reload());
                 } else {
                     cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => showLoginPopup());
                 }
