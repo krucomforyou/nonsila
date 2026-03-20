@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบคัดแยกและจัดห้องเรียน</title>
 
+    <!-- Favicon ต้นฉบับ -->
+    <link id="favicon" rel="icon" type="image/png" href="https://lh3.google.com/u/0/d/1PV90NvhTlaeXyWl1ZSZ-j0FubJr1G2DZ=w1920-h911-iv1?auditContext=prefetch">
+    
     <!-- Tailwind CSS & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -51,34 +54,50 @@
         /* Warnings */
         .bg-red-warning { background-color: #fee2e2 !important; border-color: #ef4444 !important; }
         .text-red-warning { color: #dc2626 !important; }
+
+        /* Scrollbar & Loaders */
+        .sidebar-nav::-webkit-scrollbar { width: 5px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: #144637; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: #1b8066; border-radius: 10px; }
+        .sidebar-nav::-webkit-scrollbar-thumb:hover { background: #136b54; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1b8066; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { padding-right: 0 !important; overflow: hidden !important; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
 
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
+
     <!-- SIDEBAR -->
-    <aside class="w-64 sidebar text-white flex flex-col h-full shadow-2xl z-50">
-        <div class="p-6 border-b border-white/20 flex flex-col items-center">
-            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-nswDarkGreen text-3xl shadow-lg mb-3">
+    <aside id="sidebarMenu" class="w-64 sidebar text-white flex flex-col h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
+        <div class="p-6 border-b border-white/20 flex flex-col items-center relative">
+            <button class="md:hidden absolute top-4 right-4 text-white hover:text-red-400" onclick="toggleSidebar()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-nswDarkGreen text-3xl shadow-lg mb-3 mt-2 md:mt-0">
                 <i class="fas fa-users-cog"></i>
             </div>
             <h1 class="font-bold text-lg text-center">ระบบคัดแยกนักเรียน</h1>
         </div>
         
-        <nav class="flex-1 overflow-y-auto py-4">
+        <nav class="flex-1 overflow-y-auto py-4 sidebar-nav">
             <a href="#" onclick="switchMenu('dashboard')" id="menu-dashboard" class="sidebar-item active flex items-center px-6 py-3 text-sm"><i class="fas fa-chart-pie w-6"></i> ภาพรวม & ประมวลผล</a>
             <a href="#" onclick="switchMenu('scores')" id="menu-scores" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-table w-6"></i> ตารางกรอกคะแนน</a>
             <a href="#" onclick="switchMenu('manual')" id="menu-manual" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-hand-pointer w-6"></i> แก้ไขจัดห้อง (ลากวาง)</a>
             
-            <!-- เมนูการจัดการ (ส่วนใหม่) -->
+            <!-- เมนูการจัดการ (ส่วนใหม่ที่เพิ่มเข้ามา) -->
             <div id="adminMenuSection" class="hidden">
-                <div class="px-6 text-[10px] font-bold text-green-300 mt-6 mb-2 uppercase tracking-wider">ส่วนการจัดการ (Admin)</div>
+                <div class="px-6 text-[10px] font-bold text-yellow-300 mt-6 mb-2 uppercase tracking-wider border-t border-white/10 pt-4">ส่วนการจัดการ (Admin)</div>
                 <a href="#" onclick="switchMenu('subjects')" id="menu-subjects" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-book w-6"></i> จัดการวิชา & ค่าน้ำหนัก</a>
                 <a href="#" onclick="switchMenu('students')" id="menu-students" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-user-graduate w-6"></i> จัดการข้อมูลนักเรียน</a>
                 <a href="#" onclick="switchMenu('logs')" id="menu-logs" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-history w-6"></i> ประวัติการใช้งาน (Logs)</a>
             </div>
         </nav>
 
-        <!-- ส่วนแสดงข้อมูลผู้ใช้งานและปุ่มออกจากระบบ -->
+        <!-- ส่วนแสดงข้อมูลผู้ใช้งานและปุ่มออกจากระบบ (นำรูปแบบจาก ปพ.5 มา) -->
         <div class="p-4 border-t border-white/20 bg-black/20 mt-auto">
             <div class="flex items-center gap-3">
                 <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
@@ -88,21 +107,37 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2 mt-4">
+                <button id="adminManageBtn" onclick="switchMenu('subjects')" class="hidden w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-cogs"></i> จัดการระบบ (Admin)
+                </button>
+                <button onclick="goToSystem()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
+                </button>
                 <button id="logoutBtn" onclick="logout()" class="hidden w-full bg-red-600 hover:bg-red-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
+                <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
+                    Version 1.0.1 (อัปเดต 20/03/2569)
+                </div>
             </div>
         </div>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col h-full overflow-y-auto relative bg-gray-50">
-        <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 sticky top-0">
-            <h2 id="pageTitle" class="text-xl font-bold text-nswDarkGreen">ภาพรวม & ประมวลผลอัตโนมัติ</h2>
-            <div class="text-sm text-gray-500" id="loadingStatus"><i class="fas fa-circle-notch fa-spin mr-1"></i> กำลังเชื่อมต่อฐานข้อมูล...</div>
+    <main id="mainContent" class="flex-1 flex flex-col h-full overflow-y-auto relative bg-gray-50">
+        
+        <!-- Header มีปุ่มแฮมเบอร์เกอร์สำหรับมือถือ -->
+        <header class="bg-white shadow-sm px-4 md:px-6 py-4 flex justify-between items-center z-10 sticky top-0">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden text-gray-600 hover:text-nswDarkGreen focus:outline-none" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h2 id="pageTitle" class="text-lg md:text-xl font-bold text-nswDarkGreen">ภาพรวม & ประมวลผลอัตโนมัติ</h2>
+            </div>
+            <div class="text-xs md:text-sm text-gray-500 flex items-center" id="loadingStatus"><i class="fas fa-circle-notch fa-spin mr-1"></i> <span class="hidden md:inline">กำลังเชื่อมต่อฐานข้อมูล...</span></div>
         </header>
 
-        <div class="p-6 max-w-7xl mx-auto w-full">
+        <div class="p-4 md:p-6 max-w-7xl mx-auto w-full">
             
             <!-- SECTION 1: DASHBOARD & AUTO-SORT -->
             <div id="sec-dashboard" class="page-section space-y-6">
@@ -137,9 +172,9 @@
 
             <!-- SECTION 2: SCORE GRID -->
             <div id="sec-scores" class="page-section hidden">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[80vh]">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[75vh] md:h-[80vh]">
                     <div class="p-4 bg-gray-50 border-b flex justify-between items-center shrink-0">
-                        <div class="text-sm text-gray-600"><i class="fas fa-keyboard mr-1"></i> กด <kbd class="bg-white border rounded px-1 font-bold shadow-sm">Enter</kbd> เพื่อเลื่อนลงไปกรอกคนถัดไป (ระบบบันทึกอัตโนมัติ)</div>
+                        <div class="text-xs md:text-sm text-gray-600"><i class="fas fa-keyboard mr-1"></i> กด <kbd class="bg-white border rounded px-1 font-bold shadow-sm">Enter</kbd> เพื่อเลื่อนลง (บันทึกอัตโนมัติ)</div>
                     </div>
                     <div class="overflow-auto flex-1 p-0 relative">
                         <table class="w-full text-sm text-left whitespace-nowrap">
@@ -240,8 +275,8 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-1">คู่ต้องห้าม (Blacklist IDs)</label>
-                                <input type="text" id="stdBlacklist" placeholder="เช่น 1005, 1008 (คั่นด้วยลูกน้ำ)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
-                                <p class="text-[10px] text-red-400 mt-1">* หากมีปัญหากับใคร ให้ใส่รหัสของคนนั้น</p>
+                                <input type="text" id="stdBlacklist" placeholder="เช่น 1005, 1008" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                <p class="text-[10px] text-red-400 mt-1">* คั่นด้วยลูกน้ำ หากมีปัญหากับใครให้ใส่รหัสของคนนั้น</p>
                             </div>
                             <div class="flex gap-2 pt-2">
                                 <button onclick="resetStdForm()" class="w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-lg transition shadow">ยกเลิก</button>
@@ -250,10 +285,10 @@
                         </div>
                     </div>
                     <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                        <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                        <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-2">
                             <h4 class="font-bold text-gray-700 text-sm">รายชื่อนักเรียนทั้งหมด</h4>
                             <!-- Search -->
-                            <div class="relative w-48">
+                            <div class="relative w-full sm:w-48">
                                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                                 <input type="text" id="stdSearchInput" oninput="renderStudentsTable()" placeholder="ค้นหารหัส, ชื่อ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                             </div>
@@ -280,12 +315,12 @@
 
             <!-- SECTION 6: ประวัติการใช้งาน (LOGS) -->
             <div id="sec-logs" class="page-section hidden">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[80vh]">
-                    <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[75vh] md:h-[80vh]">
+                    <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
                         <h4 class="font-bold text-gray-700 text-sm"><i class="fas fa-list-alt text-blue-500 mr-2"></i> ประวัติการเข้าใช้งานและแก้ไขข้อมูล</h4>
-                        <div class="flex items-center gap-2">
-                            <button onclick="fetchLogs()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg px-3 py-1.5 text-sm shadow-sm transition"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
-                            <div class="relative w-48">
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <button onclick="fetchLogs()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg px-3 py-1.5 text-sm shadow-sm transition whitespace-nowrap"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button>
+                            <div class="relative w-full sm:w-48">
                                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                                 <input type="text" id="logSearchInput" oninput="renderLogsTable()" placeholder="ค้นหาประวัติ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                             </div>
@@ -302,7 +337,7 @@
                                 </tr>
                             </thead>
                             <tbody id="logsTableBody" class="divide-y divide-gray-100">
-                                <tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></div><br>กำลังโหลดประวัติ...</td></tr>
+                                <tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div>กำลังโหลดประวัติ...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -322,6 +357,16 @@
         let appData = { subjects: [], students: [], scores: {} };
         let logsData = [];
         let sortableInstances = [];
+
+        // ==========================================
+        // CuteAlert UI (นำมาจากระบบ ปพ.5 เดิม)
+        // ==========================================
+        const cuteAlert = {
+            loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-cogs text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-xl font-bold text-green-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            error: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-times"></i></div><h3 class="text-xl font-bold text-red-700 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
+            confirm: (title, text, btnText) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm"><i class="fas fa-exclamation-triangle"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showCancelButton: true, confirmButtonColor: '#1b8066', cancelButtonColor: '#ef4444', cancelButtonText: 'ยกเลิก', confirmButtonText: btnText, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); }
+        };
 
         // ==========================================
         // ระบบจัดการ Session & Login 
@@ -381,16 +426,7 @@
         });
 
         function logout() {
-            Swal.fire({
-                title: 'ยืนยันออกจากระบบ?',
-                text: 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ออกจากระบบ',
-                customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' }
-            }).then(async (res) => {
+            cuteAlert.confirm('ยืนยันออกจากระบบ?', 'คุณต้องการออกจากระบบจัดห้องเรียนใช่หรือไม่?', 'ออกจากระบบ').then(async (res) => {
                 if (res.isConfirmed) {
                     await sendLogActivity('Logout', 'ออกจากระบบจัดห้องเรียน');
                     clearTimeout(idleTimer);
@@ -415,7 +451,7 @@
                             <i class="fas fa-user-shield text-4xl text-nswButtonGreen relative z-10"></i>
                             <div class="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-30"></div>
                         </div>
-                        <h2 class="text-xl font-bold text-nswDarkGreen mb-1">เข้าสู่ระบบจัดห้องเรียน</h2>
+                        <h2 class="text-xl font-bold text-nswDarkGreen mb-1">เข้าสู่ระบบคัดแยกนักเรียน</h2>
                         <p class="text-xs text-green-600 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งาน</p>
 
                         <div class="space-y-3 text-left px-2">
@@ -434,8 +470,9 @@
                         </div>
                     </div>
                 `,
-                showCancelButton: false,
+                showCancelButton: true,
                 confirmButtonText: 'เข้าสู่ระบบ <i class="fas fa-arrow-right ml-1"></i>',
+                cancelButtonText: '<i class="fas fa-home mr-1"></i> กลับเว็บโรงเรียน',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 buttonsStyling: false,
@@ -443,6 +480,7 @@
                     popup: 'rounded-[2rem] shadow-2xl border-4 border-green-50 bg-white overflow-hidden',
                     actions: 'flex flex-col gap-2 w-full px-6 mt-6 pb-2',
                     confirmButton: 'w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white rounded-2xl px-4 py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all m-0 font-sarabun',
+                    cancelButton: 'w-full bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl px-4 py-3 text-sm font-bold border border-gray-200 transition-all m-0 font-sarabun'
                 },
                 didOpen: () => {
                     const userIn = document.getElementById('swal-login-user');
@@ -466,12 +504,14 @@
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await handleDirectLogin(result.value.user, result.value.pass);
+                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                    goToSystem();
                 }
             });
         }
 
         async function handleDirectLogin(username, password) {
-            Swal.fire({ html: '<div class="p-4 text-center">กำลังตรวจสอบข้อมูล...</div>', showConfirmButton: false, allowOutsideClick: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } });
+            cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             
             try {
                 // เรียกใช้ API Login จากระบบหลักของโรงเรียน
@@ -485,7 +525,6 @@
                     localStorage.setItem('nswUser', JSON.stringify(json.user));
                     localStorage.setItem('nswLastActive', Date.now().toString());
 
-                    // บันทึก Log ทันทีที่ล็อกอิน
                     await sendLogActivity('เข้าสู่ระบบ', 'เข้าสู่ระบบคัดแยกนักเรียน');
                     sessionStorage.setItem('session_logged_in', 'true');
 
@@ -504,13 +543,13 @@
                         window.location.reload(); 
                     });
                 } else {
-                    Swal.fire({ title: 'เข้าสู่ระบบไม่สำเร็จ', text: json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', icon: 'error', confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } }).then(() => {
+                    cuteAlert.error('เข้าสู่ระบบไม่สำเร็จ', json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').then(() => {
                         showLoginPopup();
                     });
                 }
             } catch (error) {
                 console.error("Login Error: ", error);
-                Swal.fire({ title: 'ข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } }).then(() => {
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้').then(() => {
                     showLoginPopup();
                 });
             }
@@ -543,10 +582,12 @@
                 const logoutBtn = document.getElementById('logoutBtn');
                 if (logoutBtn) logoutBtn.classList.remove('hidden');
 
-                // เช็คสิทธิ์ Admin สำหรับเปิดเมนูจัดการวิชา, นักเรียน, และ Logs
-                const allowedAdminRoles = ['Admin', 'จอมเวทย์อาวุโส', 'ผู้ดูแลระบบ', 'นักรบมังกร', 'Dragon', 'High Mage'];
+                // รองรับ role ให้เหมือนไฟล์ต้นฉบับอย่างสมบูรณ์
+                const allowedAdminRoles = ['Admin', 'จอมเวทย์อาวุโส', 'ผู้ดูแล', 'ผู้ดูแลระบบ', 'นักรบมังกร', 'Dragon', 'High Mage'];
                 const hasAdminAccess = allowedAdminRoles.some(role => user.role.includes(role));
+                
                 if(hasAdminAccess) {
+                    document.getElementById('adminManageBtn').classList.remove('hidden');
                     document.getElementById('adminMenuSection').classList.remove('hidden');
                 }
 
@@ -565,6 +606,25 @@
                 if (logoutBtn) logoutBtn.classList.add('hidden');
                 showLoginPopup(); 
             }
+        }
+
+        // ==========================================
+        // Mobile Navigation (ฟังก์ชันสไลด์เมนูมือถือ)
+        // ==========================================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        function goToSystem() {
+            window.location.href = 'index.html'; 
         }
 
         // ==========================================
@@ -599,7 +659,7 @@
         }
 
         async function fetchLogs() {
-            document.getElementById('logsTableBody').innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="fas fa-circle-notch fa-spin text-2xl mb-2 text-blue-500"></div><br>กำลังโหลดประวัติ...</td></tr>`;
+            document.getElementById('logsTableBody').innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div>กำลังโหลดประวัติ...</td></tr>`;
             try {
                 const res = await fetch(`${API_URL}?action=getLogs`, { method: 'POST' });
                 const json = await res.json();
@@ -664,7 +724,7 @@
                 
                 if (json.status === 'success') {
                     appData = json.data;
-                    document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> โหลดข้อมูลสำเร็จ';
+                    document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> <span class="hidden md:inline">โหลดข้อมูลสำเร็จ</span>';
                     renderDashboard();
                     renderScoreTable();
                     renderDragDropGrid();
@@ -674,8 +734,8 @@
                     throw new Error(json.message);
                 }
             } catch (err) {
-                document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> เชื่อมต่อล้มเหลว';
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message, 'error');
+                document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> <span class="hidden md:inline">เชื่อมต่อล้มเหลว</span>';
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message);
             }
         }
 
@@ -686,11 +746,18 @@
 
         // 2. Navigation
         function switchMenu(menuId) {
+            // ปิด Sidebar หากเปิดอยู่ (สำหรับมือถือ)
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebarMenu');
+                if (!sidebar.classList.contains('-translate-x-full')) toggleSidebar();
+            }
+
             document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
             
             document.getElementById(`sec-${menuId}`).classList.remove('hidden');
-            document.getElementById(`menu-${menuId}`).classList.add('active');
+            const activeMenuItem = document.getElementById(`menu-${menuId}`);
+            if(activeMenuItem) activeMenuItem.classList.add('active');
             
             const titles = {
                 'dashboard': 'ภาพรวม & ประมวลผลอัตโนมัติ',
@@ -703,11 +770,11 @@
             document.getElementById('pageTitle').innerText = titles[menuId];
             
             if(menuId === 'manual') renderDragDropGrid(); 
-            if(menuId === 'logs') fetchLogs(); // โหลดข้อมูล Log ใหม่เมื่อเข้าหน้านี้
+            if(menuId === 'logs') fetchLogs(); 
         }
 
         // ==========================================
-        // SCORE GRID & AUTO SORT & MANUAL (คงเดิม แต่เพิ่ม Log)
+        // SCORE GRID & AUTO SORT & MANUAL
         // ==========================================
         function renderScoreTable() {
             const thead = document.getElementById('scoreTableHeader');
@@ -787,7 +854,6 @@
                     ind.innerHTML = '<i class="fas fa-check text-green-500"></i>';
                     setTimeout(() => { ind.style.display = 'none'; }, 2000);
                     
-                    // หน่วงเวลา Log เผื่อครูกรอกรัวๆ
                     clearTimeout(scoreLogTimeout);
                     scoreLogTimeout = setTimeout(() => {
                         sendLogActivity('บันทึกคะแนน', `อัปเดตคะแนน ${subName} ของ ${stdName} เป็น ${score}`);
@@ -803,16 +869,13 @@
             const mode = document.getElementById('selSortMode').value;
             const modeText = mode === 'S-CURVE' ? 'คละความสามารถ' : 'แยกตามคะแนน';
             
-            Swal.fire({
-                title: 'ยืนยันการประมวลผล?',
-                text: `ระบบจะคำนวณคะแนนใหม่และจัดนักเรียนลง ${rooms} ห้อง ระบบเดิมจะถูกเขียนทับ`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#1b8066',
-                confirmButtonText: 'ตกลง, ประมวลผลเลย'
-            }).then(async (result) => {
+            cuteAlert.confirm(
+                'ยืนยันการประมวลผล?', 
+                `ระบบจะคำนวณคะแนนใหม่และจัดนักเรียนลง ${rooms} ห้อง ระบบเดิมจะถูกเขียนทับ`, 
+                'ตกลง, ประมวลผลเลย'
+            ).then(async (result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({ title: 'กำลังประมวลผล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    cuteAlert.loading('กำลังประมวลผลจัดห้อง...');
                     
                     const form = new FormData();
                     form.append('numRooms', rooms);
@@ -823,14 +886,14 @@
                         const json = await res.json();
                         
                         if (json.status === 'success') {
-                            Swal.fire('สำเร็จ!', 'จัดห้องเรียนเรียบร้อยแล้ว', 'success');
+                            cuteAlert.success('สำเร็จ!', 'จัดห้องเรียนเรียบร้อยแล้ว');
                             sendLogActivity('จัดห้องอัตโนมัติ', `จัดจำนวน ${rooms} ห้อง ด้วยรูปแบบ ${modeText}`);
                             loadInitialData();
                         } else {
                             throw new Error(json.message);
                         }
                     } catch (err) {
-                        Swal.fire('ข้อผิดพลาด', 'ประมวลผลไม่สำเร็จ: ' + err.message, 'error');
+                        cuteAlert.error('ข้อผิดพลาด', 'ประมวลผลไม่สำเร็จ: ' + err.message);
                     }
                 }
             });
@@ -989,7 +1052,7 @@
             if(!sub) return;
             document.getElementById('subjAction').value = 'edit';
             document.getElementById('subjId').value = sub.id;
-            document.getElementById('subjId').readOnly = true; // ห้ามแก้รหัส
+            document.getElementById('subjId').readOnly = true; 
             document.getElementById('subjName').value = sub.name;
             document.getElementById('subjWeight').value = sub.weight;
             document.getElementById('subjFormTitle').innerHTML = '<i class="fas fa-edit text-blue-500 mr-1"></i> แก้ไขวิชา';
@@ -1001,9 +1064,9 @@
             const weight = document.getElementById('subjWeight').value.trim();
             const action = document.getElementById('subjAction').value;
 
-            if(!id || !name || !weight) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลให้ครบทุกช่อง', 'warning');
+            if(!id || !name || !weight) return cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลให้ครบทุกช่อง');
 
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+            cuteAlert.loading('กำลังบันทึกข้อมูลวิชา...');
             const form = new FormData();
             form.append('subId', id);
             form.append('subName', name);
@@ -1013,39 +1076,36 @@
                 const res = await fetch(`${API_URL}?action=saveSubject`, { method: 'POST', body: form });
                 const json = await res.json();
                 if(json.status === 'success') {
-                    Swal.fire('สำเร็จ', 'บันทึกข้อมูลรายวิชาแล้ว', 'success');
+                    cuteAlert.success('สำเร็จ', 'บันทึกข้อมูลรายวิชาแล้ว');
                     let logText = action === 'add' ? `เพิ่มวิชาใหม่: ${id} ${name} (นน. ${weight}%)` : `แก้ไขวิชา: ${id} ${name} (นน. ${weight}%)`;
                     sendLogActivity('แก้ไขรายวิชา', logText);
                     resetSubjForm();
                     loadInitialData();
                 } else throw new Error(json.message);
             } catch(e) {
-                Swal.fire('ข้อผิดพลาด', e.message, 'error');
+                cuteAlert.error('ข้อผิดพลาด', e.message);
             }
         }
 
         function deleteSubject(id, name) {
-            Swal.fire({
-                title: 'ยืนยันการลบวิชา?',
-                text: `หากลบวิชา ${name} คะแนนของนักเรียนในวิชานี้จะถูกลบด้วย!`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                confirmButtonText: 'ลบข้อมูล'
-            }).then(async (result) => {
+            cuteAlert.confirm(
+                'ยืนยันการลบวิชา?', 
+                `หากลบวิชา ${name} คะแนนของนักเรียนในวิชานี้จะถูกลบด้วย!`, 
+                'ลบข้อมูล'
+            ).then(async (result) => {
                 if(result.isConfirmed) {
-                    Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    cuteAlert.loading('กำลังลบวิชา...');
                     const form = new FormData();
                     form.append('subId', id);
                     try {
                         const res = await fetch(`${API_URL}?action=deleteSubject`, { method: 'POST', body: form });
                         const json = await res.json();
                         if(json.status === 'success') {
-                            Swal.fire('สำเร็จ', 'ลบวิชาเรียบร้อยแล้ว', 'success');
+                            cuteAlert.success('สำเร็จ', 'ลบวิชาเรียบร้อยแล้ว');
                             sendLogActivity('ลบรายวิชา', `ลบวิชา ${id} ${name} ออกจากระบบ`);
                             loadInitialData();
                         } else throw new Error(json.message);
-                    } catch(e) { Swal.fire('ข้อผิดพลาด', e.message, 'error'); }
+                    } catch(e) { cuteAlert.error('ข้อผิดพลาด', e.message); }
                 }
             });
         }
@@ -1118,9 +1178,9 @@
             const blacklist = document.getElementById('stdBlacklist').value.trim();
             const action = document.getElementById('stdAction').value;
 
-            if(!id || !name) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณากรอก รหัส และ ชื่อ-สกุล', 'warning');
+            if(!id || !name) return cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอก รหัส และ ชื่อ-สกุล');
 
-            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+            cuteAlert.loading('กำลังบันทึกข้อมูลนักเรียน...');
             const form = new FormData();
             form.append('stdId', id);
             form.append('stdName', name);
@@ -1131,39 +1191,36 @@
                 const res = await fetch(`${API_URL}?action=saveStudent`, { method: 'POST', body: form });
                 const json = await res.json();
                 if(json.status === 'success') {
-                    Swal.fire('สำเร็จ', 'บันทึกข้อมูลนักเรียนแล้ว', 'success');
+                    cuteAlert.success('สำเร็จ', 'บันทึกข้อมูลนักเรียนแล้ว');
                     let logText = action === 'add' ? `เพิ่มนักเรียนใหม่: ${id} ${name}` : `แก้ไขข้อมูลนักเรียน: ${id} ${name}`;
                     sendLogActivity('ข้อมูลนักเรียน', logText);
                     resetStdForm();
                     loadInitialData();
                 } else throw new Error(json.message);
             } catch(e) {
-                Swal.fire('ข้อผิดพลาด', e.message, 'error');
+                cuteAlert.error('ข้อผิดพลาด', e.message);
             }
         }
 
         function deleteStudent(id, name) {
-            Swal.fire({
-                title: 'ยืนยันการลบนักเรียน?',
-                text: `ลบ ${name} ออกจากระบบจัดห้องเรียนใช่หรือไม่?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                confirmButtonText: 'ลบข้อมูล'
-            }).then(async (result) => {
+            cuteAlert.confirm(
+                'ยืนยันการลบนักเรียน?', 
+                `ลบ ${name} ออกจากระบบจัดห้องเรียนใช่หรือไม่?`, 
+                'ลบข้อมูล'
+            ).then(async (result) => {
                 if(result.isConfirmed) {
-                    Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    cuteAlert.loading('กำลังลบนักเรียน...');
                     const form = new FormData();
                     form.append('stdId', id);
                     try {
                         const res = await fetch(`${API_URL}?action=deleteStudent`, { method: 'POST', body: form });
                         const json = await res.json();
                         if(json.status === 'success') {
-                            Swal.fire('สำเร็จ', 'ลบนักเรียนเรียบร้อยแล้ว', 'success');
+                            cuteAlert.success('สำเร็จ', 'ลบนักเรียนเรียบร้อยแล้ว');
                             sendLogActivity('ลบนักเรียน', `ลบข้อมูล ${id} ${name} ออกจากระบบ`);
                             loadInitialData();
                         } else throw new Error(json.message);
-                    } catch(e) { Swal.fire('ข้อผิดพลาด', e.message, 'error'); }
+                    } catch(e) { cuteAlert.error('ข้อผิดพลาด', e.message); }
                 }
             });
         }
