@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบคัดแยกและจัดห้องเรียน</title>
+
+    <!-- Tailwind CSS & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- SweetAlert2 & SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nswDarkGreen: '#144637', 
+                        nswButtonGreen: '#1b8066', 
+                        nswButtonHover: '#136b54',
+                    },
+                    fontFamily: { sans: ['Sarabun', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .sidebar { background-color: #144637; } 
+        .sidebar-item { color: #d1d5db; border-left: 4px solid transparent; transition: 0.2s; }
+        .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left-color: #facc15; color: #ffffff; }
+        
+        /* Table Styles for Score Grid */
+        .score-input { width: 100%; border: 1px solid #e5e7eb; border-radius: 4px; padding: 4px 8px; text-align: center; }
+        .score-input:focus { border-color: #1b8066; outline: none; box-shadow: 0 0 0 2px rgba(27, 128, 102, 0.2); }
+        .saving-indicator { font-size: 10px; color: #1b8066; position: absolute; right: 5px; top: 10px; display: none; }
+        
+        /* Drag and Drop styles */
+        .room-container { background: white; border-radius: 8px; border: 1px solid #e5e7eb; min-height: 400px; display: flex; flex-direction: column;}
+        .room-header { background: #1b8066; color: white; padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
+        .sortable-list { flex: 1; padding: 10px; background: #f9fafb; min-height: 200px; }
+        .student-card { background: white; border: 1px solid #d1d5db; padding: 10px; margin-bottom: 8px; border-radius: 6px; cursor: grab; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;}
+        .student-card:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; border: 2px dashed #1b8066 !important; background-color: #e6f2ef !important; }
+        
+        /* Warnings */
+        .bg-red-warning { background-color: #fee2e2 !important; border-color: #ef4444 !important; }
+        .text-red-warning { color: #dc2626 !important; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 sidebar text-white flex flex-col h-full shadow-2xl z-50">
+        <div class="p-6 border-b border-white/20 flex flex-col items-center">
+            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-nswDarkGreen text-3xl shadow-lg mb-3">
+                <i class="fas fa-users-cog"></i>
+            </div>
+            <h1 class="font-bold text-lg text-center">ระบบคัดแยกนักเรียน</h1>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4">
+            <a href="#" onclick="switchMenu('dashboard')" id="menu-dashboard" class="sidebar-item active flex items-center px-6 py-3 text-sm"><i class="fas fa-chart-pie w-6"></i> ภาพรวม & ประมวลผล</a>
+            <a href="#" onclick="switchMenu('scores')" id="menu-scores" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-table w-6"></i> ตารางกรอกคะแนน</a>
+            <a href="#" onclick="switchMenu('manual')" id="menu-manual" class="sidebar-item flex items-center px-6 py-3 text-sm"><i class="fas fa-hand-pointer w-6"></i> แก้ไขจัดห้อง (ลากวาง)</a>
+        </nav>
+
+        <!-- ส่วนแสดงข้อมูลผู้ใช้งานและปุ่มออกจากระบบ -->
+        <div class="p-4 border-t border-white/20 bg-black/20 mt-auto">
+            <div class="flex items-center gap-3">
+                <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
+                <div class="flex-1 overflow-hidden">
+                    <div id="sidebarUserName" class="text-sm font-bold truncate">ผู้ใช้งาน</div>
+                    <div id="sidebarUserRole" class="text-xs text-green-200 truncate">ตำแหน่ง</div>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2 mt-4">
+                <button id="logoutBtn" onclick="logout()" class="hidden w-full bg-red-600 hover:bg-red-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto relative bg-gray-50">
+        <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center z-10 sticky top-0">
+            <h2 id="pageTitle" class="text-xl font-bold text-nswDarkGreen">ภาพรวม & ประมวลผลอัตโนมัติ</h2>
+            <div class="text-sm text-gray-500" id="loadingStatus"><i class="fas fa-circle-notch fa-spin mr-1"></i> กำลังเชื่อมต่อฐานข้อมูล...</div>
+        </header>
+
+        <div class="p-6 max-w-7xl mx-auto w-full">
+            
+            <!-- SECTION 1: DASHBOARD & AUTO-SORT -->
+            <div id="sec-dashboard" class="page-section space-y-6">
+                <!-- ตั้งค่าการจัดห้อง -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-lg mb-4 text-gray-800 border-l-4 border-nswButtonGreen pl-3">ตั้งค่าการจัดห้องเรียนอัตโนมัติ</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">จำนวนห้องเรียน</label>
+                            <input type="number" id="inpNumRooms" value="3" min="1" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">รูปแบบการจัดนักเรียน</label>
+                            <select id="selSortMode" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                <option value="S-CURVE">คละความสามารถ (S-Curve)</option>
+                                <option value="TIERED">แยกตามคะแนน (ห้องคิง/ห้องทั่วไป)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="runAutoSort()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg shadow transition">
+                                <i class="fas fa-cogs mr-1"></i> เริ่มประมวลผลจัดห้อง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- สถิติภาพรวม -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="dashboardStats">
+                    <!-- สร้างจาก JS -->
+                </div>
+            </div>
+
+            <!-- SECTION 2: SCORE GRID -->
+            <div id="sec-scores" class="page-section hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[80vh]">
+                    <div class="p-4 bg-gray-50 border-b flex justify-between items-center shrink-0">
+                        <div class="text-sm text-gray-600"><i class="fas fa-keyboard mr-1"></i> กด <kbd class="bg-white border rounded px-1 font-bold shadow-sm">Enter</kbd> เพื่อเลื่อนลงไปกรอกคนถัดไป (ระบบบันทึกอัตโนมัติ)</div>
+                    </div>
+                    <div class="overflow-auto flex-1 p-0 relative">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="bg-nswDarkGreen text-white sticky top-0 z-10" id="scoreTableHeader">
+                                <!-- สร้างจาก JS -->
+                            </thead>
+                            <tbody class="divide-y divide-gray-200" id="scoreTableBody">
+                                <!-- สร้างจาก JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: MANUAL SORT (DRAG & DROP) -->
+            <div id="sec-manual" class="page-section hidden">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-gray-800"><i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i> ระบบตรวจสอบคู่ต้องห้าม (Blacklist)</h3>
+                        <p class="text-xs text-gray-500">หากลากนักเรียนที่มีปัญหากันไปไว้ห้องเดียวกัน กรอบรายชื่อจะเปลี่ยนเป็น <span class="text-red-500 font-bold">สีแดง</span></p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-4 overflow-x-auto pb-4" id="dragDropContainer">
+                    <!-- สร้างห้องจาก JS -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. นำ URL ของ Web App (ระบบจัดห้อง) มาใส่ที่นี่
+        // ==========================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyQA3s34DlVrQv99WRVtk-5awOyKIJIW9FxZ307pF4Z_-5pKZv3LZF4xc3T0SGbNRto/exec'; 
+        
+        // Data State
+        let appData = { subjects: [], students: [], scores: {} };
+        let sortableInstances = [];
+
+        // ==========================================
+        // ระบบจัดการ Session & Login (จากต้นฉบับ)
+        // ==========================================
+        let idleTimer;
+        const DEFAULT_IDLE_MINUTES = 60;
+
+        function normalizeFrontendRole(r) {
+            if(!r) return '🎒 นักผจญภัยฝึกหัด';
+            if(r.includes('Dragon')) return '🐲 นักรบมังกร';
+            if(r.includes('High Mage')) return '🧙‍♂️ จอมเวทย์อาวุโส';
+            if(r.includes('Grand Master')) return '⚔️ ปรมาจารย์ชั้นยอด';
+            if(r.includes('Vanguard')) return '🏹 นักผจญภัยแนวหน้า';
+            if(r.includes('Apprentice')) return '🎒 นักผจญภัยฝึกหัด';
+            return r;
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            const savedUser = localStorage.getItem('nswUser');
+            if (!savedUser) return;
+            
+            localStorage.setItem('nswLastActive', Date.now().toString());
+            let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+            
+            idleTimer = setTimeout(async () => {
+                await sessionExpiredLogout();
+            }, minutes * 60 * 1000);
+        }
+
+        async function sessionExpiredLogout() {
+            const savedUser = localStorage.getItem('nswUser');
+            if(!savedUser) return;
+            
+            localStorage.removeItem('nswUser');
+            localStorage.removeItem('nswLastActive');
+            
+            Swal.fire({
+                icon: 'info',
+                title: 'หมดเวลาการเชื่อมต่อ',
+                text: 'ระบบได้นำคุณออกจากระบบอัตโนมัติเนื่องจากหมดเวลาเข้าใช้งาน',
+                confirmButtonText: 'ตกลง',
+                confirmButtonColor: '#1b8066',
+                customClass: { popup: 'rounded-[2rem] font-sarabun p-2 shadow-2xl' }
+            }).then(() => {
+                window.location.reload();
+            });
+        }
+
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
+            document.addEventListener(evt, resetIdleTimer, true)
+        );
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkUserRole(false); 
+        });
+
+        function logout() {
+            Swal.fire({
+                title: 'ยืนยันออกจากระบบ?',
+                text: 'คุณต้องการออกจากระบบคัดแยกนักเรียนใช่หรือไม่?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ออกจากระบบ',
+                customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' }
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    clearTimeout(idleTimer);
+                    localStorage.removeItem('nswUser');
+                    localStorage.removeItem('nswLastActive');
+                    window.location.reload();
+                }
+            });
+        }
+
+        function showLoginPopup() {
+            Swal.fire({
+                scrollbarPadding: false,
+                heightAuto: false,
+                width: '22rem',
+                padding: '2rem 1rem 1rem 1rem',
+                showTitle: false,
+                backdrop: 'rgba(15, 23, 42, 0.7) backdrop-blur-sm',
+                html: `
+                    <div class="text-center font-sarabun">
+                        <div class="w-20 h-20 mx-auto bg-green-50 rounded-full flex items-center justify-center mb-4 shadow-inner border-4 border-white relative">
+                            <i class="fas fa-user-shield text-4xl text-nswButtonGreen relative z-10"></i>
+                            <div class="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-30"></div>
+                        </div>
+                        <h2 class="text-xl font-bold text-nswDarkGreen mb-1">เข้าสู่ระบบจัดห้องเรียน</h2>
+                        <p class="text-xs text-green-600 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งาน</p>
+
+                        <div class="space-y-3 text-left px-2">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-user text-green-500 text-sm"></i>
+                                </div>
+                                <input type="text" id="swal-login-user" class="w-full bg-green-50/50 border border-green-200 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-nswButtonGreen focus:bg-white outline-none transition-all placeholder-green-400 text-nswDarkGreen font-medium" placeholder="ชื่อผู้ใช้งาน">
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fas fa-key text-green-500 text-sm"></i>
+                                </div>
+                                <input type="password" id="swal-login-pass" class="w-full bg-green-50/50 border border-green-200 rounded-2xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-nswButtonGreen focus:bg-white outline-none transition-all placeholder-green-400 text-nswDarkGreen font-medium" placeholder="รหัสผ่าน">
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: false,
+                confirmButtonText: 'เข้าสู่ระบบ <i class="fas fa-arrow-right ml-1"></i>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'rounded-[2rem] shadow-2xl border-4 border-green-50 bg-white overflow-hidden',
+                    actions: 'flex flex-col gap-2 w-full px-6 mt-6 pb-2',
+                    confirmButton: 'w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white rounded-2xl px-4 py-3 text-sm font-bold shadow-md hover:shadow-lg transition-all m-0 font-sarabun',
+                },
+                didOpen: () => {
+                    const userIn = document.getElementById('swal-login-user');
+                    const passIn = document.getElementById('swal-login-pass');
+                    const handleEnter = (e) => {
+                        if (e.key === 'Enter') Swal.clickConfirm();
+                    };
+                    userIn.addEventListener('keyup', handleEnter);
+                    passIn.addEventListener('keyup', handleEnter);
+                    userIn.focus();
+                },
+                preConfirm: () => {
+                    const user = document.getElementById('swal-login-user').value;
+                    const pass = document.getElementById('swal-login-pass').value;
+                    if (!user || !pass) {
+                        Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน 🥺');
+                        return false;
+                    }
+                    return { user, pass };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await handleDirectLogin(result.value.user, result.value.pass);
+                }
+            });
+        }
+
+        async function handleDirectLogin(username, password) {
+            Swal.fire({ html: '<div class="p-4 text-center">กำลังตรวจสอบข้อมูล...</div>', showConfirmButton: false, allowOutsideClick: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } });
+            
+            try {
+                // เรียกใช้ API Login จากระบบหลักของโรงเรียน
+                const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
+                const res = await fetch(`${LOGIN_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { 
+                    method: 'POST' 
+                });
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    localStorage.setItem('nswUser', JSON.stringify(json.user));
+                    localStorage.setItem('nswLastActive', Date.now().toString());
+
+                    Swal.fire({
+                        toast: true,
+                        position: 'top',
+                        icon: 'success',
+                        title: 'เข้าสู่ระบบสำเร็จ! 🥳',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        background: '#f0fdf4',
+                        color: '#144637',
+                        iconColor: '#1b8066',
+                        customClass: { popup: 'rounded-full shadow-lg border-2 border-green-200 mt-4 px-6 py-2 font-sarabun flex items-center' }
+                    }).then(() => {
+                        window.location.reload(); 
+                    });
+                } else {
+                    Swal.fire({ title: 'เข้าสู่ระบบไม่สำเร็จ', text: json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', icon: 'error', confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } }).then(() => {
+                        showLoginPopup();
+                    });
+                }
+            } catch (error) {
+                console.error("Login Error: ", error);
+                Swal.fire({ title: 'ข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', confirmButtonText: 'ตกลง', confirmButtonColor: '#1b8066', customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto font-sarabun' } }).then(() => {
+                    showLoginPopup();
+                });
+            }
+        }
+
+        function checkUserRole(isInitialLoad = false) {
+            const savedUser = localStorage.getItem('nswUser');
+            
+            if (savedUser) {
+                const lastActive = localStorage.getItem('nswLastActive');
+                const savedTimeout = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
+                if (lastActive) {
+                    const diffMs = Date.now() - parseInt(lastActive);
+                    const diffMins = Math.floor(diffMs / 60000);
+                    if (diffMins >= savedTimeout) {
+                        localStorage.removeItem('nswUser');
+                        localStorage.removeItem('nswLastActive');
+                        showLoginPopup();
+                        return;
+                    }
+                }
+
+                const user = JSON.parse(savedUser);
+                user.role = normalizeFrontendRole(user.role); 
+                
+                document.getElementById('sidebarUserName').innerText = user.name || 'ไม่ระบุชื่อ';
+                document.getElementById('sidebarUserRole').innerText = user.position || user.role || 'บุคลากร';
+                document.getElementById('sidebarUserImg').src = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=144637&color=ffffff`;
+
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.classList.remove('hidden');
+                
+                resetIdleTimer();
+                
+                if (isInitialLoad) {
+                    loadInitialData(); // โหลดข้อมูลนักเรียนเมื่อล็อกอินผ่านแล้ว
+                }
+            } else {
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.classList.add('hidden');
+                showLoginPopup(); // เด้งหน้าต่าง Login ถ้ายังไม่มี Session
+            }
+        }
+
+        // ==========================================
+        // FETCH DATA FROM NEW API
+        // ==========================================
+        async function loadInitialData() {
+            try {
+                const res = await fetch(`${API_URL}?action=getInitialData`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    appData = json.data;
+                    document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> โหลดข้อมูลสำเร็จ';
+                    renderDashboard();
+                    renderScoreTable();
+                    renderDragDropGrid();
+                } else {
+                    throw new Error(json.message);
+                }
+            } catch (err) {
+                document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> เชื่อมต่อล้มเหลว';
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message, 'error');
+            }
+        }
+
+        // 1. Initial Load (ดักเช็ค Login ก่อนโหลดข้อมูล)
+        document.addEventListener('DOMContentLoaded', () => {
+            checkUserRole(true);
+        });
+
+        // 2. Navigation
+        function switchMenu(menuId) {
+            document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`sec-${menuId}`).classList.remove('hidden');
+            document.getElementById(`menu-${menuId}`).classList.add('active');
+            
+            const titles = {
+                'dashboard': 'ภาพรวม & ประมวลผลอัตโนมัติ',
+                'scores': 'ตารางกรอกคะแนนดิบรายวิชา',
+                'manual': 'แก้ไขการจัดห้องเรียน (ลากวาง)'
+            };
+            document.getElementById('pageTitle').innerText = titles[menuId];
+            
+            if(menuId === 'manual') renderDragDropGrid(); // Re-render in case of changes
+        }
+
+        // 3. Score Grid Logic (Enter to move down + Auto-save via API)
+        function renderScoreTable() {
+            const thead = document.getElementById('scoreTableHeader');
+            const tbody = document.getElementById('scoreTableBody');
+            
+            // Header
+            let headHTML = `<tr><th class="px-4 py-3 sticky left-0 bg-nswDarkGreen z-20 w-12 text-center">รหัส</th><th class="px-4 py-3 sticky left-12 bg-nswDarkGreen z-20 w-48">ชื่อ-สกุล</th>`;
+            appData.subjects.forEach(sub => {
+                headHTML += `<th class="px-4 py-3 text-center min-w-[100px]">${sub.name}<br><span class="text-[10px] text-green-200">นน. ${sub.weight}%</span></th>`;
+            });
+            headHTML += `</tr>`;
+            thead.innerHTML = headHTML;
+
+            // Body
+            let bodyHTML = '';
+            appData.students.forEach((std, rowIndex) => {
+                bodyHTML += `<tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-2 sticky left-0 bg-white z-10 border-r text-center text-gray-500">${std.id}</td>
+                    <td class="px-4 py-2 sticky left-12 bg-white z-10 border-r font-medium text-gray-800 truncate">${std.name}</td>`;
+                
+                appData.subjects.forEach((sub, colIndex) => {
+                    let sc = (appData.scores[std.id] && appData.scores[std.id][sub.id]) ? appData.scores[std.id][sub.id] : '';
+                    bodyHTML += `<td class="px-2 py-2 relative">
+                        <input type="number" class="score-input" 
+                            data-row="${rowIndex}" data-col="${colIndex}" 
+                            data-stdid="${std.id}" data-subid="${sub.id}"
+                            value="${sc}" 
+                            onkeydown="handleScoreEnter(event, this)"
+                            onchange="saveScoreData(this)">
+                        <span class="saving-indicator" id="save-${std.id}-${sub.id}"><i class="fas fa-check"></i></span>
+                    </td>`;
+                });
+                bodyHTML += `</tr>`;
+            });
+            tbody.innerHTML = bodyHTML;
+        }
+
+        function handleScoreEnter(e, input) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur(); // Trigger onchange if value modified
+                
+                const col = input.getAttribute('data-col');
+                const nextRow = parseInt(input.getAttribute('data-row')) + 1;
+                const nextInput = document.querySelector(`input[data-col="${col}"][data-row="${nextRow}"]`);
+                
+                if (nextInput) {
+                    nextInput.focus();
+                    nextInput.select();
+                }
+            }
+        }
+
+        async function saveScoreData(input) {
+            const stdId = input.getAttribute('data-stdid');
+            const subId = input.getAttribute('data-subid');
+            const score = input.value;
+            
+            // Update local state
+            if(!appData.scores[stdId]) appData.scores[stdId] = {};
+            appData.scores[stdId][subId] = score;
+
+            // Show indicator
+            const ind = document.getElementById(`save-${stdId}-${subId}`);
+            ind.style.display = 'block';
+            ind.innerHTML = '<i class="fas fa-spinner fa-spin text-gray-400"></i>';
+
+            // Send to GAS API
+            const form = new FormData();
+            form.append('stdId', stdId);
+            form.append('subId', subId);
+            form.append('score', score);
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveScore`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    ind.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                    setTimeout(() => { ind.style.display = 'none'; }, 2000);
+                }
+            } catch (err) {
+                ind.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+                console.error("Save score error:", err);
+            }
+        }
+
+        // 4. Auto Sort Trigger via API
+        function runAutoSort() {
+            const rooms = document.getElementById('inpNumRooms').value;
+            const mode = document.getElementById('selSortMode').value;
+            
+            Swal.fire({
+                title: 'ยืนยันการประมวลผล?',
+                text: `ระบบจะคำนวณคะแนนใหม่และจัดนักเรียนลง ${rooms} ห้อง ระบบเดิมจะถูกเขียนทับ`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#1b8066',
+                confirmButtonText: 'ตกลง, ประมวลผลเลย'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: 'กำลังประมวลผล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+                    
+                    const form = new FormData();
+                    form.append('numRooms', rooms);
+                    form.append('mode', mode);
+
+                    try {
+                        const res = await fetch(`${API_URL}?action=processAutoSort`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        
+                        if (json.status === 'success') {
+                            Swal.fire('สำเร็จ!', 'จัดห้องเรียนเรียบร้อยแล้ว', 'success');
+                            // Reload data to reflect new rooms
+                            loadInitialData();
+                        } else {
+                            throw new Error(json.message);
+                        }
+                    } catch (err) {
+                        Swal.fire('ข้อผิดพลาด', 'ประมวลผลไม่สำเร็จ: ' + err.message, 'error');
+                    }
+                }
+            });
+        }
+
+        // 5. Dashboard Stats
+        function renderDashboard() {
+            // Group by room
+            let rooms = {};
+            appData.students.forEach(std => {
+                let r = std.room || 'ยังไม่จัด';
+                if(!rooms[r]) rooms[r] = { count: 0, m: 0, f: 0 };
+                rooms[r].count++;
+                if(std.gender === 'ชาย') rooms[r].m++;
+                if(std.gender === 'หญิง') rooms[r].f++;
+            });
+
+            let html = '';
+            Object.keys(rooms).sort().forEach(rName => {
+                let r = rooms[rName];
+                html += `
+                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">ห้องเรียน</div>
+                        <div class="text-2xl font-bold text-nswDarkGreen mb-4">ห้อง ${rName}</div>
+                    </div>
+                    <div class="flex justify-between items-center text-sm border-t pt-3">
+                        <span class="text-gray-600"><i class="fas fa-users mr-1"></i> รวม ${r.count} คน</span>
+                        <span class="text-blue-500 font-medium">ช ${r.m}</span>
+                        <span class="text-pink-500 font-medium">ญ ${r.f}</span>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('dashboardStats').innerHTML = html;
+        }
+
+        // 6. Manual Drag & Drop via API
+        function renderDragDropGrid() {
+            const container = document.getElementById('dragDropContainer');
+            let rooms = {};
+            appData.students.forEach(std => {
+                let r = std.room || 'ยังไม่จัด';
+                if(!rooms[r]) rooms[r] = [];
+                rooms[r].push(std);
+            });
+
+            let html = '';
+            Object.keys(rooms).sort().forEach(rName => {
+                html += `
+                <div class="room-container min-w-[280px] w-1/3 shrink-0">
+                    <div class="room-header flex justify-between">
+                        <span>ห้อง ${rName}</span>
+                        <span class="bg-white/20 px-2 rounded text-xs leading-5" id="count-room-${rName}">${rooms[rName].length} คน</span>
+                    </div>
+                    <div class="sortable-list" data-room="${rName}" id="sortList-${rName}">`;
+                
+                rooms[rName].forEach(std => {
+                    // Check UI for Blacklist
+                    let isConflict = checkBlacklistLocal(std, rooms[rName]);
+                    let cardClass = isConflict ? 'student-card bg-red-warning border-red-400' : 'student-card hover:border-nswButtonGreen hover:shadow-md';
+                    let textClass = isConflict ? 'text-red-warning font-bold' : 'text-gray-700';
+                    let genderIcon = std.gender === 'ชาย' ? '<i class="fas fa-male text-blue-500"></i>' : '<i class="fas fa-female text-pink-500"></i>';
+                    
+                    html += `
+                        <div class="${cardClass}" data-id="${std.id}">
+                            <div class="flex items-center gap-2 w-full truncate">
+                                <div class="w-5 text-center shrink-0 cursor-grab text-gray-400"><i class="fas fa-grip-vertical"></i></div>
+                                <span class="text-xs ${textClass} truncate">${std.id} - ${std.name}</span>
+                            </div>
+                            <div class="shrink-0 ml-2">${genderIcon}</div>
+                        </div>`;
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+
+            // Initialize Sortable
+            if (sortableInstances.length > 0) sortableInstances.forEach(i => i.destroy());
+            sortableInstances = [];
+            
+            document.querySelectorAll('.sortable-list').forEach(list => {
+                sortableInstances.push(new Sortable(list, {
+                    group: 'rooms',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: async function(evt) {
+                        const stdId = evt.item.getAttribute('data-id');
+                        const newRoom = evt.to.getAttribute('data-room');
+                        
+                        // Update UI counts
+                        document.getElementById(`count-room-${evt.from.getAttribute('data-room')}`).innerText = evt.from.children.length + ' คน';
+                        document.getElementById(`count-room-${newRoom}`).innerText = evt.to.children.length + ' คน';
+                        
+                        // Update local data
+                        let stdObj = appData.students.find(s => s.id == stdId);
+                        if(stdObj) stdObj.room = newRoom;
+                        
+                        // Re-render UI to check blacklist colors immediately
+                        renderDragDropGrid();
+
+                        // Save to Backend API
+                        const form = new FormData();
+                        form.append('stdId', stdId);
+                        form.append('newRoom', newRoom);
+                        try {
+                            await fetch(`${API_URL}?action=updateStudentRoom`, { method: 'POST', body: form });
+                        } catch (err) {
+                            console.error("Failed to update room:", err);
+                        }
+                    }
+                }));
+            });
+        }
+
+        // Logic เช็คคู่ต้องห้ามเบื้องต้น
+        function checkBlacklistLocal(targetStd, roomStudents) {
+            if(!targetStd.blacklist) return false;
+            let blArray = targetStd.blacklist.toString().split(',').map(s => s.trim());
+            for(let i=0; i<roomStudents.length; i++) {
+                if(roomStudents[i].id !== targetStd.id && blArray.includes(roomStudents[i].id.toString())) {
+                    return true; // เจอคู่กรณีในห้องเดียวกัน
+                }
+            }
+            return false;
+        }
+
+    </script>
+</body>
+</html>
