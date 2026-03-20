@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.6 (คลิกดูห้อง & ตัวกรองเพศ)
+                    Version 1.0.7 (เพิ่มตัวกรองเพศ)
                 </div>
             </div>
         </div>
@@ -246,10 +246,16 @@
             <!-- SECTION 3: MANUAL SORT (DRAG & DROP) -->
             <div id="sec-manual" class="page-section hidden flex-col h-[80vh]">
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
-                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                    <div class="flex flex-wrap items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
                         <label class="text-sm font-bold text-gray-700 whitespace-nowrap"><i class="fas fa-layer-group text-nswButtonGreen mr-1"></i> ชั้น:</label>
-                        <select id="manualLevelFilter" onchange="renderDragDropGrid()" class="border border-gray-300 rounded py-1 px-2 text-sm outline-none w-24">
+                        <select id="manualLevelFilter" onchange="renderDragDropGrid()" class="border border-gray-300 rounded py-1 px-2 text-sm outline-none w-20">
                             <!-- Populated via JS -->
+                        </select>
+                        <label class="text-sm font-bold text-gray-700 whitespace-nowrap ml-2"><i class="fas fa-venus-mars text-blue-500 mr-1"></i> เพศ:</label>
+                        <select id="manualGenderFilter" onchange="renderDragDropGrid()" class="border border-gray-300 rounded py-1 px-2 text-sm outline-none w-24">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="ชาย">ชาย</option>
+                            <option value="หญิง">หญิง</option>
                         </select>
                     </div>
                     
@@ -307,6 +313,11 @@
                                     <select id="blRoomFilterA" onchange="filterBlacklist('A')" disabled class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none bg-gray-100 cursor-not-allowed">
                                         <option value="all">ทุกห้อง</option>
                                     </select>
+                                    <select id="blGenderFilterA" onchange="filterBlacklist('A')" disabled class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none bg-gray-100 cursor-not-allowed">
+                                        <option value="all">ทุกเพศ</option>
+                                        <option value="ชาย">ชาย</option>
+                                        <option value="หญิง">หญิง</option>
+                                    </select>
                                 </div>
                                 <div class="relative">
                                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
@@ -335,6 +346,11 @@
                                     </select>
                                     <select id="blRoomFilterB" onchange="filterBlacklist('B')" disabled class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none bg-gray-100 cursor-not-allowed">
                                         <option value="all">ทุกห้อง</option>
+                                    </select>
+                                    <select id="blGenderFilterB" onchange="filterBlacklist('B')" disabled class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none bg-gray-100 cursor-not-allowed">
+                                        <option value="all">ทุกเพศ</option>
+                                        <option value="ชาย">ชาย</option>
+                                        <option value="หญิง">หญิง</option>
                                     </select>
                                 </div>
                                 <div class="relative">
@@ -1066,6 +1082,7 @@
         function renderDragDropGrid() {
             const container = document.getElementById('dragDropContainer');
             const targetLevel = document.getElementById('manualLevelFilter') ? document.getElementById('manualLevelFilter').value : null;
+            const targetGender = document.getElementById('manualGenderFilter') ? document.getElementById('manualGenderFilter').value : 'all';
             
             if (!targetLevel) {
                 container.innerHTML = `<div class="text-center w-full py-10 text-gray-400">กรุณาเลือกระดับชั้นก่อนทำการสลับห้อง</div>`;
@@ -1098,6 +1115,9 @@
                     <div class="sortable-list min-h-[150px] pb-10" data-room="${rName}" id="sortList-${rName}">`;
                 
                 rooms[rName].forEach(std => {
+                    // กรองเพศสำหรับแสดงผล แต่จำนวนคนรวมในห้องด้านบนจะนับทุกคน
+                    if (targetGender !== 'all' && std.gender !== targetGender) return;
+                    
                     let isConflict = checkBlacklistLocal(std, rooms[rName]);
                     // เปลี่ยนสีถ้าโดนย้ายชั่วคราว
                     let isPending = pendingRoomChanges[std.id] !== undefined && pendingRoomChanges[std.id] !== std.room;
@@ -1132,6 +1152,7 @@
                     disabled: !isManualSortEditMode,
                     onEnd: function(evt) {
                         const stdId = evt.item.getAttribute('data-id');
+                        const stdName = evt.item.getAttribute('data-name');
                         const oldRoom = evt.from.getAttribute('data-room');
                         const newRoom = evt.to.getAttribute('data-room');
                         
@@ -1199,7 +1220,7 @@
             const modeView = document.getElementById('blViewModeBtns');
             const modeEdit = document.getElementById('blEditModeBtns');
             const btnAdd = document.getElementById('blAddBtn');
-            const inputs = ['blLevelFilterA', 'blRoomFilterA', 'blSearchA', 'blLevelFilterB', 'blRoomFilterB', 'blSearchB'];
+            const inputs = ['blLevelFilterA', 'blRoomFilterA', 'blGenderFilterA', 'blSearchA', 'blLevelFilterB', 'blRoomFilterB', 'blGenderFilterB', 'blSearchB'];
             
             if (enable) {
                 modeView.classList.add('hidden'); 
@@ -1241,8 +1262,10 @@
             const searchB = document.getElementById('blSearchB').value.trim().toLowerCase();
             const filterLevelA = document.getElementById('blLevelFilterA').value;
             const filterRoomA = document.getElementById('blRoomFilterA').value;
+            const filterGenderA = document.getElementById('blGenderFilterA') ? document.getElementById('blGenderFilterA').value : 'all';
             const filterLevelB = document.getElementById('blLevelFilterB').value;
             const filterRoomB = document.getElementById('blRoomFilterB').value;
+            const filterGenderB = document.getElementById('blGenderFilterB') ? document.getElementById('blGenderFilterB').value : 'all';
 
             let htmlA = '';
             let htmlB = '';
@@ -1254,6 +1277,7 @@
                 // รายการ A
                 if((filterLevelA === 'all' || stdLevel === filterLevelA) && 
                    (filterRoomA === 'all' || stdRoom === filterRoomA) && 
+                   (filterGenderA === 'all' || std.gender === filterGenderA) && 
                    (!searchA || std.id.toLowerCase().includes(searchA) || std.name.toLowerCase().includes(searchA))) {
                     
                     let isSelectedA = (blSelectedA === std.id);
@@ -1271,6 +1295,7 @@
                 // รายการ B
                 if((filterLevelB === 'all' || stdLevel === filterLevelB) && 
                    (filterRoomB === 'all' || stdRoom === filterRoomB) && 
+                   (filterGenderB === 'all' || std.gender === filterGenderB) && 
                    (!searchB || std.id.toLowerCase().includes(searchB) || std.name.toLowerCase().includes(searchB))) {
                     
                     let isSelectedB = (blSelectedB === std.id);
