@@ -116,7 +116,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.1 (อัปเดต 20/03/2569)
+                    Version 1.0.2 (ระบบระดับชั้น)
                 </div>
             </div>
         </div>
@@ -142,7 +142,13 @@
                 <!-- ตั้งค่าการจัดห้อง -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h3 class="font-bold text-lg mb-4 text-gray-800 border-l-4 border-nswButtonGreen pl-3">ตั้งค่าการจัดห้องเรียนอัตโนมัติ</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">เลือกระดับชั้น</label>
+                            <select id="selSortLevel" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                <!-- JS Populate -->
+                            </select>
+                        </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">จำนวนห้องเรียน</label>
                             <input type="number" id="inpNumRooms" value="3" min="1" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nswButtonGreen outline-none">
@@ -156,23 +162,49 @@
                         </div>
                         <div class="flex items-end">
                             <button onclick="runAutoSort()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white font-bold py-2.5 rounded-lg shadow transition">
-                                <i class="fas fa-cogs mr-1"></i> เริ่มประมวลผลจัดห้อง
+                                <i class="fas fa-cogs mr-1"></i> ประมวลผลจัดห้อง
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- สถิติภาพรวม -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="dashboardStats">
-                    <!-- สร้างจาก JS -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="font-bold text-gray-700">สถิตินักเรียนแต่ละห้อง</h4>
+                        <div class="flex items-center gap-2 text-sm">
+                            <label class="font-bold text-gray-600">แสดงผลระดับชั้น:</label>
+                            <select id="dashLevelFilter" onchange="renderDashboard()" class="border border-gray-300 rounded px-2 py-1 outline-none">
+                                <option value="all">แสดงทั้งหมด</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="dashboardStats">
+                        <!-- สร้างจาก JS -->
+                    </div>
                 </div>
             </div>
 
             <!-- SECTION 2: SCORE GRID -->
             <div id="sec-scores" class="page-section hidden">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[75vh] md:h-[80vh]">
-                    <div class="p-4 bg-gray-50 border-b flex justify-between items-center shrink-0">
+                    <div class="p-3 bg-gray-50 border-b flex flex-col sm:flex-row justify-between items-center shrink-0 gap-2">
                         <div class="text-xs md:text-sm text-gray-600"><i class="fas fa-keyboard mr-1"></i> กด <kbd class="bg-white border rounded px-1 font-bold shadow-sm">Enter</kbd> เพื่อเลื่อนลง (บันทึกอัตโนมัติ)</div>
+                        <!-- เพิ่มตัวกรองชั้นและห้อง -->
+                        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <div class="flex items-center gap-1">
+                                <label class="text-sm font-bold text-gray-700 whitespace-nowrap">ชั้น:</label>
+                                <select id="scoreLevelFilter" onchange="renderScoreTable()" class="w-24 sm:w-32 border border-gray-300 rounded py-1 px-2 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                    <option value="all">ทั้งหมด</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <label class="text-sm font-bold text-gray-700 whitespace-nowrap">ห้อง:</label>
+                                <select id="scoreRoomFilter" onchange="renderScoreTable()" class="w-24 sm:w-32 border border-gray-300 rounded py-1 px-2 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                    <option value="all">ทั้งหมด</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div class="overflow-auto flex-1 p-0 relative">
                         <table class="w-full text-sm text-left whitespace-nowrap">
@@ -188,15 +220,21 @@
             </div>
 
             <!-- SECTION 3: MANUAL SORT (DRAG & DROP) -->
-            <div id="sec-manual" class="page-section hidden">
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex justify-between items-center">
+            <div id="sec-manual" class="page-section hidden flex-col h-[80vh]">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
                     <div>
-                        <h3 class="font-bold text-gray-800"><i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i> ระบบตรวจสอบคู่ต้องห้าม (Blacklist)</h3>
-                        <p class="text-xs text-gray-500">หากลากนักเรียนที่มีปัญหากันไปไว้ห้องเดียวกัน กรอบรายชื่อจะเปลี่ยนเป็น <span class="text-red-500 font-bold">สีแดง</span></p>
+                        <h3 class="font-bold text-gray-800"><i class="fas fa-hand-pointer text-blue-500 mr-2"></i> แก้ไขจัดห้องด้วยตนเอง</h3>
+                        <p class="text-xs text-gray-500 mt-1">หากลากนักเรียนที่มีปัญหากันมาอยู่ห้องเดียวกัน กรอบจะเปลี่ยนเป็น <span class="text-red-500 font-bold">สีแดง</span></p>
+                    </div>
+                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                        <label class="text-sm font-bold text-gray-700 whitespace-nowrap"><i class="fas fa-layer-group text-nswButtonGreen mr-1"></i> เลือกระดับชั้น:</label>
+                        <select id="manualLevelFilter" onchange="renderDragDropGrid()" class="border border-gray-300 rounded py-1 px-2 text-sm outline-none w-32">
+                            <!-- Populated via JS (No 'All' Option here for safety) -->
+                        </select>
                     </div>
                 </div>
                 
-                <div class="flex gap-4 overflow-x-auto pb-4" id="dragDropContainer">
+                <div class="flex gap-4 overflow-x-auto pb-4 flex-1 items-start" id="dragDropContainer">
                     <!-- สร้างห้องจาก JS -->
                 </div>
             </div>
@@ -205,15 +243,23 @@
             <div id="sec-blacklist" class="page-section hidden space-y-6">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                     <h3 class="font-bold text-lg mb-2 text-gray-800 border-l-4 border-nswButtonGreen pl-3">เพิ่มคู่นักเรียนที่มีปัญหา (คู่ต้องห้าม)</h3>
-                    <p class="text-sm text-gray-600 mb-6">เลือกรหัสนักเรียนจากทั้งสองฝั่ง แล้วกดปุ่มจับคู่ เพื่อตั้งค่าไม่ให้ระบบจัดให้อยู่ห้องเดียวกัน</p>
+                    <p class="text-sm text-gray-600 mb-6">เลือกระดับชั้น ค้นหานักเรียนจากทั้งสองฝั่ง แล้วกดปุ่มจับคู่ เพื่อป้องกันไม่ให้ระบบจัดให้อยู่ห้องเดียวกัน</p>
 
                     <div class="flex flex-col md:flex-row gap-4 items-stretch justify-center">
                         <!-- ฝั่งซ้าย -->
-                        <div class="flex-1 border border-gray-300 rounded-lg overflow-hidden flex flex-col h-[350px]">
-                            <div class="bg-gray-100 p-3 border-b border-gray-300">
+                        <div class="flex-1 border border-gray-300 rounded-lg overflow-hidden flex flex-col h-[400px]">
+                            <div class="bg-gray-100 p-3 border-b border-gray-300 space-y-2">
+                                <div class="flex gap-1">
+                                    <select id="blLevelFilterA" onchange="filterBlacklist('A')" class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                        <option value="all">ทุกชั้น</option>
+                                    </select>
+                                    <select id="blRoomFilterA" onchange="filterBlacklist('A')" class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                        <option value="all">ทุกห้อง</option>
+                                    </select>
+                                </div>
                                 <div class="relative">
                                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" id="blSearchA" oninput="filterBlacklist('A')" placeholder="ค้นหานักเรียนคนที่ 1..." class="w-full text-sm py-2 pl-9 pr-3 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen focus:border-transparent">
+                                    <input type="text" id="blSearchA" oninput="filterBlacklist('A')" placeholder="ค้นหานักเรียนคนที่ 1..." class="w-full text-sm py-1.5 pl-9 pr-3 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen focus:border-transparent">
                                 </div>
                             </div>
                             <div class="overflow-y-auto flex-1 p-2 space-y-2 bg-gray-50" id="blListA">
@@ -230,11 +276,19 @@
                         </div>
 
                         <!-- ฝั่งขวา -->
-                        <div class="flex-1 border border-gray-300 rounded-lg overflow-hidden flex flex-col h-[350px]">
-                            <div class="bg-gray-100 p-3 border-b border-gray-300">
+                        <div class="flex-1 border border-gray-300 rounded-lg overflow-hidden flex flex-col h-[400px]">
+                            <div class="bg-gray-100 p-3 border-b border-gray-300 space-y-2">
+                                <div class="flex gap-1">
+                                    <select id="blLevelFilterB" onchange="filterBlacklist('B')" class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                        <option value="all">ทุกชั้น</option>
+                                    </select>
+                                    <select id="blRoomFilterB" onchange="filterBlacklist('B')" class="w-1/3 text-sm py-1 px-1 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                        <option value="all">ทุกห้อง</option>
+                                    </select>
+                                </div>
                                 <div class="relative">
                                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" id="blSearchB" oninput="filterBlacklist('B')" placeholder="ค้นหานักเรียนคนที่ 2..." class="w-full text-sm py-2 pl-9 pr-3 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen focus:border-transparent">
+                                    <input type="text" id="blSearchB" oninput="filterBlacklist('B')" placeholder="ค้นหานักเรียนคนที่ 2..." class="w-full text-sm py-1.5 pl-9 pr-3 border border-gray-300 rounded outline-none focus:ring-2 focus:ring-nswButtonGreen focus:border-transparent">
                                 </div>
                             </div>
                             <div class="overflow-y-auto flex-1 p-2 space-y-2 bg-gray-50" id="blListB">
@@ -349,18 +403,17 @@
                                 <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อ-นามสกุล</label>
                                 <input type="text" id="stdName" placeholder="เช่น เด็กชายรักเรียน ขยันยิ่ง" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                             </div>
+                            <!-- เพิ่มช่อง ระดับชั้น (Level) เข้ามาใหม่ -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">ระดับชั้น</label>
+                                <input type="text" id="stdLevel" placeholder="เช่น ม.1, ม.4, ป.1" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-1">เพศ</label>
                                 <select id="stdGender" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
                                     <option value="ชาย">ชาย</option>
                                     <option value="หญิง">หญิง</option>
                                 </select>
-                            </div>
-                            <!-- ช่อง Blacklist ซ่อนการแก้ไขด้วยมือ หรือปล่อยไว้เผื่อแอดมินแก้ฉุกเฉิน -->
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-1">คู่ต้องห้าม (แก้ไขฉุกเฉิน)</label>
-                                <input type="text" id="stdBlacklist" placeholder="เช่น 1005, 1008" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none bg-gray-50">
-                                <p class="text-[10px] text-gray-500 mt-1">* แนะนำให้ใช้เมนู <span class="font-bold text-nswButtonGreen">"จัดการคู่ต้องห้าม"</span> ที่แถบซ้ายมือแทน</p>
                             </div>
                             <div class="flex gap-2 pt-2">
                                 <button onclick="resetStdForm()" class="w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2.5 rounded-lg transition shadow">ยกเลิก</button>
@@ -371,9 +424,18 @@
                     <div class="w-full lg:w-2/3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[600px]">
                         <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-2">
                             <h4 class="font-bold text-gray-700 text-sm">รายชื่อนักเรียนทั้งหมด</h4>
-                            <div class="relative w-full sm:w-48">
-                                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <input type="text" id="stdSearchInput" oninput="renderStudentsTable()" placeholder="ค้นหารหัส, ชื่อ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                            <!-- เพิ่มตัวกรองชั้น และ ห้อง -->
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <select id="stdLevelFilter" onchange="renderStudentsTable()" class="border border-gray-300 rounded-full px-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                    <option value="all">ทุกชั้น</option>
+                                </select>
+                                <select id="stdRoomFilter" onchange="renderStudentsTable()" class="border border-gray-300 rounded-full px-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                    <option value="all">ทุกห้อง</option>
+                                </select>
+                                <div class="relative flex-1 sm:w-48">
+                                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                    <input type="text" id="stdSearchInput" oninput="renderStudentsTable()" placeholder="ค้นหารหัส, ชื่อ..." class="w-full bg-white border border-gray-300 rounded-full pl-9 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-nswButtonGreen outline-none">
+                                </div>
                             </div>
                         </div>
                         <div class="overflow-y-auto flex-1">
@@ -381,9 +443,9 @@
                                 <thead class="bg-white text-gray-600 sticky top-0 border-b shadow-sm">
                                     <tr>
                                         <th class="px-4 py-3">รหัส</th>
+                                        <th class="px-4 py-3">ระดับชั้น</th>
                                         <th class="px-4 py-3">ชื่อ-สกุล</th>
                                         <th class="px-4 py-3 text-center">เพศ</th>
-                                        <th class="px-4 py-3">Blacklist</th>
                                         <th class="px-4 py-3 text-center">จัดการ</th>
                                     </tr>
                                 </thead>
@@ -446,7 +508,7 @@
         let blSelectedB = null;
 
         // ==========================================
-        // CuteAlert UI (นำมาจากระบบ ปพ.5 เดิม)
+        // CuteAlert UI
         // ==========================================
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-cogs text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -694,7 +756,7 @@
         }
 
         // ==========================================
-        // Mobile Navigation (ฟังก์ชันสไลด์เมนูมือถือ)
+        // Mobile Navigation 
         // ==========================================
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebarMenu');
@@ -850,9 +912,8 @@
             tbody.innerHTML = html;
         }
 
-
         // ==========================================
-        // FETCH DATA FROM NEW API
+        // FETCH DATA & POPULATE DROPDOWNS
         // ==========================================
         async function loadInitialData() {
             try {
@@ -863,13 +924,13 @@
                     appData = json.data;
                     document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> <span class="hidden md:inline">โหลดข้อมูลสำเร็จ</span>';
                     
+                    populateFilters(); // อัปเดตตัวกรองชั้นและห้อง
                     renderDashboard();
                     renderScoreTable();
                     renderDragDropGrid();
                     renderSubjectsTable();
                     renderStudentsTable();
                     
-                    // หากผู้ใช้อยู่หน้าจัดการคู่ต้องห้าม ให้เรนเดอร์ใหม่
                     if(!document.getElementById('sec-blacklist').classList.contains('hidden')) {
                         renderBlacklistLists();
                         renderBlacklistedPairsTable();
@@ -881,6 +942,71 @@
                 document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> <span class="hidden md:inline">เชื่อมต่อล้มเหลว</span>';
                 cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message);
             }
+        }
+
+        function populateFilters() {
+            let rooms = new Set();
+            let levels = new Set();
+            
+            appData.students.forEach(s => {
+                if (s.room) rooms.add(s.room);
+                else rooms.add('ยังไม่จัด');
+                
+                if (s.level) levels.add(s.level);
+                else levels.add('ไม่ระบุ');
+            });
+            
+            let roomArr = Array.from(rooms).sort();
+            let levelArr = Array.from(levels).sort();
+            
+            // สร้าง Options สำหรับระดับชั้น (Level)
+            let levelOptionsAll = '<option value="all">ทุกชั้น / ทั้งหมด</option>';
+            let levelOptionsSort = ''; // สำหรับเลือกประมวลผลจัดห้อง (บังคับต้องเลือก 1 ชั้น)
+            
+            levelArr.forEach(l => {
+                levelOptionsAll += `<option value="${l}">${l}</option>`;
+                levelOptionsSort += `<option value="${l}">${l}</option>`;
+            });
+
+            // สร้าง Options สำหรับห้อง (Room)
+            let roomOptionsAll = '<option value="all">ทุกห้อง / ทั้งหมด</option>';
+            roomArr.forEach(r => {
+                let text = r === 'ยังไม่จัด' ? r : `ห้อง ${r}`;
+                roomOptionsAll += `<option value="${r}">${text}</option>`;
+            });
+
+            // กำหนดค่าให้ Dropdown ระดับชั้นต่างๆ
+            const levelElements = ['scoreLevelFilter', 'dashLevelFilter', 'blLevelFilterA', 'blLevelFilterB', 'stdLevelFilter'];
+            levelElements.forEach(id => {
+                let el = document.getElementById(id);
+                if (el) {
+                    let currentVal = el.value;
+                    el.innerHTML = levelOptionsAll;
+                    if (levelArr.includes(currentVal) || currentVal === 'all') el.value = currentVal;
+                }
+            });
+
+            // ตัวเลือกของหน้าจัดห้องด้วยมือและตัวประมวลผลอัตโนมัติ (บังคับเลือก 1 ชั้น ไม่ให้มีตัวเลือก 'ทั้งหมด')
+            const forceLevelElements = ['selSortLevel', 'manualLevelFilter'];
+            forceLevelElements.forEach(id => {
+                let el = document.getElementById(id);
+                if (el) {
+                    let currentVal = el.value;
+                    el.innerHTML = levelOptionsSort;
+                    if (levelArr.includes(currentVal)) el.value = currentVal;
+                }
+            });
+
+            // กำหนดค่าให้ Dropdown ห้องต่างๆ
+            const roomElements = ['scoreRoomFilter', 'stdRoomFilter', 'blRoomFilterA', 'blRoomFilterB'];
+            roomElements.forEach(id => {
+                let el = document.getElementById(id);
+                if (el) {
+                    let currentVal = el.value;
+                    el.innerHTML = roomOptionsAll;
+                    if (roomArr.includes(currentVal) || currentVal === 'all') el.value = currentVal;
+                }
+            });
         }
 
         // 1. Initial Load (ดักเช็ค Login ก่อนโหลดข้อมูล)
@@ -927,6 +1053,9 @@
             const thead = document.getElementById('scoreTableHeader');
             const tbody = document.getElementById('scoreTableBody');
             
+            const filterLevel = document.getElementById('scoreLevelFilter') ? document.getElementById('scoreLevelFilter').value : 'all';
+            const filterRoom = document.getElementById('scoreRoomFilter') ? document.getElementById('scoreRoomFilter').value : 'all';
+            
             let headHTML = `<tr><th class="px-4 py-3 sticky left-0 bg-nswDarkGreen z-20 w-12 text-center">รหัส</th><th class="px-4 py-3 sticky left-12 bg-nswDarkGreen z-20 w-48">ชื่อ-สกุล</th>`;
             appData.subjects.forEach(sub => {
                 headHTML += `<th class="px-4 py-3 text-center min-w-[100px]">${sub.name}<br><span class="text-[10px] text-green-200">นน. ${sub.weight}%</span></th>`;
@@ -935,26 +1064,40 @@
             thead.innerHTML = headHTML;
 
             let bodyHTML = '';
-            appData.students.forEach((std, rowIndex) => {
-                bodyHTML += `<tr class="hover:bg-gray-50 transition">
-                    <td class="px-4 py-2 sticky left-0 bg-white z-10 border-r text-center text-gray-500">${std.id}</td>
-                    <td class="px-4 py-2 sticky left-12 bg-white z-10 border-r font-medium text-gray-800 truncate">${std.name}</td>`;
-                
-                appData.subjects.forEach((sub, colIndex) => {
-                    let sc = (appData.scores[std.id] && appData.scores[std.id][sub.id]) ? appData.scores[std.id][sub.id] : '';
-                    bodyHTML += `<td class="px-2 py-2 relative">
-                        <input type="number" class="score-input" 
-                            data-row="${rowIndex}" data-col="${colIndex}" 
-                            data-stdid="${std.id}" data-subid="${sub.id}"
-                            data-stdname="${std.name}" data-subname="${sub.name}"
-                            value="${sc}" 
-                            onkeydown="handleScoreEnter(event, this)"
-                            onchange="saveScoreData(this)">
-                        <span class="saving-indicator" id="save-${std.id}-${sub.id}"><i class="fas fa-check"></i></span>
-                    </td>`;
+            
+            // กรองนักเรียนตาม "ระดับชั้น" และ "ห้อง"
+            let filteredStudents = appData.students;
+            if(filterLevel !== 'all') {
+                filteredStudents = filteredStudents.filter(std => (std.level || 'ไม่ระบุ') === filterLevel);
+            }
+            if(filterRoom !== 'all') {
+                filteredStudents = filteredStudents.filter(std => (std.room || 'ยังไม่จัด') === filterRoom);
+            }
+
+            if(filteredStudents.length === 0) {
+                bodyHTML = `<tr><td colspan="${appData.subjects.length + 2}" class="text-center py-6 text-gray-400">ไม่พบนักเรียนในชั้น/ห้องที่เลือก</td></tr>`;
+            } else {
+                filteredStudents.forEach((std, rowIndex) => {
+                    bodyHTML += `<tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-2 sticky left-0 bg-white z-10 border-r text-center text-gray-500">${std.id}</td>
+                        <td class="px-4 py-2 sticky left-12 bg-white z-10 border-r font-medium text-gray-800 truncate">${std.name} <span class="text-[10px] text-gray-400 bg-gray-100 px-1 rounded ml-1">${std.level || ''}</span></td>`;
+                    
+                    appData.subjects.forEach((sub, colIndex) => {
+                        let sc = (appData.scores[std.id] && appData.scores[std.id][sub.id]) ? appData.scores[std.id][sub.id] : '';
+                        bodyHTML += `<td class="px-2 py-2 relative">
+                            <input type="number" class="score-input" 
+                                data-row="${rowIndex}" data-col="${colIndex}" 
+                                data-stdid="${std.id}" data-subid="${sub.id}"
+                                data-stdname="${std.name}" data-subname="${sub.name}"
+                                value="${sc}" 
+                                onkeydown="handleScoreEnter(event, this)"
+                                onchange="saveScoreData(this)">
+                            <span class="saving-indicator" id="save-${std.id}-${sub.id}"><i class="fas fa-check"></i></span>
+                        </td>`;
+                    });
+                    bodyHTML += `</tr>`;
                 });
-                bodyHTML += `</tr>`;
-            });
+            }
             tbody.innerHTML = bodyHTML;
         }
 
@@ -1014,27 +1157,31 @@
         function runAutoSort() {
             const rooms = document.getElementById('inpNumRooms').value;
             const mode = document.getElementById('selSortMode').value;
+            const level = document.getElementById('selSortLevel').value;
             const modeText = mode === 'S-CURVE' ? 'คละความสามารถ' : 'แยกตามคะแนน';
             
+            if (!level) return cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุระดับชั้นที่ต้องการประมวลผลก่อนครับ');
+
             cuteAlert.confirm(
-                'ยืนยันการประมวลผล?', 
-                `ระบบจะคำนวณคะแนนใหม่และจัดนักเรียนลง ${rooms} ห้อง ระบบเดิมจะถูกเขียนทับ`, 
+                `ยืนยันการจัดห้องชั้น ${level}?`, 
+                `ระบบจะคำนวณคะแนนใหม่และกระจายนักเรียน <b>ชั้น ${level}</b> ลง ${rooms} ห้อง<br><span class="text-xs text-red-500">* ห้องเดิมของเด็กชั้นนี้จะถูกเขียนทับทันที</span>`, 
                 'ตกลง, ประมวลผลเลย'
             ).then(async (result) => {
                 if (result.isConfirmed) {
-                    cuteAlert.loading('กำลังประมวลผลจัดห้อง...');
+                    cuteAlert.loading(`กำลังประมวลผลจัดห้องชั้น ${level}...`);
                     
                     const form = new FormData();
                     form.append('numRooms', rooms);
                     form.append('mode', mode);
+                    form.append('level', level); // ส่งระดับชั้นที่เลือกไปด้วย
 
                     try {
                         const res = await fetch(`${API_URL}?action=processAutoSort`, { method: 'POST', body: form });
                         const json = await res.json();
                         
                         if (json.status === 'success') {
-                            cuteAlert.success('สำเร็จ!', 'จัดห้องเรียนเรียบร้อยแล้ว');
-                            sendLogActivity('จัดห้องอัตโนมัติ', `จัดจำนวน ${rooms} ห้อง ด้วยรูปแบบ ${modeText}`);
+                            cuteAlert.success('สำเร็จ!', `จัดห้องเรียนสำหรับชั้น ${level} เรียบร้อยแล้ว`);
+                            sendLogActivity('จัดห้องอัตโนมัติ', `จัดนักเรียนชั้น ${level} ลง ${rooms} ห้อง ด้วยรูปแบบ ${modeText}`);
                             loadInitialData();
                         } else {
                             throw new Error(json.message);
@@ -1047,47 +1194,79 @@
         }
 
         function renderDashboard() {
-            let rooms = {};
+            const filterLevel = document.getElementById('dashLevelFilter') ? document.getElementById('dashLevelFilter').value : 'all';
+            let groups = {};
+            
             appData.students.forEach(std => {
+                let l = std.level || 'ไม่ระบุ';
                 let r = std.room || 'ยังไม่จัด';
-                if(!rooms[r]) rooms[r] = { count: 0, m: 0, f: 0 };
-                rooms[r].count++;
-                if(std.gender === 'ชาย') rooms[r].m++;
-                if(std.gender === 'หญิง') rooms[r].f++;
+                
+                // กรองระดับชั้นตามตัวเลือก
+                if(filterLevel !== 'all' && l !== filterLevel) return;
+
+                let key = `${l} - ห้อง ${r}`;
+                if(r === 'ยังไม่จัด') key = `${l} - ยังไม่จัดห้อง`;
+
+                if(!groups[key]) groups[key] = { level: l, room: r, count: 0, m: 0, f: 0 };
+                groups[key].count++;
+                if(std.gender === 'ชาย') groups[key].m++;
+                if(std.gender === 'หญิง') groups[key].f++;
             });
 
             let html = '';
-            Object.keys(rooms).sort().forEach(rName => {
-                let r = rooms[rName];
-                html += `
-                <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">ห้องเรียน</div>
-                        <div class="text-2xl font-bold text-nswDarkGreen mb-4">ห้อง ${rName}</div>
-                    </div>
-                    <div class="flex justify-between items-center text-sm border-t pt-3">
-                        <span class="text-gray-600"><i class="fas fa-users mr-1"></i> รวม ${r.count} คน</span>
-                        <span class="text-blue-500 font-medium">ช ${r.m}</span>
-                        <span class="text-pink-500 font-medium">ญ ${r.f}</span>
-                    </div>
-                </div>`;
-            });
+            const sortedKeys = Object.keys(groups).sort();
+            
+            if(sortedKeys.length === 0) {
+                html = `<div class="col-span-3 text-center py-6 text-gray-400">ยังไม่มีข้อมูลนักเรียนในชั้นที่เลือก</div>`;
+            } else {
+                sortedKeys.forEach(key => {
+                    let g = groups[key];
+                    html += `
+                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between transition hover:shadow-md">
+                        <div>
+                            <div class="text-xs font-bold text-nswButtonGreen uppercase tracking-wider mb-1"><i class="fas fa-layer-group mr-1"></i> ชั้น ${g.level}</div>
+                            <div class="text-xl font-bold text-gray-800 mb-4">${g.room === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : 'ห้อง ' + g.room}</div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm border-t border-gray-200 pt-3">
+                            <span class="text-gray-600"><i class="fas fa-users mr-1"></i> รวม ${g.count} คน</span>
+                            <span class="text-blue-500 font-medium">ช ${g.m}</span>
+                            <span class="text-pink-500 font-medium">ญ ${g.f}</span>
+                        </div>
+                    </div>`;
+                });
+            }
             document.getElementById('dashboardStats').innerHTML = html;
         }
 
         function renderDragDropGrid() {
             const container = document.getElementById('dragDropContainer');
+            const targetLevel = document.getElementById('manualLevelFilter') ? document.getElementById('manualLevelFilter').value : null;
+            
+            if (!targetLevel) {
+                container.innerHTML = `<div class="text-center w-full py-10 text-gray-400">กรุณาเลือกระดับชั้นก่อนทำการสลับห้อง</div>`;
+                return;
+            }
+
             let rooms = {};
-            appData.students.forEach(std => {
+            
+            // กรองเอาเฉพาะเด็กในระดับชั้นที่กำลังจะจัด (ป้องกันการลากข้ามชั้น)
+            let levelStudents = appData.students.filter(std => (std.level || 'ไม่ระบุ') === targetLevel);
+            
+            levelStudents.forEach(std => {
                 let r = std.room || 'ยังไม่จัด';
                 if(!rooms[r]) rooms[r] = [];
                 rooms[r].push(std);
             });
 
+            if(Object.keys(rooms).length === 0) {
+                container.innerHTML = `<div class="text-center w-full py-10 text-gray-400">ไม่มีข้อมูลนักเรียนในชั้น ${targetLevel}</div>`;
+                return;
+            }
+
             let html = '';
             Object.keys(rooms).sort().forEach(rName => {
                 html += `
-                <div class="room-container min-w-[280px] w-1/3 shrink-0">
+                <div class="room-container min-w-[280px] w-1/3 shrink-0 bg-white">
                     <div class="room-header flex justify-between">
                         <span>ห้อง ${rName}</span>
                         <span class="bg-white/20 px-2 rounded text-xs leading-5" id="count-room-${rName}">${rooms[rName].length} คน</span>
@@ -1127,7 +1306,7 @@
                         const oldRoom = evt.from.getAttribute('data-room');
                         const newRoom = evt.to.getAttribute('data-room');
                         
-                        if(oldRoom === newRoom) return; // ไม่ได้ย้ายจริง
+                        if(oldRoom === newRoom) return; 
 
                         document.getElementById(`count-room-${oldRoom}`).innerText = evt.from.children.length + ' คน';
                         document.getElementById(`count-room-${newRoom}`).innerText = evt.to.children.length + ' คน';
@@ -1142,7 +1321,7 @@
                         form.append('newRoom', newRoom);
                         try {
                             await fetch(`${API_URL}?action=updateStudentRoom`, { method: 'POST', body: form });
-                            sendLogActivity('ย้ายห้องนักเรียน', `ย้าย ${stdName} จากห้อง ${oldRoom} ไปห้อง ${newRoom}`);
+                            sendLogActivity('ย้ายห้องนักเรียน', `ย้าย ${stdName} (ชั้น ${targetLevel}) จากห้อง ${oldRoom} ไปห้อง ${newRoom}`);
                         } catch (err) {}
                     }
                 }));
@@ -1169,27 +1348,48 @@
             const listB = document.getElementById('blListB');
             const searchA = document.getElementById('blSearchA').value.trim().toLowerCase();
             const searchB = document.getElementById('blSearchB').value.trim().toLowerCase();
+            const filterLevelA = document.getElementById('blLevelFilterA') ? document.getElementById('blLevelFilterA').value : 'all';
+            const filterRoomA = document.getElementById('blRoomFilterA') ? document.getElementById('blRoomFilterA').value : 'all';
+            const filterLevelB = document.getElementById('blLevelFilterB') ? document.getElementById('blLevelFilterB').value : 'all';
+            const filterRoomB = document.getElementById('blRoomFilterB') ? document.getElementById('blRoomFilterB').value : 'all';
 
             let htmlA = '';
             let htmlB = '';
 
             appData.students.forEach(std => {
-                if(!searchA || std.id.toLowerCase().includes(searchA) || std.name.toLowerCase().includes(searchA)) {
+                let stdRoom = std.room || 'ยังไม่จัด';
+                let stdLevel = std.level || 'ไม่ระบุ';
+
+                // รายการฝั่งซ้าย (A) กรองด้วยชั้น, ห้อง, ค้นหา
+                if((filterLevelA === 'all' || stdLevel === filterLevelA) && 
+                   (filterRoomA === 'all' || stdRoom === filterRoomA) && 
+                   (!searchA || std.id.toLowerCase().includes(searchA) || std.name.toLowerCase().includes(searchA))) {
+                    
                     let isSelectedA = (blSelectedA === std.id);
                     let classA = isSelectedA ? 'bg-nswButtonGreen text-white border-nswButtonGreen shadow' : 'bg-white text-gray-700 hover:bg-green-50 border-gray-200';
                     htmlA += `
                     <div onclick="selectBlacklistStudent('A', '${std.id}')" class="cursor-pointer p-3 rounded-lg border transition ${classA}">
-                        <div class="font-bold text-xs opacity-80 mb-0.5"><i class="fas fa-user mr-1"></i>${std.id}</div>
+                        <div class="font-bold text-xs opacity-80 mb-0.5 flex justify-between">
+                            <span><i class="fas fa-user mr-1"></i>${std.id}</span>
+                            <span>ชั้น ${stdLevel} ${stdRoom !== 'ยังไม่จัด' ? 'ห้อง ' + stdRoom : ''}</span>
+                        </div>
                         <div class="text-sm font-medium truncate">${std.name}</div>
                     </div>`;
                 }
 
-                if(!searchB || std.id.toLowerCase().includes(searchB) || std.name.toLowerCase().includes(searchB)) {
+                // รายการฝั่งขวา (B) กรองด้วยชั้น, ห้อง, ค้นหา
+                if((filterLevelB === 'all' || stdLevel === filterLevelB) && 
+                   (filterRoomB === 'all' || stdRoom === filterRoomB) && 
+                   (!searchB || std.id.toLowerCase().includes(searchB) || std.name.toLowerCase().includes(searchB))) {
+                    
                     let isSelectedB = (blSelectedB === std.id);
                     let classB = isSelectedB ? 'bg-nswButtonGreen text-white border-nswButtonGreen shadow' : 'bg-white text-gray-700 hover:bg-green-50 border-gray-200';
                     htmlB += `
                     <div onclick="selectBlacklistStudent('B', '${std.id}')" class="cursor-pointer p-3 rounded-lg border transition ${classB}">
-                        <div class="font-bold text-xs opacity-80 mb-0.5"><i class="fas fa-user mr-1"></i>${std.id}</div>
+                        <div class="font-bold text-xs opacity-80 mb-0.5 flex justify-between">
+                            <span><i class="fas fa-user mr-1"></i>${std.id}</span>
+                            <span>ชั้น ${stdLevel} ${stdRoom !== 'ยังไม่จัด' ? 'ห้อง ' + stdRoom : ''}</span>
+                        </div>
                         <div class="text-sm font-medium truncate">${std.name}</div>
                     </div>`;
                 }
@@ -1235,22 +1435,23 @@
 
             cuteAlert.loading('กำลังบันทึกข้อมูลคู่ต้องห้าม...');
 
-            // เพิ่มรหัสของอีกฝ่ายเข้าไป
             blA.push(stdB.id);
             blB.push(stdA.id);
 
-            // ส่งบันทึก A
+            // ส่งบันทึก A (รวม level)
             const formA = new FormData();
             formA.append('stdId', stdA.id);
             formA.append('stdName', stdA.name);
             formA.append('stdGender', stdA.gender);
+            formA.append('stdLevel', stdA.level);
             formA.append('stdBlacklist', blA.join(','));
 
-            // ส่งบันทึก B
+            // ส่งบันทึก B (รวม level)
             const formB = new FormData();
             formB.append('stdId', stdB.id);
             formB.append('stdName', stdB.name);
             formB.append('stdGender', stdB.gender);
+            formB.append('stdLevel', stdB.level);
             formB.append('stdBlacklist', blB.join(','));
 
             try {
@@ -1259,7 +1460,6 @@
                 
                 sendLogActivity('ตั้งคู่ต้องห้าม', `เพิ่มคู่ต้องห้าม: ${stdA.name} กับ ${stdB.name}`);
                 
-                // เคลียร์ค่าที่เลือกและโหลดข้อมูลใหม่
                 blSelectedA = null;
                 blSelectedB = null;
                 document.getElementById('blSearchA').value = '';
@@ -1277,7 +1477,6 @@
             let pairs = [];
             let seen = new Set();
 
-            // แยกและจับคู่ความสัมพันธ์
             appData.students.forEach(std => {
                 if(std.blacklist) {
                     let bls = std.blacklist.toString().split(',').map(s=>s.trim()).filter(s=>s);
@@ -1291,7 +1490,7 @@
                             let targetStd = appData.students.find(s=>s.id === targetId);
                             pairs.push({
                                 std1: std,
-                                std2: targetStd || { id: targetId, name: '<span class="text-red-400">ไม่พบในระบบ</span>' }
+                                std2: targetStd || { id: targetId, name: '<span class="text-red-400">ไม่พบในระบบ</span>', room: '', level: '' }
                             });
                         }
                     });
@@ -1305,10 +1504,13 @@
 
             let html = '';
             pairs.forEach(p => {
+                let badgeA = `<span class="ml-1 text-[10px] bg-green-100 text-green-700 px-1 rounded">${p.std1.level || ''} ${p.std1.room ? 'ห้อง '+p.std1.room : ''}</span>`;
+                let badgeB = `<span class="ml-1 text-[10px] bg-green-100 text-green-700 px-1 rounded">${p.std2.level || ''} ${p.std2.room ? 'ห้อง '+p.std2.room : ''}</span>`;
+                
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
-                    <td class="px-6 py-3"><span class="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded mr-2">${p.std1.id}</span> ${p.std1.name}</td>
-                    <td class="px-6 py-3"><span class="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded mr-2">${p.std2.id}</span> ${p.std2.name}</td>
+                    <td class="px-6 py-3"><span class="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded mr-2">${p.std1.id}</span> ${p.std1.name} ${badgeA}</td>
+                    <td class="px-6 py-3"><span class="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded mr-2">${p.std2.id}</span> ${p.std2.name} ${badgeB}</td>
                     <td class="px-6 py-3 text-center">
                         <button onclick="removeBlacklistPair('${p.std1.id}', '${p.std2.id}', '${p.std1.name}', '${p.std2.name}')" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition shadow-sm" title="ยกเลิกคู่ต้องห้าม">
                             <i class="fas fa-trash-alt"></i>
@@ -1333,7 +1535,6 @@
 
                     let promises = [];
 
-                    // เอา B ออกจาก A
                     if(stdA) {
                         let blA = stdA.blacklist ? stdA.blacklist.toString().split(',').map(s=>s.trim()).filter(s=>s) : [];
                         blA = blA.filter(id => id !== idB);
@@ -1341,11 +1542,11 @@
                         formA.append('stdId', stdA.id);
                         formA.append('stdName', stdA.name);
                         formA.append('stdGender', stdA.gender);
+                        formA.append('stdLevel', stdA.level);
                         formA.append('stdBlacklist', blA.join(','));
                         promises.push(fetch(`${API_URL}?action=saveStudent`, { method: 'POST', body: formA }));
                     }
 
-                    // เอา A ออกจาก B
                     if(stdB) {
                         let blB = stdB.blacklist ? stdB.blacklist.toString().split(',').map(s=>s.trim()).filter(s=>s) : [];
                         blB = blB.filter(id => id !== idA);
@@ -1353,6 +1554,7 @@
                         formB.append('stdId', stdB.id);
                         formB.append('stdName', stdB.name);
                         formB.append('stdGender', stdB.gender);
+                        formB.append('stdLevel', stdB.level);
                         formB.append('stdBlacklist', blB.join(','));
                         promises.push(fetch(`${API_URL}?action=saveStudent`, { method: 'POST', body: formB }));
                     }
@@ -1473,10 +1675,20 @@
         function renderStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
             const search = document.getElementById('stdSearchInput').value.trim().toLowerCase();
+            const filterLevel = document.getElementById('stdLevelFilter') ? document.getElementById('stdLevelFilter').value : 'all';
+            const filterRoom = document.getElementById('stdRoomFilter') ? document.getElementById('stdRoomFilter').value : 'all';
             
             let filtered = appData.students;
+            
+            if(filterLevel !== 'all') {
+                filtered = filtered.filter(std => (std.level || 'ไม่ระบุ') === filterLevel);
+            }
+            if(filterRoom !== 'all') {
+                filtered = filtered.filter(std => (std.room || 'ยังไม่จัด') === filterRoom);
+            }
+
             if (search) {
-                filtered = appData.students.filter(std => 
+                filtered = filtered.filter(std => 
                     std.id.toLowerCase().includes(search) || 
                     std.name.toLowerCase().includes(search)
                 );
@@ -1491,12 +1703,14 @@
             filtered.forEach(std => {
                 let genderIcon = std.gender === 'ชาย' ? '<i class="fas fa-male text-blue-500"></i> ชาย' : '<i class="fas fa-female text-pink-500"></i> หญิง';
                 let blText = std.blacklist ? `<span class="text-red-500 text-xs"><i class="fas fa-ban"></i> ${std.blacklist}</span>` : '<span class="text-gray-300">-</span>';
+                let levelBadge = std.level ? `<span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold">${std.level}</span>` : '-';
+
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 font-medium text-gray-700">${std.id}</td>
+                    <td class="px-4 py-3">${levelBadge}</td>
                     <td class="px-4 py-3 text-gray-800">${std.name}</td>
                     <td class="px-4 py-3 text-center">${genderIcon}</td>
-                    <td class="px-4 py-3">${blText}</td>
                     <td class="px-4 py-3 text-center">
                         <button onclick="editStudent('${std.id}')" class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 rounded transition mr-1"><i class="fas fa-edit"></i></button>
                         <button onclick="deleteStudent('${std.id}', '${std.name}')" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 rounded transition"><i class="fas fa-trash"></i></button>
@@ -1511,6 +1725,7 @@
             document.getElementById('stdId').value = '';
             document.getElementById('stdId').readOnly = false;
             document.getElementById('stdName').value = '';
+            document.getElementById('stdLevel').value = '';
             document.getElementById('stdGender').value = 'ชาย';
             document.getElementById('stdBlacklist').value = '';
             document.getElementById('stdFormTitle').innerHTML = '<i class="fas fa-plus-circle text-nswButtonGreen mr-1"></i> เพิ่มนักเรียนใหม่';
@@ -1523,6 +1738,7 @@
             document.getElementById('stdId').value = std.id;
             document.getElementById('stdId').readOnly = true; 
             document.getElementById('stdName').value = std.name;
+            document.getElementById('stdLevel').value = std.level || '';
             document.getElementById('stdGender').value = std.gender;
             document.getElementById('stdBlacklist').value = std.blacklist || '';
             document.getElementById('stdFormTitle').innerHTML = '<i class="fas fa-edit text-blue-500 mr-1"></i> แก้ไขข้อมูลนักเรียน';
@@ -1531,16 +1747,18 @@
         async function saveStudent() {
             const id = document.getElementById('stdId').value.trim();
             const name = document.getElementById('stdName').value.trim();
+            const level = document.getElementById('stdLevel').value.trim();
             const gender = document.getElementById('stdGender').value;
             const blacklist = document.getElementById('stdBlacklist').value.trim();
             const action = document.getElementById('stdAction').value;
 
-            if(!id || !name) return cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอก รหัส และ ชื่อ-สกุล');
+            if(!id || !name || !level) return cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอก รหัส, ชื่อ-สกุล และระดับชั้น');
 
             cuteAlert.loading('กำลังบันทึกข้อมูลนักเรียน...');
             const form = new FormData();
             form.append('stdId', id);
             form.append('stdName', name);
+            form.append('stdLevel', level);
             form.append('stdGender', gender);
             form.append('stdBlacklist', blacklist);
 
@@ -1549,7 +1767,7 @@
                 const json = await res.json();
                 if(json.status === 'success') {
                     cuteAlert.success('สำเร็จ', 'บันทึกข้อมูลนักเรียนแล้ว');
-                    let logText = action === 'add' ? `เพิ่มนักเรียนใหม่: ${id} ${name}` : `แก้ไขข้อมูลนักเรียน: ${id} ${name}`;
+                    let logText = action === 'add' ? `เพิ่มนักเรียนใหม่: ${id} ${name} (ชั้น ${level})` : `แก้ไขข้อมูลนักเรียน: ${id} ${name} (ชั้น ${level})`;
                     sendLogActivity('ข้อมูลนักเรียน', logText);
                     resetStdForm();
                     loadInitialData();
