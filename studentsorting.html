@@ -210,7 +210,11 @@
                                     <option value="all">ส่งออกทุกห้อง (แยกชีต)</option>
                                     <!-- ตัวเลือกห้องสร้างจาก JS -->
                                 </select>
-                                <button onclick="exportToExcel('all')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1.5 px-3 transition flex items-center justify-center gap-1 text-xs w-full sm:w-auto whitespace-nowrap">
+                                <select id="exportSortFilter" class="bg-white border-l border-green-200 text-nswDarkGreen font-bold py-1.5 px-2 outline-none cursor-pointer text-xs w-full sm:w-auto" title="รูปแบบการเรียงลำดับในไฟล์ Excel">
+                                    <option value="id">เรียงตามรหัส</option>
+                                    <option value="score">เรียงตามคะแนน</option>
+                                </select>
+                                <button onclick="exportToExcel('all')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1.5 px-3 transition flex items-center justify-center gap-1 text-xs w-full sm:w-auto whitespace-nowrap border-l border-green-600">
                                     <i class="fas fa-file-excel"></i> โหลด Excel
                                 </button>
                             </div>
@@ -438,9 +442,15 @@
                         
                         <!-- ตัวกรองเพศและปุ่มส่งออก Excel ใน Modal -->
                         <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                            <button onclick="exportToExcel('room')" class="bg-green-100 hover:bg-green-200 text-nswDarkGreen font-bold py-1 px-3 rounded shadow-sm transition flex items-center gap-1 border border-green-300 text-xs">
-                                <i class="fas fa-file-excel text-green-600"></i> โหลด Excel ห้องนี้
-                            </button>
+                            <div class="flex items-center rounded border border-green-300 overflow-hidden shadow-sm">
+                                <select id="roomExportSortFilter" class="bg-white text-nswDarkGreen font-bold py-1 px-2 outline-none cursor-pointer text-xs border-r border-green-300" title="รูปแบบการเรียงลำดับ">
+                                    <option value="id">เรียงรหัส</option>
+                                    <option value="score">เรียงคะแนน</option>
+                                </select>
+                                <button onclick="exportToExcel('room')" class="bg-green-100 hover:bg-green-200 text-nswDarkGreen font-bold py-1 px-3 transition flex items-center gap-1 text-xs">
+                                    <i class="fas fa-file-excel text-green-600"></i> โหลด Excel
+                                </button>
+                            </div>
                             <div class="flex items-center gap-2">
                                 <label class="text-sm font-bold text-gray-700 hidden sm:inline-block">เพศ:</label>
                                 <select id="roomDetailsGenderFilter" onchange="renderRoomDetailsTable()" class="border border-gray-300 rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-nswButtonGreen">
@@ -1760,9 +1770,20 @@
             // เรียงวิชาตามน้ำหนักจากมากไปน้อย
             const sortedSubjects = [...appData.subjects].sort((a, b) => parseFloat(b.weight) - parseFloat(a.weight));
             
-            // เตรียมการตั้งค่าความกว้างคอลัมน์พื้นฐาน + คอลัมน์วิชา
+            // เตรียมการตั้งค่าความกว้างคอลัมน์พื้นฐาน + คอลัมน์วิชา + คอลัมน์คะแนนรวม
             let sheetCols = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
             sortedSubjects.forEach(() => sheetCols.push({wch: 15}));
+            sheetCols.push({wch: 20}); // ความกว้างสำหรับคะแนนรวมถ่วงน้ำหนัก
+
+            // ฟังก์ชันช่วยคำนวณคะแนนรวมตามน้ำหนัก
+            const calculateTotalScore = (stdId) => {
+                let total = 0;
+                sortedSubjects.forEach(sub => {
+                    let sc = (appData.scores[stdId] && appData.scores[stdId][sub.id]) ? parseFloat(appData.scores[stdId][sub.id]) : 0;
+                    total += (sc * (parseFloat(sub.weight) / 100));
+                });
+                return total;
+            };
 
             if (mode === 'room') {
                 // สำหรับโหลดจาก Modal รายชื่อแต่ละห้อง
@@ -1778,8 +1799,18 @@
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
 
+                const sortBy = document.getElementById('roomExportSortFilter').value;
+                
+                // คำนวณคะแนนรวมเพื่อใช้ในการเรียงลำดับ
+                filtered.forEach(std => std.calcTotalScore = calculateTotalScore(std.id));
+
                 let dataToExport = [];
-                filtered.sort((a,b) => a.id.localeCompare(b.id)).forEach((std, index) => {
+                filtered.sort((a, b) => {
+                    if (sortBy === 'score') {
+                        if (b.calcTotalScore !== a.calcTotalScore) return b.calcTotalScore - a.calcTotalScore; // เรียงคะแนนมากไปน้อย
+                    }
+                    return a.id.localeCompare(b.id); // ค่าเริ่มต้นเรียงตามรหัส
+                }).forEach((std, index) => {
                     let rowData = {
                         'ลำดับที่': index + 1,
                         'รหัสนักเรียน': std.id,
@@ -1794,6 +1825,9 @@
                         let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
                         rowData[`${sub.name} (${sub.weight}%)`] = score;
                     });
+                    
+                    // เพิ่มคอลัมน์คะแนนรวม
+                    rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
                     
                     dataToExport.push(rowData);
                 });
@@ -1811,6 +1845,7 @@
             } else if (mode === 'all') {
                 // สำหรับโหลดจากหน้า Dashboard โดยใช้ Dropdown ชั้น/ห้อง
                 const exportVal = document.getElementById('exportRoomFilter').value;
+                const sortBy = document.getElementById('exportSortFilter').value;
                 let filtered = appData.students;
                 let isMultiSheet = false;
                 
@@ -1837,7 +1872,10 @@
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
 
-                // เรียงตามชั้น -> ห้อง -> รหัส
+                // คำนวณคะแนนรวม
+                filtered.forEach(std => std.calcTotalScore = calculateTotalScore(std.id));
+
+                // เรียงตามชั้น -> ห้อง -> กฎที่เลือก (รหัส/คะแนน)
                 filtered.sort((a, b) => {
                     let lvlA = a.level || ''; let lvlB = b.level || '';
                     if (lvlA !== lvlB) return lvlA.localeCompare(lvlB, 'th');
@@ -1845,6 +1883,9 @@
                     let rmA = a.room || ''; let rmB = b.room || '';
                     if (rmA !== rmB) return rmA.localeCompare(rmB, 'th');
 
+                    if (sortBy === 'score') {
+                        if (b.calcTotalScore !== a.calcTotalScore) return b.calcTotalScore - a.calcTotalScore; // เรียงคะแนนมากไปน้อย
+                    }
                     return a.id.localeCompare(b.id);
                 });
 
@@ -1876,6 +1917,7 @@
                                 let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
                                 rowData[`${sub.name} (${sub.weight}%)`] = score;
                             });
+                            rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
                             return rowData;
                         });
                         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -1903,6 +1945,7 @@
                             let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
                             rowData[`${sub.name} (${sub.weight}%)`] = score;
                         });
+                        rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
                         return rowData;
                     });
 
