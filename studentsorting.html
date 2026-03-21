@@ -16,6 +16,9 @@
     <!-- SweetAlert2 & SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    
+    <!-- เพิ่ม SheetJS สำหรับส่งออก Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -198,10 +201,14 @@
 
                 <!-- สถิติภาพรวม -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-4">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
                         <h4 class="font-bold text-gray-700">สถิตินักเรียนแต่ละห้อง</h4>
-                        <div class="flex items-center gap-2 text-sm">
-                            <label class="font-bold text-gray-600">แสดงผลระดับชั้น:</label>
+                        <div class="flex flex-wrap items-center gap-2 text-sm w-full md:w-auto">
+                            <!-- ปุ่มส่งออก Excel รวม -->
+                            <button onclick="exportToExcel('all')" class="bg-green-100 hover:bg-green-200 text-nswDarkGreen font-bold py-1 px-3 rounded shadow-sm transition flex items-center gap-1 border border-green-300">
+                                <i class="fas fa-file-excel text-green-600"></i> โหลด Excel รวม
+                            </button>
+                            <label class="font-bold text-gray-600 ml-2">แสดงผลระดับชั้น:</label>
                             <select id="dashLevelFilter" onchange="renderDashboard()" class="border border-gray-300 rounded px-2 py-1 outline-none">
                                 <option value="all">แสดงทั้งหมด</option>
                             </select>
@@ -415,17 +422,22 @@
             
             <div class="p-6 overflow-y-auto flex-1 bg-gray-50 relative">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-                    <div class="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
+                    <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <h4 class="font-bold text-gray-700 text-sm">ข้อมูลนักเรียน</h4>
                         
-                        <!-- ตัวกรองเพศใน Modal -->
-                        <div class="flex items-center gap-2">
-                            <label class="text-sm font-bold text-gray-700 hidden sm:inline-block">เพศ:</label>
-                            <select id="roomDetailsGenderFilter" onchange="renderRoomDetailsTable()" class="border border-gray-300 rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-nswButtonGreen">
-                                <option value="all">ทั้งหมด</option>
-                                <option value="ชาย">ชาย</option>
-                                <option value="หญิง">หญิง</option>
-                            </select>
+                        <!-- ตัวกรองเพศและปุ่มส่งออก Excel ใน Modal -->
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                            <button onclick="exportToExcel('room')" class="bg-green-100 hover:bg-green-200 text-nswDarkGreen font-bold py-1 px-3 rounded shadow-sm transition flex items-center gap-1 border border-green-300 text-xs">
+                                <i class="fas fa-file-excel text-green-600"></i> โหลด Excel ห้องนี้
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-bold text-gray-700 hidden sm:inline-block">เพศ:</label>
+                                <select id="roomDetailsGenderFilter" onchange="renderRoomDetailsTable()" class="border border-gray-300 rounded-full px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-nswButtonGreen">
+                                    <option value="all">ทั้งหมด</option>
+                                    <option value="ชาย">ชาย</option>
+                                    <option value="หญิง">หญิง</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     
@@ -1721,6 +1733,107 @@
                 });
             }
             document.getElementById('dashboardStats').innerHTML = html;
+        }
+
+        // ==========================================
+        // ระบบส่งออกไฟล์ Excel (SheetJS)
+        // ==========================================
+        function exportToExcel(mode) {
+            if (typeof XLSX === 'undefined') {
+                return cuteAlert.error('ข้อผิดพลาด', 'ไม่พบระบบส่งออก Excel (โหลดไม่สมบูรณ์)');
+            }
+
+            let dataToExport = [];
+            let fileName = 'รายชื่อนักเรียน.xlsx';
+            let sheetName = 'รายชื่อ';
+
+            if (mode === 'room') {
+                let filtered = appData.students.filter(std => 
+                    (std.level || 'ไม่ระบุ') === currentViewLevel && 
+                    (std.room || 'ยังไม่จัด') === currentViewRoom
+                );
+                
+                const genderFilter = document.getElementById('roomDetailsGenderFilter').value;
+                if(genderFilter !== 'all') {
+                    filtered = filtered.filter(std => std.gender === genderFilter);
+                }
+
+                if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
+
+                filtered.sort((a,b) => a.id.localeCompare(b.id)).forEach((std, index) => {
+                    dataToExport.push({
+                        'ลำดับที่': index + 1,
+                        'รหัสนักเรียน': std.id,
+                        'ชื่อ-นามสกุล': std.name,
+                        'เพศ': std.gender,
+                        'ระดับชั้น': std.level || '',
+                        'ห้อง': std.room || 'ยังไม่จัด'
+                    });
+                });
+                
+                let safeRoomName = currentViewRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${currentViewRoom}`;
+                fileName = `รายชื่อนักเรียน_${currentViewLevel}_${safeRoomName}.xlsx`;
+                sheetName = `${currentViewLevel} ${safeRoomName}`;
+
+            } else if (mode === 'all') {
+                const filterLevel = document.getElementById('dashLevelFilter').value;
+                let filtered = appData.students;
+                
+                if (filterLevel !== 'all') {
+                    filtered = filtered.filter(std => (std.level || 'ไม่ระบุ') === filterLevel);
+                    fileName = `รายชื่อนักเรียนทั้งหมด_ชั้น_${filterLevel}.xlsx`;
+                    sheetName = `ชั้น ${filterLevel}`;
+                } else {
+                    fileName = `รายชื่อนักเรียนทั้งหมดในระบบ.xlsx`;
+                    sheetName = `รวมทั้งหมด`;
+                }
+
+                if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
+
+                // เรียงตามชั้น -> ห้อง -> รหัส
+                filtered.sort((a, b) => {
+                    let lvlA = a.level || ''; let lvlB = b.level || '';
+                    if (lvlA !== lvlB) return lvlA.localeCompare(lvlB, 'th');
+                    
+                    let rmA = a.room || ''; let rmB = b.room || '';
+                    if (rmA !== rmB) return rmA.localeCompare(rmB, 'th');
+
+                    return a.id.localeCompare(b.id);
+                });
+
+                filtered.forEach((std, index) => {
+                    dataToExport.push({
+                        'ลำดับที่': index + 1,
+                        'รหัสนักเรียน': std.id,
+                        'ชื่อ-นามสกุล': std.name,
+                        'เพศ': std.gender,
+                        'ระดับชั้น': std.level || '',
+                        'ห้อง': std.room || 'ยังไม่จัด'
+                    });
+                });
+            }
+
+            try {
+                // แปลงข้อมูลเป็น Sheet
+                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                
+                // จัดความกว้างคอลัมน์ให้อ่านง่าย
+                const wscols = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                worksheet['!cols'] = wscols;
+
+                // สร้าง Workbook และเพิ่ม Sheet ลงไป (ชื่อ Sheet ห้ามเกิน 31 ตัวอักษร)
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.substring(0, 31)); 
+                
+                // สั่งดาวน์โหลด
+                XLSX.writeFile(workbook, fileName);
+                
+                // บันทึกประวัติการใช้งาน
+                sendLogActivity('ดาวน์โหลด Excel', `ส่งออกไฟล์ ${fileName}`);
+            } catch (error) {
+                console.error(error);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้');
+            }
         }
 
         async function loadInitialData() {
