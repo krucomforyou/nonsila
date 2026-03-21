@@ -133,7 +133,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.17 (Promote & Gender Toggle)
+                    Version 1.0.18 (Advanced Excel Export)
                 </div>
             </div>
         </div>
@@ -201,17 +201,25 @@
 
                 <!-- สถิติภาพรวม -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-4">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-2">
                         <h4 class="font-bold text-gray-700">สถิตินักเรียนแต่ละห้อง</h4>
-                        <div class="flex flex-wrap items-center gap-2 text-sm w-full md:w-auto">
-                            <!-- ปุ่มส่งออก Excel รวม -->
-                            <button onclick="exportToExcel('all')" class="bg-green-100 hover:bg-green-200 text-nswDarkGreen font-bold py-1 px-3 rounded shadow-sm transition flex items-center gap-1 border border-green-300">
-                                <i class="fas fa-file-excel text-green-600"></i> โหลด Excel รวม
-                            </button>
-                            <label class="font-bold text-gray-600 ml-2">แสดงผลระดับชั้น:</label>
-                            <select id="dashLevelFilter" onchange="renderDashboard()" class="border border-gray-300 rounded px-2 py-1 outline-none">
-                                <option value="all">แสดงทั้งหมด</option>
-                            </select>
+                        <div class="flex flex-wrap items-center gap-2 text-sm w-full lg:w-auto">
+                            <!-- เพิ่ม Dropdown สำหรับเลือกห้องที่จะส่งออก -->
+                            <div class="flex items-center bg-green-50 rounded border border-green-200 overflow-hidden w-full sm:w-auto">
+                                <select id="exportRoomFilter" class="bg-transparent border-none text-nswDarkGreen font-bold py-1.5 px-2 outline-none cursor-pointer text-xs w-full sm:w-auto">
+                                    <option value="all">ส่งออกทุกห้อง (แยกชีต)</option>
+                                    <!-- ตัวเลือกห้องสร้างจาก JS -->
+                                </select>
+                                <button onclick="exportToExcel('all')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1.5 px-3 transition flex items-center justify-center gap-1 text-xs w-full sm:w-auto whitespace-nowrap">
+                                    <i class="fas fa-file-excel"></i> โหลด Excel
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto sm:ml-2 mt-2 sm:mt-0">
+                                <label class="font-bold text-gray-600">แสดงผลระดับชั้น:</label>
+                                <select id="dashLevelFilter" onchange="renderDashboard()" class="border border-gray-300 rounded px-2 py-1 outline-none flex-1 sm:w-auto">
+                                    <option value="all">แสดงทั้งหมด</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="dashboardStats">
@@ -1736,18 +1744,18 @@
         }
 
         // ==========================================
-        // ระบบส่งออกไฟล์ Excel (SheetJS)
+        // ระบบส่งออกไฟล์ Excel (SheetJS) ปรับปรุงใหม่
         // ==========================================
         function exportToExcel(mode) {
             if (typeof XLSX === 'undefined') {
                 return cuteAlert.error('ข้อผิดพลาด', 'ไม่พบระบบส่งออก Excel (โหลดไม่สมบูรณ์)');
             }
 
-            let dataToExport = [];
+            const workbook = XLSX.utils.book_new();
             let fileName = 'รายชื่อนักเรียน.xlsx';
-            let sheetName = 'รายชื่อ';
 
             if (mode === 'room') {
+                // สำหรับโหลดจาก Modal รายชื่อแต่ละห้อง
                 let filtered = appData.students.filter(std => 
                     (std.level || 'ไม่ระบุ') === currentViewLevel && 
                     (std.room || 'ยังไม่จัด') === currentViewRoom
@@ -1760,6 +1768,7 @@
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
 
+                let dataToExport = [];
                 filtered.sort((a,b) => a.id.localeCompare(b.id)).forEach((std, index) => {
                     dataToExport.push({
                         'ลำดับที่': index + 1,
@@ -1773,19 +1782,32 @@
                 
                 let safeRoomName = currentViewRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${currentViewRoom}`;
                 fileName = `รายชื่อนักเรียน_${currentViewLevel}_${safeRoomName}.xlsx`;
-                sheetName = `${currentViewLevel} ${safeRoomName}`;
+                
+                // ชื่อ Sheet ห้ามมีเครื่องหมายต้องห้ามตามกฎ Excel (/ \ ? * : [ ])
+                let sheetName = `${currentViewLevel} ${safeRoomName}`.substring(0, 31);
+
+                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
             } else if (mode === 'all') {
+                // สำหรับโหลดจากหน้า Dashboard
                 const filterLevel = document.getElementById('dashLevelFilter').value;
+                const filterRoom = document.getElementById('exportRoomFilter').value;
+                
                 let filtered = appData.students;
                 
                 if (filterLevel !== 'all') {
                     filtered = filtered.filter(std => (std.level || 'ไม่ระบุ') === filterLevel);
-                    fileName = `รายชื่อนักเรียนทั้งหมด_ชั้น_${filterLevel}.xlsx`;
-                    sheetName = `ชั้น ${filterLevel}`;
+                    fileName = `รายชื่อนักเรียน_ชั้น_${filterLevel}.xlsx`;
                 } else {
                     fileName = `รายชื่อนักเรียนทั้งหมดในระบบ.xlsx`;
-                    sheetName = `รวมทั้งหมด`;
+                }
+
+                if (filterRoom !== 'all') {
+                    filtered = filtered.filter(std => (std.room || 'ยังไม่จัด') === filterRoom);
+                    let safeRoomName = filterRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${filterRoom}`;
+                    fileName = fileName.replace('.xlsx', `_${safeRoomName}.xlsx`);
                 }
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
@@ -1801,30 +1823,54 @@
                     return a.id.localeCompare(b.id);
                 });
 
-                filtered.forEach((std, index) => {
-                    dataToExport.push({
+                if (filterRoom === 'all') {
+                    // หากเลือกทุกห้อง ให้สร้างชีตแยกแต่ละห้อง
+                    const groupedData = {};
+                    filtered.forEach(std => {
+                        let lvl = std.level || 'ไม่ระบุ';
+                        let rm = std.room || 'ยังไม่จัด';
+                        let safeRm = rm === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${rm}`;
+                        // ชื่อชีตห้ามมีเครื่องหมายพิเศษ และมีความยาวจำกัด
+                        let sheetName = `${lvl} ${safeRm}`.substring(0, 31);
+                        
+                        if (!groupedData[sheetName]) groupedData[sheetName] = [];
+                        groupedData[sheetName].push(std);
+                    });
+
+                    for (let sheetName in groupedData) {
+                        let dataToExport = groupedData[sheetName].map((std, index) => ({
+                            'ลำดับที่': index + 1,
+                            'รหัสนักเรียน': std.id,
+                            'ชื่อ-นามสกุล': std.name,
+                            'เพศ': std.gender,
+                            'ระดับชั้น': std.level || '',
+                            'ห้อง': std.room || 'ยังไม่จัด'
+                        }));
+                        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                        worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+                    }
+                } else {
+                    // หากเลือกเจาะจงห้อง ให้แสดงชีตเดียวรวม
+                    let safeRm = filterRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${filterRoom}`;
+                    let sheetName = (filterLevel === 'all' ? `รวม ${safeRm}` : `${filterLevel} ${safeRm}`).substring(0, 31);
+                    
+                    let dataToExport = filtered.map((std, index) => ({
                         'ลำดับที่': index + 1,
                         'รหัสนักเรียน': std.id,
                         'ชื่อ-นามสกุล': std.name,
                         'เพศ': std.gender,
                         'ระดับชั้น': std.level || '',
                         'ห้อง': std.room || 'ยังไม่จัด'
-                    });
-                });
+                    }));
+
+                    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                    worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+                }
             }
 
             try {
-                // แปลงข้อมูลเป็น Sheet
-                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                
-                // จัดความกว้างคอลัมน์ให้อ่านง่าย
-                const wscols = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
-                worksheet['!cols'] = wscols;
-
-                // สร้าง Workbook และเพิ่ม Sheet ลงไป (ชื่อ Sheet ห้ามเกิน 31 ตัวอักษร)
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.substring(0, 31)); 
-                
                 // สั่งดาวน์โหลด
                 XLSX.writeFile(workbook, fileName);
                 
@@ -1916,6 +1962,18 @@
                     if (roomArr.includes(c) || c === 'all') el.value = c; 
                 }
             });
+
+            // ปรับแต่ง Dropdown ส่งออก Excel พิเศษให้ข้อความดูสวยงาม
+            let exportRoomEl = document.getElementById('exportRoomFilter');
+            if (exportRoomEl) {
+                let c = exportRoomEl.value;
+                let exportOptions = '<option value="all">ส่งออกทุกห้อง (แยกชีต)</option>';
+                roomArr.forEach(r => { 
+                    exportOptions += `<option value="${r}">${r === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ส่งออกเฉพาะห้อง ${r}`}</option>`; 
+                });
+                exportRoomEl.innerHTML = exportOptions;
+                if (roomArr.includes(c) || c === 'all') exportRoomEl.value = c;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => { 
