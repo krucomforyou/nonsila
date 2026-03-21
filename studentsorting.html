@@ -1791,23 +1791,30 @@
                 XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
             } else if (mode === 'all') {
-                // สำหรับโหลดจากหน้า Dashboard
-                const filterLevel = document.getElementById('dashLevelFilter').value;
-                const filterRoom = document.getElementById('exportRoomFilter').value;
-                
+                // สำหรับโหลดจากหน้า Dashboard โดยใช้ Dropdown ชั้น/ห้อง
+                const exportVal = document.getElementById('exportRoomFilter').value;
                 let filtered = appData.students;
+                let isMultiSheet = false;
                 
-                if (filterLevel !== 'all') {
-                    filtered = filtered.filter(std => (std.level || 'ไม่ระบุ') === filterLevel);
-                    fileName = `รายชื่อนักเรียน_ชั้น_${filterLevel}.xlsx`;
-                } else {
+                if (exportVal === 'all') {
                     fileName = `รายชื่อนักเรียนทั้งหมดในระบบ.xlsx`;
-                }
+                    isMultiSheet = true;
+                } else {
+                    const parts = exportVal.split('|');
+                    const expLevel = parts[0];
+                    const expRoom = parts[1];
 
-                if (filterRoom !== 'all') {
-                    filtered = filtered.filter(std => (std.room || 'ยังไม่จัด') === filterRoom);
-                    let safeRoomName = filterRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${filterRoom}`;
-                    fileName = fileName.replace('.xlsx', `_${safeRoomName}.xlsx`);
+                    filtered = filtered.filter(std => (std.level || 'ไม่ระบุ') === expLevel);
+                    
+                    if (expRoom === 'all') {
+                        fileName = `รายชื่อนักเรียน_ชั้น_${expLevel}_ทุกห้อง.xlsx`;
+                        isMultiSheet = true;
+                    } else {
+                        filtered = filtered.filter(std => (std.room || 'ยังไม่จัด') === expRoom);
+                        let safeRoomName = expRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${expRoom}`;
+                        fileName = `รายชื่อนักเรียน_${expLevel}_${safeRoomName}.xlsx`;
+                        isMultiSheet = false;
+                    }
                 }
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
@@ -1823,14 +1830,14 @@
                     return a.id.localeCompare(b.id);
                 });
 
-                if (filterRoom === 'all') {
+                if (isMultiSheet) {
                     // หากเลือกทุกห้อง ให้สร้างชีตแยกแต่ละห้อง
                     const groupedData = {};
                     filtered.forEach(std => {
                         let lvl = std.level || 'ไม่ระบุ';
                         let rm = std.room || 'ยังไม่จัด';
                         let safeRm = rm === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${rm}`;
-                        // ชื่อชีตห้ามมีเครื่องหมายพิเศษ และมีความยาวจำกัด
+                        // ชื่อชีตห้ามมีเครื่องหมายพิเศษ และมีความยาวจำกัด 31 ตัวอักษร
                         let sheetName = `${lvl} ${safeRm}`.substring(0, 31);
                         
                         if (!groupedData[sheetName]) groupedData[sheetName] = [];
@@ -1852,8 +1859,11 @@
                     }
                 } else {
                     // หากเลือกเจาะจงห้อง ให้แสดงชีตเดียวรวม
-                    let safeRm = filterRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${filterRoom}`;
-                    let sheetName = (filterLevel === 'all' ? `รวม ${safeRm}` : `${filterLevel} ${safeRm}`).substring(0, 31);
+                    const parts = exportVal.split('|');
+                    const expLevel = parts[0];
+                    const expRoom = parts[1];
+                    let safeRm = expRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${expRoom}`;
+                    let sheetName = `${expLevel} ${safeRm}`.substring(0, 31);
                     
                     let dataToExport = filtered.map((std, index) => ({
                         'ลำดับที่': index + 1,
@@ -1963,16 +1973,36 @@
                 }
             });
 
-            // ปรับแต่ง Dropdown ส่งออก Excel พิเศษให้ข้อความดูสวยงาม
+            // ปรับแต่ง Dropdown ส่งออก Excel พิเศษให้ดึงเอา "ชั้น และ ห้อง" มาเชื่อมกัน
             let exportRoomEl = document.getElementById('exportRoomFilter');
             if (exportRoomEl) {
                 let c = exportRoomEl.value;
-                let exportOptions = '<option value="all">ส่งออกทุกห้อง (แยกชีต)</option>';
-                roomArr.forEach(r => { 
-                    exportOptions += `<option value="${r}">${r === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ส่งออกเฉพาะห้อง ${r}`}</option>`; 
+                let exportOptions = '<option value="all">ส่งออกทั้งหมด (แยกชีต)</option>';
+                
+                // จัดกลุ่มห้องเรียนตามระดับชั้น
+                let levelMap = {};
+                appData.students.forEach(s => {
+                    let l = s.level || 'ไม่ระบุ';
+                    let r = s.room || 'ยังไม่จัด';
+                    if(!levelMap[l]) levelMap[l] = new Set();
+                    levelMap[l].add(r);
                 });
+
+                // สร้างตัวเลือกตามกลุ่มที่จัดไว้ (ชั้น -> ห้อง)
+                Object.keys(levelMap).sort().forEach(lvl => {
+                    exportOptions += `<option value="${lvl}|all" class="font-bold text-gray-800 bg-gray-100">▶ ชั้น ${lvl} ทุกห้อง (แยกชีต)</option>`;
+                    Array.from(levelMap[lvl]).sort().forEach(rm => {
+                        let rmText = rm === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${rm}`;
+                        exportOptions += `<option value="${lvl}|${rm}">&nbsp;&nbsp;&nbsp; - ชั้น ${lvl} ${rmText}</option>`;
+                    });
+                });
+                
                 exportRoomEl.innerHTML = exportOptions;
-                if (roomArr.includes(c) || c === 'all') exportRoomEl.value = c;
+                
+                // คืนค่าที่เคยเลือกไว้ ถ้ามี
+                let optionExists = Array.from(exportRoomEl.options).some(opt => opt.value === c);
+                if (optionExists) exportRoomEl.value = c;
+                else exportRoomEl.value = 'all';
             }
         }
 
