@@ -130,7 +130,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.14 (Central Auth)
+                    Version 1.0.15 (Log Interval)
                 </div>
             </div>
         </div>
@@ -728,6 +728,7 @@
             // ลบข้อมูลทั้งหมดทันที
             localStorage.removeItem('nswUser');
             localStorage.removeItem('nswLastActive');
+            localStorage.removeItem('nswLastAccessLog');
             sessionStorage.removeItem('session_logged_in');
             sessionStorage.removeItem('just_logged_in');
             
@@ -773,6 +774,7 @@
                     clearTimeout(idleTimer);
                     localStorage.removeItem('nswUser'); 
                     localStorage.removeItem('nswLastActive');
+                    localStorage.removeItem('nswLastAccessLog');
                     sessionStorage.removeItem('session_logged_in');
                     sessionStorage.removeItem('just_logged_in');
                     window.location.reload();
@@ -954,8 +956,15 @@
                 if (isInitialLoad) { 
                     if (sessionStorage.getItem('just_logged_in')) {
                         sessionStorage.removeItem('just_logged_in');
+                        localStorage.setItem('nswLastAccessLog', Date.now().toString());
                     } else {
-                        sendLogActivity('เข้าใช้งาน', 'เปิดระบบคัดแยกและจัดห้องเรียน'); 
+                        const lastAccessLog = localStorage.getItem('nswLastAccessLog');
+                        const now = Date.now();
+                        // เช็คว่าบันทึกครั้งล่าสุดผ่านมาเกิน 10 นาที (600,000 ms) หรือยัง
+                        if (!lastAccessLog || (now - parseInt(lastAccessLog)) >= 600000) {
+                            sendLogActivity('เข้าใช้งาน', 'เปิดระบบคัดแยกและจัดห้องเรียน'); 
+                            localStorage.setItem('nswLastAccessLog', now.toString());
+                        }
                     }
                     loadInitialData(); 
                 }
