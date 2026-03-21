@@ -133,7 +133,7 @@
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.20 (Mobile Sync)
+                    Version 1.0.18 (Advanced Excel Export)
                 </div>
             </div>
         </div>
@@ -149,7 +149,7 @@
                 </button>
                 <h2 id="pageTitle" class="text-lg md:text-xl font-bold text-nswDarkGreen">ภาพรวม & ประมวลผลอัตโนมัติ</h2>
             </div>
-            <div class="text-xs md:text-sm text-gray-500 flex items-center bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full cursor-pointer transition shadow-sm" id="loadingStatus" onclick="loadInitialData(false)" title="คลิกเพื่อดึงข้อมูลล่าสุด">
+            <div class="text-xs md:text-sm text-gray-500 flex items-center" id="loadingStatus">
                 <i class="fas fa-circle-notch fa-spin mr-1"></i> <span class="hidden md:inline">กำลังเชื่อมต่อฐานข้อมูล...</span>
             </div>
         </header>
@@ -394,8 +394,11 @@
 
                 <!-- ตารางแสดงคู่ทั้งหมด -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="bg-gray-100 px-4 py-3 border-b">
+                    <div class="bg-gray-100 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <h4 class="font-bold text-gray-700 text-sm"><i class="fas fa-list-ul mr-2 text-nswButtonGreen"></i> รายการคู่ต้องห้ามทั้งหมดในระบบ</h4>
+                        <button onclick="refreshBlacklistData(this)" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 rounded px-3 py-1.5 text-xs shadow-sm transition flex items-center gap-1 font-bold">
+                            <i class="fas fa-sync-alt"></i> โหลดข้อมูลล่าสุด
+                        </button>
                     </div>
                     <div class="overflow-y-auto max-h-[400px]">
                         <table class="w-full text-sm text-left">
@@ -781,14 +784,7 @@
             document.addEventListener(evt, resetIdleTimer, true)
         );
         document.addEventListener('visibilitychange', () => { 
-            if (!document.hidden) {
-                checkUserRole(false); 
-                // เพิ่มส่วนนี้: ให้ซิงค์ข้อมูลทันทีเมื่อกลับเข้ามาหน้าเว็บ (แก้ปัญหามือถือพักหน้าจอ)
-                const savedUser = localStorage.getItem('nswUser');
-                if (savedUser && !isScoreEditMode && !isManualSortEditMode && !isBlacklistEditMode) {
-                    loadInitialData(true);
-                }
-            }
+            if (!document.hidden) checkUserRole(false); 
         });
 
         function logout() {
@@ -997,7 +993,7 @@
                             localStorage.setItem('nswLastAccessLog', now.toString());
                         }
                     }
-                    loadInitialData(false); 
+                    loadInitialData(); 
                 }
                 
                 resetIdleTimer();
@@ -1486,7 +1482,7 @@
                 document.getElementById('blSearchB').value = '';
                 
                 cuteAlert.success('สำเร็จ', 'เพิ่มคู่ต้องห้ามเรียบร้อยแล้ว');
-                await loadInitialData(true);
+                await loadInitialData();
             } catch(e) { 
                 cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้'); 
             }
@@ -1575,7 +1571,7 @@
                         await Promise.all(promises); 
                         sendLogActivity('ยกเลิกคู่ต้องห้าม', `ปลดล็อกคู่ต้องห้าม: ${nameA} กับ ${nameB}`);
                         cuteAlert.success('สำเร็จ', 'ยกเลิกคู่ต้องห้ามเรียบร้อยแล้ว'); 
-                        await loadInitialData(true);
+                        await loadInitialData();
                     } catch (e) { 
                         cuteAlert.error('ข้อผิดพลาด', 'เกิดปัญหาในการลบข้อมูล'); 
                     }
@@ -1640,8 +1636,8 @@
                         const json = await res.json();
                         if (json.status === 'success') {
                             cuteAlert.success('สำเร็จ!', `จัดห้องและเลื่อนชั้นเป็น ${targetLevel} เรียบร้อยแล้ว`);
-                            sendLogActivity('จัดห้องและเลื่อนชั้นอัตโนมัติ', `ดึงนักเรียนชั้น ${level} จัดลง ${rooms} เลื่อนชั้นเป็น ${targetLevel} (${mode === 'S-CURVE' ? 'คละ' : 'แยก'})`);
-                            loadInitialData(false);
+                            sendLogActivity('จัดห้องและเลื่อนชั้นอัตโนมัติ', `ดึงนักเรียนชั้น ${level} จัดลง ${rooms} ห้อง เลื่อนชั้นเป็น ${targetLevel} (${mode === 'S-CURVE' ? 'คละ' : 'แยก'})`);
+                            loadInitialData();
                         } else {
                             throw new Error(json.message);
                         }
@@ -1899,43 +1895,31 @@
             }
         }
 
-        async function loadInitialData(isSilent = false) {
+        async function loadInitialData() {
             try {
-                const statusEl = document.getElementById('loadingStatus');
-                if (!isSilent) {
-                    statusEl.innerHTML = '<i class="fas fa-circle-notch fa-spin text-nswButtonGreen mr-1"></i> <span class="hidden md:inline">กำลังอัปเดตข้อมูล...</span>';
-                } else {
-                    statusEl.innerHTML = '<i class="fas fa-sync-alt fa-spin text-blue-500 mr-1"></i> <span class="hidden md:inline">กำลังซิงค์เบื้องหลัง...</span>';
-                }
-
                 const res = await fetch(`${API_URL}?action=getInitialData`);
                 const json = await res.json();
                 if (json.status === 'success') {
                     appData = json.data;
+                    document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i> <span class="hidden md:inline">โหลดข้อมูลสำเร็จ</span>';
                     
-                    let timeString = new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-                    statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-1"></i> <span class="hidden md:inline text-green-700 font-medium">อัปเดตล่าสุด ${timeString}</span>`;
+                    populateFilters(); 
+                    renderDashboard(); 
+                    renderScoreTable(); 
+                    renderDragDropGrid(); 
+                    renderSubjectsTable(); 
+                    renderStudentsTable();
                     
-                    // ถ้าระบบไม่ได้อยู่ในโหมดแก้ไข ให้รีเรนเดอร์หน้าจอใหม่เลย
-                    if (!isScoreEditMode && !isManualSortEditMode && !isBlacklistEditMode) {
-                        populateFilters(); 
-                        renderDashboard(); 
-                        renderScoreTable(); 
-                        renderDragDropGrid(); 
-                        renderSubjectsTable(); 
-                        renderStudentsTable();
-                        
-                        if(!document.getElementById('sec-blacklist').classList.contains('hidden')) { 
-                            renderBlacklistLists(); 
-                            renderBlacklistedPairsTable(); 
-                        }
+                    if(!document.getElementById('sec-blacklist').classList.contains('hidden')) { 
+                        renderBlacklistLists(); 
+                        renderBlacklistedPairsTable(); 
                     }
                 } else {
                     throw new Error(json.message);
                 }
             } catch (err) {
-                document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 mr-1"></i> <span class="hidden md:inline text-red-500">เชื่อมต่อล้มเหลว</span>';
-                if (!isSilent) cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message);
+                document.getElementById('loadingStatus').innerHTML = '<i class="fas fa-times-circle text-red-500 mr-1"></i> <span class="hidden md:inline">เชื่อมต่อล้มเหลว</span>';
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้: ' + err.message);
             }
         }
 
@@ -2025,17 +2009,24 @@
             }
         }
 
+        // ==========================================
+        // อัปเดตข้อมูลคู่ต้องห้าม โดยไม่รีเฟรชหน้า
+        // ==========================================
+        async function refreshBlacklistData(btn) {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังโหลด...';
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+
+            await loadInitialData();
+
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            btn.classList.remove('opacity-70', 'cursor-not-allowed');
+        }
+
         document.addEventListener('DOMContentLoaded', () => { 
             checkUserRole(true); 
-            
-            // Auto Sync ข้อมูลเบื้องหลังทุกๆ 60 วินาที
-            setInterval(() => {
-                const savedUser = localStorage.getItem('nswUser');
-                // จะซิงค์ก็ต่อเมื่อล็อกอินแล้ว และไม่ได้อยู่ในโหมดแก้ไขเท่านั้น (ป้องกันข้อมูลหาย)
-                if (savedUser && !isScoreEditMode && !isManualSortEditMode && !isBlacklistEditMode) {
-                    loadInitialData(true);
-                }
-            }, 60000);
         });
 
         function switchMenu(menuId) {
@@ -2234,7 +2225,7 @@
                     cuteAlert.success('สำเร็จ', 'บันทึกข้อมูลรายวิชาแล้ว');
                     sendLogActivity('แก้ไขรายวิชา', action === 'add' ? `เพิ่มวิชาใหม่: ${id} ${name} (นน. ${weight}%)` : `แก้ไขวิชา: ${id} ${name} (นน. ${weight}%)`);
                     resetSubjForm(); 
-                    loadInitialData(false);
+                    loadInitialData();
                 } else {
                     throw new Error(json.message);
                 }
@@ -2255,7 +2246,7 @@
                         if(json.status === 'success') { 
                             cuteAlert.success('สำเร็จ', 'ลบวิชาเรียบร้อยแล้ว'); 
                             sendLogActivity('ลบรายวิชา', `ลบวิชา ${id} ${name} ออกจากระบบ`); 
-                            loadInitialData(false); 
+                            loadInitialData(); 
                         } else {
                             throw new Error(json.message);
                         }
@@ -2356,7 +2347,7 @@
                     cuteAlert.success('สำเร็จ', 'บันทึกข้อมูลนักเรียนแล้ว'); 
                     sendLogActivity('ข้อมูลนักเรียน', action === 'add' ? `เพิ่มนักเรียนใหม่: ${id} ${firstName} ${lastName} (ชั้น ${level})` : `แก้ไขข้อมูลนักเรียน: ${id} ${firstName} ${lastName} (ชั้น ${level})`); 
                     resetStdForm(); 
-                    loadInitialData(false);
+                    loadInitialData();
                 } else {
                     throw new Error(json.message);
                 }
@@ -2377,7 +2368,7 @@
                         if(json.status === 'success') { 
                             cuteAlert.success('สำเร็จ', 'ลบนักเรียนเรียบร้อยแล้ว'); 
                             sendLogActivity('ลบนักเรียน', `ลบข้อมูล ${id} ${name} ออกจากระบบ`); 
-                            loadInitialData(false); 
+                            loadInitialData(); 
                         } else {
                             throw new Error(json.message);
                         }
