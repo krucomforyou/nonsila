@@ -1757,6 +1757,13 @@
             const workbook = XLSX.utils.book_new();
             let fileName = 'รายชื่อนักเรียน.xlsx';
 
+            // เรียงวิชาตามน้ำหนักจากมากไปน้อย
+            const sortedSubjects = [...appData.subjects].sort((a, b) => parseFloat(b.weight) - parseFloat(a.weight));
+            
+            // เตรียมการตั้งค่าความกว้างคอลัมน์พื้นฐาน + คอลัมน์วิชา
+            let sheetCols = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+            sortedSubjects.forEach(() => sheetCols.push({wch: 15}));
+
             if (mode === 'room') {
                 // สำหรับโหลดจาก Modal รายชื่อแต่ละห้อง
                 let filtered = appData.students.filter(std => 
@@ -1773,14 +1780,22 @@
 
                 let dataToExport = [];
                 filtered.sort((a,b) => a.id.localeCompare(b.id)).forEach((std, index) => {
-                    dataToExport.push({
+                    let rowData = {
                         'ลำดับที่': index + 1,
                         'รหัสนักเรียน': std.id,
                         'ชื่อ-นามสกุล': std.name,
                         'เพศ': std.gender,
                         'ระดับชั้น': std.level || '',
                         'ห้อง': std.room || 'ยังไม่จัด'
+                    };
+                    
+                    // เพิ่มคะแนนแต่ละวิชา เรียงตามน้ำหนัก
+                    sortedSubjects.forEach(sub => {
+                        let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
+                        rowData[`${sub.name} (${sub.weight}%)`] = score;
                     });
+                    
+                    dataToExport.push(rowData);
                 });
                 
                 let safeRoomName = currentViewRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง_${currentViewRoom}`;
@@ -1790,7 +1805,7 @@
                 let sheetName = `${currentViewLevel} ${safeRoomName}`.substring(0, 31);
 
                 const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                worksheet['!cols'] = sheetCols;
                 XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
             } else if (mode === 'all') {
@@ -1848,16 +1863,23 @@
                     });
 
                     for (let sheetName in groupedData) {
-                        let dataToExport = groupedData[sheetName].map((std, index) => ({
-                            'ลำดับที่': index + 1,
-                            'รหัสนักเรียน': std.id,
-                            'ชื่อ-นามสกุล': std.name,
-                            'เพศ': std.gender,
-                            'ระดับชั้น': std.level || '',
-                            'ห้อง': std.room || 'ยังไม่จัด'
-                        }));
+                        let dataToExport = groupedData[sheetName].map((std, index) => {
+                            let rowData = {
+                                'ลำดับที่': index + 1,
+                                'รหัสนักเรียน': std.id,
+                                'ชื่อ-นามสกุล': std.name,
+                                'เพศ': std.gender,
+                                'ระดับชั้น': std.level || '',
+                                'ห้อง': std.room || 'ยังไม่จัด'
+                            };
+                            sortedSubjects.forEach(sub => {
+                                let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
+                                rowData[`${sub.name} (${sub.weight}%)`] = score;
+                            });
+                            return rowData;
+                        });
                         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                        worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                        worksheet['!cols'] = sheetCols;
                         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
                     }
                 } else {
@@ -1868,17 +1890,24 @@
                     let safeRm = expRoom === 'ยังไม่จัด' ? 'ยังไม่จัดห้อง' : `ห้อง ${expRoom}`;
                     let sheetName = `${expLevel} ${safeRm}`.substring(0, 31);
                     
-                    let dataToExport = filtered.map((std, index) => ({
-                        'ลำดับที่': index + 1,
-                        'รหัสนักเรียน': std.id,
-                        'ชื่อ-นามสกุล': std.name,
-                        'เพศ': std.gender,
-                        'ระดับชั้น': std.level || '',
-                        'ห้อง': std.room || 'ยังไม่จัด'
-                    }));
+                    let dataToExport = filtered.map((std, index) => {
+                        let rowData = {
+                            'ลำดับที่': index + 1,
+                            'รหัสนักเรียน': std.id,
+                            'ชื่อ-นามสกุล': std.name,
+                            'เพศ': std.gender,
+                            'ระดับชั้น': std.level || '',
+                            'ห้อง': std.room || 'ยังไม่จัด'
+                        };
+                        sortedSubjects.forEach(sub => {
+                            let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
+                            rowData[`${sub.name} (${sub.weight}%)`] = score;
+                        });
+                        return rowData;
+                    });
 
                     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                    worksheet['!cols'] = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
+                    worksheet['!cols'] = sheetCols;
                     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
                 }
             }
