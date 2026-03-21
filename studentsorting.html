@@ -1772,9 +1772,10 @@
             // เรียงวิชาตามน้ำหนักจากมากไปน้อย
             const sortedSubjects = [...appData.subjects].sort((a, b) => parseFloat(b.weight) - parseFloat(a.weight));
             
-            // เตรียมการตั้งค่าความกว้างคอลัมน์พื้นฐาน + คอลัมน์วิชา + คอลัมน์คะแนนรวม
+            // เตรียมการตั้งค่าความกว้างคอลัมน์พื้นฐาน + คอลัมน์วิชา + คอลัมน์คะแนน
             let sheetCols = [ {wch: 8}, {wch: 15}, {wch: 35}, {wch: 10}, {wch: 12}, {wch: 10} ];
             sortedSubjects.forEach(() => sheetCols.push({wch: 15}));
+            sheetCols.push({wch: 15}); // ความกว้างสำหรับคะแนนดิบรวม
             sheetCols.push({wch: 20}); // ความกว้างสำหรับคะแนนรวมถ่วงน้ำหนัก
 
             // ฟังก์ชันช่วยคำนวณคะแนนรวมตามน้ำหนัก
@@ -1784,7 +1785,29 @@
                     let sc = (appData.scores[stdId] && appData.scores[stdId][sub.id]) ? parseFloat(appData.scores[stdId][sub.id]) : 0;
                     total += (sc * (parseFloat(sub.weight) / 100));
                 });
+                // ปัดเศษทศนิยม 2 ตำแหน่ง เพื่อแก้ปัญหาการคำนวณ Floating Point ของคอมพิวเตอร์
+                return parseFloat(total.toFixed(2));
+            };
+
+            // ฟังก์ชันช่วยคำนวณคะแนนดิบรวม (ผลรวมคะแนนที่กรอกบวกกันตรงๆ)
+            const calculateRawSum = (stdId) => {
+                let total = 0;
+                sortedSubjects.forEach(sub => {
+                    let sc = (appData.scores[stdId] && appData.scores[stdId][sub.id]) ? parseFloat(appData.scores[stdId][sub.id]) : 0;
+                    total += sc;
+                });
                 return total;
+            };
+
+            // ฟังก์ชันช่วยเปรียบเทียบคะแนนรายวิชา (Tie-breaker กรณีคะแนนเท่ากัน)
+            const compareBySubjects = (a, b) => {
+                for (let i = 0; i < sortedSubjects.length; i++) {
+                    let subId = sortedSubjects[i].id;
+                    let scoreA = (appData.scores[a.id] && appData.scores[a.id][subId] !== undefined && appData.scores[a.id][subId] !== '') ? parseFloat(appData.scores[a.id][subId]) : 0;
+                    let scoreB = (appData.scores[b.id] && appData.scores[b.id][subId] !== undefined && appData.scores[b.id][subId] !== '') ? parseFloat(appData.scores[b.id][subId]) : 0;
+                    if (scoreB !== scoreA) return scoreB - scoreA; // เรียงจากมากไปน้อย
+                }
+                return 0;
             };
 
             if (mode === 'room') {
@@ -1803,21 +1826,21 @@
 
                 const sortBy = document.getElementById('roomExportSortFilter').value;
                 
-                // คำนวณคะแนนรวมเพื่อใช้แสดงผลในคอลัมน์
-                filtered.forEach(std => std.calcTotalScore = calculateTotalScore(std.id));
+                // คำนวณคะแนนทั้ง 2 แบบเพื่อใช้แสดงผลและเรียงลำดับ
+                filtered.forEach(std => {
+                    std.calcTotalScore = calculateTotalScore(std.id);
+                    std.calcRawSum = calculateRawSum(std.id);
+                });
 
                 let dataToExport = [];
                 filtered.sort((a, b) => {
                     if (sortBy === 'sum') {
-                        if (b.calcTotalScore !== a.calcTotalScore) return b.calcTotalScore - a.calcTotalScore; // เรียงตามคะแนนรวมถ่วงน้ำหนัก
+                        if (b.calcRawSum !== a.calcRawSum) return b.calcRawSum - a.calcRawSum; // เรียงตามคะแนนดิบรวมบวกกันตรงๆ
+                        let tieBreaker = compareBySubjects(a, b);
+                        if (tieBreaker !== 0) return tieBreaker;
                     } else if (sortBy === 'step') {
-                        // เรียงตามวิชาที่มีน้ำหนักมากที่สุดไปน้อยที่สุด
-                        for (let i = 0; i < sortedSubjects.length; i++) {
-                            let subId = sortedSubjects[i].id;
-                            let scoreA = (appData.scores[a.id] && appData.scores[a.id][subId] !== undefined && appData.scores[a.id][subId] !== '') ? parseFloat(appData.scores[a.id][subId]) : 0;
-                            let scoreB = (appData.scores[b.id] && appData.scores[b.id][subId] !== undefined && appData.scores[b.id][subId] !== '') ? parseFloat(appData.scores[b.id][subId]) : 0;
-                            if (scoreB !== scoreA) return scoreB - scoreA;
-                        }
+                        let stepCmp = compareBySubjects(a, b);
+                        if (stepCmp !== 0) return stepCmp;
                     }
                     return a.id.localeCompare(b.id); // ค่าเริ่มต้นเรียงตามรหัส หากคะแนนเท่ากันทุกวิชา
                 }).forEach((std, index) => {
@@ -1836,8 +1859,9 @@
                         rowData[`${sub.name} (${sub.weight}%)`] = score;
                     });
                     
-                    // เพิ่มคอลัมน์คะแนนรวม
-                    rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
+                    // เพิ่มคอลัมน์คะแนนรวมทั้ง 2 แบบ
+                    rowData['คะแนนดิบรวม'] = std.calcRawSum;
+                    rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = std.calcTotalScore;
                     
                     dataToExport.push(rowData);
                 });
@@ -1882,8 +1906,11 @@
 
                 if(filtered.length === 0) return cuteAlert.error('ไม่มีข้อมูล', 'ไม่มีรายชื่อนักเรียนให้ส่งออก');
 
-                // คำนวณคะแนนรวมเพื่อแสดงผลในคอลัมน์
-                filtered.forEach(std => std.calcTotalScore = calculateTotalScore(std.id));
+                // คำนวณคะแนนทั้ง 2 แบบ
+                filtered.forEach(std => {
+                    std.calcTotalScore = calculateTotalScore(std.id);
+                    std.calcRawSum = calculateRawSum(std.id);
+                });
 
                 // เรียงตามชั้น -> ห้อง -> กฎที่เลือก (รหัส/คะแนนตามน้ำหนัก)
                 filtered.sort((a, b) => {
@@ -1894,15 +1921,12 @@
                     if (rmA !== rmB) return rmA.localeCompare(rmB, 'th');
 
                     if (sortBy === 'sum') {
-                        if (b.calcTotalScore !== a.calcTotalScore) return b.calcTotalScore - a.calcTotalScore; // เรียงตามคะแนนรวมถ่วงน้ำหนัก
+                        if (b.calcRawSum !== a.calcRawSum) return b.calcRawSum - a.calcRawSum; // เรียงตามคะแนนดิบรวมบวกกันตรงๆ
+                        let tieBreaker = compareBySubjects(a, b);
+                        if (tieBreaker !== 0) return tieBreaker;
                     } else if (sortBy === 'step') {
-                        // เรียงตามวิชาที่มีน้ำหนักมากที่สุดไปน้อยที่สุด
-                        for (let i = 0; i < sortedSubjects.length; i++) {
-                            let subId = sortedSubjects[i].id;
-                            let scoreA = (appData.scores[a.id] && appData.scores[a.id][subId] !== undefined && appData.scores[a.id][subId] !== '') ? parseFloat(appData.scores[a.id][subId]) : 0;
-                            let scoreB = (appData.scores[b.id] && appData.scores[b.id][subId] !== undefined && appData.scores[b.id][subId] !== '') ? parseFloat(appData.scores[b.id][subId]) : 0;
-                            if (scoreB !== scoreA) return scoreB - scoreA;
-                        }
+                        let stepCmp = compareBySubjects(a, b);
+                        if (stepCmp !== 0) return stepCmp;
                     }
                     return a.id.localeCompare(b.id); // ค่าเริ่มต้นเรียงตามรหัส
                 });
@@ -1935,7 +1959,8 @@
                                 let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
                                 rowData[`${sub.name} (${sub.weight}%)`] = score;
                             });
-                            rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
+                            rowData['คะแนนดิบรวม'] = std.calcRawSum;
+                            rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = std.calcTotalScore;
                             return rowData;
                         });
                         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -1963,7 +1988,8 @@
                             let score = (appData.scores[std.id] && appData.scores[std.id][sub.id] !== undefined && appData.scores[std.id][sub.id] !== '') ? appData.scores[std.id][sub.id] : '';
                             rowData[`${sub.name} (${sub.weight}%)`] = score;
                         });
-                        rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = parseFloat(std.calcTotalScore.toFixed(2));
+                        rowData['คะแนนดิบรวม'] = std.calcRawSum;
+                        rowData['คะแนนรวม (ถ่วงน้ำหนัก)'] = std.calcTotalScore;
                         return rowData;
                     });
 
