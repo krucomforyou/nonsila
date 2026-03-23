@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>เกมทายรูปทรงเรขาคณิต 3 มิติ</title>
+    <!-- โหลด Tailwind CSS สำหรับจัดการ UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- โหลด Three.js สำหรับสร้างกราฟิก 3 มิติ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- ฟอนต์ภาษาไทย -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Kanit', sans-serif;
+            background-color: #aee2d9; 
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1; 
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10; 
+            pointer-events: none; 
+        }
+        .pointer-events-auto {
+            pointer-events: auto; 
+        }
+        
+        /* สไตล์กระจกฝ้า (Glassmorphism) ทันสมัย */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ปุ่มสไตล์โมเดิร์น */
+        .btn-modern {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-modern:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        .btn-modern:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* อนิเมชันตัวเลขคะแนนลอยขึ้น */
+        @keyframes float-up-fade {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-60px) scale(1.5); opacity: 0; }
+        }
+        .animate-score {
+            animation: float-up-fade 1.5s ease-out forwards;
+        }
+        
+        /* สกอร์บาร์ด้านขวา ทันสมัย */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- พื้นที่สำหรับแสดง 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- พื้นที่สำหรับ UI -->
+    <div id="ui-layer" class="flex w-full h-full">
+        
+        <!-- ======================= ส่วนตรงกลาง (เกมหลัก) ======================= -->
+        <div class="flex-1 relative flex flex-col justify-between p-4 md:p-6 transition-all duration-300" id="main-game-area">
+            
+            <!-- หน้าจอเมนูหลัก (แสดงทับส่วนกลาง) -->
+            <div id="menu-screen" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto glass-panel p-10 rounded-[2.5rem] text-center max-w-md w-full z-50">
+                <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 mb-3 drop-shadow-sm" style="line-height: 1.3;">มิติพิศวง 3D</h1>
+                <div class="inline-block bg-indigo-50 text-indigo-700 font-bold px-5 py-2 rounded-full mb-8 text-sm uppercase tracking-wider border border-indigo-100 shadow-sm">
+                    Classroom Edition
+                </div>
+                <div class="space-y-4">
+                    <button onclick="startGame()" class="btn-modern w-full bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold py-4 px-6 rounded-2xl text-xl shadow-lg shadow-teal-500/30">
+                        🎮 เริ่มเกมกันเลย
+                    </button>
+                    <button onclick="showHowToPlay()" class="btn-modern w-full bg-white text-gray-700 font-bold py-3 px-6 rounded-2xl text-lg border-2 border-gray-100 shadow-sm hover:border-gray-200 hover:bg-gray-50">
+                        📖 วิธีการเล่น
+                    </button>
+                </div>
+            </div>
+
+            <!-- หน้าจอวิธีเล่น -->
+            <div id="howto-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-auto glass-panel p-10 rounded-[2.5rem] max-w-lg w-full z-50">
+                <h2 class="text-3xl font-extrabold text-gray-800 mb-6 text-center">วิธีการเล่น</h2>
+                <div class="bg-gray-50/80 rounded-2xl p-6 border border-gray-100 mb-8">
+                    <ul class="list-disc pl-5 space-y-3 text-gray-600 text-base font-medium">
+                        <li>สามารถ<span class="text-indigo-500 font-bold">ตั้งชื่อกลุ่ม สี และเพิ่มกลุ่ม</span>ได้ที่แถบด้านขวา</li>
+                        <li>เกมจะสลับ <strong>"ตาของกลุ่ม"</strong> ให้อัตโนมัติ</li>
+                        <li>เมื่อกล่องเปิดออก ให้กลุ่มที่เป็นเจ้าของตาตอบ</li>
+                        <li>ครูกดปุ่ม <strong>"ดูเฉลย"</strong> เพื่อเปิดคำตอบ</li>
+                        <li>ครูเป็นคนกดให้คะแนน (+100) หากเด็กตอบถูก</li>
+                    </ul>
+                </div>
+                <button onclick="showMenu()" class="btn-modern w-full bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold py-4 px-6 rounded-2xl text-lg shadow-lg shadow-gray-500/30">
+                    กลับหน้าหลัก
+                </button>
+            </div>
+
+            <!-- UI ขณะเล่นเกม (แถบบน, กลาง, ล่าง) -->
+            <div id="game-ui" class="hidden w-full h-full relative">
+                
+                <!-- แถบด้านบน -->
+                <div class="flex justify-between items-start pointer-events-auto w-full z-10 relative">
+                    <div class="flex flex-col gap-3">
+                        <div class="glass-panel px-6 py-2.5 rounded-full font-bold text-gray-700 text-base flex items-center gap-2">
+                            <span class="text-xl">📝</span> ข้อที่เล่นไปแล้ว: <span id="question-number" class="text-indigo-600 font-extrabold text-xl">1</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="showMenu()" class="btn-modern bg-white text-gray-600 font-bold py-2 px-5 rounded-full text-sm shadow-sm border border-gray-100 flex items-center gap-2 hover:bg-gray-50">
+                                🏠 หน้าหลัก
+                            </button>
+                            <button id="bgm-toggle-btn" onclick="toggleBGM()" class="btn-modern bg-indigo-50 text-indigo-600 font-bold py-2 px-5 rounded-full text-sm shadow-sm border border-indigo-100 flex items-center gap-2 hover:bg-indigo-100 transition-colors">
+                                🔊 ปิดเพลง
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- ป้ายแสดงตาของกลุ่มตรงกลาง -->
+                    <div id="turn-indicator" class="absolute left-1/2 transform -translate-x-1/2 -top-2 px-8 py-3 rounded-full font-bold text-white shadow-xl transition-all duration-300 text-center min-w-[250px] flex items-center justify-center gap-3 backdrop-blur-sm">
+                        <span class="opacity-80 text-sm tracking-wide">ถึงตาของ</span>
+                        <span id="current-team-name" class="text-2xl font-extrabold drop-shadow-md">กลุ่ม 1</span>
+                    </div>
+                </div>
+
+                <!-- ข้อความแนะนําให้คลิกกล่อง -->
+                <div id="click-instruction" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+                    <div class="animate-bounce">
+                        <span class="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-8 py-4 rounded-full text-xl font-bold shadow-lg shadow-pink-500/40 inline-block border-2 border-white/50 backdrop-blur-sm">
+                            👆 คลิกที่กล่องเลย!
+                        </span>
+                    </div>
+                </div>
+
+                <!-- พื้นที่ควบคุมของครู (ด้านล่างสุด) -->
+                <div class="absolute bottom-6 left-0 w-full px-4 flex flex-col items-center justify-end z-10 pointer-events-none">
+                    
+                    <!-- พื้นที่แสดงปุ่มให้คะแนนและเฉลย -->
+                    <div id="judgement-container" class="hidden pointer-events-auto flex-col items-center w-full max-w-xl glass-panel p-8 rounded-[2rem]">
+                        <h3 id="judgement-title" class="text-xl font-bold text-gray-500 mb-5 text-center">นักเรียนตอบถูกหรือไม่?</h3>
+                        
+                        <!-- ปุ่มตัดสิน -->
+                        <div id="action-buttons" class="flex gap-4 w-full mb-2">
+                            <button onclick="scoreAnswer(false)" class="btn-modern flex-1 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-bold py-4 rounded-2xl text-lg border border-red-200 transition-colors shadow-sm">
+                                ❌ ตอบผิด
+                            </button>
+                            <button onclick="scoreAnswer(true)" class="btn-modern flex-1 bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold py-4 rounded-2xl text-xl shadow-lg shadow-teal-500/30">
+                                ✅ ตอบถูก (+100)
+                            </button>
+                        </div>
+
+                        <!-- เฉลย -->
+                        <div id="answer-reveal-area" class="hidden flex-col items-center w-full p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100/50">
+                            <span class="text-sm text-indigo-400 font-semibold mb-1 uppercase tracking-widest">เฉลย</span>
+                            <span id="correct-answer-text" class="text-4xl font-extrabold text-indigo-700 text-center">ชื่อรูปทรง</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ======================= แถบจัดการกลุ่ม (Sidebar ด้านขวา) ======================= -->
+        <div id="team-sidebar" class="hidden w-[340px] glass-panel border-y-0 border-r-0 border-l border-white/40 shadow-[-15px_0_30px_rgba(0,0,0,0.05)] flex-col z-20 pointer-events-auto rounded-l-[2rem]">
+            <!-- Header -->
+            <div class="p-6 pb-4 border-b border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center justify-between mb-4">
+                    <span class="flex items-center gap-2"><span class="text-2xl">🏆</span> กระดานคะแนน</span>
+                    <button onclick="addTeam()" class="btn-modern bg-indigo-50 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center text-xl hover:bg-indigo-100 transition-colors" title="เพิ่มกลุ่ม">
+                        +
+                    </button>
+                </h2>
+                <button onclick="resetAllScores()" class="btn-modern w-full text-sm font-semibold text-rose-500 hover:text-white bg-rose-50 hover:bg-rose-500 py-2.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 border border-rose-100 hover:border-transparent">
+                    🔄 เริ่มเกมใหม่ทั้งหมด
+                </button>
+            </div>
+
+            <!-- Team List -->
+            <div id="teams-list-container" class="flex-1 overflow-y-auto p-5 space-y-3">
+                <!-- ข้อมูลกลุ่มจะถูกสร้างด้วย JS ที่นี่ -->
+            </div>
+        </div>
+
+        <!-- Modals (หน้าต่างแจ้งเตือน & ยืนยัน) สร้างขึ้นมาใหม่แทนการใช้ alert/confirm -->
+        <div id="confirm-modal" class="hidden absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-[100] flex items-center justify-center pointer-events-auto">
+            <div class="bg-white p-8 rounded-3xl max-w-sm w-full mx-4 text-center shadow-2xl border-4 border-rose-100">
+                <div class="text-5xl mb-4">⚠️</div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">ยืนยันการเริ่มใหม่?</h3>
+                <p class="text-gray-600 mb-6">คะแนนและลำดับกลุ่มทั้งหมดจะถูกล้างกลับเป็น 0</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="btn-modern flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors">
+                        ยกเลิก
+                    </button>
+                    <button onclick="executeReset()" class="btn-modern flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-rose-500/30 transition-colors">
+                        ยืนยัน
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="alert-modal" class="hidden absolute inset-0 bg-gray-900/40 backdrop-blur-sm z-[100] flex items-center justify-center pointer-events-auto">
+            <div class="bg-white p-8 rounded-3xl max-w-sm w-full mx-4 text-center shadow-2xl border-4 border-indigo-100">
+                <div class="text-5xl mb-4">ℹ️</div>
+                <h3 id="alert-message" class="text-xl font-bold text-gray-800 mb-6">ข้อความ</h3>
+                <button onclick="closeAlertModal()" class="btn-modern w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-colors">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // ระบบจัดการกลุ่ม (Teams System)
+        // ==========================================
+        let teams = [
+            { id: 1, name: 'กลุ่ม 1', color: '#f43f5e', score: 0, answeredCount: 0 }, // Rose
+            { id: 2, name: 'กลุ่ม 2', color: '#3b82f6', score: 0, answeredCount: 0 }  // Blue
+        ];
+        let currentTeamIndex = 0;
+        let questionCount = 1;
+        let nextTeamId = 3;
+        let nextRoundTimeout = null; // ตัวแปรจัดการเวลาขึ้นข้อใหม่
+
+        const defaultTeamColors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#0ea5e9', '#ec4899'];
+
+        function hexToRgb(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teams-list-container');
+            container.innerHTML = '';
+
+            teams.forEach((team, index) => {
+                const isCurrentTurn = (index === currentTeamIndex && gameState !== 'menu');
+                const rgbColor = hexToRgb(team.color);
+                
+                const card = document.createElement('div');
+                card.className = `relative p-4 rounded-2xl transition-all duration-300 flex flex-col gap-2 border bg-white ${isCurrentTurn ? 'shadow-md scale-[1.02] transform -translate-x-1' : 'shadow-sm opacity-80 hover:opacity-100'}`;
+                
+                if (isCurrentTurn) {
+                    card.style.borderColor = team.color;
+                    card.style.boxShadow = `0 4px 20px rgba(${rgbColor}, 0.15)`;
+                    card.style.borderLeftWidth = '6px';
+                } else {
+                    card.style.borderColor = '#f1f5f9';
+                    card.style.borderLeftColor = team.color;
+                    card.style.borderLeftWidth = '4px';
+                }
+
+                const animContainerId = `score-anim-${team.id}`;
+
+                card.innerHTML = `
+                    <div id="${animContainerId}" class="absolute -top-3 right-4 z-50 pointer-events-none text-2xl font-extrabold text-emerald-500 drop-shadow-sm"></div>
+                    
+                    <div class="flex justify-between items-center">
+                        <input type="text" value="${team.name}" onchange="updateTeamName(${team.id}, this.value)" 
+                               class="font-bold text-gray-700 text-base w-[65%] bg-transparent border-b border-transparent hover:border-gray-200 focus:border-indigo-400 focus:outline-none transition-colors truncate">
+                        
+                        <div class="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                            <input type="color" value="${team.color}" onchange="updateTeamColor(${team.id}, this.value)" 
+                                   class="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent overflow-hidden">
+                            <button onclick="removeTeam(${team.id})" class="text-gray-400 hover:text-rose-500 transition-colors px-1 text-lg" title="ลบกลุ่ม">
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-end mt-1">
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Score</span>
+                            <div class="text-3xl font-extrabold tracking-tight leading-none" style="color: ${team.color}">${team.score}</div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1.5">
+                            <span class="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">ตอบแล้ว: ${team.answeredCount || 0} ข้อ</span>
+                            ${!isCurrentTurn ? `<button onclick="selectTeam(${index})" class="btn-modern text-[11px] font-bold bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-500 hover:text-white px-2 py-1 rounded-lg transition-colors shadow-sm">🎯 เลือกให้ตอบ</button>` : `<div class="text-[11px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg border border-emerald-200">✨ กำลังตอบ</div>`}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateTurnIndicator();
+        }
+
+        function addTeam() {
+            const color = defaultTeamColors[(nextTeamId - 1) % defaultTeamColors.length];
+            teams.push({
+                id: nextTeamId++,
+                name: `กลุ่ม ${teams.length + 1}`,
+                color: color,
+                score: 0,
+                answeredCount: 0
+            });
+            renderTeams();
+        }
+
+        function removeTeam(id) {
+            if (teams.length <= 1) {
+                customAlert("ต้องมีอย่างน้อย 1 กลุ่มเพื่อเล่นเกมครับ");
+                return;
+            }
+            const indexToRemove = teams.findIndex(t => t.id === id);
+            teams = teams.filter(t => t.id !== id);
+            
+            if (currentTeamIndex >= teams.length) {
+                currentTeamIndex = 0;
+            } else if (indexToRemove < currentTeamIndex) {
+                currentTeamIndex--;
+            }
+            renderTeams();
+        }
+
+        function updateTeamName(id, newName) {
+            const team = teams.find(t => t.id === id);
+            if (team) team.name = newName;
+            updateTurnIndicator();
+        }
+
+        function updateTeamColor(id, newColor) {
+            const team = teams.find(t => t.id === id);
+            if (team) team.color = newColor;
+            renderTeams();
+        }
+        
+        // ฟังก์ชันสำหรับสลับคิวให้กลุ่มที่ต้องการแบบแมนนวล
+        function selectTeam(index) {
+            currentTeamIndex = index;
+            renderTeams();
+        }
+
+        // ระบบ Modal แจ้งเตือนและยืนยัน (แทนที่ alert และ confirm ของเบราว์เซอร์)
+        function customAlert(msg) {
+            document.getElementById('alert-message').innerText = msg;
+            document.getElementById('alert-modal').classList.remove('hidden');
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alert-modal').classList.add('hidden');
+        }
+
+        function resetAllScores() {
+            // แสดงหน้าต่างยืนยันแทนการใช้ confirm()
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function executeReset() {
+            closeConfirmModal();
+            teams.forEach(t => {
+                t.score = 0;
+                t.answeredCount = 0;
+            });
+            questionCount = 1;
+            currentTeamIndex = 0; 
+            renderTeams();
+            document.getElementById('question-number').innerText = questionCount;
+            
+            // ล้าง Timeout ถ้าระบบกำลังรอนับถอยหลังขึ้นข้อใหม่
+            if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+            
+            // ให้เกมสร้างกล่องและเริ่มข้อ 1 ใหม่ทันที
+            if (gameState !== 'menu') {
+                setupNextRound();
+            }
+        }
+
+        function updateTurnIndicator() {
+            if (teams.length === 0 || gameState === 'menu') return;
+            const currentTeam = teams[currentTeamIndex];
+            const indicator = document.getElementById('turn-indicator');
+            const nameSpan = document.getElementById('current-team-name');
+            const rgbColor = hexToRgb(currentTeam.color);
+            
+            nameSpan.innerText = currentTeam.name;
+            indicator.style.backgroundColor = `rgba(${rgbColor}, 0.9)`;
+            indicator.style.boxShadow = `0 10px 25px rgba(${rgbColor}, 0.4)`;
+        }
+
+        function spawnScoreAnimation(teamId, points) {
+            const container = document.getElementById(`score-anim-${teamId}`);
+            if (!container) return;
+            
+            const animEl = document.createElement('div');
+            animEl.innerText = `+${points}`;
+            animEl.className = 'animate-score';
+            container.appendChild(animEl);
+            
+            setTimeout(() => {
+                if(container.contains(animEl)) container.removeChild(animEl);
+            }, 1500);
+        }
+
+        // ==========================================
+        // ระบบเสียง (Web Audio API)
+        // ==========================================
+        let audioCtx;
+        let bgmGainNode;
+        let isBgmPlaying = false;
+        let isBgmEnabled = true;
+        let noteIndex = 0;
+        let bgmInterval;
+
+        const noteFreqs = {
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00,
+            'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'REST': 0
+        };
+        
+        const bgmMelody = [
+            'C5', 'G4', 'E4', 'G4', 'D5', 'G4', 'F4', 'G4',
+            'E5', 'C5', 'G4', 'C5', 'D5', 'REST', 'REST', 'REST'
+        ].map(n => noteFreqs[n]);
+
+        function playBGMNote() {
+            if (!audioCtx || !isBgmEnabled) return;
+            const freq = bgmMelody[noteIndex];
+            noteIndex = (noteIndex + 1) % bgmMelody.length;
+            if (freq === 0) return; 
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine'; 
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(bgmGainNode);
+
+            const now = audioCtx.currentTime;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.04, now + 0.05); 
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+            osc.start(now);
+            osc.stop(now + 0.35);
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                bgmGainNode = audioCtx.createGain();
+                bgmGainNode.connect(audioCtx.destination);
+                bgmGainNode.gain.value = 1;
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (!isBgmPlaying) {
+                isBgmPlaying = true;
+                bgmInterval = setInterval(playBGMNote, 300); 
+            }
+        }
+
+        function toggleBGM() {
+            isBgmEnabled = !isBgmEnabled;
+            const btn = document.getElementById('bgm-toggle-btn');
+            if (isBgmEnabled) {
+                btn.innerHTML = '🔊 ปิดเพลง';
+                btn.className = "btn-modern bg-indigo-50 text-indigo-600 font-bold py-2 px-5 rounded-full text-sm shadow-sm border border-indigo-100 flex items-center gap-2 hover:bg-indigo-100 transition-colors";
+            } else {
+                btn.innerHTML = '🔇 เปิดเพลง';
+                btn.className = "btn-modern bg-gray-50 text-gray-500 font-bold py-2 px-5 rounded-full text-sm shadow-sm border border-gray-200 flex items-center gap-2 hover:bg-gray-100 transition-colors";
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            
+            if (type === 'open') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(400, now);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+                oscillator.start(now);
+                oscillator.stop(now + 0.5);
+            } else if (type === 'correct') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(659.25, now); 
+                oscillator.frequency.setValueAtTime(880.00, now + 0.15); 
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.15);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.2);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+                oscillator.start(now);
+                oscillator.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(300, now);
+                oscillator.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.2, now + 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
+                oscillator.start(now);
+                oscillator.stop(now + 0.5);
+            }
+        }
+
+        // ==========================================
+        // ข้อมูลรูปทรงเรขาคณิต
+        // ==========================================
+        const SHAPES_DATA = [
+            { id: 'cube', name: 'ลูกบาศก์' },
+            { id: 'rectPrism', name: 'ปริซึมสี่เหลี่ยม' },
+            { id: 'triPrism', name: 'ปริซึมสามเหลี่ยม' },
+            { id: 'pentaPrism', name: 'ปริซึมห้าเหลี่ยม' },
+            { id: 'hexaPrism', name: 'ปริซึมหกเหลี่ยม' },
+            { id: 'octaPrism', name: 'ปริซึมแปดเหลี่ยม' },
+            { id: 'triPyramid', name: 'พีระมิดสามเหลี่ยม' },
+            { id: 'squarePyramid', name: 'พีระมิดฐานสี่เหลี่ยม' },
+            { id: 'hexaPyramid', name: 'พีระมิดฐานหกเหลี่ยม' },
+            { id: 'cylinder', name: 'ทรงกระบอก' },
+            { id: 'cone', name: 'กรวย' }
+        ];
+
+        let gameState = 'menu'; // menu, playing_box, opening, waiting_judgement, showing_answer
+        let currentShapeData = null;
+        let lastShapeId = null;
+
+        // ==========================================
+        // ส่วนของกราฟิก 3 มิติ (Three.js)
+        // ==========================================
+        let scene, camera, renderer;
+        let mysteryBoxMesh = null, boxLidMesh = null, currentShapeMesh = null;
+        let raycaster, mouse;
+        let openingProgress = 0;
+        let particles = [];
+        const confettiColors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff8800];
+        const shapeColors = [0xFF5733, 0x33FF57, 0x3357FF, 0xF033FF, 0x33FFF0, 0xFFC300, 0xFF33A8];
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xaee2d9); 
+
+            // ฉากหลังห้องเรียน
+            const wallGeo = new THREE.PlaneGeometry(40, 20);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xaee2d9, roughness: 0.9 });
+            const backWall = new THREE.Mesh(wallGeo, wallMat);
+            backWall.position.set(0, 5, -10.5);
+            backWall.receiveShadow = true;
+            scene.add(backWall);
+
+            const floorGeo = new THREE.PlaneGeometry(40, 30);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xffeebb, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const gridHelper = new THREE.GridHelper(40, 20, 0xdcbd90, 0xdcbd90);
+            gridHelper.position.y = -1.99;
+            scene.add(gridHelper);
+
+            const boardGeo = new THREE.PlaneGeometry(16, 7);
+            const boardMat = new THREE.MeshStandardMaterial({ color: 0x338f82, roughness: 0.9 });
+            const blackboard = new THREE.Mesh(boardGeo, boardMat);
+            blackboard.position.set(0, 4.5, -9.8);
+            blackboard.receiveShadow = true;
+            scene.add(blackboard);
+
+            const frameGeo = new THREE.BoxGeometry(16.5, 7.5, 0.2);
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0xdda15e, roughness: 0.8 });
+            const boardFrame = new THREE.Mesh(frameGeo, frameMat);
+            boardFrame.position.set(0, 4.5, -10.0);
+            boardFrame.castShadow = true;
+            boardFrame.receiveShadow = true;
+            scene.add(boardFrame);
+
+            const projectorGeo = new THREE.CylinderGeometry(0.3, 0.3, 14, 16);
+            const projectorMat = new THREE.MeshStandardMaterial({ color: 0xfdf5e6 });
+            const projector = new THREE.Mesh(projectorGeo, projectorMat);
+            projector.rotation.z = Math.PI / 2;
+            projector.position.set(0, 8.5, -9.6);
+            projector.castShadow = true;
+            scene.add(projector);
+
+            const deskGeo = new THREE.BoxGeometry(5, 3, 2.5);
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0xbc6c25, roughness: 0.9 });
+            const desk = new THREE.Mesh(deskGeo, woodMat);
+            desk.position.set(-8, -0.5, -6);
+            desk.castShadow = true;
+            scene.add(desk);
+
+            // กลับมาตั้งกล้องไว้ตรงกลางห้อง (X=0) แล้วใช้การชิฟต์เลนส์หลบเมนูแทน
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 6, 11); 
+            camera.lookAt(0, 3, 0); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            hemiLight.position.set(0, 20, 0);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            dirLight.position.set(-15, 12, 8); 
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048; 
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            animate();
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('click', onInteract);
+            window.addEventListener('touchstart', onInteract, {passive: false});
+            
+            // เรียกฟังก์ชันปรับศูนย์กลางให้หลบแถบขวาตั้งแต่โหลดเกม
+            updateCameraOffset();
+        }
+
+        function createMysteryBox() {
+            if (currentShapeMesh) scene.remove(currentShapeMesh);
+            if (mysteryBoxMesh) scene.remove(mysteryBoxMesh);
+
+            openingProgress = 0;
+            mysteryBoxMesh = new THREE.Group();
+
+            const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.1, roughness: 0.5 }); // Modern red/pink
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x9f1239, linewidth: 2 });
+
+            const baseGeo = new THREE.BoxGeometry(2, 1.5, 2);
+            const baseMesh = new THREE.Mesh(baseGeo, boxMaterial);
+            baseMesh.position.y = -0.25;
+            baseMesh.castShadow = true;
+            baseMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(baseGeo), edgeMat));
+            mysteryBoxMesh.add(baseMesh);
+
+            const lidGeo = new THREE.BoxGeometry(2.1, 0.5, 2.1);
+            boxLidMesh = new THREE.Mesh(lidGeo, boxMaterial);
+            boxLidMesh.position.y = 0.75;
+            boxLidMesh.castShadow = true;
+            boxLidMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(lidGeo), edgeMat));
+            
+            const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xfde047, metalness: 0.3 }); // Modern yellow
+            boxLidMesh.add(new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.55, 0.4), ribbonMat));
+            boxLidMesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 2.15), ribbonMat));
+            const ribbonBow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), ribbonMat);
+            ribbonBow.position.y = 0.3;
+            boxLidMesh.add(ribbonBow);
+
+            mysteryBoxMesh.add(boxLidMesh);
+
+            mysteryBoxMesh.scale.set(1.1, 1.1, 1.1); 
+            // ตั้งไว้ที่แกนกลาง 3D (X=0)
+            mysteryBoxMesh.position.set(0, 4.0, 2); 
+            scene.add(mysteryBoxMesh);
+        }
+
+        function createConfetti(x, y, z) {
+            for (let i = 0; i < 60; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.15, 0.3),
+                    new THREE.MeshBasicMaterial({ color: confettiColors[Math.floor(Math.random() * confettiColors.length)], side: THREE.DoubleSide })
+                );
+                p.position.set(x, y, z);
+                particles.push({ 
+                    mesh: p, 
+                    vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() * 0.2) + 0.15, vz: (Math.random() - 0.5) * 0.3,
+                    rx: Math.random() * 0.2, ry: Math.random() * 0.2, rz: Math.random() * 0.2 
+                });
+                scene.add(p);
+            }
+        }
+
+        function createShape(shapeId) {
+            if (mysteryBoxMesh) { scene.remove(mysteryBoxMesh); mysteryBoxMesh = null; }
+            if (currentShapeMesh) { scene.remove(currentShapeMesh); }
+
+            let geometry;
+            switch(shapeId) {
+                case 'cube': geometry = new THREE.BoxGeometry(2, 2, 2); break;
+                case 'rectPrism': geometry = new THREE.BoxGeometry(3, 1.5, 1.5); break;
+                case 'triPrism': geometry = new THREE.CylinderGeometry(1.5, 1.5, 3, 3); break;
+                case 'pentaPrism': geometry = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 5); break;
+                case 'hexaPrism': geometry = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 6); break;
+                case 'octaPrism': geometry = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 8); break;
+                case 'triPyramid': geometry = new THREE.CylinderGeometry(0, 1.5, 2.5, 3); break;
+                case 'squarePyramid': geometry = new THREE.CylinderGeometry(0, 1.5, 2.5, 4); geometry.rotateY(Math.PI / 4); break;
+                case 'hexaPyramid': geometry = new THREE.CylinderGeometry(0, 1.5, 2.5, 6); break;
+                case 'cylinder': geometry = new THREE.CylinderGeometry(1.5, 1.5, 3, 32); break;
+                case 'cone': geometry = new THREE.ConeGeometry(1.5, 3, 32); break;
+                default: geometry = new THREE.BoxGeometry(1, 1, 1);
+            }
+
+            const material = new THREE.MeshStandardMaterial({ 
+                color: shapeColors[Math.floor(Math.random() * shapeColors.length)],
+                metalness: 0.1, roughness: 0.3
+            });
+
+            currentShapeMesh = new THREE.Group(); 
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            currentShapeMesh.add(mesh);
+
+            if (shapeId !== 'cylinder' && shapeId !== 'cone') {
+                const line = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
+                currentShapeMesh.add(line);
+            }
+
+            // ตั้งรูปทรงไว้ที่แกนกลาง 3D (X=0)
+            currentShapeMesh.position.set(0, 4.0, 2); 
+            currentShapeMesh.scale.set(0, 0, 0); 
+            
+            if (shapeId === 'triPrism') {
+                currentShapeMesh.rotation.x = Math.PI / 2;
+                currentShapeMesh.rotation.z = Math.PI / 2;
+            } else {
+                currentShapeMesh.rotation.x = 0.2;
+                currentShapeMesh.rotation.y = 0.5;
+            }
+
+            scene.add(currentShapeMesh);
+        }
+
+        function onInteract(event) {
+            initAudio();
+            if (gameState !== 'playing_box') return;
+
+            let clientX = event.type === 'touchstart' ? event.touches[0].clientX : event.clientX;
+            let clientY = event.type === 'touchstart' ? event.touches[0].clientY : event.clientY;
+            
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            if (mysteryBoxMesh) {
+                const intersects = raycaster.intersectObjects(mysteryBoxMesh.children, true);
+                if (intersects.length > 0) {
+                    openBox();
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (mysteryBoxMesh && gameState === 'playing_box') {
+                mysteryBoxMesh.position.y = 4.0 + Math.sin(Date.now() * 0.003) * 0.1; 
+                mysteryBoxMesh.rotation.y += 0.005;
+            }
+
+            if (gameState === 'opening') {
+                openingProgress++;
+                if (openingProgress < 50) {
+                    mysteryBoxMesh.rotation.z = Math.sin(openingProgress * 1.5) * 0.08;
+                    // สั่นกล่องโดยเริ่มจาก 0
+                    mysteryBoxMesh.position.x = Math.sin(openingProgress * 2) * 0.05;
+                } else if (openingProgress >= 50 && openingProgress < 120) {
+                    mysteryBoxMesh.rotation.z = 0;
+                    // จบการสั่นกลับมาที่ 0
+                    mysteryBoxMesh.position.x = 0;
+                    boxLidMesh.position.y += 0.04; 
+                    boxLidMesh.rotation.x += 0.02;
+                    boxLidMesh.rotation.z += 0.01;
+                    mysteryBoxMesh.rotation.y += 0.01; 
+
+                    if (openingProgress === 60) {
+                        createConfetti(mysteryBoxMesh.position.x, mysteryBoxMesh.position.y + 1.5, mysteryBoxMesh.position.z);
+                    }
+                }
+
+                if (openingProgress > 120) {
+                    scene.remove(mysteryBoxMesh);
+                    mysteryBoxMesh = null;
+                    boxLidMesh = null;
+                    showJudgement(); 
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.mesh.position.z += p.vz;
+                p.vy -= 0.005; 
+                p.mesh.rotation.x += p.rx; p.mesh.rotation.y += p.ry; p.mesh.rotation.z += p.rz;
+                if (p.mesh.position.y < -2.2) { scene.remove(p.mesh); particles.splice(i, 1); }
+            }
+
+            if (currentShapeMesh) {
+                if (currentShapeMesh.scale.x < 1.15) { 
+                    const s = currentShapeMesh.scale.x + 0.08; 
+                    currentShapeMesh.scale.set(s, s, s);
+                }
+                currentShapeMesh.rotation.y += 0.005;
+                currentShapeMesh.rotation.x += 0.002;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            updateCameraOffset();
+        }
+
+        // ฟังก์ชันอัจฉริยะสำหรับปรับศูนย์กลางกล้อง 3 มิติให้หลบแถบรายชื่อกลุ่ม
+        function updateCameraOffset() {
+            if (!camera || !renderer) return;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
+            
+            const sidebar = document.getElementById('team-sidebar');
+            const isSidebarVisible = sidebar && !sidebar.classList.contains('hidden');
+            
+            if (isSidebarVisible) {
+                // แถบกลุ่มกว้าง 340px เราจึงชิฟต์เลนส์กล้องไปทางขวา 170px (ทำให้ภาพรวมดูขยับไปทางซ้ายพอดีเป๊ะ)
+                camera.setViewOffset(width, height, 170, 0, width, height);
+            } else {
+                camera.clearViewOffset(); // คืนศูนย์กลางไว้ตรงกลางจอเมื่ออยู่หน้าเมนู
+            }
+            
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        // ==========================================
+        // Game Logic โหมดห้องเรียน
+        // ==========================================
+
+        function showMenu() {
+            if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+            document.getElementById('menu-screen').classList.remove('hidden');
+            document.getElementById('howto-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.add('hidden');
+            document.getElementById('team-sidebar').classList.add('hidden');
+            gameState = 'menu';
+            if(mysteryBoxMesh) scene.remove(mysteryBoxMesh);
+            if(currentShapeMesh) scene.remove(currentShapeMesh);
+            particles.forEach(p => scene.remove(p.mesh));
+            particles = [];
+            
+            updateCameraOffset(); // รีเซ็ตกล้องกลับกึ่งกลางเต็มจอ
+        }
+
+        function showHowToPlay() {
+            initAudio();
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('howto-screen').classList.remove('hidden');
+            gameState = 'howto';
+            updateCameraOffset();
+        }
+
+        function startGame() {
+            initAudio(); 
+            if(teams.length === 0) addTeam(); 
+
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('howto-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            document.getElementById('team-sidebar').classList.remove('hidden');
+            document.getElementById('team-sidebar').classList.add('flex');
+            
+            gameState = 'playing_box';
+            updateCameraOffset(); // สั่งให้กล้องหลบแถบ sidebar ทันที
+
+            renderTeams();
+            setupNextRound();
+        }
+
+        function getRandomShape() {
+            let shape;
+            do {
+                shape = SHAPES_DATA[Math.floor(Math.random() * SHAPES_DATA.length)];
+            } while (shape.id === lastShapeId && SHAPES_DATA.length > 1);
+            lastShapeId = shape.id;
+            return shape;
+        }
+
+        function setupNextRound() {
+            document.getElementById('question-number').innerText = questionCount;
+            document.getElementById('click-instruction').classList.remove('hidden');
+            
+            document.getElementById('judgement-container').classList.remove('flex');
+            document.getElementById('judgement-container').classList.add('hidden');
+
+            currentShapeData = getRandomShape();
+
+            gameState = 'playing_box';
+            createMysteryBox();
+            
+            renderTeams();
+        }
+
+        function openBox() {
+            if (gameState !== 'playing_box') return;
+            gameState = 'opening';
+            playSound('open');
+            document.getElementById('click-instruction').classList.add('hidden');
+        }
+
+        function showJudgement() {
+            gameState = 'waiting_judgement';
+            createShape(currentShapeData.id);
+            
+            document.getElementById('judgement-title').classList.remove('hidden');
+            document.getElementById('action-buttons').classList.remove('hidden');
+            document.getElementById('action-buttons').classList.add('flex');
+            document.getElementById('answer-reveal-area').classList.add('hidden');
+            document.getElementById('answer-reveal-area').classList.remove('flex');
+            
+            document.getElementById('judgement-container').classList.remove('hidden');
+            document.getElementById('judgement-container').classList.add('flex');
+        }
+
+        function scoreAnswer(isCorrect) {
+            if (gameState !== 'waiting_judgement') return;
+            gameState = 'showing_answer';
+
+            document.getElementById('judgement-title').classList.add('hidden');
+            document.getElementById('action-buttons').classList.remove('flex');
+            document.getElementById('action-buttons').classList.add('hidden');
+
+            document.getElementById('correct-answer-text').innerText = currentShapeData.name;
+            document.getElementById('answer-reveal-area').classList.remove('hidden');
+            document.getElementById('answer-reveal-area').classList.add('flex');
+
+            const currentTeam = teams[currentTeamIndex];
+
+            if (isCorrect) {
+                playSound('correct'); 
+                currentTeam.score += 100;
+                
+                spawnScoreAnimation(currentTeam.id, 100);
+                createConfetti(-1.4, 7.5, 2); // จุดพลุที่ตำแหน่งศูนย์กลาง (X=-1.4)
+            } else {
+                playSound('wrong'); 
+            }
+            
+            // นับจำนวนข้อที่ตอบไปแล้วให้กลุ่มนี้
+            currentTeam.answeredCount = (currentTeam.answeredCount || 0) + 1;
+            
+            renderTeams();
+
+            nextRoundTimeout = setTimeout(() => {
+                document.getElementById('judgement-container').classList.remove('flex');
+                document.getElementById('judgement-container').classList.add('hidden');
+                
+                questionCount++;
+                currentTeamIndex = (currentTeamIndex + 1) % teams.length; 
+                setupNextRound();
+            }, 3000);
+        }
+
+        window.onload = function() {
+            init3D();
+            showMenu();
+        };
+    </script>
+</body>
+</html>
