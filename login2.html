@@ -164,10 +164,10 @@
                     <span id="save-text">บันทึกข้อมูลเรียบร้อยแล้ว</span>
                 </div>
 
-                <!-- แจ้งเตือนห้ามแก้ไข Role 3 -->
+                <!-- แจ้งเตือนห้ามแก้ไข -->
                 <div id="role-warning" class="hidden mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-start shadow-sm">
                     <i data-lucide="lock" class="w-5 h-5 mr-2 flex-shrink-0"></i>
-                    <span>ข้อมูลของแอดมินสูงสุด (Role 3) เป็นแบบอ่านอย่างเดียว ไม่มีผู้ใดสามารถแก้ไขได้</span>
+                    <span id="role-warning-text">ข้อมูลนี้เป็นแบบอ่านอย่างเดียว ไม่สามารถแก้ไขได้</span>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
@@ -277,8 +277,6 @@
                                         <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาโท</label>
                                         <input type="text" id="edit-master" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
                                     </div>
-                                    
-                                    <!-- ลบช่อง Input Image URL ออกตามรีเควสต์ -->
                                 </div>
 
                                 <div class="mt-6 flex justify-end">
@@ -308,7 +306,7 @@
 
         let loggedInUser = null;
         let allUsers = [];
-        let pendingImageUpload = null; // ตัวแปรเก็บข้อมูลภาพ Base64 ก่อนส่งให้เซิร์ฟเวอร์
+        let pendingImageUpload = null; 
 
         // แปลงรหัส Role เป็นชื่อตำแหน่ง
         function getRoleName(roleCode) {
@@ -337,7 +335,6 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // ตรวจสอบขนาดไฟล์ไม่เกิน 2MB
             if (file.size > 2 * 1024 * 1024) {
                 alert('ขนาดไฟล์รูปภาพต้องไม่เกิน 2MB');
                 event.target.value = '';
@@ -346,14 +343,12 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                // อัปเดตพรีวิวรูปภาพทันที
                 document.getElementById('display-image').src = e.target.result;
                 
-                // เก็บข้อมูล Base64 และชื่อไฟล์เตรียมส่งให้ Apps Script
                 pendingImageUpload = {
                     filename: file.name,
                     mimeType: file.type,
-                    base64: e.target.result // ส่งรูปแบบ Data URI ได้เลย
+                    base64: e.target.result 
                 };
             };
             reader.readAsDataURL(file);
@@ -465,10 +460,13 @@
                     allUsers.forEach(u => {
                         if (u.rowIndex === loggedInUser.rowIndex) return; 
                         
-                        if (loggedInUser.role == '3' && u.role < 3) {
+                        if (loggedInUser.role == '3') {
                             select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
-                        } else if (loggedInUser.role == '2' && u.role == '1') {
-                            select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
+                        } else if (loggedInUser.role == '2') {
+                            // แอดมิน (Role 2) สามารถเห็นข้อมูลของ Role 1 และ Role 2 ด้วยกันได้
+                            if (u.role == '1' || u.role == '2') {
+                                select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
+                            }
                         }
                     });
                 }
@@ -497,7 +495,6 @@
         // 3. ระบบนำข้อมูลลงฟอร์มและตรวจสอบสิทธิ์
         // =====================================
         function populateProfileData(data) {
-            // ล้างข้อมูลภาพอัปโหลดค้างไว้
             pendingImageUpload = null;
             document.getElementById('upload-image').value = '';
 
@@ -515,7 +512,6 @@
             } else {
                 document.getElementById('display-image').src = 'https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image';
             }
-            // เก็บ URL รูปลงตัวแปรซ่อน
             document.getElementById('edit-image-url').value = data.profileImage || '';
 
             const roleBadge = document.getElementById('role-badge');
@@ -527,14 +523,32 @@
             const formInputs = document.querySelectorAll('#profile-form input');
             const btnSave = document.getElementById('save-btn');
             const roleWarning = document.getElementById('role-warning');
+            const warningText = document.getElementById('role-warning-text');
             const profileImageContainer = document.getElementById('profile-image-container');
             const uploadOverlay = document.getElementById('upload-overlay');
 
-            // ตรวจสอบสิทธิ์ Role 3
-            if (data.role == '3') {
+            let isReadOnly = false;
+            let warningMsg = "";
+
+            // ตรวจสอบสิทธิ์การแก้ไข (อนุญาตให้แก้ถ้าเป็นตัวเองเสมอ)
+            if (data.rowIndex == loggedInUser.rowIndex) {
+                isReadOnly = false;
+            } else {
+                // หากกำลังดูข้อมูลคนอื่น
+                if (data.role == '3') {
+                    isReadOnly = true;
+                    warningMsg = "ข้อมูลของแอดมินสูงสุดท่านอื่น เป็นแบบอ่านอย่างเดียว คุณไม่สามารถแก้ไขได้";
+                } else if (loggedInUser.role == '2' && data.role == '2') {
+                    isReadOnly = true;
+                    warningMsg = "ข้อมูลของแอดมินระดับเดียวกัน เป็นแบบอ่านอย่างเดียว คุณไม่สามารถแก้ไขได้";
+                }
+            }
+
+            if (isReadOnly) {
                 btnSave.disabled = true;
                 btnSave.classList.add('hidden');
                 roleWarning.classList.remove('hidden');
+                if (warningText) warningText.textContent = warningMsg;
                 
                 formInputs.forEach(input => {
                     input.readOnly = true; 
@@ -590,6 +604,8 @@
             }
             
             const updatedData = {
+                requesterRowIndex: loggedInUser.rowIndex, // แนบผู้แจ้งขอแก้ไข
+                requesterRole: loggedInUser.role, // แนบสิทธิ์ของผู้ขอแก้ไข
                 rowIndex: document.getElementById('edit-rowindex').value,
                 username: document.getElementById('edit-username').value,
                 password: document.getElementById('edit-password').value, 
@@ -601,8 +617,8 @@
                 bachelor: document.getElementById('edit-bachelor').value,
                 master: document.getElementById('edit-master').value,
                 role: document.getElementById('edit-role').value,
-                profileImage: document.getElementById('edit-image-url').value, // ส่ง URL เดิมไปก่อน
-                newImageData: pendingImageUpload // หากมีการอัปโหลดรูปภาพใหม่แนบไปด้วย
+                profileImage: document.getElementById('edit-image-url').value,
+                newImageData: pendingImageUpload
             };
 
             const btn = document.getElementById('save-btn');
@@ -623,7 +639,6 @@
                 if (result.status === 'success') {
                     document.getElementById('edit-password').value = '';
                     
-                    // หากมีการอัปโหลดภาพสำเร็จ และ Server ส่ง URL ใหม่กลับมา
                     if (result.newImageUrl) {
                         updatedData.profileImage = result.newImageUrl;
                     }
