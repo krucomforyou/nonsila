@@ -128,7 +128,7 @@
                 <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-3">
                     <i data-lucide="user-check" class="w-5 h-5 text-school-navy"></i>
                 </div>
-                <h1 class="text-lg font-serif font-bold hidden sm:block">ข้อมูลส่วนตัว (Profile)</h1>
+                <h1 class="text-lg font-serif font-bold hidden sm:block">จัดการข้อมูล (Profile)</h1>
             </div>
             
             <div class="flex items-center gap-4">
@@ -143,114 +143,137 @@
         </header>
 
         <!-- Content Area -->
-        <div class="flex-1 bg-gray-50 p-4 sm:p-6 overflow-y-auto no-scrollbar">
+        <div class="flex-1 bg-gray-50 overflow-y-auto no-scrollbar relative">
             
-            <!-- แจ้งเตือนบันทึกสำเร็จ -->
-            <div id="save-alert" class="hidden mb-4 bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-start shadow-sm">
-                <i data-lucide="check-circle" class="w-5 h-5 mr-2 flex-shrink-0"></i>
-                <span id="save-text">บันทึกข้อมูลเรียบร้อยแล้ว</span>
+            <!-- โหมดผู้ดูแลระบบ (สำหรับ Admin) -->
+            <div id="admin-panel" class="hidden bg-school-navyLight text-white px-6 py-4 shadow-inner mb-4">
+                <label class="block text-sm font-medium mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i> โหมดผู้ดูแลระบบ: เลือกบุคลากรเพื่อจัดการข้อมูล</label>
+                <div class="flex items-center gap-3">
+                    <select id="user-select" onchange="loadSelectedUser()" class="w-full max-w-md text-gray-800 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-brassLight">
+                        <option value="">-- ข้อมูลของฉัน --</option>
+                        <!-- รายชื่อจะถูกเติมด้วย JavaScript -->
+                    </select>
+                    <i data-lucide="loader-2" id="admin-spinner" class="animate-spin h-5 w-5 hidden"></i>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                
-                <!-- คอลัมน์ซ้าย: บัตรโปรไฟล์ -->
-                <div class="lg:col-span-1">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center text-center">
-                        <div class="w-32 h-32 rounded-full bg-gray-200 mb-4 border-4 border-school-bg overflow-hidden shadow-sm relative group">
-                            <img id="display-image" src="https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image" alt="Profile" class="w-full h-full object-cover">
-                        </div>
-                        <h2 id="display-name" class="text-xl font-bold text-school-navy mb-1">ชื่อ นามสกุล</h2>
-                        <p id="display-position" class="text-sm font-medium text-school-brass mb-3">ตำแหน่งงาน</p>
-                        
-                        <div class="w-full border-t border-gray-100 pt-4 mt-2 space-y-3 text-sm text-left">
-                            <div class="flex items-center text-gray-600">
-                                <i data-lucide="phone" class="w-4 h-4 mr-3 text-gray-400"></i>
-                                <span id="display-phone">-</span>
-                            </div>
-                            <div class="flex items-center text-gray-600">
-                                <i data-lucide="briefcase" class="w-4 h-4 mr-3 text-gray-400"></i>
-                                <span id="display-department">-</span>
-                            </div>
-                            <div class="flex items-center text-gray-600">
-                                <i data-lucide="award" class="w-4 h-4 mr-3 text-gray-400"></i>
-                                <span id="display-academic">-</span>
-                            </div>
-                        </div>
-                    </div>
+            <div class="p-4 sm:p-6">
+                <!-- แจ้งเตือนบันทึกสำเร็จ -->
+                <div id="save-alert" class="hidden mb-4 bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded text-sm flex items-start shadow-sm">
+                    <i data-lucide="check-circle" class="w-5 h-5 mr-2 flex-shrink-0"></i>
+                    <span id="save-text">บันทึกข้อมูลเรียบร้อยแล้ว</span>
                 </div>
 
-                <!-- คอลัมน์ขวา: ฟอร์มแก้ไขข้อมูล -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="border-b border-gray-100 px-6 py-4">
-                            <h3 class="text-lg font-bold text-gray-800">แก้ไขข้อมูลส่วนตัว</h3>
-                        </div>
-                        
-                        <form id="profile-form" onsubmit="processSaveProfile(event)" class="p-6">
-                            <!-- เก็บ Row Index แบบซ่อนไว้ -->
-                            <input type="hidden" id="edit-rowindex">
+                <!-- แจ้งเตือนห้ามแก้ไข Role 3 -->
+                <div id="role-warning" class="hidden mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded text-sm flex items-start shadow-sm">
+                    <i data-lucide="lock" class="w-5 h-5 mr-2 flex-shrink-0"></i>
+                    <span>ข้อมูลของแอดมินสูงสุด (Role 3) เป็นแบบอ่านอย่างเดียว ไม่มีผู้ใดสามารถแก้ไขได้</span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                    
+                    <!-- คอลัมน์ซ้าย: บัตรโปรไฟล์ -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center text-center relative overflow-hidden">
+                            <!-- Badge ระบุ Role -->
+                            <div id="role-badge" class="absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-gray-200 text-gray-600">Role 1</div>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                <!-- Name -->
-                                <div class="col-span-1 md:col-span-2">
-                                    <label class="block font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
-                                    <input type="text" id="edit-name" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none" required>
+                            <div class="w-32 h-32 rounded-full bg-gray-200 mb-4 border-4 border-school-bg overflow-hidden shadow-sm relative group">
+                                <img id="display-image" src="https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image" alt="Profile" class="w-full h-full object-cover">
+                            </div>
+                            <h2 id="display-name" class="text-xl font-bold text-school-navy mb-1">ชื่อ นามสกุล</h2>
+                            <p id="display-position" class="text-sm font-medium text-school-brass mb-3">ตำแหน่งงาน</p>
+                            
+                            <div class="w-full border-t border-gray-100 pt-4 mt-2 space-y-3 text-sm text-left">
+                                <div class="flex items-center text-gray-600">
+                                    <i data-lucide="phone" class="w-4 h-4 mr-3 text-gray-400"></i>
+                                    <span id="display-phone">-</span>
                                 </div>
-                                
-                                <!-- Position -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">ตำแหน่ง</label>
-                                    <input type="text" id="edit-position" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                <div class="flex items-center text-gray-600">
+                                    <i data-lucide="briefcase" class="w-4 h-4 mr-3 text-gray-400"></i>
+                                    <span id="display-department">-</span>
                                 </div>
-
-                                <!-- Department -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">ฝ่ายงาน</label>
-                                    <input type="text" id="edit-department" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
-                                </div>
-
-                                <!-- Academic -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">วิทยฐานะ</label>
-                                    <input type="text" id="edit-academic" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
-                                </div>
-
-                                <!-- Phone -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
-                                    <input type="text" id="edit-phone" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
-                                </div>
-
-                                <!-- Bachelor -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาตรี</label>
-                                    <input type="text" id="edit-bachelor" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
-                                </div>
-
-                                <!-- Master -->
-                                <div>
-                                    <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาโท</label>
-                                    <input type="text" id="edit-master" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
-                                </div>
-
-                                <!-- Image URL -->
-                                <div class="col-span-1 md:col-span-2">
-                                    <label class="block font-medium text-gray-700 mb-1">ลิงก์รูปภาพโปรไฟล์ (URL)</label>
-                                    <input type="text" id="edit-image" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none text-gray-500 text-xs" placeholder="https://example.com/image.jpg">
+                                <div class="flex items-center text-gray-600">
+                                    <i data-lucide="award" class="w-4 h-4 mr-3 text-gray-400"></i>
+                                    <span id="display-academic">-</span>
                                 </div>
                             </div>
-
-                            <div class="mt-6 flex justify-end">
-                                <button type="submit" id="save-btn" class="bg-school-navy hover:bg-school-navyLight text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center">
-                                    <i data-lucide="save" class="w-4 h-4 mr-2" id="save-icon"></i>
-                                    <i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin hidden" id="save-spinner"></i>
-                                    <span id="save-text-btn">บันทึกข้อมูล</span>
-                                </button>
-                            </div>
-                        </form>
+                        </div>
                     </div>
-                </div>
 
+                    <!-- คอลัมน์ขวา: ฟอร์มแก้ไขข้อมูล -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 relative">
+                            <div class="border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+                                <h3 class="text-lg font-bold text-gray-800">ฟอร์มแก้ไขข้อมูล</h3>
+                            </div>
+                            
+                            <form id="profile-form" onsubmit="processSaveProfile(event)" class="p-6">
+                                <input type="hidden" id="edit-rowindex">
+                                <input type="hidden" id="edit-role">
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <!-- Name -->
+                                    <div class="col-span-1 md:col-span-2">
+                                        <label class="block font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                                        <input type="text" id="edit-name" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none" required>
+                                    </div>
+                                    
+                                    <!-- Position -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">ตำแหน่ง</label>
+                                        <input type="text" id="edit-position" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Department -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">ฝ่ายงาน</label>
+                                        <input type="text" id="edit-department" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Academic -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">วิทยฐานะ</label>
+                                        <input type="text" id="edit-academic" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Phone -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ (จะใส่ ' ให้ตอนบันทึกออโต้)</label>
+                                        <input type="text" id="edit-phone" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Bachelor -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาตรี</label>
+                                        <input type="text" id="edit-bachelor" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Master -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาโท</label>
+                                        <input type="text" id="edit-master" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
+                                    </div>
+
+                                    <!-- Image URL -->
+                                    <div class="col-span-1 md:col-span-2">
+                                        <label class="block font-medium text-gray-700 mb-1">ลิงก์รูปภาพโปรไฟล์ (URL)</label>
+                                        <input type="text" id="edit-image" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none text-gray-500 text-xs" placeholder="https://example.com/image.jpg">
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex justify-end">
+                                    <button type="submit" id="save-btn" class="bg-school-navy hover:bg-school-navyLight text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center">
+                                        <i data-lucide="save" class="w-4 h-4 mr-2" id="save-icon"></i>
+                                        <i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin hidden" id="save-spinner"></i>
+                                        <span id="save-text-btn">บันทึกข้อมูล</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>
@@ -261,10 +284,20 @@
     <script>
         lucide.createIcons();
 
-        // นำ URL จาก Apps Script (ที่ลงท้ายด้วย /exec) มาวางตรงนี้
+        // นำ URL จาก Apps Script มาวางตรงนี้
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs73UfTpKBvRc4J75bAFlar18Ga6HCjq1YmSJ9lu0BrNECE-YIebvY3BTu5EDKLr0b/exec';
 
-        // ฟังก์ชันซ่อน/แสดงรหัสผ่าน
+        // ตัวแปรเก็บสถานะระดับ Global
+        let loggedInUser = null;
+        let allUsers = [];
+
+        // แปลงรหัส Role เป็นชื่อตำแหน่ง
+        function getRoleName(roleCode) {
+            if (roleCode == '3') return "แอดมินสูงสุด";
+            if (roleCode == '2') return "แอดมิน";
+            return "บุคลากร";
+        }
+
         function togglePassword() {
             const pwdInput = document.getElementById('password');
             const eyeIcon = document.getElementById('eye-icon');
@@ -279,7 +312,7 @@
         }
 
         // =====================================
-        // ระบบเข้าสู่ระบบ (Login) เชื่อมต่อ API
+        // 1. ระบบเข้าสู่ระบบ (Login)
         // =====================================
         async function processLogin(event) {
             event.preventDefault();
@@ -294,24 +327,36 @@
             document.getElementById('error-alert').classList.add('hidden');
 
             try {
-                // เรียกข้อมูลจาก Google Apps Script ข้ามโดเมน
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        action: 'login',
-                        username: user,
-                        password: pass
-                    })
+                    body: JSON.stringify({ action: 'login', username: user, password: pass })
                 });
                 
                 const result = await response.json();
-                handleLoginResponse(result);
+                
+                if (result.status === 'success') {
+                    loggedInUser = result.userData; 
+                    
+                    // อัปเดตข้อมูลของตัวเองบน Navbar ทันที
+                    document.getElementById('nav-name').textContent = loggedInUser.name;
+                    document.getElementById('nav-role').textContent = getRoleName(loggedInUser.role);
+                    
+                    populateProfileData(loggedInUser);
+                    showDashboard();
+                    
+                    // ถ้าเป็นแอดมิน (Role 2 หรือ 3) ให้โหลดรายชื่อลูกน้อง
+                    if (loggedInUser.role == '2' || loggedInUser.role == '3') {
+                        loadAdminPanel();
+                    }
+                } else {
+                    document.getElementById('error-text').textContent = result.message;
+                    document.getElementById('error-alert').classList.remove('hidden');
+                }
 
             } catch (error) {
-                // แจ้งเตือนเมื่อเชื่อมต่อข้ามโดเมนไม่สำเร็จ (มักเกิดจากลืมเปิดสิทธิ์ Anyone)
-                document.getElementById('error-text').textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบลิงก์ Web App (สิทธิ์ต้องเป็น Anyone)';
+                document.getElementById('error-text').textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
                 document.getElementById('error-alert').classList.remove('hidden');
-                
+            } finally {
                 btn.disabled = false;
                 btn.classList.remove('opacity-80', 'cursor-not-allowed');
                 document.getElementById('btn-text').classList.remove('invisible');
@@ -319,34 +364,75 @@
             }
         }
 
-        function handleLoginResponse(response) {
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = false;
-            btn.classList.remove('opacity-80', 'cursor-not-allowed');
-            document.getElementById('btn-text').classList.remove('invisible');
-            document.getElementById('loading-spinner').classList.add('hidden');
+        // =====================================
+        // 2. ระบบโหมดแอดมิน (ดึงข้อมูลคนอื่นมาแก้)
+        // =====================================
+        async function loadAdminPanel() {
+            document.getElementById('admin-panel').classList.remove('hidden');
+            document.getElementById('admin-spinner').classList.remove('hidden');
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getUsers' })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    allUsers = result.data;
+                    const select = document.getElementById('user-select');
+                    select.innerHTML = '<option value="">-- ข้อมูลของฉัน (My Profile) --</option>';
+                    
+                    allUsers.forEach(u => {
+                        // ไม่เอาตัวเองมาโชว์ใน list ย่อย
+                        if (u.rowIndex === loggedInUser.rowIndex) return; 
+                        
+                        // แอดมินสูงสุด(3) แก้ไข แอดมิน(2) และ บุคลากร(1) ได้
+                        // แอดมิน(2) แก้ไขได้เฉพาะ บุคลากร(1) ได้
+                        if (loggedInUser.role == '3' && u.role < 3) {
+                            select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
+                        } else if (loggedInUser.role == '2' && u.role == '1') {
+                            select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to load users for admin");
+            } finally {
+                document.getElementById('admin-spinner').classList.add('hidden');
+            }
+        }
 
-            if (response.status === 'success') {
-                populateProfileData(response.userData);
-                showDashboard();
-            } else {
-                document.getElementById('error-text').textContent = response.message;
-                document.getElementById('error-alert').classList.remove('hidden');
+        function loadSelectedUser() {
+            const rowIndex = document.getElementById('user-select').value;
+            // ซ่อนแจ้งเตือนตอนสลับคน
+            document.getElementById('save-alert').classList.add('hidden'); 
+            
+            if (!rowIndex) {
+                populateProfileData(loggedInUser); // กลับมาหน้าตัวเอง
+                return;
+            }
+            const targetUser = allUsers.find(u => u.rowIndex == rowIndex);
+            if (targetUser) {
+                populateProfileData(targetUser); // โหลดหน้าคนอื่น
             }
         }
 
         // =====================================
-        // ระบบอัปเดต Profile ผ่าน API
+        // 3. ระบบนำข้อมูลลงฟอร์มและตรวจสอบสิทธิ์
         // =====================================
         function populateProfileData(data) {
-            document.getElementById('nav-name').textContent = data.name;
-            document.getElementById('nav-role').textContent = data.role;
-
+            // อัปเดต Card ทางซ้าย
             document.getElementById('display-name').textContent = data.name;
             document.getElementById('display-position').textContent = data.position || 'ไม่ระบุตำแหน่ง';
-            document.getElementById('display-phone').textContent = data.phone || '-';
             document.getElementById('display-department').textContent = data.department || '-';
             document.getElementById('display-academic').textContent = data.academic || '-';
+            
+            // นำเบอร์โทรมาแสดง (ตัดเครื่องหมาย ' ออกถ้ามีอยู่ด้านหน้าสุด)
+            let rawPhone = data.phone || '';
+            if (rawPhone.startsWith("'")) rawPhone = rawPhone.substring(1);
+            document.getElementById('display-phone').textContent = rawPhone || '-';
+            document.getElementById('edit-phone').value = rawPhone;
             
             if (data.profileImage && data.profileImage.startsWith('http')) {
                 document.getElementById('display-image').src = data.profileImage;
@@ -354,19 +440,53 @@
                 document.getElementById('display-image').src = 'https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image';
             }
 
+            // แสดง Badge ตำแหน่ง
+            const roleBadge = document.getElementById('role-badge');
+            roleBadge.textContent = getRoleName(data.role);
+            if(data.role == '3') roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-red-100 text-red-600 border border-red-200';
+            else if(data.role == '2') roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-600 border border-blue-200';
+            else roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600 border border-gray-200';
+
+            // นำข้อมูลลง Form ขวา
             document.getElementById('edit-rowindex').value = data.rowIndex;
+            document.getElementById('edit-role').value = data.role;
             document.getElementById('edit-name').value = data.name;
             document.getElementById('edit-position').value = data.position;
             document.getElementById('edit-department').value = data.department;
             document.getElementById('edit-academic').value = data.academic;
-            document.getElementById('edit-phone').value = data.phone;
             document.getElementById('edit-bachelor').value = data.bachelor;
             document.getElementById('edit-master').value = data.master;
             document.getElementById('edit-image').value = data.profileImage;
+
+            // กฏเหล็ก: ข้อมูลของแอดมินสูงสุด(Role 3) ห้ามแก้ไขเด็ดขาด แม้แต่ตัวเอง
+            const btnSave = document.getElementById('save-btn');
+            const roleWarning = document.getElementById('role-warning');
+            const formInputs = document.querySelectorAll('#profile-form input');
+
+            if (data.role == '3') {
+                btnSave.disabled = true;
+                btnSave.classList.add('hidden');
+                roleWarning.classList.remove('hidden');
+                formInputs.forEach(input => input.readOnly = true); // ล็อกพิมพ์
+            } else {
+                btnSave.disabled = false;
+                btnSave.classList.remove('hidden');
+                roleWarning.classList.add('hidden');
+                formInputs.forEach(input => input.readOnly = false); // ปลดล็อก
+            }
         }
 
+        // =====================================
+        // 4. บันทึกข้อมูล
+        // =====================================
         async function processSaveProfile(event) {
             event.preventDefault();
+            
+            // รับค่าเบอร์โทรและเติม ' ด้านหน้าสุดอัตโนมัติ เพื่อป้องกัน 0 หายใน Google Sheet
+            let formPhone = document.getElementById('edit-phone').value.trim();
+            if (formPhone && !formPhone.startsWith("'")) {
+                formPhone = "'" + formPhone;
+            }
             
             const updatedData = {
                 rowIndex: document.getElementById('edit-rowindex').value,
@@ -374,10 +494,11 @@
                 position: document.getElementById('edit-position').value,
                 department: document.getElementById('edit-department').value,
                 academic: document.getElementById('edit-academic').value,
-                phone: document.getElementById('edit-phone').value,
+                phone: formPhone, // ส่งเบอร์โทรที่มี ' ไปแล้ว
                 bachelor: document.getElementById('edit-bachelor').value,
                 master: document.getElementById('edit-master').value,
                 profileImage: document.getElementById('edit-image').value,
+                role: document.getElementById('edit-role').value
             };
 
             const btn = document.getElementById('save-btn');
@@ -390,17 +511,32 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({
-                        action: 'updateProfile',
-                        userData: updatedData
-                    })
+                    body: JSON.stringify({ action: 'updateProfile', userData: updatedData })
                 });
                 
                 const result = await response.json();
-                handleSaveResponse(result, updatedData);
+                
+                if (result.status === 'success') {
+                    populateProfileData(updatedData); 
+                    const alert = document.getElementById('save-alert');
+                    alert.classList.remove('hidden');
+                    setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
+                    
+                    // ถ้าอัปเดตข้อมูลตัวเอง ให้เซฟทับ Local State ด้วย
+                    if (updatedData.rowIndex == loggedInUser.rowIndex) {
+                        Object.assign(loggedInUser, updatedData);
+                    } else {
+                        // ถ้าแอดมินแก้ข้อมูลคนอื่น ให้อัปเดตข้อมูลใน allUsers ด้วย
+                        const targetIndex = allUsers.findIndex(u => u.rowIndex == updatedData.rowIndex);
+                        if (targetIndex !== -1) Object.assign(allUsers[targetIndex], updatedData);
+                    }
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + result.message);
+                }
 
             } catch (error) {
                 alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกข้อมูลได้');
+            } finally {
                 btn.disabled = false;
                 document.getElementById('save-icon').classList.remove('hidden');
                 document.getElementById('save-spinner').classList.add('hidden');
@@ -408,25 +544,8 @@
             }
         }
 
-        function handleSaveResponse(response, newData) {
-            const btn = document.getElementById('save-btn');
-            btn.disabled = false;
-            document.getElementById('save-icon').classList.remove('hidden');
-            document.getElementById('save-spinner').classList.add('hidden');
-            document.getElementById('save-text-btn').textContent = 'บันทึกข้อมูล';
-
-            if (response.status === 'success') {
-                populateProfileData(newData); 
-                const alert = document.getElementById('save-alert');
-                alert.classList.remove('hidden');
-                setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
-            } else {
-                alert('เกิดข้อผิดพลาด: ' + response.message);
-            }
-        }
-
         // =====================================
-        // ฟังก์ชัน UI (สลับหน้า)
+        // ฟังก์ชันสลับหน้า (UI Animation)
         // =====================================
         function showDashboard() {
             const loginView = document.getElementById('login-view');
@@ -448,8 +567,11 @@
             const loginView = document.getElementById('login-view');
             const dashboardView = document.getElementById('dashboard-view');
             
+            loggedInUser = null;
+            allUsers = [];
             document.getElementById('login-form').reset();
             document.getElementById('save-alert').classList.add('hidden');
+            document.getElementById('admin-panel').classList.add('hidden');
 
             dashboardView.classList.remove('scale-100', 'opacity-100');
             dashboardView.classList.add('scale-95', 'opacity-0');
