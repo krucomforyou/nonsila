@@ -156,7 +156,7 @@
                         <i data-lucide="loader-2" id="admin-spinner" class="animate-spin h-5 w-5 hidden"></i>
                     </div>
                     
-                    <!-- เครื่องมือแอดมินสูงสุด (ซ่อนไว้ก่อน) -->
+                    <!-- เครื่องมือแอดมินสูงสุด -->
                     <div id="admin-actions" class="hidden flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                         <button type="button" onclick="prepareAddUser()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md text-sm flex items-center shadow-sm transition whitespace-nowrap">
                             <i data-lucide="user-plus" class="w-4 h-4 mr-1.5"></i> เพิ่มบุคลากร
@@ -505,7 +505,6 @@
             
             if (!rowIndex || rowIndex === 'new') {
                 if (rowIndex === 'new') {
-                    // หากเลือกจาก dropdown ที่เพิ่มไว้กรณีบัค แต่หลักๆ ใช้ปุ่มเพิ่มบุคลากร
                     return;
                 }
                 populateProfileData(loggedInUser);
@@ -531,20 +530,27 @@
             
             populateProfileData(blankUser);
             
-            // เปลี่ยนชื่อปุ่ม
             document.getElementById('save-text-btn').textContent = 'เพิ่มสมาชิกใหม่';
             document.getElementById('display-name').textContent = 'เพิ่มสมาชิกใหม่';
         }
 
         // =====================================
-        // ฟังก์ชันลบสมาชิก (เฉพาะ Role 3)
+        // ฟังก์ชันลบสมาชิก (เฉพาะ Role 3) 
         // =====================================
         async function confirmDeleteUser() {
             const rowIndex = document.getElementById('edit-rowindex').value;
             const targetName = document.getElementById('edit-name').value;
             
+            // 1. ถามยืนยันการลบ
             if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบข้อมูลของ ${targetName}?\n(การลบข้อมูลจะไม่สามารถกู้คืนได้)`)) {
                 return;
+            }
+
+            // 2. เด้งหน้าต่างให้กรอกรหัสผ่านของแอดมินสูงสุดเพื่อยืนยัน
+            const adminPass = prompt("กรุณากรอกรหัสผ่านของคุณ (แอดมินสูงสุด) เพื่อยืนยันการลบข้อมูล:");
+            if (adminPass === null || adminPass.trim() === "") {
+                alert("ยกเลิกการลบข้อมูล เนื่องจากไม่ได้กรอกรหัสผ่านยืนยัน");
+                return; 
             }
 
             const btn = document.getElementById('btn-delete-user');
@@ -557,7 +563,12 @@
                     method: 'POST',
                     body: JSON.stringify({
                         action: 'deleteUser',
-                        userData: { requesterRole: loggedInUser.role, requesterRowIndex: loggedInUser.rowIndex, rowIndex: rowIndex }
+                        userData: { 
+                            requesterRole: loggedInUser.role, 
+                            requesterRowIndex: loggedInUser.rowIndex, 
+                            rowIndex: rowIndex,
+                            adminPassword: adminPass // ส่งรหัสผ่านไปตรวจสอบที่หลังบ้าน
+                        }
                     })
                 });
                 const result = await response.json();
@@ -568,6 +579,7 @@
                     document.getElementById('user-select').value = '';
                     populateProfileData(loggedInUser); // กลับมาแสดงหน้าโปรไฟล์ตัวเอง
                 } else {
+                    // หากรหัสผ่านผิด จะแสดงข้อความแจ้งเตือน
                     alert('เกิดข้อผิดพลาด: ' + result.message);
                 }
             } catch (error) {
@@ -622,7 +634,7 @@
 
             // ตรวจสอบสิทธิ์การแก้ไข
             if (data.rowIndex == loggedInUser.rowIndex || data.rowIndex === 'new') {
-                isReadOnly = false; // ตัวเอง หรือ กำลังเพิ่มคนใหม่
+                isReadOnly = false; 
             } else {
                 if (data.role == '3') {
                     isReadOnly = true;
@@ -650,7 +662,7 @@
                 btnSave.disabled = false;
                 btnSave.classList.remove('hidden');
                 roleWarning.classList.add('hidden');
-                document.getElementById('save-text-btn').textContent = 'บันทึกข้อมูล'; // Reset text
+                document.getElementById('save-text-btn').textContent = 'บันทึกข้อมูล'; 
                 
                 formInputs.forEach(input => {
                     input.readOnly = false;
@@ -662,8 +674,8 @@
 
                 const usernameInput = document.getElementById('edit-username');
                 
-                // ถ้าระบบแก้ไขคนเก่า ที่ไม่ใช่สร้างใหม่
                 if (data.rowIndex !== 'new') {
+                    // หากผู้ใช้งานคือบุคลากร (Role 1) หรือกำลังดูข้อมูลของแอดมินสูงสุด (Role 3) จะไม่สามารถแก้ไขชื่อผู้ใช้ได้
                     if (loggedInUser.role == '1' || data.role == '3') {
                         usernameInput.readOnly = true;
                         usernameInput.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
@@ -671,14 +683,12 @@
                 }
             }
 
-            // โชว์กล่อง Role dropdown ให้เฉพาะแอดมินสูงสุด (Role 3) เห็นและใช้ตอนดูคนอื่นหรือสร้างใหม่
             if (loggedInUser.role == '3') {
                 roleContainer.classList.remove('hidden');
             } else {
                 roleContainer.classList.add('hidden');
             }
 
-            // โชว์ปุ่ม ลบ ให้เฉพาะแอดมินสูงสุด (ที่ไม่ได้ดูตัวเองหรือเพิ่มคนใหม่)
             if (loggedInUser.role == '3' && data.rowIndex !== loggedInUser.rowIndex && data.rowIndex !== 'new') {
                 if(btnDelete) btnDelete.classList.remove('hidden');
             } else {
@@ -752,19 +762,16 @@
                     }
                     updatedData.username = document.getElementById('edit-username').value;
                     
-                    // แจ้งเตือนสำเร็จ
                     const alertBox = document.getElementById('save-alert');
                     document.getElementById('save-text').textContent = result.message;
                     alertBox.classList.remove('hidden');
                     setTimeout(() => { alertBox.classList.add('hidden'); }, 3000); 
 
                     if (currentAction === 'addUser') {
-                        // หากเพิ่มข้อมูลใหม่ ให้โหลดรายชื่อ Admin Panel ใหม่เพื่อให้รายชื่ออัปเดตล่าสุด
                         await loadAdminPanel();
                         document.getElementById('user-select').value = '';
-                        populateProfileData(loggedInUser); // กลับมาแสดงหน้าตัวเอง
+                        populateProfileData(loggedInUser);
                     } else {
-                        // อัปเดต UI ชั่วคราว
                         populateProfileData(updatedData); 
                         if (updatedData.rowIndex == loggedInUser.rowIndex) {
                             Object.assign(loggedInUser, updatedData);
