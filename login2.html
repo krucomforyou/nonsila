@@ -261,6 +261,9 @@
     <script>
         lucide.createIcons();
 
+        // นำ URL จาก Apps Script (ที่ลงท้ายด้วย /exec) มาวางตรงนี้
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs73UfTpKBvRc4J75bAFlar18Ga6HCjq1YmSJ9lu0BrNECE-YIebvY3BTu5EDKLr0b/exec';
+
         // ฟังก์ชันซ่อน/แสดงรหัสผ่าน
         function togglePassword() {
             const pwdInput = document.getElementById('password');
@@ -276,9 +279,9 @@
         }
 
         // =====================================
-        // ระบบเข้าสู่ระบบ (Login)
+        // ระบบเข้าสู่ระบบ (Login) เชื่อมต่อ API
         // =====================================
-        function processLogin(event) {
+        async function processLogin(event) {
             event.preventDefault();
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
@@ -290,17 +293,25 @@
             document.getElementById('loading-spinner').classList.remove('hidden');
             document.getElementById('error-alert').classList.add('hidden');
 
-            if (typeof google !== 'undefined' && google.script) {
-                // รันบน Apps Script ดึงข้อมูลจริง
-                google.script.run
-                    .withSuccessHandler(handleLoginResponse)
-                    .withFailureHandler(handleError)
-                    .verifyLogin(user, pass);
-            } else {
-                // แจ้งเตือนเมื่อไม่ได้รันผ่าน Google Apps Script
-                alert("กรุณา Deploy เป็น Web App บน Google Apps Script เพื่อทดสอบการล็อกอินกับฐานข้อมูลจริง");
+            try {
+                // เรียกข้อมูลจาก Google Apps Script ข้ามโดเมน
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'login',
+                        username: user,
+                        password: pass
+                    })
+                });
                 
-                // คืนสถานะปุ่ม
+                const result = await response.json();
+                handleLoginResponse(result);
+
+            } catch (error) {
+                // แจ้งเตือนเมื่อเชื่อมต่อข้ามโดเมนไม่สำเร็จ (มักเกิดจากลืมเปิดสิทธิ์ Anyone)
+                document.getElementById('error-text').textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบลิงก์ Web App (สิทธิ์ต้องเป็น Anyone)';
+                document.getElementById('error-alert').classList.remove('hidden');
+                
                 btn.disabled = false;
                 btn.classList.remove('opacity-80', 'cursor-not-allowed');
                 document.getElementById('btn-text').classList.remove('invisible');
@@ -325,14 +336,12 @@
         }
 
         // =====================================
-        // ระบบอัปเดต Profile
+        // ระบบอัปเดต Profile ผ่าน API
         // =====================================
         function populateProfileData(data) {
-            // อัปเดต Navbar
             document.getElementById('nav-name').textContent = data.name;
             document.getElementById('nav-role').textContent = data.role;
 
-            // อัปเดต Profile Card (ฝั่งซ้าย)
             document.getElementById('display-name').textContent = data.name;
             document.getElementById('display-position').textContent = data.position || 'ไม่ระบุตำแหน่ง';
             document.getElementById('display-phone').textContent = data.phone || '-';
@@ -345,7 +354,6 @@
                 document.getElementById('display-image').src = 'https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image';
             }
 
-            // ใส่ข้อมูลลงในฟอร์มแก้ไข (ฝั่งขวา)
             document.getElementById('edit-rowindex').value = data.rowIndex;
             document.getElementById('edit-name').value = data.name;
             document.getElementById('edit-position').value = data.position;
@@ -357,10 +365,9 @@
             document.getElementById('edit-image').value = data.profileImage;
         }
 
-        function processSaveProfile(event) {
+        async function processSaveProfile(event) {
             event.preventDefault();
             
-            // ดึงค่าจากฟอร์ม
             const updatedData = {
                 rowIndex: document.getElementById('edit-rowindex').value,
                 name: document.getElementById('edit-name').value,
@@ -373,7 +380,6 @@
                 profileImage: document.getElementById('edit-image').value,
             };
 
-            // แสดงสถานะกำลังบันทึก
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
             document.getElementById('save-icon').classList.add('hidden');
@@ -381,18 +387,20 @@
             document.getElementById('save-text-btn').textContent = 'กำลังบันทึก...';
             document.getElementById('save-alert').classList.add('hidden');
 
-            if (typeof google !== 'undefined' && google.script) {
-                // ส่งข้อมูลไปเซฟที่ App Script
-                google.script.run
-                    .withSuccessHandler((res) => {
-                        handleSaveResponse(res, updatedData);
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'updateProfile',
+                        userData: updatedData
                     })
-                    .withFailureHandler(handleError)
-                    .updateUserProfile(updatedData);
-            } else {
-                alert("กรุณา Deploy เป็น Web App บน Google Apps Script เพื่อทดสอบการบันทึกข้อมูลจริง");
+                });
                 
-                // คืนสถานะปุ่ม
+                const result = await response.json();
+                handleSaveResponse(result, updatedData);
+
+            } catch (error) {
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกข้อมูลได้');
                 btn.disabled = false;
                 document.getElementById('save-icon').classList.remove('hidden');
                 document.getElementById('save-spinner').classList.add('hidden');
@@ -401,7 +409,6 @@
         }
 
         function handleSaveResponse(response, newData) {
-            // คืนสถานะปุ่ม
             const btn = document.getElementById('save-btn');
             btn.disabled = false;
             document.getElementById('save-icon').classList.remove('hidden');
@@ -409,31 +416,12 @@
             document.getElementById('save-text-btn').textContent = 'บันทึกข้อมูล';
 
             if (response.status === 'success') {
-                // อัปเดตข้อมูลบนหน้าจอฝั่งซ้ายโดยไม่ต้องโหลดใหม่
                 populateProfileData(newData); 
-                
-                // แสดงข้อความสำเร็จ
                 const alert = document.getElementById('save-alert');
                 alert.classList.remove('hidden');
-                setTimeout(() => { alert.classList.add('hidden'); }, 3000); // ซ่อนอัตโนมัติใน 3 วิ
+                setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
             } else {
                 alert('เกิดข้อผิดพลาด: ' + response.message);
-            }
-        }
-
-        function handleError(error) {
-            alert('เกิดข้อผิดพลาด: ' + error.message);
-            // คืนสถานะปุ่ม
-            document.getElementById('submit-btn').disabled = false;
-            document.getElementById('loading-spinner').classList.add('hidden');
-            document.getElementById('btn-text').classList.remove('invisible');
-            
-            const btnSave = document.getElementById('save-btn');
-            if(btnSave) {
-                btnSave.disabled = false;
-                document.getElementById('save-icon').classList.remove('hidden');
-                document.getElementById('save-spinner').classList.add('hidden');
-                document.getElementById('save-text-btn').textContent = 'บันทึกข้อมูล';
             }
         }
 
