@@ -324,6 +324,40 @@
         }
 
         // =====================================
+        // ระบบรักษาสถานะเมื่อโหลดหน้าเว็บใหม่ (Session)
+        // =====================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedSession = localStorage.getItem('school_user_session');
+            if (savedSession) {
+                try {
+                    loggedInUser = JSON.parse(savedSession);
+                    
+                    document.getElementById('nav-name').textContent = loggedInUser.name;
+                    document.getElementById('nav-role').textContent = getRoleName(loggedInUser.role);
+                    
+                    populateProfileData(loggedInUser);
+                    
+                    // แสดง Dashboard โดยไม่ต้องทำ Animation หน่วงเวลาเพื่อไม่ให้ผู้ใช้รู้สึกกระตุก
+                    const loginView = document.getElementById('login-view');
+                    const dashboardView = document.getElementById('dashboard-view');
+                    
+                    loginView.classList.add('hidden');
+                    loginView.classList.remove('scale-100', 'opacity-100');
+                    
+                    dashboardView.classList.remove('hidden', 'scale-95', 'opacity-0');
+                    dashboardView.classList.add('scale-100', 'opacity-100');
+                    
+                    if (loggedInUser.role == '2' || loggedInUser.role == '3') {
+                        loadAdminPanel();
+                    }
+                } catch(e) {
+                    // หากข้อมูลผิดพลาดให้ลบ Session ทิ้ง
+                    localStorage.removeItem('school_user_session');
+                }
+            }
+        });
+
+        // =====================================
         // 1. ระบบเข้าสู่ระบบ (Login)
         // =====================================
         async function processLogin(event) {
@@ -348,6 +382,9 @@
                 
                 if (result.status === 'success') {
                     loggedInUser = result.userData; 
+                    
+                    // บันทึก Session ลงเบราว์เซอร์
+                    localStorage.setItem('school_user_session', JSON.stringify(loggedInUser));
                     
                     // อัปเดตข้อมูลของตัวเองบน Navbar ทันที
                     document.getElementById('nav-name').textContent = loggedInUser.name;
@@ -520,7 +557,7 @@
             
             const updatedData = {
                 rowIndex: document.getElementById('edit-rowindex').value,
-                username: document.getElementById('edit-username').value, // เพิ่มส่งค่า Username 
+                username: document.getElementById('edit-username').value,
                 password: document.getElementById('edit-password').value, 
                 name: document.getElementById('edit-name').value,
                 position: document.getElementById('edit-position').value,
@@ -560,8 +597,10 @@
                     alert.classList.remove('hidden');
                     setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
                     
+                    // หากมีการอัปเดตข้อมูลของตนเอง ให้บันทึกลง Session ใหม่ด้วย
                     if (updatedData.rowIndex == loggedInUser.rowIndex) {
                         Object.assign(loggedInUser, updatedData);
+                        localStorage.setItem('school_user_session', JSON.stringify(loggedInUser));
                     } else {
                         const targetIndex = allUsers.findIndex(u => u.rowIndex == updatedData.rowIndex);
                         if (targetIndex !== -1) Object.assign(allUsers[targetIndex], updatedData);
@@ -600,6 +639,9 @@
         }
 
         function handleLogout() {
+            // ลบ Session เมื่อออกจากระบบ
+            localStorage.removeItem('school_user_session');
+
             const loginView = document.getElementById('login-view');
             const dashboardView = document.getElementById('dashboard-view');
             
