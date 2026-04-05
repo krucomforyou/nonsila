@@ -178,9 +178,20 @@
                             <!-- Badge ระบุ Role -->
                             <div id="role-badge" class="absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-gray-200 text-gray-600">Role 1</div>
                             
-                            <div class="w-32 h-32 rounded-full bg-gray-200 mb-4 border-4 border-school-bg overflow-hidden shadow-sm relative group">
+                            <!-- พื้นที่สำหรับอัปโหลดรูปภาพ -->
+                            <div id="profile-image-container" class="w-32 h-32 rounded-full bg-gray-200 mb-4 border-4 border-school-bg overflow-hidden shadow-sm relative group cursor-pointer transition" onclick="document.getElementById('upload-image').click()">
                                 <img id="display-image" src="https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image" alt="Profile" class="w-full h-full object-cover">
+                                
+                                <!-- Hover Overlay (เปลี่ยนรูป) -->
+                                <div id="upload-overlay" class="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200">
+                                    <i data-lucide="camera" class="text-white w-6 h-6 mb-1"></i>
+                                    <span class="text-white text-[10px]">เปลี่ยนรูป</span>
+                                </div>
                             </div>
+                            <!-- ไฟล์ Input สำหรับรูปภาพ (ถูกซ่อนไว้) -->
+                            <input type="file" id="upload-image" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
+                            <input type="hidden" id="edit-image-url"> <!-- เก็บ URL รูปล่าสุดเพื่อส่งกลับหากไม่เปลี่ยนรูป -->
+
                             <h2 id="display-name" class="text-xl font-bold text-school-navy mb-1">ชื่อ นามสกุล</h2>
                             <p id="display-position" class="text-sm font-medium text-school-brass mb-3">ตำแหน่งงาน</p>
                             
@@ -213,7 +224,7 @@
                                 <input type="hidden" id="edit-role">
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                    <!-- บัญชีผู้ใช้ (นำ readonly/class ล็อก แบบถาวรออก เพื่อจัดการผ่าน JS) -->
+                                    <!-- บัญชีผู้ใช้ -->
                                     <div>
                                         <label class="block font-medium text-gray-700 mb-1">ชื่อผู้ใช้ (Username)</label>
                                         <input type="text" id="edit-username" class="w-full border border-gray-300 rounded-md px-3 py-2 outline-none focus:ring-school-navy focus:border-school-navy" required>
@@ -266,12 +277,8 @@
                                         <label class="block font-medium text-gray-700 mb-1">วุฒิปริญญาโท</label>
                                         <input type="text" id="edit-master" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none">
                                     </div>
-
-                                    <!-- Image URL -->
-                                    <div class="col-span-1 md:col-span-2">
-                                        <label class="block font-medium text-gray-700 mb-1">ลิงก์รูปภาพโปรไฟล์ (URL)</label>
-                                        <input type="text" id="edit-image" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none text-gray-500 text-xs" placeholder="https://example.com/image.jpg">
-                                    </div>
+                                    
+                                    <!-- ลบช่อง Input Image URL ออกตามรีเควสต์ -->
                                 </div>
 
                                 <div class="mt-6 flex justify-end">
@@ -299,9 +306,9 @@
         // นำ URL จาก Apps Script มาวางตรงนี้
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs73UfTpKBvRc4J75bAFlar18Ga6HCjq1YmSJ9lu0BrNECE-YIebvY3BTu5EDKLr0b/exec';
 
-        // ตัวแปรเก็บสถานะระดับ Global
         let loggedInUser = null;
         let allUsers = [];
+        let pendingImageUpload = null; // ตัวแปรเก็บข้อมูลภาพ Base64 ก่อนส่งให้เซิร์ฟเวอร์
 
         // แปลงรหัส Role เป็นชื่อตำแหน่ง
         function getRoleName(roleCode) {
@@ -324,6 +331,35 @@
         }
 
         // =====================================
+        // ระบบจัดการอัปโหลดภาพ (แปลงเป็น Base64)
+        // =====================================
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // ตรวจสอบขนาดไฟล์ไม่เกิน 2MB
+            if (file.size > 2 * 1024 * 1024) {
+                alert('ขนาดไฟล์รูปภาพต้องไม่เกิน 2MB');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // อัปเดตพรีวิวรูปภาพทันที
+                document.getElementById('display-image').src = e.target.result;
+                
+                // เก็บข้อมูล Base64 และชื่อไฟล์เตรียมส่งให้ Apps Script
+                pendingImageUpload = {
+                    filename: file.name,
+                    mimeType: file.type,
+                    base64: e.target.result // ส่งรูปแบบ Data URI ได้เลย
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // =====================================
         // ระบบรักษาสถานะเมื่อโหลดหน้าเว็บใหม่ (Session)
         // =====================================
         document.addEventListener('DOMContentLoaded', () => {
@@ -337,7 +373,6 @@
                     
                     populateProfileData(loggedInUser);
                     
-                    // แสดง Dashboard โดยไม่ต้องทำ Animation หน่วงเวลาเพื่อไม่ให้ผู้ใช้รู้สึกกระตุก
                     const loginView = document.getElementById('login-view');
                     const dashboardView = document.getElementById('dashboard-view');
                     
@@ -351,7 +386,6 @@
                         loadAdminPanel();
                     }
                 } catch(e) {
-                    // หากข้อมูลผิดพลาดให้ลบ Session ทิ้ง
                     localStorage.removeItem('school_user_session');
                 }
             }
@@ -382,18 +416,14 @@
                 
                 if (result.status === 'success') {
                     loggedInUser = result.userData; 
-                    
-                    // บันทึก Session ลงเบราว์เซอร์
                     localStorage.setItem('school_user_session', JSON.stringify(loggedInUser));
                     
-                    // อัปเดตข้อมูลของตัวเองบน Navbar ทันที
                     document.getElementById('nav-name').textContent = loggedInUser.name;
                     document.getElementById('nav-role').textContent = getRoleName(loggedInUser.role);
                     
                     populateProfileData(loggedInUser);
                     showDashboard();
                     
-                    // ถ้าเป็นแอดมิน (Role 2 หรือ 3) ให้โหลดรายชื่อลูกน้อง
                     if (loggedInUser.role == '2' || loggedInUser.role == '3') {
                         loadAdminPanel();
                     }
@@ -433,11 +463,8 @@
                     select.innerHTML = '<option value="">-- ข้อมูลของฉัน (My Profile) --</option>';
                     
                     allUsers.forEach(u => {
-                        // ไม่เอาตัวเองมาโชว์ใน list ย่อย
                         if (u.rowIndex === loggedInUser.rowIndex) return; 
                         
-                        // แอดมินสูงสุด(3) แก้ไข แอดมิน(2) และ บุคลากร(1) ได้
-                        // แอดมิน(2) แก้ไขได้เฉพาะ บุคลากร(1) ได้
                         if (loggedInUser.role == '3' && u.role < 3) {
                             select.innerHTML += `<option value="${u.rowIndex}">${u.name} (${getRoleName(u.role)})</option>`;
                         } else if (loggedInUser.role == '2' && u.role == '1') {
@@ -457,7 +484,7 @@
             document.getElementById('save-alert').classList.add('hidden'); 
             
             if (!rowIndex) {
-                populateProfileData(loggedInUser); // กลับมาหน้าตัวเอง
+                populateProfileData(loggedInUser);
                 return;
             }
             const targetUser = allUsers.find(u => u.rowIndex == rowIndex);
@@ -470,7 +497,10 @@
         // 3. ระบบนำข้อมูลลงฟอร์มและตรวจสอบสิทธิ์
         // =====================================
         function populateProfileData(data) {
-            // อัปเดต Card ทางซ้าย
+            // ล้างข้อมูลภาพอัปโหลดค้างไว้
+            pendingImageUpload = null;
+            document.getElementById('upload-image').value = '';
+
             document.getElementById('display-name').textContent = data.name;
             document.getElementById('display-position').textContent = data.position || 'ไม่ระบุตำแหน่ง';
             document.getElementById('display-department').textContent = data.department || '-';
@@ -485,8 +515,9 @@
             } else {
                 document.getElementById('display-image').src = 'https://placehold.co/150x150/e2e8f0/1a3a6e?text=No+Image';
             }
+            // เก็บ URL รูปลงตัวแปรซ่อน
+            document.getElementById('edit-image-url').value = data.profileImage || '';
 
-            // แสดง Badge ตำแหน่ง
             const roleBadge = document.getElementById('role-badge');
             roleBadge.textContent = getRoleName(data.role);
             if(data.role == '3') roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-red-100 text-red-600 border border-red-200';
@@ -496,44 +527,48 @@
             const formInputs = document.querySelectorAll('#profile-form input');
             const btnSave = document.getElementById('save-btn');
             const roleWarning = document.getElementById('role-warning');
+            const profileImageContainer = document.getElementById('profile-image-container');
+            const uploadOverlay = document.getElementById('upload-overlay');
 
-            // กฏเหล็ก: ข้อมูลของแอดมินสูงสุด(Role 3) ห้ามแก้ไขเด็ดขาด แม้แต่ตัวเอง
+            // ตรวจสอบสิทธิ์ Role 3
             if (data.role == '3') {
                 btnSave.disabled = true;
                 btnSave.classList.add('hidden');
                 roleWarning.classList.remove('hidden');
                 
-                // ล็อกฟอร์มทั้งหมดและเปลี่ยนเป็นสีเทา
                 formInputs.forEach(input => {
                     input.readOnly = true; 
                     input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
                 });
+
+                // ล็อกไม่ให้คลิกเปลี่ยนรูป
+                profileImageContainer.classList.add('cursor-not-allowed', 'pointer-events-none');
+                uploadOverlay.classList.add('hidden');
             } else {
                 btnSave.disabled = false;
                 btnSave.classList.remove('hidden');
                 roleWarning.classList.add('hidden');
                 
-                // ปลดล็อกฟอร์มทั้งหมดให้แก้ไขได้ (ล้างสีเทาออก)
                 formInputs.forEach(input => {
                     input.readOnly = false;
                     input.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
                 });
 
-                // จัดการสิทธิ์การแก้ไข Username
+                // ปลดล็อกให้คลิกเปลี่ยนรูป
+                profileImageContainer.classList.remove('cursor-not-allowed', 'pointer-events-none');
+                uploadOverlay.classList.remove('hidden');
+
                 const usernameInput = document.getElementById('edit-username');
-                
-                // หากผู้ใช้งานคือบุคลากร (Role 1) จะไม่สามารถแก้ไขชื่อผู้ใช้ของตัวเองได้
                 if (loggedInUser.role == '1') {
                     usernameInput.readOnly = true;
                     usernameInput.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
                 }
             }
 
-            // นำข้อมูลลง Form ขวา
             document.getElementById('edit-rowindex').value = data.rowIndex;
             document.getElementById('edit-role').value = data.role;
             document.getElementById('edit-username').value = data.username;
-            document.getElementById('edit-password').value = ''; // เคลียร์พาสเวิร์ดทิ้งเสมอ
+            document.getElementById('edit-password').value = ''; 
             document.getElementById('edit-name').value = data.name;
             document.getElementById('edit-position').value = data.position;
             document.getElementById('edit-department').value = data.department;
@@ -541,7 +576,6 @@
             document.getElementById('edit-phone').value = rawPhone;
             document.getElementById('edit-bachelor').value = data.bachelor;
             document.getElementById('edit-master').value = data.master;
-            document.getElementById('edit-image').value = data.profileImage;
         }
 
         // =====================================
@@ -566,15 +600,16 @@
                 phone: formPhone, 
                 bachelor: document.getElementById('edit-bachelor').value,
                 master: document.getElementById('edit-master').value,
-                profileImage: document.getElementById('edit-image').value,
-                role: document.getElementById('edit-role').value
+                role: document.getElementById('edit-role').value,
+                profileImage: document.getElementById('edit-image-url').value, // ส่ง URL เดิมไปก่อน
+                newImageData: pendingImageUpload // หากมีการอัปโหลดรูปภาพใหม่แนบไปด้วย
             };
 
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
             document.getElementById('save-icon').classList.add('hidden');
             document.getElementById('save-spinner').classList.remove('hidden');
-            document.getElementById('save-text-btn').textContent = 'กำลังบันทึก...';
+            document.getElementById('save-text-btn').textContent = 'กำลังบันทึกและอัปโหลดรูปภาพ...';
             document.getElementById('save-alert').classList.add('hidden');
 
             try {
@@ -586,10 +621,13 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    // หากอัปเดตรหัสผ่านสำเร็จ ให้เคลียร์ช่องรหัสผ่าน
                     document.getElementById('edit-password').value = '';
                     
-                    // ปรับค่า username เดิมกลับมาเพื่อเอาไปยัดใส่ Local State
+                    // หากมีการอัปโหลดภาพสำเร็จ และ Server ส่ง URL ใหม่กลับมา
+                    if (result.newImageUrl) {
+                        updatedData.profileImage = result.newImageUrl;
+                    }
+
                     updatedData.username = document.getElementById('edit-username').value;
                     
                     populateProfileData(updatedData); 
@@ -597,7 +635,6 @@
                     alert.classList.remove('hidden');
                     setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
                     
-                    // หากมีการอัปเดตข้อมูลของตนเอง ให้บันทึกลง Session ใหม่ด้วย
                     if (updatedData.rowIndex == loggedInUser.rowIndex) {
                         Object.assign(loggedInUser, updatedData);
                         localStorage.setItem('school_user_session', JSON.stringify(loggedInUser));
@@ -610,7 +647,7 @@
                 }
 
             } catch (error) {
-                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกข้อมูลได้');
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อบันทึกข้อมูลได้ (หากไฟล์ภาพใหญ่เกินไปอาจจะทำให้บันทึกไม่สำเร็จ)');
             } finally {
                 btn.disabled = false;
                 document.getElementById('save-icon').classList.remove('hidden');
@@ -639,7 +676,6 @@
         }
 
         function handleLogout() {
-            // ลบ Session เมื่อออกจากระบบ
             localStorage.removeItem('school_user_session');
 
             const loginView = document.getElementById('login-view');
@@ -647,6 +683,7 @@
             
             loggedInUser = null;
             allUsers = [];
+            pendingImageUpload = null;
             document.getElementById('login-form').reset();
             document.getElementById('save-alert').classList.add('hidden');
             document.getElementById('admin-panel').classList.add('hidden');
