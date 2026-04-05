@@ -429,6 +429,7 @@
                 
                 if (result.status === 'success') {
                     loggedInUser = result.userData; 
+                    loggedInUser._vPass = pass; // เก็บรหัสผ่านไว้ใน Session สำหรับยืนยันสิทธิ์การลบที่หน้าเว็บ
                     localStorage.setItem('school_user_session', JSON.stringify(loggedInUser));
                     
                     document.getElementById('nav-name').textContent = loggedInUser.name;
@@ -553,6 +554,18 @@
                 return; 
             }
 
+            // --- ตรวจสอบความถูกต้องของรหัสผ่านที่หน้าเว็บทันที ---
+            if (!loggedInUser._vPass) {
+                alert("❌ เซสชันไม่สมบูรณ์! กรุณาออกจากระบบแล้วล็อกอินใหม่อีกครั้งเพื่อทำรายการนี้");
+                return;
+            }
+
+            if (adminPass !== loggedInUser._vPass) {
+                alert("❌ รหัสผ่านไม่ถูกต้อง! ยกเลิกการลบข้อมูล");
+                return;
+            }
+            // ---------------------------------------------------
+
             const btn = document.getElementById('btn-delete-user');
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-1.5 animate-spin"></i> กำลังลบ...';
@@ -567,7 +580,7 @@
                             requesterRole: loggedInUser.role, 
                             requesterRowIndex: loggedInUser.rowIndex, 
                             rowIndex: rowIndex,
-                            adminPassword: adminPass // ส่งรหัสผ่านไปตรวจสอบที่หลังบ้าน
+                            adminPassword: adminPass 
                         }
                     })
                 });
@@ -579,7 +592,6 @@
                     document.getElementById('user-select').value = '';
                     populateProfileData(loggedInUser); // กลับมาแสดงหน้าโปรไฟล์ตัวเอง
                 } else {
-                    // หากรหัสผ่านผิด จะแสดงข้อความแจ้งเตือน
                     alert('เกิดข้อผิดพลาด: ' + result.message);
                 }
             } catch (error) {
@@ -756,6 +768,13 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
+                    // หากมีการเปลี่ยนรหัสผ่านของตนเอง ให้อัปเดตรหัสผ่านที่ระบบหน้าเว็บจำไว้ด้วย
+                    if (updatedData.password && updatedData.password.trim() !== '') {
+                        if (currentAction !== 'addUser' && updatedData.rowIndex == loggedInUser.rowIndex) {
+                            loggedInUser._vPass = updatedData.password.trim();
+                        }
+                    }
+
                     document.getElementById('edit-password').value = '';
                     if (result.newImageUrl) {
                         updatedData.profileImage = result.newImageUrl;
