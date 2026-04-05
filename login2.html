@@ -213,8 +213,20 @@
                                 <input type="hidden" id="edit-role">
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <!-- บัญชีผู้ใช้ -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">ชื่อผู้ใช้ (Username)</label>
+                                        <input type="text" id="edit-username" class="w-full border border-gray-300 rounded-md px-3 py-2 outline-none cursor-not-allowed bg-gray-100 text-gray-500" readonly>
+                                    </div>
+
+                                    <!-- รหัสผ่าน -->
+                                    <div>
+                                        <label class="block font-medium text-gray-700 mb-1">รหัสผ่านใหม่ (ว่างไว้หากไม่เปลี่ยน)</label>
+                                        <input type="password" id="edit-password" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none" placeholder="••••••••">
+                                    </div>
+
                                     <!-- Name -->
-                                    <div class="col-span-1 md:col-span-2">
+                                    <div class="col-span-1 md:col-span-2 mt-2">
                                         <label class="block font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
                                         <input type="text" id="edit-name" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-school-navy focus:border-school-navy outline-none" required>
                                     </div>
@@ -405,7 +417,6 @@
 
         function loadSelectedUser() {
             const rowIndex = document.getElementById('user-select').value;
-            // ซ่อนแจ้งเตือนตอนสลับคน
             document.getElementById('save-alert').classList.add('hidden'); 
             
             if (!rowIndex) {
@@ -414,7 +425,7 @@
             }
             const targetUser = allUsers.find(u => u.rowIndex == rowIndex);
             if (targetUser) {
-                populateProfileData(targetUser); // โหลดหน้าคนอื่น
+                populateProfileData(targetUser); 
             }
         }
 
@@ -428,11 +439,9 @@
             document.getElementById('display-department').textContent = data.department || '-';
             document.getElementById('display-academic').textContent = data.academic || '-';
             
-            // นำเบอร์โทรมาแสดง (ตัดเครื่องหมาย ' ออกถ้ามีอยู่ด้านหน้าสุด)
             let rawPhone = data.phone || '';
             if (rawPhone.startsWith("'")) rawPhone = rawPhone.substring(1);
             document.getElementById('display-phone').textContent = rawPhone || '-';
-            document.getElementById('edit-phone').value = rawPhone;
             
             if (data.profileImage && data.profileImage.startsWith('http')) {
                 document.getElementById('display-image').src = data.profileImage;
@@ -447,32 +456,48 @@
             else if(data.role == '2') roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-blue-100 text-blue-600 border border-blue-200';
             else roleBadge.className = 'absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600 border border-gray-200';
 
+            // รีเซ็ตการล็อกฟอร์มให้เป็นปกติก่อน (ล้างสีเทาและปลดล็อก) ยกเว้น Username
+            const formInputs = document.querySelectorAll('#profile-form input');
+            formInputs.forEach(input => {
+                if (input.id !== 'edit-username') {
+                    input.readOnly = false;
+                    input.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                }
+            });
+
             // นำข้อมูลลง Form ขวา
             document.getElementById('edit-rowindex').value = data.rowIndex;
             document.getElementById('edit-role').value = data.role;
+            document.getElementById('edit-username').value = data.username;
+            document.getElementById('edit-password').value = ''; // เคลียร์พาสเวิร์ดทิ้งเสมอ
             document.getElementById('edit-name').value = data.name;
             document.getElementById('edit-position').value = data.position;
             document.getElementById('edit-department').value = data.department;
             document.getElementById('edit-academic').value = data.academic;
+            document.getElementById('edit-phone').value = rawPhone;
             document.getElementById('edit-bachelor').value = data.bachelor;
             document.getElementById('edit-master').value = data.master;
             document.getElementById('edit-image').value = data.profileImage;
 
-            // กฏเหล็ก: ข้อมูลของแอดมินสูงสุด(Role 3) ห้ามแก้ไขเด็ดขาด แม้แต่ตัวเอง
             const btnSave = document.getElementById('save-btn');
             const roleWarning = document.getElementById('role-warning');
-            const formInputs = document.querySelectorAll('#profile-form input');
 
+            // กฏเหล็ก: ข้อมูลของแอดมินสูงสุด(Role 3) ห้ามแก้ไขเด็ดขาด แม้แต่ตัวเอง
             if (data.role == '3') {
                 btnSave.disabled = true;
                 btnSave.classList.add('hidden');
                 roleWarning.classList.remove('hidden');
-                formInputs.forEach(input => input.readOnly = true); // ล็อกพิมพ์
+                
+                // ล็อกฟอร์มทั้งหมดและเปลี่ยนเป็นสีเทา
+                formInputs.forEach(input => {
+                    input.readOnly = true; 
+                    input.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                });
             } else {
                 btnSave.disabled = false;
                 btnSave.classList.remove('hidden');
                 roleWarning.classList.add('hidden');
-                formInputs.forEach(input => input.readOnly = false); // ปลดล็อก
+                // edit-username ถูกตั้งให้ล็อกไว้ใน HTML แล้ว ไม่ต้องทำอะไรเพิ่ม
             }
         }
 
@@ -482,7 +507,6 @@
         async function processSaveProfile(event) {
             event.preventDefault();
             
-            // รับค่าเบอร์โทรและเติม ' ด้านหน้าสุดอัตโนมัติ เพื่อป้องกัน 0 หายใน Google Sheet
             let formPhone = document.getElementById('edit-phone').value.trim();
             if (formPhone && !formPhone.startsWith("'")) {
                 formPhone = "'" + formPhone;
@@ -490,11 +514,12 @@
             
             const updatedData = {
                 rowIndex: document.getElementById('edit-rowindex').value,
+                password: document.getElementById('edit-password').value, // เพิ่มการส่ง Password ไปเช็ค
                 name: document.getElementById('edit-name').value,
                 position: document.getElementById('edit-position').value,
                 department: document.getElementById('edit-department').value,
                 academic: document.getElementById('edit-academic').value,
-                phone: formPhone, // ส่งเบอร์โทรที่มี ' ไปแล้ว
+                phone: formPhone, 
                 bachelor: document.getElementById('edit-bachelor').value,
                 master: document.getElementById('edit-master').value,
                 profileImage: document.getElementById('edit-image').value,
@@ -517,16 +542,20 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
+                    // หากอัปเดตรหัสผ่านสำเร็จ ให้เคลียร์ช่องรหัสผ่าน
+                    document.getElementById('edit-password').value = '';
+                    
+                    // ปรับค่า username เดิมกลับมาเพื่อเอาไปยัดใส่ Local State
+                    updatedData.username = document.getElementById('edit-username').value;
+                    
                     populateProfileData(updatedData); 
                     const alert = document.getElementById('save-alert');
                     alert.classList.remove('hidden');
                     setTimeout(() => { alert.classList.add('hidden'); }, 3000); 
                     
-                    // ถ้าอัปเดตข้อมูลตัวเอง ให้เซฟทับ Local State ด้วย
                     if (updatedData.rowIndex == loggedInUser.rowIndex) {
                         Object.assign(loggedInUser, updatedData);
                     } else {
-                        // ถ้าแอดมินแก้ข้อมูลคนอื่น ให้อัปเดตข้อมูลใน allUsers ด้วย
                         const targetIndex = allUsers.findIndex(u => u.rowIndex == updatedData.rowIndex);
                         if (targetIndex !== -1) Object.assign(allUsers[targetIndex], updatedData);
                     }
