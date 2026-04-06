@@ -338,7 +338,7 @@
               </div>
             </div>
 
-            <!-- ส่วนแสดงรายละเอียดข่าว / กิจกรรม (อัลบั้มภาพ) -->
+            <!-- ================= ส่วนแสดงรายละเอียดข่าวประชาสัมพันธ์ (แบบเดิม) ================= -->
             <div
               id="news-detail-view"
               class="hidden bg-white border border-gray-200 rounded shadow-sm overflow-hidden flex-col"
@@ -355,32 +355,75 @@
                 </button>
                 <span
                   class="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-200"
-                  >กระดานข่าว / ภาพกิจกรรม</span
+                  >ข่าวประชาสัมพันธ์</span
                 >
               </div>
               <div class="p-6">
                 <h1
-                  id="detail-title"
+                  id="news-detail-title"
                   class="text-xl md:text-2xl font-bold text-school-navy mb-3 leading-tight"
                 >
                   หัวข้อข่าว
                 </h1>
                 <p
-                  id="detail-date"
+                  id="news-detail-date"
                   class="text-sm text-gray-500 mb-6 flex items-center"
                 >
                   <i data-lucide="calendar" class="w-4 h-4 mr-2"></i> วันที่
                 </p>
 
-                <!-- Container สำหรับแสดงหลายรูป (ปรับเป็น Grid สำหรับแสดง Thumbnail) -->
+                <!-- Container สำหรับข่าวจะแสดงภาพเรียงกันลงมาตรงๆ (ตามต้นฉบับที่คุณพอใจ) -->
                 <div
-                  id="detail-image-container"
-                  class="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6"
+                  id="news-detail-image-container"
+                  class="w-full flex flex-col gap-4 mb-6"
                 ></div>
 
                 <div
-                  id="detail-content"
+                  id="news-detail-content"
                   class="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-line"
+                ></div>
+              </div>
+            </div>
+
+            <!-- ================= ส่วนแสดงรายละเอียดภาพกิจกรรม (แบบอัลบั้ม Grid ย่อรูป) ================= -->
+            <div
+              id="activity-detail-view"
+              class="hidden bg-white border border-gray-200 rounded shadow-sm overflow-hidden flex-col"
+            >
+              <div
+                class="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between"
+              >
+                <button
+                  onclick="goBackToHome()"
+                  class="text-school-navy hover:text-school-blue flex items-center text-sm font-medium transition"
+                >
+                  <i data-lucide="arrow-left" class="w-4 h-4 mr-1"></i>
+                  กลับหน้าหลัก
+                </button>
+                <span
+                  class="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-200"
+                  >อัลบั้มภาพกิจกรรม</span
+                >
+              </div>
+              <div class="p-6">
+                <h1
+                  id="act-detail-title"
+                  class="text-xl md:text-2xl font-bold text-school-navy mb-3 leading-tight"
+                >
+                  ชื่องานกิจกรรม
+                </h1>
+                <p
+                  id="act-detail-date"
+                  class="text-sm text-gray-500 mb-6 flex items-center"
+                >
+                  <i data-lucide="calendar" class="w-4 h-4 mr-2"></i>
+                  วันที่จัดกิจกรรม
+                </p>
+
+                <!-- Container สำหรับภาพกิจกรรมจะแสดงเป็นช่องๆ Grid -->
+                <div
+                  id="act-detail-image-container"
+                  class="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6"
                 ></div>
               </div>
             </div>
@@ -900,7 +943,7 @@
       </main>
     </div>
 
-    <!-- ================= LIGHTBOX MODAL (หน้าต่างขยายภาพ) ================= -->
+    <!-- ================= LIGHTBOX MODAL (หน้าต่างขยายภาพกิจกรรม) ================= -->
     <div
       id="lightbox-modal"
       class="fixed inset-0 z-[100] bg-black bg-opacity-95 hidden flex flex-col items-center justify-center opacity-0 transition-opacity duration-300"
@@ -1047,8 +1090,21 @@
             globalNews = result.news || [];
             globalActivities = result.activities || [];
             renderPublicData();
-            const id = new URLSearchParams(window.location.search).get("id");
-            if (id) showNewsDetailUI(id);
+
+            // เช็คพารามิเตอร์ของข่าว หรือกิจกรรม เพื่อแยกหน้ากระดาน
+            const urlParams = new URLSearchParams(window.location.search);
+            const newsId = urlParams.get("newsId");
+            const actId = urlParams.get("actId");
+            const oldId = urlParams.get("id"); // เผื่อรองรับลิงก์เก่า
+
+            if (newsId) showNewsDetailUI(newsId);
+            else if (actId) showActivityDetailUI(actId);
+            else if (oldId) {
+              if (globalNews.find((x) => x.id == oldId))
+                showNewsDetailUI(oldId);
+              else if (globalActivities.find((x) => x.id == oldId))
+                showActivityDetailUI(oldId);
+            }
           } else throw new Error(result.message);
         } catch (err) {
           console.error(err);
@@ -1086,7 +1142,7 @@
             .slice(0, 4)
             .map(
               (a) => `
-                <div class="group border border-gray-100 rounded-md overflow-hidden hover:shadow-md transition cursor-pointer" onclick="viewNewsDetail('${a.id}')">
+                <div class="group border border-gray-100 rounded-md overflow-hidden hover:shadow-md transition cursor-pointer" onclick="viewActivityDetail('${a.id}')">
                     <div class="relative overflow-hidden aspect-[4/3] bg-gray-100">
                         <img src="${(a.img || "").split(",")[0] || "https://placehold.co/400x300?text=No+Image"}" alt="${a.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                     </div>
@@ -1158,48 +1214,106 @@
         lucide.createIcons();
       }
 
+      // ==========================================
+      // การสลับหน้าดูรายละเอียดแยกกัน (ข่าว / กิจกรรม)
+      // ==========================================
       function viewNewsDetail(id) {
         try {
           const url = new URL(window.location);
-          url.searchParams.set("id", id);
+          url.searchParams.delete("id");
+          url.searchParams.delete("actId");
+          url.searchParams.set("newsId", id);
           window.history.pushState({}, "", url);
         } catch (e) {}
         showNewsDetailUI(id);
       }
 
+      function viewActivityDetail(id) {
+        try {
+          const url = new URL(window.location);
+          url.searchParams.delete("id");
+          url.searchParams.delete("newsId");
+          url.searchParams.set("actId", id);
+          window.history.pushState({}, "", url);
+        } catch (e) {}
+        showActivityDetailUI(id);
+      }
+
       function showNewsDetailUI(id) {
-        // เช็คทั้งข่าวและกิจกรรม เพื่อแสดงหน้ากระดานรวม
-        let n = globalNews.find((x) => x.id == id);
-        if (!n) {
-          n = globalActivities.find((x) => x.id == id);
-        }
+        const n = globalNews.find((x) => x.id == id);
         if (!n) return;
 
         document.getElementById("home-main-content").classList.add("hidden");
         document
           .getElementById("home-main-content")
           .classList.remove("block", "flex");
+
+        document.getElementById("activity-detail-view").classList.add("hidden");
+        document
+          .getElementById("activity-detail-view")
+          .classList.remove("flex");
+
         document.getElementById("news-detail-view").classList.remove("hidden");
         document.getElementById("news-detail-view").classList.add("flex");
 
-        document.getElementById("detail-title").innerHTML =
+        document.getElementById("news-detail-title").innerHTML =
           n.title +
           (n.isHot
             ? ' <span class="text-[12px] bg-red-500 text-white px-2 py-0.5 rounded ml-2 align-middle shadow-sm">NEW</span>'
             : "");
-        document.getElementById("detail-date").innerHTML =
+        document.getElementById("news-detail-date").innerHTML =
           `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> โพสต์เมื่อ: ${n.date}`;
 
-        const ic = document.getElementById("detail-image-container");
+        const ic = document.getElementById("news-detail-image-container");
         ic.innerHTML = "";
-        currentLightboxImages = []; // รีเซ็ตตัวแปรเก็บภาพสำหรับแสดงจอใหญ่
 
+        // กระดานข่าวแสดงออกแบบเรียงยาวลงมาเหมือนเดิม
         if (n.img) {
-          const urls = n.img.split(",").filter((url) => url.trim() !== "");
+          const urls = n.img.split(",");
+          urls.forEach((url) => {
+            if (url.trim()) {
+              ic.innerHTML += `<img src="${url.trim()}" class="w-full max-w-2xl mx-auto rounded shadow-sm object-cover" />`;
+            }
+          });
+        }
+        document.getElementById("news-detail-content").innerHTML = (
+          n.content || "ไม่มีรายละเอียดเพิ่มเติม"
+        ).replace(/\n/g, "<br>");
+        lucide.createIcons();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function showActivityDetailUI(id) {
+        const a = globalActivities.find((x) => x.id == id);
+        if (!a) return;
+
+        document.getElementById("home-main-content").classList.add("hidden");
+        document
+          .getElementById("home-main-content")
+          .classList.remove("block", "flex");
+
+        document.getElementById("news-detail-view").classList.add("hidden");
+        document.getElementById("news-detail-view").classList.remove("flex");
+
+        document
+          .getElementById("activity-detail-view")
+          .classList.remove("hidden");
+        document.getElementById("activity-detail-view").classList.add("flex");
+
+        document.getElementById("act-detail-title").innerHTML = a.title;
+        document.getElementById("act-detail-date").innerHTML =
+          `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> วันที่จัดกิจกรรม: ${a.date}`;
+
+        const ic = document.getElementById("act-detail-image-container");
+        ic.innerHTML = "";
+        currentLightboxImages = [];
+
+        // กระดานกิจกรรมแสดงผลเป็น Grid รูปเล็กๆ มีระบบขยายภาพ
+        if (a.img) {
+          const urls = a.img.split(",").filter((url) => url.trim() !== "");
           currentLightboxImages = urls;
 
           urls.forEach((url, index) => {
-            // ปรับแสดงผลเป็น Thumbnail แบบตาราง
             ic.innerHTML += `
                         <div class="relative aspect-[4/3] bg-gray-100 rounded-md overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition" onclick="openLightbox(${index})">
                             <img src="${url.trim()}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
@@ -1209,9 +1323,6 @@
                         </div>`;
           });
         }
-        document.getElementById("detail-content").innerHTML = (
-          n.content || "ไม่มีรายละเอียดเพิ่มเติม"
-        ).replace(/\n/g, "<br>");
         lucide.createIcons();
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -1250,12 +1361,10 @@
 
       function changeLightboxImage(step) {
         currentLightboxIndex += step;
-        // วนลูปกลับถ้าเลยจำนวนรูป
         if (currentLightboxIndex < 0)
           currentLightboxIndex = currentLightboxImages.length - 1;
         if (currentLightboxIndex >= currentLightboxImages.length)
           currentLightboxIndex = 0;
-
         updateLightboxContent();
       }
 
@@ -1272,12 +1381,19 @@
         if (!isPopState) {
           try {
             const url = new URL(window.location);
+            url.searchParams.delete("newsId");
+            url.searchParams.delete("actId");
             url.searchParams.delete("id");
             window.history.pushState({}, "", url);
           } catch (e) {}
         }
         document.getElementById("news-detail-view").classList.add("hidden");
         document.getElementById("news-detail-view").classList.remove("flex");
+        document.getElementById("activity-detail-view").classList.add("hidden");
+        document
+          .getElementById("activity-detail-view")
+          .classList.remove("flex");
+
         document.getElementById("home-main-content").classList.remove("hidden");
         document.getElementById("home-main-content").classList.add("block");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1286,9 +1402,19 @@
       // เพิ่มการดักจับปุ่มย้อนกลับ (Back/Forward) ของเบราว์เซอร์
       window.addEventListener("popstate", function (event) {
         const urlParams = new URLSearchParams(window.location.search);
-        const newsId = urlParams.get("id");
+        const newsId = urlParams.get("newsId");
+        const actId = urlParams.get("actId");
+        const oldId = urlParams.get("id");
+
         if (newsId) {
           showNewsDetailUI(newsId);
+        } else if (actId) {
+          showActivityDetailUI(actId);
+        } else if (oldId) {
+          if (globalNews.find((x) => x.id == oldId)) showNewsDetailUI(oldId);
+          else if (globalActivities.find((x) => x.id == oldId))
+            showActivityDetailUI(oldId);
+          else goBackToHome(true);
         } else {
           goBackToHome(true);
         }
