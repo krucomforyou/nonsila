@@ -372,7 +372,6 @@
                   <i data-lucide="calendar" class="w-4 h-4 mr-2"></i> วันที่
                 </p>
 
-                <!-- Container สำหรับข่าวจะแสดงภาพเรียงกันลงมาตรงๆ (ตามต้นฉบับที่คุณพอใจ) -->
                 <div
                   id="news-detail-image-container"
                   class="w-full flex flex-col gap-4 mb-6"
@@ -420,7 +419,6 @@
                   วันที่จัดกิจกรรม
                 </p>
 
-                <!-- Container สำหรับภาพกิจกรรมจะแสดงเป็นช่องๆ Grid -->
                 <div
                   id="act-detail-image-container"
                   class="w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6"
@@ -1059,7 +1057,7 @@
 
       document.addEventListener("DOMContentLoaded", () => {
         lucide.createIcons();
-        fetchAllData();
+        // โหลดข้อมูล Session จาก LocalStorage ก่อน เพื่อให้ระบบตรวจสอบสิทธิ์ได้ทันทีถ้าเปิดหน้า URL ตรงๆ
         const saved = localStorage.getItem("school_user_session");
         if (saved) {
           try {
@@ -1067,6 +1065,9 @@
             updateUserWidget();
           } catch (e) {}
         }
+
+        // ค่อยทำการ fetch ข้อมูลและตรวจสอบ URL Routing
+        fetchAllData();
       });
 
       // เปิดรับปุ่ม Keyboard (ลูกศรซ้าย/ขวา และ Esc) เพื่อใช้งาน Lightbox ได้สะดวก
@@ -1091,13 +1092,15 @@
             globalActivities = result.activities || [];
             renderPublicData();
 
-            // เช็คพารามิเตอร์ของข่าว หรือกิจกรรม เพื่อแยกหน้ากระดาน
+            // เช็คพารามิเตอร์ของ Routing
             const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get("view");
             const newsId = urlParams.get("newsId");
             const actId = urlParams.get("actId");
             const oldId = urlParams.get("id"); // เผื่อรองรับลิงก์เก่า
 
-            if (newsId) showNewsDetailUI(newsId);
+            if (view === "admin") showAdminDashboard(true);
+            else if (newsId) showNewsDetailUI(newsId);
             else if (actId) showActivityDetailUI(actId);
             else if (oldId) {
               if (globalNews.find((x) => x.id == oldId))
@@ -1222,6 +1225,7 @@
           const url = new URL(window.location);
           url.searchParams.delete("id");
           url.searchParams.delete("actId");
+          url.searchParams.delete("view");
           url.searchParams.set("newsId", id);
           window.history.pushState({}, "", url);
         } catch (e) {}
@@ -1233,6 +1237,7 @@
           const url = new URL(window.location);
           url.searchParams.delete("id");
           url.searchParams.delete("newsId");
+          url.searchParams.delete("view");
           url.searchParams.set("actId", id);
           window.history.pushState({}, "", url);
         } catch (e) {}
@@ -1384,9 +1389,15 @@
             url.searchParams.delete("newsId");
             url.searchParams.delete("actId");
             url.searchParams.delete("id");
+            url.searchParams.delete("view");
             window.history.pushState({}, "", url);
           } catch (e) {}
         }
+
+        // ปิดหน้าต่างต่างๆที่ไม่ใช่หน้าหลัก
+        document
+          .getElementById("admin-view")
+          .classList.add("hidden", "opacity-0");
         document.getElementById("news-detail-view").classList.add("hidden");
         document.getElementById("news-detail-view").classList.remove("flex");
         document.getElementById("activity-detail-view").classList.add("hidden");
@@ -1394,6 +1405,10 @@
           .getElementById("activity-detail-view")
           .classList.remove("flex");
 
+        // เปิดหน้าหลัก
+        document
+          .getElementById("public-view")
+          .classList.remove("hidden", "opacity-0");
         document.getElementById("home-main-content").classList.remove("hidden");
         document.getElementById("home-main-content").classList.add("block");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1402,21 +1417,49 @@
       // เพิ่มการดักจับปุ่มย้อนกลับ (Back/Forward) ของเบราว์เซอร์
       window.addEventListener("popstate", function (event) {
         const urlParams = new URLSearchParams(window.location.search);
+        const view = urlParams.get("view");
         const newsId = urlParams.get("newsId");
         const actId = urlParams.get("actId");
         const oldId = urlParams.get("id");
 
-        if (newsId) {
+        // ตรวจสอบ Routing
+        if (view === "admin") {
+          showAdminDashboard(true);
+        } else if (newsId) {
+          document
+            .getElementById("admin-view")
+            .classList.add("hidden", "opacity-0");
+          document
+            .getElementById("public-view")
+            .classList.remove("hidden", "opacity-0");
           showNewsDetailUI(newsId);
         } else if (actId) {
+          document
+            .getElementById("admin-view")
+            .classList.add("hidden", "opacity-0");
+          document
+            .getElementById("public-view")
+            .classList.remove("hidden", "opacity-0");
           showActivityDetailUI(actId);
         } else if (oldId) {
+          document
+            .getElementById("admin-view")
+            .classList.add("hidden", "opacity-0");
+          document
+            .getElementById("public-view")
+            .classList.remove("hidden", "opacity-0");
           if (globalNews.find((x) => x.id == oldId)) showNewsDetailUI(oldId);
           else if (globalActivities.find((x) => x.id == oldId))
             showActivityDetailUI(oldId);
           else goBackToHome(true);
         } else {
-          goBackToHome(true);
+          if (
+            !document.getElementById("admin-view").classList.contains("hidden")
+          ) {
+            backToPublicView(true);
+          } else {
+            goBackToHome(true);
+          }
         }
       });
 
@@ -1481,6 +1524,7 @@
         roleBadge.textContent = getRoleName(loggedInUser.role);
         roleBadge.className = `text-[10px] px-2 py-0.5 rounded-full font-bold mb-4 border ${getRoleColor(loggedInUser.role)}`;
 
+        // แสดงปุ่มจัดการระบบเฉพาะแอดมินเท่านั้น (Role 2 และ 3)
         if (loggedInUser.role == "2" || loggedInUser.role == "3") {
           document
             .getElementById("btn-manage-system")
@@ -1497,12 +1541,54 @@
         document.getElementById("login-form-widget").classList.remove("hidden");
         document.getElementById("login-form-widget").classList.add("block");
         document.getElementById("btn-manage-system").classList.add("hidden");
-        if (!document.getElementById("admin-view").classList.contains("hidden"))
+
+        // หากล็อกเอาต์ตอนอยู่หน้าจัดการระบบ ให้เด้งกลับหน้าหลัก
+        if (
+          !document.getElementById("admin-view").classList.contains("hidden")
+        ) {
           backToPublicView();
-        else fetchAllData();
+        } else {
+          fetchAllData();
+        }
       }
 
-      function showAdminDashboard() {
+      function showAdminDashboard(isPopState = false) {
+        // ระบบตรวจสอบสิทธิ์ความปลอดภัย (Security Check)
+        if (
+          !loggedInUser ||
+          (loggedInUser.role !== "2" && loggedInUser.role !== "3")
+        ) {
+          showAlert(
+            "error",
+            "ปฏิเสธการเข้าถึง",
+            "เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถเข้าถึงหน้านี้ได้",
+          );
+
+          // ล้าง URL และเด้งกลับหน้าหลักถ้าถูกดักจับได้
+          try {
+            const url = new URL(window.location);
+            url.searchParams.delete("view");
+            window.history.replaceState({}, "", url);
+          } catch (e) {}
+
+          document
+            .getElementById("admin-view")
+            .classList.add("hidden", "opacity-0");
+          document
+            .getElementById("public-view")
+            .classList.remove("hidden", "opacity-0");
+          return;
+        }
+
+        // นำ view=admin ใส่ไปใน URL
+        if (!isPopState) {
+          try {
+            const url = new URL(window.location);
+            url.searchParams.set("view", "admin");
+            window.history.pushState({}, "", url);
+          } catch (e) {}
+        }
+
         document.getElementById("public-view").classList.add("opacity-0");
         setTimeout(() => {
           document.getElementById("public-view").classList.add("hidden");
@@ -1526,12 +1612,21 @@
         }, 300);
       }
 
-      function backToPublicView() {
+      function backToPublicView(isPopState = false) {
+        // ลบ view=admin ออกจาก URL
+        if (!isPopState) {
+          try {
+            const url = new URL(window.location);
+            url.searchParams.delete("view");
+            window.history.pushState({}, "", url);
+          } catch (e) {}
+        }
+
         document.getElementById("admin-view").classList.add("opacity-0");
         setTimeout(() => {
           document.getElementById("admin-view").classList.add("hidden");
           document.getElementById("public-view").classList.remove("hidden");
-          fetchAllData();
+          fetchAllData(); // Refresh ตารางหน้าแรก
           setTimeout(
             () =>
               document
