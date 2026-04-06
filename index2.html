@@ -846,8 +846,24 @@
                 form.classList.remove('hidden');
             } else {
                 form.classList.add('hidden');
-                if(formId === 'form-news-container') document.getElementById('form-add-news').reset();
-                if(formId === 'form-activity-container') document.getElementById('form-add-activity').reset();
+                if(formId === 'form-news-container') {
+                    document.getElementById('form-add-news').reset();
+                    editNewsId = null;
+                    document.getElementById('form-news-header').innerText = "ฟอร์มเพิ่มข่าวประชาสัมพันธ์";
+                    document.getElementById('btn-submit-news').innerText = "บันทึกข่าว";
+                    document.getElementById('news-image').required = true;
+                    document.getElementById('news-image-req').classList.remove('hidden');
+                    document.getElementById('news-image-hint').classList.add('hidden');
+                }
+                if(formId === 'form-activity-container') {
+                    document.getElementById('form-add-activity').reset();
+                    editActId = null;
+                    document.getElementById('form-act-header').innerText = "ฟอร์มเพิ่มภาพกิจกรรม";
+                    document.getElementById('btn-submit-act').innerText = "บันทึกกิจกรรม";
+                    document.getElementById('act-image').required = true;
+                    document.getElementById('act-image-req').classList.remove('hidden');
+                    document.getElementById('act-image-hint').classList.add('hidden');
+                }
             }
         }
 
@@ -871,7 +887,8 @@
                 }
 
                 const payload = {
-                    action: "add_news",
+                    action: editNewsId ? "edit_news" : "add_news",
+                    id: editNewsId,
                     title: title,
                     content: content,
                     isHot: isHot,
@@ -885,7 +902,7 @@
                 const result = await response.json();
 
                 if(result.status === "success") {
-                    showAlert('success', 'สำเร็จ', 'เพิ่มข่าวเรียบร้อยแล้ว').then(() => {
+                    showAlert('success', 'สำเร็จ', editNewsId ? 'แก้ไขข่าวเรียบร้อยแล้ว' : 'เพิ่มข่าวเรียบร้อยแล้ว').then(() => {
                         toggleForm('form-news-container');
                         fetchAllData(); 
                     });
@@ -894,7 +911,7 @@
             } catch(error) {
                 showAlert('error', 'เกิดข้อผิดพลาด', 'อัปโหลดไม่สำเร็จ: ' + error.message);
             } finally {
-                btn.innerHTML = 'บันทึกข่าว';
+                btn.innerHTML = editNewsId ? 'บันทึกการแก้ไข' : 'บันทึกข่าว';
                 btn.disabled = false;
             }
         }
@@ -917,7 +934,8 @@
                 }
 
                 const payload = {
-                    action: "add_activity",
+                    action: editActId ? "edit_activity" : "add_activity",
+                    id: editActId,
                     title: title,
                     imageObj: imageObj
                 };
@@ -929,7 +947,7 @@
                 const result = await response.json();
 
                 if(result.status === "success") {
-                    showAlert('success', 'สำเร็จ', 'สร้างอัลบั้มกิจกรรมเรียบร้อยแล้ว').then(() => {
+                    showAlert('success', 'สำเร็จ', editActId ? 'แก้ไขกิจกรรมเรียบร้อยแล้ว' : 'สร้างอัลบั้มกิจกรรมเรียบร้อยแล้ว').then(() => {
                         toggleForm('form-activity-container');
                         fetchAllData();
                     });
@@ -938,9 +956,81 @@
             } catch(error) {
                 showAlert('error', 'เกิดข้อผิดพลาด', 'อัปโหลดไม่สำเร็จ: ' + error.message);
             } finally {
-                btn.innerHTML = 'บันทึกกิจกรรม';
+                btn.innerHTML = editActId ? 'บันทึกการแก้ไข' : 'บันทึกกิจกรรม';
                 btn.disabled = false;
             }
+        }
+
+        // ==========================================
+        // ระบบจัดการข้อมูล (แอดมิน: แก้ไข / ลบ)
+        // ==========================================
+        async function deleteData(sheetName, id) {
+            Swal.fire({
+                title: 'ยืนยันการลบ?',
+                text: "ลบแล้วจะไม่สามารถกู้คืนได้!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'ยืนยันการลบ',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#dc2626',
+                ...swalTheme
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(SCRIPT_URL, {
+                            method: "POST",
+                            body: JSON.stringify({ action: "delete_item", sheetName: sheetName, id: id })
+                        });
+                        const res = await response.json();
+                        if (res.status === "success") {
+                            Swal.fire({icon: 'success', title: 'ลบสำเร็จ', text: 'ลบข้อมูลเรียบร้อยแล้ว', ...swalTheme});
+                            fetchAllData();
+                        } else throw new Error(res.message);
+                    } catch (err) {
+                        Swal.fire({icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message, ...swalTheme});
+                    }
+                }
+            });
+        }
+
+        function editNews(id) {
+            const news = globalNews.find(n => n.id == id);
+            if (!news) return;
+            
+            editNewsId = id;
+            document.getElementById('news-title').value = news.title;
+            document.getElementById('news-content').value = news.content || "";
+            document.getElementById('news-hot').checked = news.isHot;
+            
+            document.getElementById('form-news-header').innerText = "ฟอร์มแก้ไขข่าวประชาสัมพันธ์";
+            document.getElementById('btn-submit-news').innerText = "บันทึกการแก้ไข";
+            
+            document.getElementById('news-image').required = false;
+            document.getElementById('news-image-req').classList.add('hidden');
+            document.getElementById('news-image-hint').classList.remove('hidden');
+
+            const form = document.getElementById('form-news-container');
+            form.classList.remove('hidden');
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function editActivity(id) {
+            const act = globalActivities.find(n => n.id == id);
+            if (!act) return;
+            
+            editActId = id;
+            document.getElementById('act-title').value = act.title;
+            
+            document.getElementById('form-act-header').innerText = "ฟอร์มแก้ไขภาพกิจกรรม";
+            document.getElementById('btn-submit-act').innerText = "บันทึกการแก้ไข";
+            
+            document.getElementById('act-image').required = false;
+            document.getElementById('act-image-req').classList.add('hidden');
+            document.getElementById('act-image-hint').classList.remove('hidden');
+
+            const form = document.getElementById('form-activity-container');
+            form.classList.remove('hidden');
+            form.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>
