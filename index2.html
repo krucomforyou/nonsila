@@ -699,14 +699,26 @@
                     class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-school-blue"
                   />
                 </div>
+
+                <!-- ส่วนแสดงพรีวิวรูปภาพเดิม (แสดงเฉพาะตอนแก้ไข) -->
+                <div id="news-edit-preview-section" class="hidden">
+                  <label class="block text-sm text-gray-700 mb-1"
+                    >รูปภาพปัจจุบัน (คลิก 🗑️ เพื่อลบ)</label
+                  >
+                  <div
+                    id="news-edit-image-preview"
+                    class="flex flex-wrap gap-3 mt-2 bg-gray-50 p-3 rounded border border-gray-200"
+                  ></div>
+                </div>
+
                 <div>
                   <label class="block text-sm text-gray-700 mb-1"
-                    >รูปประกอบ (เลือกได้หลายรูป)
+                    >เพิ่มรูปประกอบ (เลือกได้หลายรูป)
                     <span id="news-image-req" class="text-red-500">*</span>
                     <span
                       id="news-image-hint"
-                      class="text-xs text-gray-400 hidden"
-                      >(ไม่ต้องเลือกหากต้องการใช้รูปเดิม)</span
+                      class="text-xs text-gray-500 hidden"
+                      >(หากอัปโหลดใหม่ รูปจะนำไปต่อท้ายรูปเดิมที่มีอยู่)</span
                     ></label
                   >
                   <input
@@ -840,14 +852,26 @@
                     class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-school-blue"
                   />
                 </div>
+
+                <!-- ส่วนแสดงพรีวิวรูปภาพเดิม (แสดงเฉพาะตอนแก้ไข) -->
+                <div id="act-edit-preview-section" class="hidden">
+                  <label class="block text-sm text-gray-700 mb-1"
+                    >รูปภาพปัจจุบัน (คลิก 🗑️ เพื่อลบ)</label
+                  >
+                  <div
+                    id="act-edit-image-preview"
+                    class="flex flex-wrap gap-3 mt-2 bg-gray-50 p-3 rounded border border-gray-200"
+                  ></div>
+                </div>
+
                 <div>
                   <label class="block text-sm text-gray-700 mb-1"
-                    >รูปภาพ (เลือกได้หลายรูป)
+                    >เพิ่มรูปภาพ (เลือกได้หลายรูป)
                     <span id="act-image-req" class="text-red-500">*</span>
                     <span
                       id="act-image-hint"
-                      class="text-xs text-gray-400 hidden"
-                      >(ไม่ต้องเลือกหากต้องการใช้รูปเดิม)</span
+                      class="text-xs text-gray-500 hidden"
+                      >(หากอัปโหลดใหม่ รูปจะนำไปต่อท้ายรูปเดิมที่มีอยู่)</span
                     ></label
                   >
                   <input
@@ -904,7 +928,7 @@
 
       const swalTheme = {
         customClass: {
-          popup: "rounded-2xl shadow-xl",
+          popup: "rounded-2xl shadow-xl border border-gray-100",
           title: "text-xl font-bold text-school-navy mt-2",
           confirmButton:
             "bg-school-navy hover:bg-school-navyLight text-white px-6 py-2.5 rounded-lg font-medium transition shadow-md mx-2 outline-none justify-center w-auto",
@@ -1138,7 +1162,7 @@
         document.getElementById("news-detail-view").classList.add("hidden");
         document.getElementById("news-detail-view").classList.remove("flex");
         document.getElementById("home-main-content").classList.remove("hidden");
-        document.getElementById("home-main-content").classList.add("flex");
+        document.getElementById("home-main-content").classList.add("block"); // กลับมาใช้ block ตามโครงสร้างเดิม
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
@@ -1297,6 +1321,7 @@
         if (f.classList.contains("hidden")) f.classList.remove("hidden");
         else {
           f.classList.add("hidden");
+          // ซ่อนส่วน Preview เสมอเวลาปิดฟอร์มหรือเพิ่มข้อมูลใหม่
           if (id === "form-news-container") {
             editNewsId = null;
             document.getElementById("form-add-news").reset();
@@ -1308,6 +1333,9 @@
             document.getElementById("form-news-header").innerText =
               "ฟอร์มเพิ่มข่าวประชาสัมพันธ์";
             document.getElementById("btn-submit-news").innerText = "บันทึกข่าว";
+            document
+              .getElementById("news-edit-preview-section")
+              .classList.add("hidden");
           }
           if (id === "form-activity-container") {
             editActId = null;
@@ -1319,8 +1347,84 @@
               "ฟอร์มเพิ่มภาพกิจกรรม";
             document.getElementById("btn-submit-act").innerText =
               "บันทึกกิจกรรม";
+            document
+              .getElementById("act-edit-preview-section")
+              .classList.add("hidden");
           }
         }
+      }
+
+      // ==========================================
+      // ระบบลบรูปภาพเฉพาะรูป (ทีละรูป)
+      // ==========================================
+      async function deleteSingleImage(sheetName, id, imageUrl) {
+        Swal.fire({
+          title: "ลบรูปภาพนี้?",
+          text: "รูปภาพจะถูกลบออกจากระบบและ Google Drive อย่างถาวร!",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "ลบรูปภาพ",
+          cancelButtonText: "ยกเลิก",
+          confirmButtonColor: "#dc2626",
+          ...swalTheme,
+        }).then(async (r) => {
+          if (r.isConfirmed) {
+            try {
+              Swal.fire({
+                title: "กำลังลบ...",
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading(),
+              });
+              const res = await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "delete_image",
+                  sheetName: sheetName,
+                  id: id,
+                  imageUrl: imageUrl,
+                }),
+              });
+              const data = await res.json();
+
+              if (data.status === "success") {
+                // อัปเดต UI ทันทีไม่ต้องรอโหลดใหม่ทั้งหมด
+                if (sheetName === "News") {
+                  let item = globalNews.find((x) => x.id == id);
+                  if (item)
+                    item.img = item.img
+                      .split(",")
+                      .filter((u) => u.trim() !== imageUrl)
+                      .join(",");
+                  editNews(id); // โหลดพรีวิวรูปภาพใหม่
+                } else {
+                  let item = globalActivities.find((x) => x.id == id);
+                  if (item)
+                    item.img = item.img
+                      .split(",")
+                      .filter((u) => u.trim() !== imageUrl)
+                      .join(",");
+                  editActivity(id); // โหลดพรีวิวรูปภาพใหม่
+                }
+                Swal.fire({
+                  icon: "success",
+                  title: "ลบสำเร็จ",
+                  text: "",
+                  timer: 1500,
+                  showConfirmButton: false,
+                  ...swalTheme,
+                });
+                fetchAllData(); // โหลดข้อมูลให้ตารางอัปเดต
+              } else throw new Error(data.message);
+            } catch (err) {
+              Swal.fire({
+                icon: "error",
+                title: "ผิดพลาด",
+                text: err.message,
+                ...swalTheme,
+              });
+            }
+          }
+        });
       }
 
       async function submitNews(e) {
@@ -1355,7 +1459,7 @@
             showAlert(
               "success",
               "สำเร็จ",
-              editNewsId ? "แก้ไขข่าวเรียบร้อยแล้ว" : "เพิ่มข่าวเรียบร้อยแล้ว",
+              editNewsId ? "อัปเดตข้อมูลแล้ว" : "เพิ่มข่าวเรียบร้อยแล้ว",
             );
             toggleForm("form-news-container");
             fetchAllData();
@@ -1399,7 +1503,7 @@
               "success",
               "สำเร็จ",
               editActId
-                ? "แก้ไขกิจกรรมเรียบร้อยแล้ว"
+                ? "อัปเดตข้อมูลแล้ว"
                 : "สร้างอัลบั้มกิจกรรมเรียบร้อยแล้ว",
             );
             toggleForm("form-activity-container");
@@ -1420,18 +1524,51 @@
         document.getElementById("news-title").value = n.title;
         document.getElementById("news-content").value = n.content || "";
         document.getElementById("news-hot").checked = n.isHot;
+
+        // จัดการ UI
         document.getElementById("news-image").required = false;
         document.getElementById("news-image-req").classList.add("hidden");
         document.getElementById("news-image-hint").classList.remove("hidden");
         document.getElementById("form-news-header").innerText =
           "ฟอร์มแก้ไขข่าวประชาสัมพันธ์";
         document.getElementById("btn-submit-news").innerText = "บันทึกการแก้ไข";
+
+        // แสดงพรีวิวรูปภาพเดิม
+        const previewSection = document.getElementById(
+          "news-edit-preview-section",
+        );
+        const previewContainer = document.getElementById(
+          "news-edit-image-preview",
+        );
+        previewContainer.innerHTML = "";
+
+        if (n.img && n.img.trim() !== "") {
+          const urls = n.img.split(",").filter((u) => u.trim());
+          if (urls.length > 0) {
+            previewSection.classList.remove("hidden");
+            urls.forEach((url) => {
+              previewContainer.innerHTML += `
+                            <div class="relative w-20 h-20 border rounded overflow-hidden group">
+                                <img src="${url}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button" onclick="deleteSingleImage('News', ${id}, '${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button>
+                                </div>
+                            </div>`;
+            });
+          } else {
+            previewSection.classList.add("hidden");
+          }
+        } else {
+          previewSection.classList.add("hidden");
+        }
+
         document
           .getElementById("form-news-container")
           .classList.remove("hidden");
         document
           .getElementById("form-news-container")
           .scrollIntoView({ behavior: "smooth" });
+        lucide.createIcons();
       }
 
       function editActivity(id) {
@@ -1439,18 +1576,51 @@
         if (!a) return;
         editActId = id;
         document.getElementById("act-title").value = a.title;
+
+        // จัดการ UI
         document.getElementById("act-image").required = false;
         document.getElementById("act-image-req").classList.add("hidden");
         document.getElementById("act-image-hint").classList.remove("hidden");
         document.getElementById("form-act-header").innerText =
           "ฟอร์มแก้ไขภาพกิจกรรม";
         document.getElementById("btn-submit-act").innerText = "บันทึกการแก้ไข";
+
+        // แสดงพรีวิวรูปภาพเดิม
+        const previewSection = document.getElementById(
+          "act-edit-preview-section",
+        );
+        const previewContainer = document.getElementById(
+          "act-edit-image-preview",
+        );
+        previewContainer.innerHTML = "";
+
+        if (a.img && a.img.trim() !== "") {
+          const urls = a.img.split(",").filter((u) => u.trim());
+          if (urls.length > 0) {
+            previewSection.classList.remove("hidden");
+            urls.forEach((url) => {
+              previewContainer.innerHTML += `
+                            <div class="relative w-20 h-20 border rounded overflow-hidden group">
+                                <img src="${url}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button" onclick="deleteSingleImage('Activities', ${id}, '${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button>
+                                </div>
+                            </div>`;
+            });
+          } else {
+            previewSection.classList.add("hidden");
+          }
+        } else {
+          previewSection.classList.add("hidden");
+        }
+
         document
           .getElementById("form-activity-container")
           .classList.remove("hidden");
         document
           .getElementById("form-activity-container")
           .scrollIntoView({ behavior: "smooth" });
+        lucide.createIcons();
       }
 
       async function deleteData(sheet, id) {
