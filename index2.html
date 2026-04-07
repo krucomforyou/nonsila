@@ -443,6 +443,11 @@
                                     <div id="settings-slide-preview" class="flex flex-wrap gap-3 mt-2 bg-white p-3 rounded border border-gray-200"></div>
                                 </div>
 
+                                <div class="mb-3">
+                                    <label class="block text-sm text-gray-700 mb-1">ระยะเวลาแสดงสไลด์ (วินาที) <span class="text-xs text-gray-500">ค่ามาตรฐานคือ 4 วินาที</span></label>
+                                    <input type="number" id="settings-slide-interval" min="1" max="30" class="w-32 border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue">
+                                </div>
+
                                 <label class="block text-sm text-gray-700 mb-1">เพิ่มภาพสไลด์ <span class="text-xs text-gray-500">(เลือกได้หลายรูป แนะนำอัตราส่วน 2:1)</span></label>
                                 <input type="file" id="settings-slide-image" accept="image/*" multiple class="w-full border border-gray-300 rounded p-1.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-school-blue hover:file:bg-blue-100">
                             </div>
@@ -620,7 +625,7 @@
         let loggedInUser = null;
         let globalNews = [];
         let globalActivities = [];
-        let globalSettings = { banner: "", slideshow: [], showBanner: true };
+        let globalSettings = { banner: "", slideshow: [], showBanner: true, slideInterval: 4 };
         
         let editNewsId = null;
         let editActId = null;
@@ -784,6 +789,7 @@
                         globalSettings.banner = result.settings.banner || "";
                         globalSettings.slideshow = result.settings.slideshow ? result.settings.slideshow.split(',').filter(u=>u.trim()!=="") : [];
                         globalSettings.showBanner = result.settings.showBanner !== undefined ? result.settings.showBanner : true;
+                        globalSettings.slideInterval = result.settings.slideInterval || 4; // โหลดค่าเวลาสไลด์
                     }
 
                     renderPublicData();
@@ -833,6 +839,8 @@
             const slides = container.querySelectorAll('img');
             if(slides.length > 1) {
                 let currentSlide = 0;
+                // คำนวณเวลาจากวินาทีเป็นมิลลิวินาที
+                const intervalMs = (globalSettings.slideInterval || 4) * 1000;
                 slideIntervalId = setInterval(() => {
                     slides[currentSlide].classList.remove('opacity-100', 'z-10');
                     slides[currentSlide].classList.add('opacity-0', 'z-0');
@@ -841,7 +849,7 @@
                     
                     slides[currentSlide].classList.remove('opacity-0', 'z-0');
                     slides[currentSlide].classList.add('opacity-100', 'z-10');
-                }, 4000); // สลับทุกๆ 4 วินาที
+                }, intervalMs); // ใช้ค่าเวลาที่ตั้งไว้
             }
         }
 
@@ -984,6 +992,9 @@
             
             // Set Checkbox state
             document.getElementById('settings-show-banner').checked = globalSettings.showBanner;
+            
+            // Set Slide Interval state
+            document.getElementById('settings-slide-interval').value = globalSettings.slideInterval;
 
             // Render Banner Preview
             const bp = document.getElementById('settings-banner-preview');
@@ -1051,7 +1062,8 @@
                     retainedBannerUrl: retainedSettingsBanner,
                     slideImageObjs: slideObjs,
                     retainedSlideshowUrls: retainedSettingsSlides,
-                    showBanner: document.getElementById('settings-show-banner').checked
+                    showBanner: document.getElementById('settings-show-banner').checked,
+                    slideInterval: document.getElementById('settings-slide-interval').value
                 };
                 
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
