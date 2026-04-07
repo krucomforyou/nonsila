@@ -1352,13 +1352,40 @@
         }
 
         async function deleteData(sheet, id) {
-            Swal.fire({title:'ยืนยันการลบ?', text:"ลบแล้วจะไม่สามารถกู้คืนได้!", icon:'warning', showCancelButton:true, confirmButtonText:'ยืนยันการลบ', cancelButtonText:'ยกเลิก', confirmButtonColor:'#dc2626', ...swalTheme}).then(async (r) => {
+            Swal.fire({
+                title: 'ยืนยันการลบ?', 
+                text: "ลบแล้วจะไม่สามารถกู้คืนได้!", 
+                icon: 'warning', 
+                showCancelButton: true, 
+                confirmButtonText: 'ยืนยันการลบ', 
+                cancelButtonText: 'ยกเลิก', 
+                confirmButtonColor: '#dc2626', 
+                ...swalTheme
+            }).then(async (r) => {
                 if(r.isConfirmed) {
+                    // แสดงหน้าต่างโหลดข้อมูลระหว่างที่กำลังส่งคำขอลบไปยังเซิร์ฟเวอร์
+                    Swal.fire({
+                        title: 'กำลังลบข้อมูล...',
+                        text: 'กรุณารอสักครู่ ระบบกำลังทำการลบข้อมูลและรูปภาพที่เกี่ยวข้องในระบบ',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        },
+                        ...swalTheme
+                    });
+                    
                     try {
                         const res = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify({action:"delete_item", sheetName:sheet, id:id}) });
                         const data = await res.json();
-                        if(data.status==="success") { showAlert('success','ลบสำเร็จ','ลบข้อมูลเรียบร้อยแล้ว'); fetchAllData(); } else throw new Error(data.message);
-                    } catch(err) { showAlert('error','เกิดข้อผิดพลาด',err.message); }
+                        if(data.status==="success") { 
+                            showAlert('success','ลบสำเร็จ','ลบข้อมูลเรียบร้อยแล้ว'); 
+                            fetchAllData(); 
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    } catch(err) { 
+                        showAlert('error','เกิดข้อผิดพลาด',err.message); 
+                    }
                 }
             });
         }
