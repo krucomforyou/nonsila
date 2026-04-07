@@ -19,6 +19,10 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- Cropper.js สำหรับจัดการปรับขนาด/ตัดรูปภาพ -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -423,10 +427,10 @@
                                     </div>
                                 </div>
                                 
-                                <div id="settings-banner-preview" class="mb-3 rounded overflow-hidden shadow-sm relative h-32 md:h-48 w-full bg-school-navy flex items-center justify-center">
+                                <div id="settings-banner-preview" class="mb-3 rounded overflow-hidden shadow-sm relative h-32 md:h-48 lg:h-[180px] w-full bg-school-navy flex items-center justify-center">
                                     <!-- Banner Image will be injected here -->
                                 </div>
-                                <label class="block text-sm text-gray-700 mb-1">อัปโหลดภาพแบนเนอร์ใหม่ <span class="text-xs text-gray-500">(แนะนำขนาด 1200x150 px) หากอัปโหลดใหม่จะไปแทนที่ภาพเดิม</span></label>
+                                <label class="block text-sm text-gray-700 mb-1">อัปโหลดภาพแบนเนอร์ใหม่ <span class="text-xs text-gray-500">(แนะนำขนาด 1200x180 px) หากอัปโหลดใหม่จะไปแทนที่ภาพเดิม</span></label>
                                 <input type="file" id="settings-banner-image" accept="image/*" class="w-full border border-gray-300 rounded p-1.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-school-blue hover:file:bg-blue-100">
                             </div>
 
@@ -590,6 +594,25 @@
         <div id="lightbox-counter" class="absolute bottom-6 text-white text-sm md:text-base bg-black bg-opacity-50 px-4 py-1.5 rounded-full font-medium tracking-widest"></div>
     </div>
 
+    <!-- CROPPER MODAL -->
+    <div id="cropper-modal" class="fixed inset-0 z-[120] bg-black bg-opacity-95 hidden flex flex-col items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white p-4 rounded shadow-xl w-full max-w-4xl flex flex-col gap-4 mx-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-school-navy flex items-center"><i data-lucide="crop" class="w-5 h-5 mr-2"></i> ปรับขนาดและตำแหน่งภาพแบนเนอร์</h3>
+                <button onclick="closeCropperModal()" class="text-gray-500 hover:text-red-500 transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="w-full h-[50vh] md:h-[60vh] bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                <img id="cropper-image" src="" alt="Image to crop" class="max-w-full max-h-full">
+            </div>
+            <div class="flex justify-end gap-3 pt-2 border-t mt-2">
+                <button onclick="closeCropperModal()" class="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 transition">ยกเลิก</button>
+                <button onclick="confirmCrop()" class="px-5 py-2.5 bg-school-navy text-white rounded-md text-sm font-medium hover:bg-school-navyLight transition shadow-sm flex items-center">
+                    <i data-lucide="check" class="w-4 h-4 mr-2"></i> ยืนยันการตัดรูป
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxObNOOwr4D8dDeBVMKZyDQTnP8Wzk_qFKCldYZ1xVyhPz_nidr7J7Bn8oBrSuNzvgyZA/exec";
         const AUTH_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxs73UfTpKBvRc4J75bAFlar18Ga6HCjq1YmSJ9lu0BrNECE-YIebvY3BTu5EDKLr0b/exec";
@@ -611,6 +634,12 @@
         let currentLightboxImages = [];
         let currentLightboxIndex = 0;
         let slideIntervalId = null;
+
+        // สำหรับระบบ Crop รูปแบนเนอร์
+        let cropper = null;
+        let croppedBannerBase64 = null;
+        let croppedBannerMimeType = null;
+        let croppedBannerName = null;
 
         const swalTheme = {
             customClass: {
@@ -646,14 +675,99 @@
             const saved = localStorage.getItem("school_user_session");
             if (saved) { try { loggedInUser = JSON.parse(saved); updateUserWidget(); } catch(e) {} }
             fetchAllData(); 
+
+            // Add listener for banner file input
+            const bannerInput = document.getElementById('settings-banner-image');
+            if(bannerInput) {
+                bannerInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        croppedBannerName = file.name;
+                        croppedBannerMimeType = file.type;
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            openCropperModal(event.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
         });
 
+        // ==========================================
+        // ฟังก์ชันระบบ Crop ภาพ
+        // ==========================================
+        function openCropperModal(imageSrc) {
+            const modal = document.getElementById('cropper-modal');
+            const img = document.getElementById('cropper-image');
+            img.src = imageSrc;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+            }, 10);
+
+            if (cropper) {
+                cropper.destroy();
+            }
+            
+            // ตั้งค่า Cropper.js อัตราส่วน 1200:180 (20:3)
+            cropper = new Cropper(img, {
+                aspectRatio: 1200 / 180,
+                viewMode: 2,
+                autoCropArea: 1,
+                responsive: true,
+                background: false,
+                zoomable: true,
+                scalable: true,
+            });
+            lucide.createIcons();
+        }
+
+        function closeCropperModal() {
+            const modal = document.getElementById('cropper-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+                // เคลียร์ input เพื่อให้เลือกไฟล์เดิมซ้ำได้ถ้ากดยกเลิก
+                document.getElementById('settings-banner-image').value = '';
+            }, 300);
+        }
+
+        function confirmCrop() {
+            if (!cropper) return;
+            
+            const canvas = cropper.getCroppedCanvas({
+                width: 1200,
+                height: 180,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+            
+            croppedBannerBase64 = canvas.toDataURL(croppedBannerMimeType || 'image/jpeg');
+            
+            // แสดงตัวอย่างในหน้า Settings
+            const bp = document.getElementById('settings-banner-preview');
+            bp.innerHTML = `<img src="${croppedBannerBase64}" class="w-full h-full object-cover opacity-90">`;
+            
+            closeCropperModal();
+        }
+
         document.addEventListener('keydown', function(e) {
-            const modal = document.getElementById('lightbox-modal');
-            if(modal && !modal.classList.contains('hidden')) {
+            const modalLightbox = document.getElementById('lightbox-modal');
+            if(modalLightbox && !modalLightbox.classList.contains('hidden')) {
                 if(e.key === 'ArrowLeft') changeLightboxImage(-1);
                 if(e.key === 'ArrowRight') changeLightboxImage(1);
                 if(e.key === 'Escape') closeLightbox();
+            }
+
+            const modalCropper = document.getElementById('cropper-modal');
+            if(modalCropper && !modalCropper.classList.contains('hidden')) {
+                if(e.key === 'Escape') closeCropperModal();
             }
         });
 
@@ -873,7 +987,11 @@
 
             // Render Banner Preview
             const bp = document.getElementById('settings-banner-preview');
-            if (retainedSettingsBanner) {
+            // กรณีที่มีรูปที่เพิ่ง crop ไว้ให้แสดงรูปนั้น
+            if (croppedBannerBase64) {
+                bp.innerHTML = `<img src="${croppedBannerBase64}" class="w-full h-full object-cover opacity-90">`;
+            } 
+            else if (retainedSettingsBanner) {
                 bp.innerHTML = `<img src="${retainedSettingsBanner}" class="w-full h-full object-cover opacity-90">`;
             } else {
                 bp.innerHTML = `<span class="text-gray-400 text-sm">ยังไม่ได้ตั้งค่ารูปภาพ</span>`;
@@ -915,9 +1033,9 @@
             try {
                 // จัดการไฟล์ Banner
                 let bannerObj = null;
-                const bannerFile = document.getElementById('settings-banner-image').files[0];
-                if(bannerFile) {
-                    bannerObj = { name: bannerFile.name, mimeType: bannerFile.type, base64: await fileToBase64(bannerFile) };
+                // หากมีการ crop รูปภาพใหม่ จะส่ง base64 ที่ได้จากการ crop แทนไฟล์ตรงๆ
+                if(croppedBannerBase64) {
+                    bannerObj = { name: croppedBannerName, mimeType: croppedBannerMimeType, base64: croppedBannerBase64 };
                 }
 
                 // จัดการไฟล์ Slideshow
@@ -942,6 +1060,7 @@
                 if(data.status === "success") { 
                     showAlert('success', 'สำเร็จ', 'บันทึกการตั้งค่าเว็บไซต์เรียบร้อยแล้ว'); 
                     document.getElementById('form-settings').reset();
+                    croppedBannerBase64 = null; // เคลียร์รูปที่ crop ไว้หลังบันทึกสำเร็จ
                     fetchAllData(); 
                 } else throw new Error(data.message);
             } catch(err) { 
