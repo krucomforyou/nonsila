@@ -1210,6 +1210,9 @@
             modal.classList.remove('hidden'); 
             setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
             
+            // เพิ่มการจัดการประวัติการเข้าชมสำหรับ Cropper
+            if (window.location.hash !== '#cropper') { window.history.pushState({ cropper: true }, '', window.location.href.split('#')[0] + '#cropper'); }
+            
             if (cropper) cropper.destroy();
 
             if (type === 'staff') {
@@ -1244,7 +1247,7 @@
             lucide.createIcons();
         }
 
-        function closeCropperModal() {
+        function closeCropperModal(fromPopState = false) {
             const modal = document.getElementById('cropper-modal'); 
             modal.classList.add('opacity-0');
             setTimeout(() => { 
@@ -1253,6 +1256,8 @@
                 document.getElementById('settings-banner-image').value = ''; 
                 document.getElementById('staff-image').value = ''; 
             }, 300);
+            // ย้อนกลับประวัติหากปิดด้วยปุ่ม (ไม่ใช่จากการกด Back ของระบบ)
+            if (fromPopState !== true && window.location.hash === '#cropper') { window.history.back(); }
         }
 
         function confirmCrop() {
@@ -2030,8 +2035,34 @@
             }
         }
 
-        function openLightbox(index) { currentLightboxIndex = index; const modal = document.getElementById('lightbox-modal'); const img = document.getElementById('lightbox-image'); modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); img.classList.remove('scale-95'); img.classList.add('scale-100'); }, 10); updateLightboxContent(); }
-        function closeLightbox() { const modal = document.getElementById('lightbox-modal'); const img = document.getElementById('lightbox-image'); modal.classList.add('opacity-0'); img.classList.remove('scale-100'); img.classList.add('scale-95'); setTimeout(() => { modal.classList.add('hidden'); }, 300); }
+        function openLightbox(index) { 
+            currentLightboxIndex = index; 
+            const modal = document.getElementById('lightbox-modal'); 
+            const img = document.getElementById('lightbox-image'); 
+            modal.classList.remove('hidden'); 
+            setTimeout(() => { modal.classList.remove('opacity-0'); img.classList.remove('scale-95'); img.classList.add('scale-100'); }, 10); 
+            updateLightboxContent(); 
+            
+            // เพิ่มการจัดการประวัติการเข้าชมเพื่อให้ทำงานร่วมกับปุ่ม Back บนมือถือ
+            if (window.location.hash !== '#lightbox') { 
+                window.history.pushState({ lightbox: true }, '', window.location.href.split('#')[0] + '#lightbox'); 
+            }
+        }
+        
+        function closeLightbox(fromPopState = false) { 
+            const modal = document.getElementById('lightbox-modal'); 
+            const img = document.getElementById('lightbox-image'); 
+            modal.classList.add('opacity-0'); 
+            img.classList.remove('scale-100'); 
+            img.classList.add('scale-95'); 
+            setTimeout(() => { modal.classList.add('hidden'); }, 300); 
+            
+            // ย้อนกลับประวัติหากปิดด้วยปุ่มกากบาทหรือคีย์บอร์ด (ไม่ใช่จากการกด Back ของระบบ)
+            if (fromPopState !== true && window.location.hash === '#lightbox') { 
+                window.history.back(); 
+            }
+        }
+        
         function changeLightboxImage(step) { currentLightboxIndex += step; if (currentLightboxIndex < 0) currentLightboxIndex = currentLightboxImages.length - 1; if (currentLightboxIndex >= currentLightboxImages.length) currentLightboxIndex = 0; updateLightboxContent(); }
         function updateLightboxContent() { if (currentLightboxImages.length === 0) return; document.getElementById('lightbox-image').src = currentLightboxImages[currentLightboxIndex].trim(); document.getElementById('lightbox-counter').innerText = `${currentLightboxIndex + 1} / ${currentLightboxImages.length}`; }
 
@@ -2052,6 +2083,25 @@
         function goBackToHome(isPopState = false) { lastAppView = 'home'; if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('id'); url.searchParams.delete('view'); url.searchParams.delete('tab'); window.history.pushState({}, '', url); } catch(e){} } document.getElementById('admin-view').classList.add('hidden', 'opacity-0'); hideAllPublicViews(); document.getElementById('public-view').classList.remove('hidden', 'opacity-0'); document.getElementById('home-main-content').classList.remove('hidden'); document.getElementById('home-main-content').classList.add('flex'); setPublicNavActive('nav-pub-home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
         window.addEventListener('popstate', function(event) {
+            let modalClosed = false;
+            
+            // ปิด Lightbox ถ้าย้อนกลับมาจากลิงก์ #lightbox
+            const lightbox = document.getElementById('lightbox-modal');
+            if (lightbox && !lightbox.classList.contains('hidden') && window.location.hash !== '#lightbox') {
+                closeLightbox(true);
+                modalClosed = true;
+            }
+
+            // ปิดหน้าต่าง Cropper ถ้าย้อนกลับมาจากลิงก์ #cropper
+            const cropperModal = document.getElementById('cropper-modal');
+            if (cropperModal && !cropperModal.classList.contains('hidden') && window.location.hash !== '#cropper') {
+                closeCropperModal(true);
+                modalClosed = true;
+            }
+
+            // ถ้าเป็นการปิด Modal อย่างเดียว ให้หยุดการทำงานแค่นี้ เพื่อป้องกันการโหลดหน้าใหม่แล้วเด้งกลับไปด้านบน
+            if (modalClosed) return;
+
             const urlParams = new URLSearchParams(window.location.search); const view = urlParams.get('view'); const newsId = urlParams.get('newsId'); const actId = urlParams.get('actId'); const nlId = urlParams.get('nlId'); const oldId = urlParams.get('id'); const tab = urlParams.get('tab') || 'news';
             if (view === 'admin') { if (document.getElementById('admin-view').classList.contains('hidden')) { showAdminDashboard(true); } else { switchAdminTab(tab, true); } } 
             else if (view === 'all-news') { document.getElementById('admin-view').classList.add('hidden', 'opacity-0'); document.getElementById('public-view').classList.remove('hidden', 'opacity-0'); showAllNews(true); } 
