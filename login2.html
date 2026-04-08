@@ -16,6 +16,10 @@
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- เพิ่มไลบรารี Cropper.js สำหรับตัดรูปภาพ -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
     <script>
       tailwind.config = {
         theme: {
@@ -61,6 +65,14 @@
       }
       .swal2-container {
         font-family: 'Sarabun', sans-serif;
+      }
+      /* ปรับแต่งพื้นที่แสดงผลของ Cropper.js */
+      .cropper-view-box,
+      .cropper-face {
+        border-radius: 50%;
+      }
+      .cropper-container {
+          max-height: 60vh;
       }
     </style>
   </head>
@@ -211,7 +223,8 @@
                   <span class="text-white text-[10px]">เปลี่ยนรูป</span>
                 </div>
               </div>
-              <input type="file" id="upload-image" accept="image/*" class="hidden" onchange="handleMainImageSelect(event)" />
+              <!-- เปลี่ยนฟังก์ชัน onchange เป็นตัวใหม่ที่รองรับ Crop -->
+              <input type="file" id="upload-image" accept="image/*" class="hidden" onchange="handleImageSelectAndCrop(event, 'main')" />
               <input type="hidden" id="edit-image-url" />
 
               <h2 id="display-name" class="text-xl font-bold text-school-navy mb-1">ชื่อ นามสกุล</h2>
@@ -358,7 +371,8 @@
                                     <i data-lucide="camera" class="text-white w-8 h-8 mb-2"></i><span class="text-white text-xs font-medium">เปลี่ยนรูปภาพ</span>
                                 </div>
                             </div>
-                            <input type="file" id="admin-upload-image" accept="image/*" class="hidden" onchange="handleAdminImageSelect(event)" />
+                            <!-- เปลี่ยนฟังก์ชัน onchange เป็นตัวใหม่ที่รองรับ Crop -->
+                            <input type="file" id="admin-upload-image" accept="image/*" class="hidden" onchange="handleImageSelectAndCrop(event, 'admin')" />
                             <input type="hidden" id="admin-edit-image-url" />
                             
                             <h2 id="admin-display-name" class="text-xl font-bold text-school-navy mb-1">ชื่อ นามสกุล</h2>
@@ -443,6 +457,36 @@
       </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- Modal สำหรับ Crop รูปภาพ (Cropper Modal) -->
+    <!-- ========================================== -->
+    <div id="crop-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 z-[70] hidden flex items-center justify-center p-4 transition-opacity duration-300">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+          <h3 class="text-lg font-bold text-school-navy flex items-center">
+            <i data-lucide="crop" class="w-5 h-5 mr-2 text-school-navy"></i> ปรับสัดส่วนรูปภาพ
+          </h3>
+          <button onclick="closeCropModal()" class="text-gray-400 hover:text-red-500 bg-gray-200 hover:bg-red-50 p-1.5 rounded-full transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        
+        <div class="p-4 bg-gray-900 flex justify-center items-center w-full h-[300px] sm:h-[400px]">
+          <!-- ซ่อน img ไว้ก่อนจนกว่าจะมีภาพ -->
+          <img id="cropper-image" src="" alt="Crop Area" class="max-w-full max-h-full block">
+        </div>
+        
+        <div class="px-5 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+          <button onclick="closeCropModal()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+            ยกเลิก
+          </button>
+          <button onclick="confirmCrop()" class="bg-school-navy hover:bg-school-navyLight text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center">
+            <i data-lucide="check" class="w-4 h-4 mr-1"></i> ยืนยันการตัดรูป
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script>
       lucide.createIcons();
 
@@ -472,6 +516,11 @@
       let pendingMainImageUpload = null;
       let pendingAdminImageUpload = null;
 
+      // ตัวแปรสำหรับ Cropper
+      let cropperInstance = null;
+      let currentCropTarget = ''; // จะเป็น 'main' หรือ 'admin'
+      let currentCropFileName = '';
+
       function getRoleName(roleCode) {
         if (roleCode == "3") return "แอดมินสูงสุด";
         if (roleCode == "2") return "แอดมิน";
@@ -497,36 +546,114 @@
         lucide.createIcons();
       }
 
-      function handleMainImageSelect(event) {
+      // =====================================
+      // ฟังก์ชันเปิดเลือกรูปภาพและส่งเข้า Cropper
+      // =====================================
+      function handleImageSelectAndCrop(event, target) {
         const file = event.target.files[0];
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) {
-          showAlert('warning', 'ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์รูปภาพต้องไม่เกิน 2MB');
-          event.target.value = ""; return;
+
+        // เปลี่ยนเงื่อนไขขนาดไฟล์เป็นไม่เกิน 10MB
+        if (file.size > 10 * 1024 * 1024) {
+          showAlert('warning', 'ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์รูปภาพต้องไม่เกิน 10MB');
+          event.target.value = ""; 
+          return;
         }
+
         const reader = new FileReader();
         reader.onload = function (e) {
-          document.getElementById("display-image").src = e.target.result;
-          pendingMainImageUpload = { filename: file.name, mimeType: file.type, base64: e.target.result };
+          openCropModal(e.target.result, target, file.name);
         };
         reader.readAsDataURL(file);
+        
+        // ล้างค่า input เพื่อให้สามารถเลือกไฟล์เดิมซ้ำได้
+        event.target.value = "";
       }
 
-      function handleAdminImageSelect(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        if (file.size > 2 * 1024 * 1024) {
-          showAlert('warning', 'ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์รูปภาพต้องไม่เกิน 2MB');
-          event.target.value = ""; return;
+      function openCropModal(imageSrc, target, fileName) {
+        currentCropTarget = target;
+        currentCropFileName = fileName || 'profile.jpg';
+
+        const modal = document.getElementById('crop-modal');
+        const imageElement = document.getElementById('cropper-image');
+
+        // ตั้งค่า src ใหม่
+        imageElement.src = imageSrc;
+        
+        // แสดง Modal
+        modal.classList.remove('hidden');
+
+        // รีเซ็ต Cropper ตัวเก่า (ถ้ามี)
+        if (cropperInstance) {
+          cropperInstance.destroy();
         }
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          document.getElementById("admin-display-image").src = e.target.result;
-          pendingAdminImageUpload = { filename: file.name, mimeType: file.type, base64: e.target.result };
-        };
-        reader.readAsDataURL(file);
+
+        // เริ่มต้น Cropper ตัวใหม่
+        cropperInstance = new Cropper(imageElement, {
+          aspectRatio: 1, // สัดส่วน 1:1 เป็นวงกลม/จัตุรัส
+          viewMode: 1,    // ให้กรอบตัดอยู่ภายในภาพเท่านั้น
+          dragMode: 'move', // สามารถลากภาพไปมาได้
+          autoCropArea: 0.8,
+          restore: false,
+          guides: false,
+          center: false,
+          highlight: false,
+          cropBoxMovable: true,
+          cropBoxResizable: true,
+          toggleDragModeOnDblclick: false,
+        });
       }
 
+      function closeCropModal() {
+        const modal = document.getElementById('crop-modal');
+        modal.classList.add('hidden');
+        if (cropperInstance) {
+          cropperInstance.destroy();
+          cropperInstance = null;
+        }
+      }
+
+      function confirmCrop() {
+        if (!cropperInstance) return;
+
+        // ดึงภาพที่ถูกตัดเป็น Canvas (ย่อขนาดเป็นกว้างยาว 400px เพื่อลดขนาดไฟล์)
+        const canvas = cropperInstance.getCroppedCanvas({
+          width: 400,
+          height: 400,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high',
+        });
+
+        if (!canvas) {
+          showAlert('error', 'ข้อผิดพลาด', 'ไม่สามารถตัดรูปภาพได้');
+          return;
+        }
+
+        // แปลง Canvas กลับเป็น Base64 (ชนิด JPEG คุณภาพ 80% เพื่อลดขนาด Payload ที่ส่งไป App Script)
+        const base64Data = canvas.toDataURL('image/jpeg', 0.8);
+
+        // กำหนดข้อมูลเตรียมส่งไป Apps Script
+        const uploadData = { 
+            filename: currentCropFileName, 
+            mimeType: 'image/jpeg', 
+            base64: base64Data 
+        };
+
+        // ตรวจสอบว่ากำลังเปลี่ยนรูปของหน้าไหน (หน้าของฉัน หรือ หน้าแอดมิน)
+        if (currentCropTarget === 'main') {
+            document.getElementById("display-image").src = base64Data;
+            pendingMainImageUpload = uploadData;
+        } else if (currentCropTarget === 'admin') {
+            document.getElementById("admin-display-image").src = base64Data;
+            pendingAdminImageUpload = uploadData;
+        }
+
+        closeCropModal();
+      }
+
+      // =====================================
+      // เริ่มการทำงานของระบบ
+      // =====================================
       document.addEventListener("DOMContentLoaded", () => {
         const savedSession = localStorage.getItem("school_user_session");
         if (savedSession) {
@@ -615,7 +742,6 @@
 
       function populateMainProfileForm(data) {
         pendingMainImageUpload = null;
-        document.getElementById("upload-image").value = "";
 
         document.getElementById("display-name").textContent = data.name || "ไม่มีชื่อ";
         document.getElementById("display-position").textContent = data.position || "-";
@@ -850,7 +976,6 @@
 
       function populateAdminForm(data) {
         pendingAdminImageUpload = null;
-        document.getElementById("admin-upload-image").value = "";
 
         document.getElementById("admin-display-name").textContent = data.name || "บุคลากรใหม่";
         document.getElementById("admin-display-position").textContent = data.position || "ระบุข้อมูลด้านล่าง";
