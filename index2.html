@@ -1964,10 +1964,11 @@
             setTimeout(() => {
                 const el = document.getElementById(elementId);
                 if (el) {
+                    // คำนวณตำแหน่ง Y โดยใช้ค่า offset (ถ้าเป็น 0 จะพอดีขอบบนจอ)
                     const y = el.getBoundingClientRect().top + window.scrollY - offset;
-                    window.scrollTo({ top: y, behavior: 'auto' });
+                    window.scrollTo({ top: y, behavior: 'smooth' });
                 }
-            }, 50); 
+            }, 100); 
         }
 
         function hideAllPublicViews() { 
@@ -1989,7 +1990,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-news'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-news-view').classList.remove('hidden'); document.getElementById('all-news-view').classList.add('flex'); setPublicNavActive('nav-pub-news'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-news'] || 0, behavior: 'auto' }), 10);
-            else scrollToTarget('all-news-view'); 
+            else scrollToTarget('all-news-view', 15); 
         }
         
         function showAllActivities(isPopState = false, restoreScroll = false) { 
@@ -1998,7 +1999,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-activities'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-activities-view').classList.remove('hidden'); document.getElementById('all-activities-view').classList.add('flex'); setPublicNavActive('nav-pub-act'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-activities'] || 0, behavior: 'auto' }), 10);
-            else scrollToTarget('all-activities-view'); 
+            else scrollToTarget('all-activities-view', 15); 
         }
         
         function showAllNewsletters(isPopState = false, restoreScroll = false) { 
@@ -2007,7 +2008,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-newsletters'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-newsletters-view').classList.remove('hidden'); document.getElementById('all-newsletters-view').classList.add('flex'); setPublicNavActive('nav-pub-newsletter'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-newsletters'] || 0, behavior: 'auto' }), 10);
-            else scrollToTarget('all-newsletters-view'); 
+            else scrollToTarget('all-newsletters-view', 15); 
         }
         
         function showContactUs(isPopState = false, restoreScroll = false) { 
@@ -2026,7 +2027,7 @@
             document.getElementById('contact-us-view').classList.add('flex'); 
             setPublicNavActive('nav-pub-contact'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['contact'] || 0, behavior: 'auto' }), 10);
-            else scrollToTarget('contact-us-view'); 
+            else scrollToTarget('contact-us-view', 15); 
         }
 
         function showStaffView(isPopState = false, restoreScroll = false) { 
@@ -2046,7 +2047,7 @@
             setPublicNavActive('nav-pub-exec'); 
             renderPublicOrgChart();
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['staff'] || 0, behavior: 'auto' }), 10);
-            else scrollToTarget('staff-view'); 
+            else scrollToTarget('staff-view', 15); 
         }
 
         function viewNewsDetail(id) { 
@@ -2077,7 +2078,57 @@
             
             if (n.img) { n.img.split(',').forEach(url => { if(url.trim()) ic.innerHTML += `<img src="${url.trim()}" loading="lazy" class="w-full max-w-2xl mx-auto rounded shadow-sm object-cover bg-gray-100 min-h-[250px] md:min-h-[350px]" />`; }); }
             
-            document.getElementById('news-detail-content').innerHTML = (n.content || 'ไม่มีรายละเอียดเพิ่มเติม').replace(/\n/g, '<br>'); setPublicNavActive('nav-pub-news'); lucide.createIcons(); scrollToTarget('news-detail-view');
+            document.getElementById('news-detail-content').innerHTML = (n.content || 'ไม่มีรายละเอียดเพิ่มเติม').replace(/\n/g, '<br>'); setPublicNavActive('nav-pub-news'); lucide.createIcons(); scrollToTarget('news-detail-view', 15);
+        }
+        
+        function showActivityDetailUI(id) {
+            lastAppView = 'activity-detail';
+            const a = globalActivities.find(x => x.id == id); if (!a) return; hideAllPublicViews();
+            document.getElementById('activity-detail-view').classList.remove('hidden'); document.getElementById('activity-detail-view').classList.add('flex');
+            document.getElementById('act-detail-title').innerHTML = `<span class="inline-block relative">${a.title}</span>${a.isHot ? '<span class="badge-new-container ml-2"><span class="badge-new" style="bottom: 0.2em; font-size: 10px; padding: 2px 4px;">NEW</span></span>' : ''}`; document.getElementById('act-detail-date').innerHTML = `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> วันที่จัดกิจกรรม: ${a.date}`;
+            const ic = document.getElementById('act-detail-image-container'); ic.innerHTML = ''; currentLightboxImages = [];
+            
+            if (a.img) { const urls = a.img.split(',').filter(url => url.trim() !== ""); currentLightboxImages = urls; urls.forEach((url, index) => { ic.innerHTML += `<div class="relative aspect-[4/3] bg-gray-100 rounded-md overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition shine-sweep" onclick="openLightbox(${index})"><img src="${url.trim()}" loading="lazy" class="w-full h-full object-cover transition duration-300" /><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition duration-300 flex items-center justify-center z-20"><i data-lucide="zoom-in" class="text-white opacity-0 group-hover:opacity-100 w-8 h-8 transition duration-300"></i></div></div>`; }); }
+            
+            setPublicNavActive('nav-pub-act'); lucide.createIcons(); scrollToTarget('activity-detail-view', 15);
+        }
+        
+        function showNewsletterDetailUI(id) {
+            lastAppView = 'newsletter-detail';
+            const n = globalNewsletters.find(x => x.id == id); if (!n) return; hideAllPublicViews();
+            document.getElementById('newsletter-detail-view').classList.remove('hidden'); document.getElementById('newsletter-detail-view').classList.add('flex');
+            document.getElementById('nl-detail-badge').innerHTML = n.isHot ? '<span class="badge-new-container ml-2"><span class="badge-new" style="bottom: 0.2em; font-size: 10px; padding: 2px 4px;">NEW</span></span>' : ''; 
+            document.getElementById('nl-detail-date').innerHTML = `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> อัปโหลดเมื่อ: ${n.date}`;
+            const ic = document.getElementById('nl-detail-image-container'); ic.innerHTML = ''; currentLightboxImages = [];
+            
+            if (n.img) { const urls = n.img.split(',').filter(url => url.trim() !== ""); currentLightboxImages = urls; urls.forEach((url, index) => { ic.innerHTML += `<div class="relative bg-gray-100 rounded-md overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition shine-sweep min-h-[250px] md:min-h-[350px]" onclick="openLightbox(${index})"><img src="${url.trim()}" loading="lazy" class="w-full h-auto object-cover transition duration-300" /><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition duration-300 flex items-center justify-center z-20"><i data-lucide="zoom-in" class="text-white opacity-0 group-hover:opacity-100 w-8 h-8 transition duration-300"></i></div></div>`; }); }
+            
+            setPublicNavActive('nav-pub-newsletter'); lucide.createIcons(); scrollToTarget('newsletter-detail-view', 15);
+        }
+        
+        function showActivityDetailUI(id) {
+            lastAppView = 'activity-detail';
+            const a = globalActivities.find(x => x.id == id); if (!a) return; hideAllPublicViews();
+            document.getElementById('activity-detail-view').classList.remove('hidden'); document.getElementById('activity-detail-view').classList.add('flex');
+            document.getElementById('act-detail-title').innerHTML = `<span class="inline-block relative">${a.title}</span>${a.isHot ? '<span class="badge-new-container ml-2"><span class="badge-new" style="bottom: 0.2em; font-size: 10px; padding: 2px 4px;">NEW</span></span>' : ''}`; document.getElementById('act-detail-date').innerHTML = `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> วันที่จัดกิจกรรม: ${a.date}`;
+            const ic = document.getElementById('act-detail-image-container'); ic.innerHTML = ''; currentLightboxImages = [];
+            
+            if (a.img) { const urls = a.img.split(',').filter(url => url.trim() !== ""); currentLightboxImages = urls; urls.forEach((url, index) => { ic.innerHTML += `<div class="relative aspect-[4/3] bg-gray-100 rounded-md overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition shine-sweep" onclick="openLightbox(${index})"><img src="${url.trim()}" loading="lazy" class="w-full h-full object-cover transition duration-300" /><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition duration-300 flex items-center justify-center z-20"><i data-lucide="zoom-in" class="text-white opacity-0 group-hover:opacity-100 w-8 h-8 transition duration-300"></i></div></div>`; }); }
+            
+            setPublicNavActive('nav-pub-act'); lucide.createIcons(); scrollToTarget('main-nav-menu', 0);
+        }
+        
+        function showNewsletterDetailUI(id) {
+            lastAppView = 'newsletter-detail';
+            const n = globalNewsletters.find(x => x.id == id); if (!n) return; hideAllPublicViews();
+            document.getElementById('newsletter-detail-view').classList.remove('hidden'); document.getElementById('newsletter-detail-view').classList.add('flex');
+            document.getElementById('nl-detail-badge').innerHTML = n.isHot ? '<span class="badge-new-container ml-2"><span class="badge-new" style="bottom: 0.2em; font-size: 10px; padding: 2px 4px;">NEW</span></span>' : ''; 
+            document.getElementById('nl-detail-date').innerHTML = `<i data-lucide="calendar" class="inline w-4 h-4 mr-2"></i> อัปโหลดเมื่อ: ${n.date}`;
+            const ic = document.getElementById('nl-detail-image-container'); ic.innerHTML = ''; currentLightboxImages = [];
+            
+            if (n.img) { const urls = n.img.split(',').filter(url => url.trim() !== ""); currentLightboxImages = urls; urls.forEach((url, index) => { ic.innerHTML += `<div class="relative bg-gray-100 rounded-md overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition shine-sweep min-h-[250px] md:min-h-[350px]" onclick="openLightbox(${index})"><img src="${url.trim()}" loading="lazy" class="w-full h-auto object-cover transition duration-300" /><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition duration-300 flex items-center justify-center z-20"><i data-lucide="zoom-in" class="text-white opacity-0 group-hover:opacity-100 w-8 h-8 transition duration-300"></i></div></div>`; }); }
+            
+            setPublicNavActive('nav-pub-newsletter'); lucide.createIcons(); scrollToTarget('main-nav-menu', 0);
         }
         
         function showActivityDetailUI(id) {
