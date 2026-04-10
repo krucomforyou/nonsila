@@ -24,6 +24,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
+    <!-- Quill.js (Rich Text Editor) -->
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -177,6 +181,20 @@
         .submenu-parent.open .submenu-item { display: block; animation: fadeIn 0.3s ease; }
         .submenu-parent.open .chevron-icon { transform: rotate(90deg); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ================= สไตล์สำหรับหน้าแสดงผลเนื้อหา (Rich Text Output) ================= */
+        .rich-text-content p { margin-bottom: 0.75rem; }
+        .rich-text-content h1 { font-size: 1.5rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #1a3a6e; }
+        .rich-text-content h2 { font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #1a3a6e; }
+        .rich-text-content h3 { font-size: 1.125rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #1a3a6e; }
+        .rich-text-content ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .rich-text-content ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 1rem; }
+        .rich-text-content a { color: #4472c4; text-decoration: underline; }
+        
+        /* ปรับแต่งหน้าตา Quill Editor */
+        .ql-toolbar.ql-snow { border-radius: 0.375rem 0.375rem 0 0; background-color: #f8fafc; border-color: #e5e7eb; }
+        .ql-container.ql-snow { border-radius: 0 0 0.375rem 0.375rem; border-color: #e5e7eb; font-family: 'Sarabun', sans-serif; font-size: 1rem; }
+        .ql-editor { min-height: 150px; }
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -244,7 +262,7 @@
             <main class="w-full px-4 md:px-6 lg:px-8 py-8 flex-grow">
                 <div class="flex flex-col lg:flex-row gap-6">
                     
-                    <!-- ================= คอลัมน์ซ้าย (Left Column) lg:w-[23%] ================= -->
+                    <!-- ================= คอลัมน์ซ้าย (Left Column) ================= -->
                     <aside class="contents lg:flex w-full lg:w-[23%] flex-col gap-4">
                         <div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden order-3 lg:order-none w-full">
                             <div class="bg-school-navy text-white border-l-4 border-school-brassLight py-3 px-4 flex items-center font-bold font-serif text-lg">
@@ -270,7 +288,7 @@
                         </div>
                     </aside>
 
-                    <!-- ================= คอลัมน์กลาง (Center Content) lg:w-[54%] ================= -->
+                    <!-- ================= คอลัมน์กลาง (Center Content) ================= -->
                     <section class="w-full lg:w-[54%] flex flex-col gap-6 order-2 lg:order-none relative">
                         
                         <!-- ================= ส่วนแสดงหน้าเว็บแบบกำหนดเอง (Custom Page View) ================= -->
@@ -518,7 +536,7 @@
                         </div>
                     </section>
 
-                    <!-- ================= คอลัมน์ขวา (Right Column) lg:w-[23%] ================= -->
+                    <!-- ================= คอลัมน์ขวา (Right Column) ================= -->
                     <aside class="w-full lg:w-[23%] flex flex-col gap-4 order-4 lg:order-none">
                         
                         <div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden" id="login-widget-container">
@@ -618,7 +636,6 @@
 
             <nav class="flex-1 p-4 space-y-2 text-sm">
                 <p class="px-4 py-2 text-xs text-school-brassLight font-bold uppercase tracking-wider opacity-70">จัดการเว็บไซต์</p>
-                <!-- เพิ่มเมนูใหม่ตรงนี้ -->
                 <a href="javascript:void(0);" onclick="switchAdminTab('pages')" id="nav-tab-pages" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition">
                     <i data-lucide="layout-list" class="w-5 h-5 mr-3"></i> จัดการเมนูและหน้าเว็บ
                 </a>
@@ -719,6 +736,9 @@
                                             </button>
                                             <button type="button" onclick="addPageBlock('image-text')" class="text-xs bg-white border border-gray-300 hover:border-school-blue hover:text-school-blue text-gray-600 px-3 py-1.5 rounded transition flex items-center shadow-sm">
                                                 <i data-lucide="panel-right-open" class="w-3 h-3 mr-1"></i> รูปซ้าย+ข้อความขวา
+                                            </button>
+                                            <button type="button" onclick="addPageBlock('table')" class="text-xs bg-white border border-gray-300 hover:border-school-blue hover:text-school-blue text-gray-600 px-3 py-1.5 rounded transition flex items-center shadow-sm">
+                                                <i data-lucide="table" class="w-3 h-3 mr-1"></i> ตารางข้อมูล (2 คอลัมน์)
                                             </button>
                                         </div>
                                     </div>
@@ -1207,9 +1227,18 @@
 
         // ตัวแปรสำหรับ Page Builder
         let currentPageBlocks = [];
+        let quillEditors = {}; // เก็บ Instance ของ Quill.js
+        const quillToolbarOptions = [
+            ['bold', 'italic', 'underline', 'strike'],        // ตัวหนา เอียง ขีดเส้นใต้ ขีดทับ
+            [{ 'color': [] }, { 'background': [] }],          // สีตัวอักษร, สีพื้นหลัง
+            [{ 'header': 1 }, { 'header': 2 }],               // หัวข้อใหญ่ H1, H2
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],     // ลิสต์ตัวเลข, ลิสต์จุด
+            [{ 'align': [] }],                                // จัดหน้า
+            ['link', 'clean']                                 // ลิงก์, ล้างฟอร์แมต
+        ];
 
         let cropper = null; 
-        let currentCropType = ''; // 'banner' หรือ 'staff'
+        let currentCropType = ''; 
         let croppedBannerBase64 = null; let croppedBannerMimeType = null; let croppedBannerName = null;
         let croppedStaffBase64 = null; let croppedStaffMimeType = null; let croppedStaffName = null;
 
@@ -1688,6 +1717,7 @@
             const form = document.getElementById('form-edit-page');
             form.reset();
             currentPageBlocks = [];
+            quillEditors = {}; // รีเซ็ตตัวแปรเก็บ instance ของ Quill
             
             if (pageId) {
                 // แก้ไขของเดิม
@@ -1718,16 +1748,45 @@
         function addPageBlock(type) {
             const blockId = 'block_' + new Date().getTime();
             let newBlock = { id: blockId, type: type, content: "" };
+            
             if(type.includes('image')) {
                 newBlock.imgUrl = "";
             }
+            if(type === 'table') {
+                newBlock.rows = [{ left: '', right: '' }]; // แถวเริ่มต้น
+            }
+
             currentPageBlocks.push(newBlock);
             renderPageBlocks();
         }
 
         function removePageBlock(blockId) {
             currentPageBlocks = currentPageBlocks.filter(b => b.id !== blockId);
+            if(quillEditors[blockId]) delete quillEditors[blockId];
             renderPageBlocks();
+        }
+
+        // ฟังก์ชันช่วยเหลือสำหรับ Block: Table
+        function addTableRow(blockId) {
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            if(block && block.type === 'table') {
+                if(!block.rows) block.rows = [];
+                block.rows.push({left: '', right: ''});
+                renderPageBlocks();
+            }
+        }
+        function removeTableRow(blockId, rowIndex) {
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            if(block && block.type === 'table' && block.rows.length > 1) {
+                block.rows.splice(rowIndex, 1);
+                renderPageBlocks();
+            }
+        }
+        function updateTableRow(blockId, rowIndex, col, val) {
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            if(block && block.type === 'table') {
+                block.rows[rowIndex][col] = val;
+            }
         }
 
         function handleBlockImageSelect(event, blockId) {
@@ -1750,6 +1809,14 @@
 
         function renderPageBlocks() {
             const container = document.getElementById('page-blocks-container');
+            
+            // สำรองค่า content ของ Quill ตัวเดิมไว้ก่อนวาดใหม่ (ป้องกันข้อมูลหายตอนกดเพิ่มบล็อกอื่น)
+            currentPageBlocks.forEach(b => {
+                if (quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
+                    b.content = quillEditors[b.id].root.innerHTML;
+                }
+            });
+
             if (currentPageBlocks.length === 0) {
                 container.innerHTML = '<div class="text-center py-6 border-2 border-dashed border-gray-300 rounded text-gray-400 text-sm">ยังไม่มีเนื้อหา กดเลือกรูปแบบด้านล่างเพื่อเพิ่ม</div>';
                 return;
@@ -1759,8 +1826,8 @@
             currentPageBlocks.forEach((block, index) => {
                 let innerHtml = '';
                 
-                // รูปแบบ Input ตาม Type ของ Block
-                const textInput = `<textarea class="w-full border border-gray-300 rounded p-2 text-sm focus:border-school-blue resize-y min-h-[100px]" placeholder="พิมพ์ข้อความที่นี่..." onchange="currentPageBlocks[${index}].content = this.value">${block.content}</textarea>`;
+                // ใช้ <div> เพื่อให้ Quill.js เข้ามาผูก แทนการใช้ textarea แบบเดิม
+                const textInput = `<div class="bg-white"><div id="editor-${block.id}" class="quill-editor" data-block-id="${block.id}">${block.content || ''}</div></div>`;
                 
                 const imgPreview = block.imgUrl ? `<img src="${block.imgUrl}" class="w-full h-auto max-h-48 object-cover rounded shadow-sm border border-gray-200">` : `<div class="w-full h-32 bg-gray-100 border border-gray-200 rounded flex items-center justify-center text-gray-400 text-xs"><i data-lucide="image" class="w-6 h-6 mb-1 opacity-50 block mx-auto"></i> พื้นที่รูปภาพ</div>`;
                 const imgInput = `
@@ -1777,11 +1844,27 @@
                     innerHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div>${textInput}</div><div>${imgInput}</div></div>`;
                 } else if (block.type === 'image-text') {
                     innerHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div>${imgInput}</div><div>${textInput}</div></div>`;
+                } else if (block.type === 'table') {
+                    // ส่วนควบคุม Block แบบตาราง (2 คอลัมน์)
+                    let tableHtml = `<div class="space-y-2 bg-gray-50 border border-gray-200 p-2 rounded-md">`;
+                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ซ้าย (หัวข้อ)</div><div class="w-2/3 text-xs font-bold text-gray-600">คอลัมน์ขวา (รายละเอียด)</div></div>`;
+                    if(!block.rows) block.rows = [];
+                    block.rows.forEach((row, rIndex) => {
+                        tableHtml += `
+                            <div class="flex gap-2 items-start">
+                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุหัวข้อ" value="${row.left || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'left', this.value)">
+                                <input type="text" class="w-2/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุรายละเอียด" value="${row.right || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'right', this.value)">
+                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        `;
+                    });
+                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว</button></div></div>`;
+                    innerHtml = tableHtml;
                 }
 
                 html += `
                     <div class="relative bg-white border border-gray-200 p-3 rounded shadow-sm group">
-                        <div class="absolute -top-3 -right-2 hidden group-hover:flex gap-1 z-10">
+                        <div class="absolute -top-3 -right-2 hidden group-hover:flex gap-1 z-20">
                             <span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded shadow-sm border border-gray-200 uppercase">${block.type}</span>
                             <button type="button" onclick="removePageBlock('${block.id}')" class="bg-red-500 hover:bg-red-600 text-white p-1 rounded shadow-sm transition"><i data-lucide="x" class="w-3 h-3"></i></button>
                         </div>
@@ -1792,6 +1875,23 @@
             
             container.innerHTML = html;
             lucide.createIcons();
+
+            // สร้าง Instance ของ Quill หลังจากที่ DOM ถูกวาดเสร็จ
+            quillEditors = {};
+            const editorDivs = document.querySelectorAll('.quill-editor');
+            editorDivs.forEach(div => {
+                const blockId = div.getAttribute('data-block-id');
+                const quill = new Quill(div, { theme: 'snow', modules: { toolbar: quillToolbarOptions } });
+                quillEditors[blockId] = quill;
+                
+                // ดักจับการเปลี่ยนแปลงอัปเดตลงตัวแปรหลักทันที
+                quill.on('text-change', function() {
+                    const idx = currentPageBlocks.findIndex(b => b.id === blockId);
+                    if (idx > -1) {
+                        currentPageBlocks[idx].content = quill.root.innerHTML;
+                    }
+                });
+            });
         }
 
         async function saveCustomPage(e) {
@@ -1799,13 +1899,10 @@
             const btn = document.getElementById('btn-save-page');
             btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             
-            // อัปเดตค่า text ล่าสุดจาก DOM ก่อนเซฟ (เผื่อ onchange ทำงานไม่ทัน)
-            const textareas = document.getElementById('page-blocks-container').querySelectorAll('textarea');
-            let tIndex = 0;
+            // ดึงข้อมูล HTML ล่าสุดจาก Quill Editor มั่นใจว่าข้อมูลครบ
             currentPageBlocks.forEach(b => {
-                if(b.type === 'text' || b.type === 'text-image' || b.type === 'image-text') {
-                    if(textareas[tIndex]) b.content = textareas[tIndex].value;
-                    tIndex++;
+                if(quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
+                    b.content = quillEditors[b.id].root.innerHTML;
                 }
             });
 
@@ -1864,7 +1961,8 @@
             } else {
                 let html = '';
                 blocks.forEach(block => {
-                    const textHtml = `<div class="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-line">${block.content || ''}</div>`;
+                    // ใช้คลาส rich-text-content และ ql-editor ร่วมกันเพื่อให้รูปแบบออกมาเหมือนตอนจัด
+                    const textHtml = `<div class="text-gray-700 text-sm md:text-base leading-relaxed rich-text-content ql-editor" style="padding:0;">${block.content || ''}</div>`;
                     const imgHtml = block.imgUrl ? `<img src="${block.imgUrl}" class="w-full rounded shadow-sm object-cover">` : '';
                     
                     if (block.type === 'text') {
@@ -1875,6 +1973,21 @@
                         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div>${textHtml}</div><div>${imgHtml}</div></div>`;
                     } else if (block.type === 'image-text') {
                         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div class="order-2 md:order-1">${imgHtml}</div><div class="order-1 md:order-2">${textHtml}</div></div>`;
+                    } else if (block.type === 'table') {
+                        // รูปแบบแสดงผลตาราง 2 คอลัมน์ แบบสะอาดตา
+                        let rowsHtml = '';
+                        if(block.rows && block.rows.length > 0) {
+                            block.rows.forEach((row, idx) => {
+                                let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                                rowsHtml += `
+                                    <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors">
+                                        <div class="sm:w-1/3 p-3 sm:p-4 font-semibold text-school-navy border-b sm:border-b-0 sm:border-r border-gray-100">${row.left || ''}</div>
+                                        <div class="sm:w-2/3 p-3 sm:p-4 text-gray-700">${row.right || ''}</div>
+                                    </div>
+                                `;
+                            });
+                        }
+                        html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">${rowsHtml}</div>`;
                     }
                 });
                 contentContainer.innerHTML = html;
