@@ -2404,25 +2404,34 @@
             }
         }
 
+        // --- ปรับปรุงฟังก์ชันการเลื่อนหน้าจอใหม่ ---
         function scrollToTarget(elementId, offset = 20) {
-            setTimeout(() => {
-                const el = document.getElementById(elementId);
-                if (el) {
-                    const y = el.getBoundingClientRect().top + window.scrollY - offset;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                }
-            }, 100); 
-        }
+            const el = document.getElementById(elementId);
+            if (!el) return;
 
-        // ฟังก์ชันใหม่ สำหรับเลื่อนหน้าจอมาที่ขอบบนของ Navbar
-        function scrollToNavbar() {
-            setTimeout(() => {
-                const navbar = document.getElementById('main-nav-menu');
-                if (navbar) {
-                    const y = navbar.getBoundingClientRect().top + window.scrollY;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                }
-            }, 100);
+            // ฟังก์ชันย่อยสำหรับสั่งคำนวณและเลื่อนไปยังจุดที่ถูกต้อง
+            const doScroll = () => {
+                const y = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            };
+
+            // 1. เลื่อนหน้าจอคร่าวๆ ทันที
+            setTimeout(doScroll, 50);
+
+            // 2. ดักจับรูปภาพทั้งหมดในพื้นที่เป้าหมาย (เพื่อชดเชยการผลักหน้าจอตอนภาพโหลดเสร็จ)
+            const images = el.querySelectorAll('img');
+            if (images.length > 0) {
+                images.forEach(img => {
+                    // ถ้ารูปยังไม่โหลดเสร็จ ให้รอจนกว่าจะโหลดเสร็จแล้วค่อยคำนวณและเลื่อนใหม่
+                    if (!img.complete) {
+                        img.addEventListener('load', doScroll, { once: true });
+                    }
+                });
+            }
+
+            // 3. ป้องกันเหนียว (Fallback) ถ้าระบบมือถือหน่วง
+            setTimeout(doScroll, 500);
+            setTimeout(doScroll, 1000);
         }
 
         function hideAllPublicViews() { 
@@ -2446,7 +2455,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-news'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-news-view').classList.remove('hidden'); document.getElementById('all-news-view').classList.add('flex'); setPublicNavActive('nav-pub-news'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-news'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar(); 
+            else scrollToTarget('all-news-view', 15); 
         }
         
         function showAllActivities(isPopState = false, restoreScroll = false) { 
@@ -2455,7 +2464,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-activities'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-activities-view').classList.remove('hidden'); document.getElementById('all-activities-view').classList.add('flex'); setPublicNavActive('nav-pub-act'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-activities'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar(); 
+            else scrollToTarget('all-activities-view', 15); 
         }
         
         function showAllNewsletters(isPopState = false, restoreScroll = false) { 
@@ -2464,7 +2473,7 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-newsletters'); window.history.pushState({}, '', url); } catch(e){} } 
             hideAllPublicViews(); document.getElementById('all-newsletters-view').classList.remove('hidden'); document.getElementById('all-newsletters-view').classList.add('flex'); setPublicNavActive('nav-pub-newsletter'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-newsletters'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar(); 
+            else scrollToTarget('all-newsletters-view', 15); 
         }
         
         function showContactUs(isPopState = false, restoreScroll = false) { 
@@ -2483,7 +2492,7 @@
             document.getElementById('contact-us-view').classList.add('flex'); 
             setPublicNavActive('nav-pub-contact'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['contact'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar(); 
+            else scrollToTarget('contact-us-view', 15); 
         }
 
         function showStaffView(isPopState = false, restoreScroll = false) { 
@@ -2502,7 +2511,7 @@
             document.getElementById('staff-view').classList.add('flex'); 
             setPublicNavActive('nav-pub-exec'); 
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['staff'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar(); 
+            else scrollToTarget('staff-view', 15); 
         }
 
         function goBackToHome(isPopState = false, restoreScroll = false) {
@@ -2511,7 +2520,13 @@
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('view'); url.searchParams.delete('tab'); window.history.pushState({}, '', url); } catch(e){} }
             hideAllPublicViews(); document.getElementById('home-main-content').classList.remove('hidden'); document.getElementById('home-main-content').classList.add('block', 'flex'); setPublicNavActive('nav-pub-home');
             if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['home'] || 0, behavior: 'instant' }), 50);
-            else scrollToNavbar();
+            else setTimeout(() => {
+                const navbar = document.getElementById('main-nav-menu');
+                if (navbar) {
+                    const y = navbar.getBoundingClientRect().top + window.scrollY;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+            }, 100);
         }
 
         function goBackHistory() {
@@ -2550,7 +2565,7 @@
                 imgContainer.innerHTML = urls.map((url, index) => `<img src="${url}" class="w-full rounded-md shadow-sm border border-gray-200 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('news', ${news.id}, ${index})">`).join('');
             } else imgContainer.innerHTML = '';
             
-            // เปลี่ยนให้เลื่อนมาโฟกัสที่กระดานข่าวตรงๆ
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานข่าวตรงๆ
             scrollToTarget('news-detail-view', 15); 
             lucide.createIcons();
         }
@@ -2576,7 +2591,7 @@
                 imgContainer.innerHTML = urls.map((url, index) => `<div class="aspect-square bg-gray-100 rounded overflow-hidden shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition shine-sweep" onclick="openLightbox('act', ${act.id}, ${index})"><img src="${url}" class="w-full h-full object-cover"></div>`).join('');
             } else imgContainer.innerHTML = '<p class="text-gray-500 text-sm col-span-full">ไม่มีรูปภาพในกิจกรรมนี้</p>';
             
-            // เปลี่ยนให้เลื่อนมาโฟกัสที่กระดานภาพกิจกรรมตรงๆ
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานภาพกิจกรรมตรงๆ
             scrollToTarget('activity-detail-view', 15); 
             lucide.createIcons();
         }
@@ -2602,7 +2617,7 @@
                 imgContainer.innerHTML = urls.map((url, index) => `<img src="${url}" class="w-full rounded-md shadow-sm border border-gray-200 object-contain cursor-pointer hover:opacity-90 transition" onclick="openLightbox('nl', ${nl.id}, ${index})">`).join('');
             } else imgContainer.innerHTML = '';
             
-            // เปลี่ยนให้เลื่อนมาโฟกัสที่กระดานจดหมายข่าวตรงๆ
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานจดหมายข่าวตรงๆ
             scrollToTarget('newsletter-detail-view', 15); 
             lucide.createIcons();
         }
