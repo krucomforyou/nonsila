@@ -196,17 +196,12 @@
         .ql-container.ql-snow { border-radius: 0 0 0.375rem 0.375rem; border-color: #e5e7eb; font-family: 'Sarabun', sans-serif; font-size: 1rem; height: auto; }
         .ql-editor { height: auto; min-height: 80px; }
         
-        /* ควบคุมขนาดตัวหนังสือ (Font Size) ใน Toolbar ให้แสดงค่า pixel ได้ชัดเจน */
+        /* ปรับแต่งตัวเลือกขนาดตัวหนังสือ (Font Size) ใน Quill ให้แสดงตัวเลขชัดเจน */
         .ql-snow .ql-picker.ql-size { width: 85px; }
         .ql-snow .ql-picker.ql-size .ql-picker-label::before,
         .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: attr(data-value); }
         .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before,
         .ql-snow .ql-picker.ql-size .ql-picker-item:not([data-value])::before { content: 'ปกติ (14px)'; }
-        
-        /* CSS ช่วยรองรับการปรับความกว้างคอลัมน์ตารางแบบ Responsive */
-        @media (min-width: 640px) {
-            .col-width-responsive { width: var(--desk-w) !important; flex: 0 0 var(--desk-w) !important; }
-        }
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -1647,7 +1642,7 @@
 
 
             // Admin Tables
-            const isAdmin = loggedInUser && (String(loggedInUser.role) === "2" || String(loggedInUser.role) === "3");
+            const isAdmin = loggedInUser && (loggedInUser.role === "2" || loggedInUser.role === "3");
             const ant = document.getElementById('admin-news-table');
             if(globalNews.length === 0) ant.innerHTML = `<tr><td colspan="${isAdmin ? '4' : '3'}" class="text-center py-6 text-gray-500">ไม่มีข้อมูลข่าว</td></tr>`;
             else ant.innerHTML = globalNews.map((n, i) => `<tr class="hover:bg-gray-50"><td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 md:px-6 py-4"><div class="text-gray-900 flex items-baseline max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg pr-4"><span class="truncate block inline-block max-w-full">${n.title}</span>${n.isHot ? '<span class="badge-new-container flex-shrink-0"><span class="badge-new">NEW</span></span>' : ''}</div></td><td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-xs hidden sm:table-cell">${n.date}</td>${isAdmin ? `<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm font-medium"><button onclick="editNews(${n.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('News', ${n.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
@@ -1791,12 +1786,10 @@
                 newBlock.imgUrl = "";
             }
             if(type === 'table') {
-                newBlock.colWidths = [50, 50]; // ความกว้างเริ่มต้น 50% 50%
-                newBlock.rows = [{ left: '', right: '' }]; 
+                newBlock.rows = [{ left: '', right: '' }]; // แถวเริ่มต้น 2 คอลัมน์
             }
             if(type === 'table3') {
-                newBlock.colWidths = [33, 33, 34]; // ความกว้างเริ่มต้น
-                newBlock.rows = [{ col1: '', col2: '', col3: '' }]; 
+                newBlock.rows = [{ col1: '', col2: '', col3: '' }]; // แถวเริ่มต้น 3 คอลัมน์
             }
 
             currentPageBlocks.push(newBlock);
@@ -1811,7 +1804,6 @@
 
         // ฟังก์ชันช่วยเหลือสำหรับ Block: Table
         function addTableRow(blockId) {
-            backupQuillContents(); // สำรองข้อมูลเนื้อหาที่กำลังพิมพ์
             let block = currentPageBlocks.find(b => b.id === blockId);
             if(block && block.type === 'table') {
                 if(!block.rows) block.rows = [];
@@ -1824,61 +1816,17 @@
             }
         }
         function removeTableRow(blockId, rowIndex) {
-            backupQuillContents();
             let block = currentPageBlocks.find(b => b.id === blockId);
             if(block && (block.type === 'table' || block.type === 'table3') && block.rows.length > 1) {
                 block.rows.splice(rowIndex, 1);
                 renderPageBlocks();
             }
         }
-
-        // ฟังก์ชันสำหรับปรับความกว้างคอลัมน์
-        function updateColWidth(blockId, colIdx, val) {
-            backupQuillContents(); // สำรองเนื้อหากันหาย
-            
+        function updateTableRow(blockId, rowIndex, colKey, val) {
             let block = currentPageBlocks.find(b => b.id === blockId);
-            if(!block) return;
-            
-            let v = parseInt(val);
-            if(isNaN(v) || v < 5) v = 5; // กว้างขั้นต่ำ 5%
-
-            if(!block.colWidths) {
-                if(block.type === 'table') block.colWidths = [50, 50];
-                if(block.type === 'table3') block.colWidths = [33, 33, 34];
+            if(block && (block.type === 'table' || block.type === 'table3')) {
+                block.rows[rowIndex][colKey] = val;
             }
-
-            if(block.type === 'table') {
-                if (v > 95) v = 95;
-                if(colIdx === 0) {
-                    block.colWidths[0] = v;
-                    block.colWidths[1] = 100 - v;
-                } else {
-                    block.colWidths[1] = v;
-                    block.colWidths[0] = 100 - v;
-                }
-            } else if(block.type === 'table3') {
-                if (v > 90) v = 90;
-                block.colWidths[colIdx] = v;
-                
-                // ปรับสมดุลคอลัมน์ที่เหลืออัตโนมัติ ให้รวมกันได้ 100%
-                let remain = 100 - v;
-                if(colIdx === 0) {
-                    let half = Math.floor(remain / 2);
-                    block.colWidths[1] = half;
-                    block.colWidths[2] = remain - half;
-                } else if(colIdx === 1) {
-                    block.colWidths[2] = 100 - block.colWidths[0] - v;
-                    if (block.colWidths[2] < 5) { // ป้องกันติดลบ
-                        block.colWidths[2] = 5;
-                        block.colWidths[0] = 100 - v - 5;
-                    }
-                } else {
-                    let half = Math.floor(remain / 2);
-                    block.colWidths[0] = half;
-                    block.colWidths[1] = remain - half;
-                }
-            }
-            renderPageBlocks();
         }
 
         function handleBlockImageSelect(event, blockId) {
@@ -1899,32 +1847,15 @@
             reader.readAsDataURL(file);
         }
 
-        // ฟังก์ชันช่วยเหลือสำหรับเก็บข้อมูลจาก Quill ก่อนลบหน้าจอสร้างใหม่
-        function backupQuillContents() {
+        function renderPageBlocks() {
+            const container = document.getElementById('page-blocks-container');
+            
+            // สำรองค่า content ของ Quill ตัวเดิมไว้ก่อนวาดใหม่ (ป้องกันข้อมูลหายตอนกดเพิ่มบล็อกอื่น)
             currentPageBlocks.forEach(b => {
                 if (quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
                     b.content = quillEditors[b.id].root.innerHTML;
                 }
-                if (b.type === 'table' && b.rows) {
-                    b.rows.forEach((r, rIdx) => {
-                        if(quillEditors[`editor-${b.id}-${rIdx}-left`]) r.left = quillEditors[`editor-${b.id}-${rIdx}-left`].root.innerHTML;
-                        if(quillEditors[`editor-${b.id}-${rIdx}-right`]) r.right = quillEditors[`editor-${b.id}-${rIdx}-right`].root.innerHTML;
-                    });
-                }
-                if (b.type === 'table3' && b.rows) {
-                    b.rows.forEach((r, rIdx) => {
-                        if(quillEditors[`editor-${b.id}-${rIdx}-col1`]) r.col1 = quillEditors[`editor-${b.id}-${rIdx}-col1`].root.innerHTML;
-                        if(quillEditors[`editor-${b.id}-${rIdx}-col2`]) r.col2 = quillEditors[`editor-${b.id}-${rIdx}-col2`].root.innerHTML;
-                        if(quillEditors[`editor-${b.id}-${rIdx}-col3`]) r.col3 = quillEditors[`editor-${b.id}-${rIdx}-col3`].root.innerHTML;
-                    });
-                }
             });
-        }
-
-        function renderPageBlocks() {
-            const container = document.getElementById('page-blocks-container');
-            
-            backupQuillContents(); // สำรองข้อมูลเนื้อหา
 
             if (currentPageBlocks.length === 0) {
                 container.innerHTML = '<div class="text-center py-6 border-2 border-dashed border-gray-300 rounded text-gray-400 text-sm">ยังไม่มีเนื้อหา กดเลือกรูปแบบด้านล่างเพื่อเพิ่ม</div>';
@@ -1935,8 +1866,8 @@
             currentPageBlocks.forEach((block, index) => {
                 let innerHtml = '';
                 
-                // ใช้ <div> เพื่อให้ Quill.js เข้ามาผูก
-                const textInput = `<div class="bg-white"><div id="${block.id}" class="quill-editor" data-block-id="${block.id}">${block.content || ''}</div></div>`;
+                // ใช้ <div> เพื่อให้ Quill.js เข้ามาผูก แทนการใช้ textarea แบบเดิม
+                const textInput = `<div class="bg-white"><div id="editor-${block.id}" class="quill-editor" data-block-id="${block.id}">${block.content || ''}</div></div>`;
                 
                 const imgPreview = block.imgUrl ? `<img src="${block.imgUrl}" class="w-full h-auto max-h-48 object-cover rounded shadow-sm border border-gray-200">` : `<div class="w-full h-32 bg-gray-100 border border-gray-200 rounded flex items-center justify-center text-gray-400 text-xs"><i data-lucide="image" class="w-6 h-6 mb-1 opacity-50 block mx-auto"></i> พื้นที่รูปภาพ</div>`;
                 const imgInput = `
@@ -1954,90 +1885,37 @@
                 } else if (block.type === 'image-text') {
                     innerHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div>${imgInput}</div><div>${textInput}</div></div>`;
                 } else if (block.type === 'table') {
-                    // ================= Block: ตาราง (2 คอลัมน์) =================
-                    let cw0 = block.colWidths ? block.colWidths[0] : 50;
-                    let cw1 = block.colWidths ? block.colWidths[1] : 50;
-                    
-                    let tableHtml = `<div class="space-y-4 bg-gray-50 border border-gray-200 p-4 rounded-md">`;
-                    tableHtml += `
-                        <div class="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded border border-gray-200 shadow-sm">
-                            <span class="text-xs font-bold text-gray-700"><i data-lucide="sliders" class="w-3.5 h-3.5 inline mr-1 text-school-blue"></i> กำหนดความกว้างคอลัมน์ (%): </span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-600">ซ้าย</span>
-                                <input type="number" value="${cw0}" onchange="updateColWidth('${block.id}', 0, this.value)" class="w-16 border border-gray-300 rounded p-1 text-xs text-center focus:border-school-blue focus:outline-none">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-600">ขวา</span>
-                                <input type="number" value="${cw1}" onchange="updateColWidth('${block.id}', 1, this.value)" class="w-16 border border-gray-300 rounded p-1 text-xs text-center focus:border-school-blue focus:outline-none">
-                            </div>
-                        </div>
-                    `;
-                    
+                    // ส่วนควบคุม Block แบบตาราง (2 คอลัมน์)
+                    let tableHtml = `<div class="space-y-2 bg-gray-50 border border-gray-200 p-2 rounded-md">`;
+                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ซ้าย</div><div class="w-2/3 text-xs font-bold text-gray-600">คอลัมน์ขวา</div></div>`;
                     if(!block.rows) block.rows = [];
                     block.rows.forEach((row, rIndex) => {
                         tableHtml += `
-                            <div class="flex flex-col md:flex-row gap-3 items-start border-b border-gray-200 pb-4 mb-4 last:border-0 last:pb-0 last:mb-0 relative group/row">
-                                <div class="w-full md:w-1/2">
-                                    <div class="text-xs font-bold text-gray-600 mb-1">คอลัมน์ซ้าย</div>
-                                    <div class="bg-white"><div id="editor-${block.id}-${rIndex}-left" class="quill-editor-table" data-block-id="${block.id}" data-row="${rIndex}" data-col="left">${row.left || ''}</div></div>
-                                </div>
-                                <div class="w-full md:w-1/2">
-                                    <div class="text-xs font-bold text-gray-600 mb-1">คอลัมน์ขวา</div>
-                                    <div class="bg-white"><div id="editor-${block.id}-${rIndex}-right" class="quill-editor-table" data-block-id="${block.id}" data-row="${rIndex}" data-col="right">${row.right || ''}</div></div>
-                                </div>
-                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="absolute -right-2 -top-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover/row:opacity-100 transition shadow-sm z-10" title="ลบแถว"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                            <div class="flex gap-2 items-start">
+                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุหัวข้อ" value="${row.left || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'left', this.value)">
+                                <input type="text" class="w-2/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุรายละเอียด" value="${row.right || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'right', this.value)">
+                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         `;
                     });
-                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถวลงตาราง</button></div></div>`;
+                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว</button></div></div>`;
                     innerHtml = tableHtml;
-                    
                 } else if (block.type === 'table3') {
-                    // ================= Block: ตาราง (3 คอลัมน์) =================
-                    let cw0 = block.colWidths ? block.colWidths[0] : 33;
-                    let cw1 = block.colWidths ? block.colWidths[1] : 33;
-                    let cw2 = block.colWidths ? block.colWidths[2] : 34;
-
-                    let tableHtml = `<div class="space-y-4 bg-gray-50 border border-gray-200 p-4 rounded-md">`;
-                    tableHtml += `
-                        <div class="flex flex-wrap items-center gap-3 bg-white p-2.5 rounded border border-gray-200 shadow-sm">
-                            <span class="text-xs font-bold text-gray-700"><i data-lucide="sliders" class="w-3.5 h-3.5 inline mr-1 text-school-blue"></i> กำหนดความกว้างคอลัมน์ (%): </span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-600">ช่อง 1</span>
-                                <input type="number" value="${cw0}" onchange="updateColWidth('${block.id}', 0, this.value)" class="w-14 border border-gray-300 rounded p-1 text-xs text-center focus:border-school-blue focus:outline-none">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-600">ช่อง 2</span>
-                                <input type="number" value="${cw1}" onchange="updateColWidth('${block.id}', 1, this.value)" class="w-14 border border-gray-300 rounded p-1 text-xs text-center focus:border-school-blue focus:outline-none">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-600">ช่อง 3</span>
-                                <input type="number" value="${cw2}" onchange="updateColWidth('${block.id}', 2, this.value)" class="w-14 border border-gray-300 rounded p-1 text-xs text-center focus:border-school-blue focus:outline-none">
-                            </div>
-                        </div>
-                    `;
-
+                    // ส่วนควบคุม Block แบบตาราง (3 คอลัมน์)
+                    let tableHtml = `<div class="space-y-2 bg-gray-50 border border-gray-200 p-2 rounded-md">`;
+                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 1</div><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 2</div><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 3</div></div>`;
                     if(!block.rows) block.rows = [];
                     block.rows.forEach((row, rIndex) => {
                         tableHtml += `
-                            <div class="flex flex-col md:flex-row gap-3 items-start border-b border-gray-200 pb-4 mb-4 last:border-0 last:pb-0 last:mb-0 relative group/row">
-                                <div class="w-full md:w-1/3">
-                                    <div class="text-xs font-bold text-gray-600 mb-1">คอลัมน์ 1</div>
-                                    <div class="bg-white"><div id="editor-${block.id}-${rIndex}-col1" class="quill-editor-table" data-block-id="${block.id}" data-row="${rIndex}" data-col="col1">${row.col1 || ''}</div></div>
-                                </div>
-                                <div class="w-full md:w-1/3">
-                                    <div class="text-xs font-bold text-gray-600 mb-1">คอลัมน์ 2</div>
-                                    <div class="bg-white"><div id="editor-${block.id}-${rIndex}-col2" class="quill-editor-table" data-block-id="${block.id}" data-row="${rIndex}" data-col="col2">${row.col2 || ''}</div></div>
-                                </div>
-                                <div class="w-full md:w-1/3">
-                                    <div class="text-xs font-bold text-gray-600 mb-1">คอลัมน์ 3</div>
-                                    <div class="bg-white"><div id="editor-${block.id}-${rIndex}-col3" class="quill-editor-table" data-block-id="${block.id}" data-row="${rIndex}" data-col="col3">${row.col3 || ''}</div></div>
-                                </div>
-                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="absolute -right-2 -top-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover/row:opacity-100 transition shadow-sm z-10" title="ลบแถว"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                            <div class="flex gap-2 items-start">
+                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col1 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col1', this.value)">
+                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col2 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col2', this.value)">
+                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col3 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col3', this.value)">
+                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         `;
                     });
-                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถวลงตาราง</button></div></div>`;
+                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว</button></div></div>`;
                     innerHtml = tableHtml;
                 }
 
@@ -2045,7 +1923,7 @@
                     <div class="relative bg-white border border-gray-200 p-3 rounded shadow-sm group">
                         <div class="absolute -top-3 -right-2 hidden group-hover:flex gap-1 z-20">
                             <span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded shadow-sm border border-gray-200 uppercase">${block.type}</span>
-                            <button type="button" onclick="removePageBlock('${block.id}')" class="bg-red-500 hover:bg-red-600 text-white p-1 rounded shadow-sm transition" title="ลบเนื้อหาส่วนนี้"><i data-lucide="x" class="w-3 h-3"></i></button>
+                            <button type="button" onclick="removePageBlock('${block.id}')" class="bg-red-500 hover:bg-red-600 text-white p-1 rounded shadow-sm transition"><i data-lucide="x" class="w-3 h-3"></i></button>
                         </div>
                         ${innerHtml}
                     </div>
@@ -2055,23 +1933,21 @@
             container.innerHTML = html;
             lucide.createIcons();
 
-            // ล้างตัวแปรแก้ไขข้อความเดิม
+            // สร้าง Instance ของ Quill หลังจากที่ DOM ถูกวาดเสร็จ
             quillEditors = {};
-            
-            // ผูกระบบ Quill ให้กล่องข้อความทั่วไป
             const editorDivs = document.querySelectorAll('.quill-editor');
             editorDivs.forEach(div => {
                 const blockId = div.getAttribute('data-block-id');
                 const quill = new Quill(div, { theme: 'snow', modules: { toolbar: quillToolbarOptions } });
                 quillEditors[blockId] = quill;
-            });
-            
-            // ผูกระบบ Quill ให้กล่องข้อความตาราง
-            const tableEditorDivs = document.querySelectorAll('.quill-editor-table');
-            tableEditorDivs.forEach(div => {
-                const editorId = div.id;
-                const quill = new Quill(div, { theme: 'snow', modules: { toolbar: quillToolbarOptions } });
-                quillEditors[editorId] = quill;
+                
+                // ดักจับการเปลี่ยนแปลงอัปเดตลงตัวแปรหลักทันที
+                quill.on('text-change', function() {
+                    const idx = currentPageBlocks.findIndex(b => b.id === blockId);
+                    if (idx > -1) {
+                        currentPageBlocks[idx].content = quill.root.innerHTML;
+                    }
+                });
             });
         }
 
@@ -2080,7 +1956,12 @@
             const btn = document.getElementById('btn-save-page');
             btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             
-            backupQuillContents(); // ดึงข้อมูลเนื้อหาล่าสุดก่อนบันทึก
+            // ดึงข้อมูล HTML ล่าสุดจาก Quill Editor มั่นใจว่าข้อมูลครบ
+            currentPageBlocks.forEach(b => {
+                if(quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
+                    b.content = quillEditors[b.id].root.innerHTML;
+                }
+            });
 
             try {
                 const payload = {
@@ -2137,6 +2018,7 @@
             } else {
                 let html = '';
                 blocks.forEach(block => {
+                    // ใช้คลาส rich-text-content และ ql-editor ร่วมกันเพื่อให้รูปแบบออกมาเหมือนตอนจัด
                     const textHtml = `<div class="text-gray-700 text-sm md:text-base leading-relaxed rich-text-content ql-editor" style="padding:0;">${block.content || ''}</div>`;
                     const imgHtml = block.imgUrl ? `<img src="${block.imgUrl}" class="w-full rounded shadow-sm object-cover">` : '';
                     
@@ -2149,49 +2031,31 @@
                     } else if (block.type === 'image-text') {
                         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div class="order-2 md:order-1">${imgHtml}</div><div class="order-1 md:order-2">${textHtml}</div></div>`;
                     } else if (block.type === 'table') {
-                        // รูปแบบแสดงผลตาราง 2 คอลัมน์ (รองรับการตั้งความกว้าง)
-                        let cw0 = block.colWidths ? block.colWidths[0] : 50;
-                        let cw1 = block.colWidths ? block.colWidths[1] : 50;
+                        // รูปแบบแสดงผลตาราง 2 คอลัมน์ แบบสะอาดตา
                         let rowsHtml = '';
-                        
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                                 rowsHtml += `
                                     <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors">
-                                        <div class="col-width-responsive w-full sm:w-auto p-0 border-b sm:border-b-0 sm:border-r border-gray-100" style="--desk-w: ${cw0}%;">
-                                            <div class="rich-text-content ql-editor" style="padding:1rem;">${row.left || ''}</div>
-                                        </div>
-                                        <div class="col-width-responsive w-full sm:w-auto p-0" style="--desk-w: ${cw1}%;">
-                                            <div class="rich-text-content ql-editor" style="padding:1rem;">${row.right || ''}</div>
-                                        </div>
+                                        <div class="sm:w-1/3 p-3 sm:p-4 font-semibold text-school-navy border-b sm:border-b-0 sm:border-r border-gray-100">${row.left || ''}</div>
+                                        <div class="sm:w-2/3 p-3 sm:p-4 text-gray-700">${row.right || ''}</div>
                                     </div>
                                 `;
                             });
                         }
                         html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">${rowsHtml}</div>`;
-                        
                     } else if (block.type === 'table3') {
-                        // รูปแบบแสดงผลตาราง 3 คอลัมน์ (รองรับการตั้งความกว้าง)
-                        let cw0 = block.colWidths ? block.colWidths[0] : 33;
-                        let cw1 = block.colWidths ? block.colWidths[1] : 33;
-                        let cw2 = block.colWidths ? block.colWidths[2] : 34;
+                        // รูปแบบแสดงผลตาราง 3 คอลัมน์
                         let rowsHtml = '';
-                        
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                                 rowsHtml += `
                                     <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors">
-                                        <div class="col-width-responsive w-full sm:w-auto p-0 border-b sm:border-b-0 sm:border-r border-gray-100" style="--desk-w: ${cw0}%;">
-                                            <div class="rich-text-content ql-editor" style="padding:1rem;">${row.col1 || ''}</div>
-                                        </div>
-                                        <div class="col-width-responsive w-full sm:w-auto p-0 border-b sm:border-b-0 sm:border-r border-gray-100" style="--desk-w: ${cw1}%;">
-                                            <div class="rich-text-content ql-editor" style="padding:1rem;">${row.col2 || ''}</div>
-                                        </div>
-                                        <div class="col-width-responsive w-full sm:w-auto p-0" style="--desk-w: ${cw2}%;">
-                                            <div class="rich-text-content ql-editor" style="padding:1rem;">${row.col3 || ''}</div>
-                                        </div>
+                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-100">${row.col1 || ''}</div>
+                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-100">${row.col2 || ''}</div>
+                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700">${row.col3 || ''}</div>
                                     </div>
                                 `;
                             });
@@ -2230,7 +2094,7 @@
         }
 
         function renderStaffTable() {
-            const isAdmin = loggedInUser && (String(loggedInUser.role) === "2" || String(loggedInUser.role) === "3");
+            const isAdmin = loggedInUser && (loggedInUser.role === "2" || loggedInUser.role === "3");
             const st = document.getElementById('admin-staff-table');
             if(globalStaff.length === 0) st.innerHTML = `<tr><td colspan="${isAdmin ? '5' : '4'}" class="text-center py-8 text-gray-400">ไม่มีข้อมูลบุคลากร</td></tr>`;
             else st.innerHTML = globalStaff.map((s, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-12 h-12 rounded-full overflow-hidden border border-gray-200 bg-gray-100"><img src="${s.img || 'https://placehold.co/100'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3"><div class="text-gray-900 font-medium">${s.name}</div></td><td class="px-4 py-3"><div class="text-sm text-gray-600">${s.position}</div>${s.phone ? `<div class="text-xs text-gray-500 mt-0.5 flex items-center"><i data-lucide="phone" class="w-3 h-3 mr-1"></i>${s.phone}</div>` : ''}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editStaff('${s.id}')" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Staff', '${s.id}')" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
@@ -2540,451 +2404,589 @@
                 });
                 pendingSlideFiles.forEach((file, idx) => {
                     const url = URL.createObjectURL(file);
-                    sPrev.innerHTML += `<div class="relative w-32 h-16 md:w-40 md:h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingSlideFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`;
+                    sPrev.innerHTML += `<div class="relative w-32 h-16 md:w-40 md:h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingSlideFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">เพิ่มใหม่</span></div>`;
                 });
-            } else {
-                sSect.classList.add('hidden');
+            } else { 
+                sSect.classList.add('hidden'); 
             }
             lucide.createIcons();
         }
 
-        function removeRetainedSlide(url) { retainedSettingsSlides = retainedSettingsSlides.filter(u => u !== url); renderSlidePreview(); }
-        function removePendingSlideFile(idx) { pendingSlideFiles.splice(idx, 1); renderSlidePreview(); }
         function removeSettingsBanner() { retainedSettingsBanner = ""; croppedBannerBase64 = null; renderSettingsAdmin(); }
         function removeSettingsDirector() { retainedSettingsDirector = ""; renderSettingsAdmin(); }
-        function removeSettingsFavicon() { retainedSettingsFavicon = ""; renderSettingsAdmin(); }
+        function removeSettingsFavicon() { retainedSettingsFavicon = ""; renderSettingsAdmin(); } 
+        function removeRetainedSlide(url) { retainedSettingsSlides = retainedSettingsSlides.filter(u => u !== url); renderSlidePreview(); }
+        function removePendingSlideFile(idx) { pendingSlideFiles.splice(idx, 1); renderSlidePreview(); }
 
         async function submitSettings(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-submit-settings'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
-            
+            e.preventDefault(); const btn = document.getElementById('btn-submit-settings'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white; width: 16px; height: 16px;"></div> กำลังบันทึก...';
             try {
-                let bannerObj = null; 
-                if (croppedBannerBase64) {
-                    bannerObj = { name: croppedBannerName || 'banner.jpg', mimeType: croppedBannerMimeType || 'image/jpeg', base64: croppedBannerBase64 };
+                let bannerObj = null; if(croppedBannerBase64) { bannerObj = { name: croppedBannerName, mimeType: croppedBannerMimeType, base64: croppedBannerBase64 }; }
+                
+                let dirObj = null; const dirFile = document.getElementById('settings-director-image').files[0];
+                if(dirFile) { dirObj = { name: dirFile.name, mimeType: dirFile.type, base64: await fileToBase64(dirFile) }; }
+
+                let favObj = null; const favFile = document.getElementById('settings-favicon-image').files[0];
+                if(favFile) { favObj = { name: favFile.name, mimeType: favFile.type, base64: await fileToBase64(favFile) }; }
+
+                let slideObjs = []; 
+                for(let i=0; i<pendingSlideFiles.length; i++) { 
+                    slideObjs.push({ name: pendingSlideFiles[i].name, mimeType: pendingSlideFiles[i].type, base64: await fileToBase64(pendingSlideFiles[i]) }); 
                 }
                 
-                const slideObjs = await Promise.all(pendingSlideFiles.map(async file => {
-                    const b64 = await fileToBase64(file);
-                    return { name: file.name, mimeType: file.type, base64: b64 };
-                }));
-
-                const dInput = document.getElementById('settings-director-image'); let dObj = null;
-                if(dInput.files.length > 0) { const df = dInput.files[0]; const db = await fileToBase64(df); dObj = { name: df.name, mimeType: df.type, base64: db }; }
-
-                const favInput = document.getElementById('settings-favicon-image'); let favObj = null;
-                if(favInput.files.length > 0) { const ff = favInput.files[0]; const fb = await fileToBase64(ff); favObj = { name: ff.name, mimeType: ff.type, base64: fb }; }
-
-                const payload = {
-                    action: "save_settings",
+                const payload = { 
+                    action: "save_settings", 
                     schoolNameTH: document.getElementById('settings-school-name-th').value,
                     schoolNameEN: document.getElementById('settings-school-name-en').value,
                     schoolAffiliation: document.getElementById('settings-school-affiliation').value,
-                    directorName: document.getElementById('settings-director-name').value,
-                    directorImageObj: dObj, retainedDirectorImage: retainedSettingsDirector,
-                    bannerObj: bannerObj, retainedBannerUrl: retainedSettingsBanner, showBanner: document.getElementById('settings-show-banner').checked,
-                    slideObjs: slideObjs, retainedSlideUrls: retainedSettingsSlides.join(','), slideInterval: document.getElementById('settings-slide-interval').value,
-                    marqueeText: document.getElementById('settings-marquee-text').value, showMarquee: document.getElementById('settings-show-marquee').checked,
-                    marqueeSpeed: document.getElementById('settings-marquee-speed').value, marqueeDelay: document.getElementById('settings-marquee-delay').value,
+                    directorName: document.getElementById('settings-director-name').value, 
+                    marqueeText: document.getElementById('settings-marquee-text').value,
+                    showMarquee: document.getElementById('settings-show-marquee').checked,
+                    marqueeSpeed: Number(document.getElementById('settings-marquee-speed').value) || 25,
+                    marqueeDelay: Number(document.getElementById('settings-marquee-delay').value) || 0,
                     siteTitle: document.getElementById('settings-site-title').value,
-                    faviconObj: favObj, retainedFaviconUrl: retainedSettingsFavicon,
                     copyrightText: document.getElementById('settings-copyright-text').value,
                     newBadgeDays: document.getElementById('settings-new-badge-days').value,
                     contactAddress: document.getElementById('settings-contact-address').value,
                     contactPhone: document.getElementById('settings-contact-phone').value,
                     contactEmail: document.getElementById('settings-contact-email').value,
                     contactMap: document.getElementById('settings-contact-map').value,
-                    orgLayout: JSON.stringify(globalOrgLayout)
+                    faviconImageObj: favObj, retainedFaviconUrl: retainedSettingsFavicon,
+                    bannerImageObj: bannerObj, retainedBannerUrl: retainedSettingsBanner,
+                    directorImageObj: dirObj, retainedDirectorImageUrl: retainedSettingsDirector,
+                    slideImageObjs: slideObjs, retainedSlideshowUrls: retainedSettingsSlides,
+                    showBanner: document.getElementById('settings-show-banner').checked,
+                    slideInterval: document.getElementById('settings-slide-interval').value
                 };
-
-                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
-                if(data.status === "success") { showAlert('success', 'สำเร็จ', 'บันทึกการตั้งค่าระบบเรียบร้อยแล้ว'); fetchAllData(); }
-                else throw new Error(data.message);
-            } catch(err) { showAlert('error', 'ผิดพลาด', err.message); }
+                
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+                const data = await res.json();
+                
+                if(data.status === "success") { 
+                    showAlert('success', 'สำเร็จ', 'บันทึกการตั้งค่าเว็บไซต์เรียบร้อยแล้ว'); 
+                    document.getElementById('form-settings').reset(); croppedBannerBase64 = null; fetchAllData(); 
+                } else throw new Error(data.message);
+            } catch(err) { showAlert('error', 'ผิดพลาด', err.message); } 
             finally { btn.disabled = false; btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> บันทึกการตั้งค่า'; lucide.createIcons(); }
         }
 
-        // =============================================== NEWS, ACT, NL, ANN DATA ===============================================
-        function renderNewsImagePreview() { const ps = document.getElementById('news-edit-preview-section'); const pc = document.getElementById('news-edit-image-preview'); pc.innerHTML = ''; if(retainedNewsImages.length > 0 || pendingNewsFiles.length > 0) { ps.classList.remove('hidden'); retainedNewsImages.forEach((url, i) => { pc.innerHTML += `<div class="relative w-20 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedNewsImage(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingNewsFiles.forEach((file, i) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingNewsFile(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('news-image-hint').classList.add('hidden'); } else { ps.classList.add('hidden'); document.getElementById('news-image-hint').classList.remove('hidden'); } lucide.createIcons(); }
-        function removeRetainedNewsImage(idx) { retainedNewsImages.splice(idx, 1); renderNewsImagePreview(); }
-        function removePendingNewsFile(idx) { pendingNewsFiles.splice(idx, 1); renderNewsImagePreview(); }
-
-        function editNews(id) { const n = globalNews.find(x => x.id == id); if(!n) return; editNewsId = id; document.getElementById('news-title').value = n.title; newsQuillEditor.root.innerHTML = n.content || ""; document.getElementById('form-news-header').innerText="ฟอร์มแก้ไขข่าวประชาสัมพันธ์"; document.getElementById('btn-submit-news').innerText="บันทึกการแก้ไข"; retainedNewsImages = (n.img && n.img.trim() !== '') ? n.img.split(',') : []; pendingNewsFiles = []; renderNewsImagePreview(); document.getElementById('form-news-container').classList.remove('hidden'); document.getElementById('form-news-container').scrollIntoView({ behavior: 'smooth' }); }
-        
-        async function submitNews(e) { 
-            e.preventDefault(); 
-            const btn = document.getElementById('btn-submit-news'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...'; 
-            try { 
-                const imageObjs = await Promise.all(pendingNewsFiles.map(async file => { const b64 = await fileToBase64(file); return { name: file.name, mimeType: file.type, base64: b64 }; })); 
-                const content = newsQuillEditor.root.innerHTML;
-                const payload = { action: editNewsId ? "edit_data" : "add_data", type: "News", id: editNewsId, title: document.getElementById('news-title').value, content: content, imageObjs: imageObjs, retainedImageUrls: editNewsId ? retainedNewsImages.join(',') : undefined }; 
-                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json(); 
-                if(data.status === "success") { showAlert('success','สำเร็จ', editNewsId ? 'แก้ไขข้อมูลข่าวเรียบร้อยแล้ว' : 'เพิ่มข่าวประชาสัมพันธ์เรียบร้อยแล้ว'); toggleForm('form-news-container'); fetchAllData(); } else throw new Error(data.message); 
-            } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNewsId ? "บันทึกการแก้ไข" : "บันทึกข่าว"; } 
+        // =============================================== UI Navigation ===============================================
+        function saveCurrentScroll() {
+            if (lastAppView && !document.getElementById('public-view').classList.contains('hidden')) {
+                scrollPositions[lastAppView] = window.scrollY;
+            }
         }
 
-        function renderActImagePreview() { const ps = document.getElementById('act-edit-preview-section'); const pc = document.getElementById('act-edit-image-preview'); pc.innerHTML = ''; if(retainedActImages.length > 0 || pendingActFiles.length > 0) { ps.classList.remove('hidden'); retainedActImages.forEach((url, i) => { pc.innerHTML += `<div class="relative w-20 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedActImage(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingActFiles.forEach((file, i) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingActFile(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('act-image-req').classList.add('hidden'); document.getElementById('act-image-hint').classList.remove('hidden'); } else { ps.classList.add('hidden'); document.getElementById('act-image-req').classList.remove('hidden'); document.getElementById('act-image-hint').classList.add('hidden'); } lucide.createIcons(); }
-        function removeRetainedActImage(idx) { retainedActImages.splice(idx, 1); renderActImagePreview(); }
+        // --- ปรับปรุงฟังก์ชันการเลื่อนหน้าจอใหม่ ---
+        function scrollToTarget(elementId, offset = 20) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            // ฟังก์ชันย่อยสำหรับสั่งคำนวณและเลื่อนไปยังจุดที่ถูกต้อง
+            const doScroll = () => {
+                const y = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            };
+
+            // 1. เลื่อนหน้าจอคร่าวๆ ทันที
+            setTimeout(doScroll, 50);
+
+            // 2. ดักจับรูปภาพทั้งหมดในพื้นที่เป้าหมาย (เพื่อชดเชยการผลักหน้าจอตอนภาพโหลดเสร็จ)
+            const images = el.querySelectorAll('img');
+            if (images.length > 0) {
+                images.forEach(img => {
+                    // ถ้ารูปยังไม่โหลดเสร็จ ให้รอจนกว่าจะโหลดเสร็จแล้วค่อยคำนวณและเลื่อนใหม่
+                    if (!img.complete) {
+                        img.addEventListener('load', doScroll, { once: true });
+                    }
+                });
+            }
+
+            // 3. ป้องกันเหนียว (Fallback) ถ้าระบบมือถือหน่วง
+            setTimeout(doScroll, 500);
+            setTimeout(doScroll, 1000);
+        }
+
+        function hideAllPublicViews() { 
+            document.getElementById('home-main-content').classList.add('hidden'); document.getElementById('home-main-content').classList.remove('block', 'flex'); 
+            document.getElementById('news-detail-view').classList.add('hidden'); document.getElementById('news-detail-view').classList.remove('flex'); 
+            document.getElementById('activity-detail-view').classList.add('hidden'); document.getElementById('activity-detail-view').classList.remove('flex'); 
+            document.getElementById('newsletter-detail-view').classList.add('hidden'); document.getElementById('newsletter-detail-view').classList.remove('flex');
+            document.getElementById('all-news-view').classList.add('hidden'); document.getElementById('all-news-view').classList.remove('flex'); 
+            document.getElementById('all-activities-view').classList.add('hidden'); document.getElementById('all-activities-view').classList.remove('flex'); 
+            document.getElementById('all-newsletters-view').classList.add('hidden'); document.getElementById('all-newsletters-view').classList.remove('flex');
+            document.getElementById('contact-us-view').classList.add('hidden'); document.getElementById('contact-us-view').classList.remove('flex');
+            document.getElementById('staff-view').classList.add('hidden'); document.getElementById('staff-view').classList.remove('flex');
+            document.getElementById('custom-page-view').classList.add('hidden'); document.getElementById('custom-page-view').classList.remove('flex');
+        }
+        
+        function setPublicNavActive(tabId) { const navIds = ['nav-pub-home', 'nav-pub-exec', 'nav-pub-news', 'nav-pub-act', 'nav-pub-newsletter', 'nav-pub-contact']; navIds.forEach(id => { const el = document.getElementById(id); if (el) { if (id === tabId) el.className = "flex items-center py-3 px-4 border-b-4 border-school-brassLight text-school-brassLight font-medium transition"; else el.className = "flex items-center py-3 px-4 border-b-4 border-transparent hover:border-school-brassLight hover:text-school-brassLight transition"; } }); }
+        
+        function showAllNews(isPopState = false, restoreScroll = false) { 
+            if(!isPopState) saveCurrentScroll();
+            lastAppView = 'all-news'; 
+            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-news'); window.history.pushState({}, '', url); } catch(e){} } 
+            hideAllPublicViews(); document.getElementById('all-news-view').classList.remove('hidden'); document.getElementById('all-news-view').classList.add('flex'); setPublicNavActive('nav-pub-news'); 
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-news'] || 0, behavior: 'instant' }), 50);
+            else scrollToTarget('all-news-view', 15); 
+        }
+        
+        function showAllActivities(isPopState = false, restoreScroll = false) { 
+            if(!isPopState) saveCurrentScroll();
+            lastAppView = 'all-activities'; 
+            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-activities'); window.history.pushState({}, '', url); } catch(e){} } 
+            hideAllPublicViews(); document.getElementById('all-activities-view').classList.remove('hidden'); document.getElementById('all-activities-view').classList.add('flex'); setPublicNavActive('nav-pub-act'); 
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-activities'] || 0, behavior: 'instant' }), 50);
+            else scrollToTarget('all-activities-view', 15); 
+        }
+        
+        function showAllNewsletters(isPopState = false, restoreScroll = false) { 
+            if(!isPopState) saveCurrentScroll();
+            lastAppView = 'all-newsletters'; 
+            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); url.searchParams.set('view', 'all-newsletters'); window.history.pushState({}, '', url); } catch(e){} } 
+            hideAllPublicViews(); document.getElementById('all-newsletters-view').classList.remove('hidden'); document.getElementById('all-newsletters-view').classList.add('flex'); setPublicNavActive('nav-pub-newsletter'); 
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['all-newsletters'] || 0, behavior: 'instant' }), 50);
+            else scrollToTarget('all-newsletters-view', 15); 
+        }
+        
+        function showContactUs(isPopState = false, restoreScroll = false) { 
+            if(!isPopState) saveCurrentScroll();
+            lastAppView = 'contact'; 
+            if (!isPopState) { 
+                try { 
+                    const url = new URL(window.location); 
+                    url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); 
+                    url.searchParams.set('view', 'contact'); 
+                    window.history.pushState({}, '', url); 
+                } catch(e){} 
+            } 
+            hideAllPublicViews(); 
+            document.getElementById('contact-us-view').classList.remove('hidden'); 
+            document.getElementById('contact-us-view').classList.add('flex'); 
+            setPublicNavActive('nav-pub-contact'); 
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['contact'] || 0, behavior: 'instant' }), 50);
+            else scrollToTarget('contact-us-view', 15); 
+        }
+
+        function showStaffView(isPopState = false, restoreScroll = false) { 
+            if(!isPopState) saveCurrentScroll();
+            lastAppView = 'staff'; 
+            if (!isPopState) { 
+                try { 
+                    const url = new URL(window.location); 
+                    url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('tab'); 
+                    url.searchParams.set('view', 'staff'); 
+                    window.history.pushState({}, '', url); 
+                } catch(e){} 
+            } 
+            hideAllPublicViews(); 
+            document.getElementById('staff-view').classList.remove('hidden'); 
+            document.getElementById('staff-view').classList.add('flex'); 
+            setPublicNavActive('nav-pub-exec'); 
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['staff'] || 0, behavior: 'instant' }), 50);
+            else scrollToTarget('staff-view', 15); 
+        }
+
+        function goBackToHome(isPopState = false, restoreScroll = false) {
+            if(!isPopState && lastAppView !== 'home') saveCurrentScroll();
+            lastAppView = 'home';
+            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('id'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('newsId'); url.searchParams.delete('pageId'); url.searchParams.delete('view'); url.searchParams.delete('tab'); window.history.pushState({}, '', url); } catch(e){} }
+            hideAllPublicViews(); document.getElementById('home-main-content').classList.remove('hidden'); document.getElementById('home-main-content').classList.add('block', 'flex'); setPublicNavActive('nav-pub-home');
+            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['home'] || 0, behavior: 'instant' }), 50);
+            else setTimeout(() => {
+                const navbar = document.getElementById('main-nav-menu');
+                if (navbar) {
+                    const y = navbar.getBoundingClientRect().top + window.scrollY;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+            }, 100);
+        }
+
+        function goBackHistory() {
+            // เช็คว่ากดกลับมาจากหน้าอ่านรายละเอียดหรือไม่
+            if (lastAppView === 'news-detail' || lastAppView === 'act-detail' || lastAppView === 'nl-detail') {
+                if (currentDetailCameFrom === 'all-news') showAllNews(false, true);
+                else if (currentDetailCameFrom === 'all-activities') showAllActivities(false, true);
+                else if (currentDetailCameFrom === 'all-newsletters') showAllNewsletters(false, true);
+                else goBackToHome(false, true);
+            } else {
+                // หากกดกลับมาจากหน้าอื่นๆ ให้กลับไปหน้าแรก (Home)
+                goBackToHome(false, true);
+            }
+        }
+
+        // --- Detail Views ---
+        function viewNewsDetail(id) {
+            saveCurrentScroll();
+            currentDetailCameFrom = lastAppView;
+            try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('tab'); url.searchParams.set('newsId', id); window.history.pushState({}, '', url); } catch(e){}
+            showNewsDetailUI(id);
+        }
+        
+        function showNewsDetailUI(id) {
+            lastAppView = 'news-detail';
+            const news = globalNews.find(n => n.id == id);
+            if(!news) { goBackToHome(); return; }
+            hideAllPublicViews();
+            document.getElementById('news-detail-view').classList.remove('hidden'); document.getElementById('news-detail-view').classList.add('flex');
+            document.getElementById('news-detail-title').innerHTML = news.title + (news.isHot ? '<span class="badge-new-container"><span class="badge-new">NEW</span></span>' : '');
+            document.getElementById('news-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> ${news.date}`;
+            
+            // ข่าวถูกบันทึกด้วย Quill จึงแสดงด้วย class ของ Quill
+            document.getElementById('news-detail-content').innerHTML = news.content || '';
+            
+            const imgContainer = document.getElementById('news-detail-image-container');
+            const urls = (news.img || '').split(',').filter(u => u.trim() !== '');
+            if(urls.length > 0) {
+                imgContainer.innerHTML = urls.map((url, index) => `<img src="${url}" class="w-full rounded-md shadow-sm border border-gray-200 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('news', ${news.id}, ${index})">`).join('');
+            } else imgContainer.innerHTML = '';
+            
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานข่าวตรงๆ
+            scrollToTarget('news-detail-view', 15); 
+            lucide.createIcons();
+        }
+
+        function viewActivityDetail(id) {
+            saveCurrentScroll();
+            currentDetailCameFrom = lastAppView;
+            try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('tab'); url.searchParams.set('actId', id); window.history.pushState({}, '', url); } catch(e){}
+            showActivityDetailUI(id);
+        }
+        
+        function showActivityDetailUI(id) {
+            lastAppView = 'act-detail';
+            const act = globalActivities.find(a => a.id == id);
+            if(!act) { goBackToHome(); return; }
+            hideAllPublicViews();
+            document.getElementById('activity-detail-view').classList.remove('hidden'); document.getElementById('activity-detail-view').classList.add('flex');
+            document.getElementById('act-detail-title').innerHTML = act.title + (act.isHot ? '<span class="badge-new-container"><span class="badge-new">NEW</span></span>' : '');
+            document.getElementById('act-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> ${act.date}`;
+            const imgContainer = document.getElementById('act-detail-image-container');
+            const urls = (act.img || '').split(',').filter(u => u.trim() !== '');
+            if(urls.length > 0) {
+                imgContainer.innerHTML = urls.map((url, index) => `<div class="aspect-square bg-gray-100 rounded overflow-hidden shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition shine-sweep" onclick="openLightbox('act', ${act.id}, ${index})"><img src="${url}" class="w-full h-full object-cover"></div>`).join('');
+            } else imgContainer.innerHTML = '<p class="text-gray-500 text-sm col-span-full">ไม่มีรูปภาพในกิจกรรมนี้</p>';
+            
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานภาพกิจกรรมตรงๆ
+            scrollToTarget('activity-detail-view', 15); 
+            lucide.createIcons();
+        }
+
+        function viewNewsletterDetail(id) {
+            saveCurrentScroll();
+            currentDetailCameFrom = lastAppView;
+            try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('tab'); url.searchParams.set('nlId', id); window.history.pushState({}, '', url); } catch(e){}
+            showNewsletterDetailUI(id);
+        }
+        
+        function showNewsletterDetailUI(id) {
+            lastAppView = 'nl-detail';
+            const nl = globalNewsletters.find(n => n.id == id);
+            if(!nl) { goBackToHome(); return; }
+            hideAllPublicViews();
+            document.getElementById('newsletter-detail-view').classList.remove('hidden'); document.getElementById('newsletter-detail-view').classList.add('flex');
+            document.getElementById('nl-detail-badge').innerHTML = (nl.isHot ? '<span class="badge-new-container"><span class="badge-new">NEW</span></span>' : '');
+            document.getElementById('nl-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> ${nl.date}`;
+            const imgContainer = document.getElementById('nl-detail-image-container');
+            const urls = (nl.img || '').split(',').filter(u => u.trim() !== '');
+            if(urls.length > 0) {
+                imgContainer.innerHTML = urls.map((url, index) => `<img src="${url}" class="w-full rounded-md shadow-sm border border-gray-200 object-contain cursor-pointer hover:opacity-90 transition" onclick="openLightbox('nl', ${nl.id}, ${index})">`).join('');
+            } else imgContainer.innerHTML = '';
+            
+            // ใช้คำสั่งเพื่อเลื่อนไปที่กระดานจดหมายข่าวตรงๆ
+            scrollToTarget('newsletter-detail-view', 15); 
+            lucide.createIcons();
+        }
+
+        // --- Lightbox ---
+        function openLightbox(type, id, index) {
+            let item;
+            if(type === 'news') item = globalNews.find(x => x.id == id);
+            else if(type === 'act') item = globalActivities.find(x => x.id == id);
+            else if(type === 'nl') item = globalNewsletters.find(x => x.id == id);
+            if(!item) return;
+            currentLightboxImages = (item.img || '').split(',').filter(u => u.trim() !== '');
+            if(currentLightboxImages.length === 0) return;
+            currentLightboxIndex = index;
+            updateLightbox();
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('lightbox-modal').classList.remove('opacity-0'); document.getElementById('lightbox-image').classList.remove('scale-95'); document.getElementById('lightbox-image').classList.add('scale-100'); }, 10);
+            if (window.location.hash !== '#lightbox') window.history.pushState({ lightbox: true }, '', window.location.href.split('#')[0] + '#lightbox');
+        }
+
+        function openDirectLightbox(imgString) {
+            currentLightboxImages = (imgString || '').split(',').filter(u => u.trim() !== '');
+            if(currentLightboxImages.length === 0) return;
+            currentLightboxIndex = 0;
+            updateLightbox();
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('lightbox-modal').classList.remove('opacity-0'); document.getElementById('lightbox-image').classList.remove('scale-95'); document.getElementById('lightbox-image').classList.add('scale-100'); }, 10);
+            if (window.location.hash !== '#lightbox') window.history.pushState({ lightbox: true }, '', window.location.href.split('#')[0] + '#lightbox');
+        }
+
+        function updateLightbox() {
+            document.getElementById('lightbox-image').src = currentLightboxImages[currentLightboxIndex];
+            document.getElementById('lightbox-counter').innerText = `${currentLightboxIndex + 1} / ${currentLightboxImages.length}`;
+        }
+        function changeLightboxImage(dir) {
+            if(currentLightboxImages.length <= 1) return;
+            currentLightboxIndex = (currentLightboxIndex + dir + currentLightboxImages.length) % currentLightboxImages.length;
+            updateLightbox();
+        }
+        function closeLightbox(fromPopState = false) {
+            const modal = document.getElementById('lightbox-modal');
+            const img = document.getElementById('lightbox-image');
+            modal.classList.add('opacity-0'); img.classList.remove('scale-100'); img.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); img.src = ''; }, 300);
+            if (fromPopState !== true && window.location.hash === '#lightbox') window.history.back();
+        }
+
+        // --- Back button logic ---
+        window.addEventListener('popstate', function(event) {
+            const hash = window.location.hash;
+            if (hash !== '#lightbox' && !document.getElementById('lightbox-modal').classList.contains('hidden')) { closeLightbox(true); }
+            if (hash !== '#cropper' && !document.getElementById('cropper-modal').classList.contains('hidden')) { closeCropperModal(true); }
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get('view'); const newsId = urlParams.get('newsId'); const actId = urlParams.get('actId'); const nlId = urlParams.get('nlId'); const pageId = urlParams.get('pageId');
+            
+            if (view === 'admin') showAdminDashboard(true);
+            else if (view === 'all-news') showAllNews(true, true);
+            else if (view === 'all-activities') showAllActivities(true, true);
+            else if (view === 'all-newsletters') showAllNewsletters(true, true);
+            else if (view === 'contact') showContactUs(true, true);
+            else if (view === 'staff') showStaffView(true, true);
+            else if (newsId) showNewsDetailUI(newsId);
+            else if (actId) showActivityDetailUI(actId);
+            else if (nlId) showNewsletterDetailUI(nlId);
+            else if (pageId) { lastAppView='custom-page'; viewCustomPage(pageId); }
+            else { goBackToHome(true, true); }
+        });
+
+        // --- Form Submits ---
+        function renderNewsImagePreview() { const ps = document.getElementById('news-edit-preview-section'); const pc = document.getElementById('news-edit-image-preview'); pc.innerHTML = ''; if(retainedNewsImages.length > 0 || pendingNewsFiles.length > 0) { ps.classList.remove('hidden'); retainedNewsImages.forEach(url => { pc.innerHTML += `<div class="relative w-20 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedNewsImage('${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingNewsFiles.forEach((file, idx) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingNewsFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); } else { ps.classList.add('hidden'); } lucide.createIcons(); }
+        function removeRetainedNewsImage(url) { retainedNewsImages = retainedNewsImages.filter(u => u !== url); renderNewsImagePreview(); }
+        function removePendingNewsFile(idx) { pendingNewsFiles.splice(idx, 1); renderNewsImagePreview(); }
+        
+        async function submitNews(e) {
+            e.preventDefault(); const btn = document.getElementById('btn-submit-news'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
+            try {
+                let imgObjs = []; for(let i=0; i<pendingNewsFiles.length; i++) { imgObjs.push({ name: pendingNewsFiles[i].name, mimeType: pendingNewsFiles[i].type, base64: await fileToBase64(pendingNewsFiles[i]) }); }
+                
+                // ดึงข้อมูล HTML จาก Quill Editor ข่าว
+                const quillHtmlContent = newsQuillEditor ? newsQuillEditor.root.innerHTML : '';
+                
+                const payload = { action: editNewsId ? "edit_news" : "add_news", id: editNewsId, title: document.getElementById('news-title').value, content: quillHtmlContent, imageObjs: imgObjs, retainedImageUrls: editNewsId ? retainedNewsImages : undefined };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
+                if(data.status === "success") { showAlert('success','สำเร็จ', editNewsId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มข่าวเรียบร้อยแล้ว'); toggleForm('form-news-container'); fetchAllData(); } else throw new Error(data.message);
+            } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNewsId ? "บันทึกการแก้ไข" : "บันทึกข่าว"; }
+        }
+
+        function renderActImagePreview() { const ps = document.getElementById('act-edit-preview-section'); const pc = document.getElementById('act-edit-image-preview'); pc.innerHTML = ''; if(retainedActImages.length > 0 || pendingActFiles.length > 0) { ps.classList.remove('hidden'); retainedActImages.forEach(url => { pc.innerHTML += `<div class="relative w-20 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedActImage('${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingActFiles.forEach((file, idx) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingActFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('act-image-req').classList.add('hidden'); } else { ps.classList.add('hidden'); document.getElementById('act-image-req').classList.remove('hidden'); } lucide.createIcons(); }
+        function removeRetainedActImage(url) { retainedActImages = retainedActImages.filter(u => u !== url); renderActImagePreview(); }
         function removePendingActFile(idx) { pendingActFiles.splice(idx, 1); renderActImagePreview(); }
 
-        function editActivity(id) { const a = globalActivities.find(x => x.id == id); if(!a) return; editActId = id; document.getElementById('act-title').value = a.title; document.getElementById('form-act-header').innerText="ฟอร์มแก้ไขภาพกิจกรรม"; document.getElementById('btn-submit-act').innerText="บันทึกการแก้ไข"; retainedActImages = (a.img && a.img.trim() !== '') ? a.img.split(',') : []; pendingActFiles = []; renderActImagePreview(); document.getElementById('form-activity-container').classList.remove('hidden'); document.getElementById('form-activity-container').scrollIntoView({ behavior: 'smooth' }); }
-        
-        async function submitActivity(e) { e.preventDefault(); const btn = document.getElementById('btn-submit-act'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...'; try { const imageObjs = await Promise.all(pendingActFiles.map(async file => { const b64 = await fileToBase64(file); return { name: file.name, mimeType: file.type, base64: b64 }; })); const payload = { action: editActId ? "edit_data" : "add_data", type: "Activities", id: editActId, title: document.getElementById('act-title').value, content: "", imageObjs: imageObjs, retainedImageUrls: editActId ? retainedActImages.join(',') : undefined }; const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json(); if(data.status === "success") { showAlert('success','สำเร็จ', editActId ? 'แก้ไขข้อมูลกิจกรรมเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว'); toggleForm('form-activity-container'); fetchAllData(); } else throw new Error(data.message); } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editActId ? "บันทึกการแก้ไข" : "บันทึกกิจกรรม"; } }
+        async function submitActivity(e) {
+            e.preventDefault(); const btn = document.getElementById('btn-submit-act'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
+            try {
+                let imgObjs = []; for(let i=0; i<pendingActFiles.length; i++) { imgObjs.push({ name: pendingActFiles[i].name, mimeType: pendingActFiles[i].type, base64: await fileToBase64(pendingActFiles[i]) }); }
+                const payload = { action: editActId ? "edit_activity" : "add_activity", id: editActId, title: document.getElementById('act-title').value, imageObjs: imgObjs, retainedImageUrls: editActId ? retainedActImages : undefined };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
+                if(data.status === "success") { showAlert('success','สำเร็จ', editActId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว'); toggleForm('form-activity-container'); fetchAllData(); } else throw new Error(data.message);
+            } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editActId ? "บันทึกการแก้ไข" : "บันทึกกิจกรรม"; }
+        }
 
-        function renderNlImagePreview() { const ps = document.getElementById('nl-edit-preview-section'); const pc = document.getElementById('nl-edit-image-preview'); pc.innerHTML = ''; if(retainedNlImages.length > 0 || pendingNlFiles.length > 0) { ps.classList.remove('hidden'); retainedNlImages.forEach((url, i) => { pc.innerHTML += `<div class="relative w-20 h-28 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedNlImage(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingNlFiles.forEach((file, i) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-28 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingNlFile(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('nl-image-req').classList.add('hidden'); document.getElementById('nl-image-hint').classList.remove('hidden'); } else { ps.classList.add('hidden'); document.getElementById('nl-image-req').classList.remove('hidden'); document.getElementById('nl-image-hint').classList.add('hidden'); } lucide.createIcons(); }
-        function removeRetainedNlImage(idx) { retainedNlImages.splice(idx, 1); renderNlImagePreview(); }
+        function renderNlImagePreview() { const ps = document.getElementById('nl-edit-preview-section'); const pc = document.getElementById('nl-edit-image-preview'); pc.innerHTML = ''; if(retainedNlImages.length > 0 || pendingNlFiles.length > 0) { ps.classList.remove('hidden'); retainedNlImages.forEach(url => { pc.innerHTML += `<div class="relative w-20 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedNlImage('${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingNlFiles.forEach((file, idx) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-20 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingNlFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('nl-image-req').classList.add('hidden'); } else { ps.classList.add('hidden'); document.getElementById('nl-image-req').classList.remove('hidden'); } lucide.createIcons(); }
+        function removeRetainedNlImage(url) { retainedNlImages = retainedNlImages.filter(u => u !== url); renderNlImagePreview(); }
         function removePendingNlFile(idx) { pendingNlFiles.splice(idx, 1); renderNlImagePreview(); }
 
-        function editNewsletter(id) { const n = globalNewsletters.find(x => x.id == id); if(!n) return; editNlId = id; document.getElementById('form-nl-header').innerText="ฟอร์มแก้ไขจดหมายข่าว"; document.getElementById('btn-submit-nl').innerText="บันทึกการแก้ไข"; retainedNlImages = (n.img && n.img.trim() !== '') ? n.img.split(',') : []; pendingNlFiles = []; renderNlImagePreview(); document.getElementById('form-newsletter-container').classList.remove('hidden'); document.getElementById('form-newsletter-container').scrollIntoView({ behavior: 'smooth' }); }
-        
-        async function submitNewsletter(e) { e.preventDefault(); const btn = document.getElementById('btn-submit-nl'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...'; try { const imageObjs = await Promise.all(pendingNlFiles.map(async file => { const b64 = await fileToBase64(file); return { name: file.name, mimeType: file.type, base64: b64 }; })); const payload = { action: editNlId ? "edit_data" : "add_data", type: "Newsletters", id: editNlId, title: "Newsletter", content: "", imageObjs: imageObjs, retainedImageUrls: editNlId ? retainedNlImages.join(',') : undefined }; const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json(); if(data.status === "success") { showAlert('success','สำเร็จ', editNlId ? 'แก้ไขจดหมายข่าวเรียบร้อยแล้ว' : 'เพิ่มจดหมายข่าวเรียบร้อยแล้ว'); toggleForm('form-newsletter-container'); fetchAllData(); } else throw new Error(data.message); } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNlId ? "บันทึกการแก้ไข" : "บันทึกจดหมายข่าว"; } }
+        async function submitNewsletter(e) {
+            e.preventDefault(); const btn = document.getElementById('btn-submit-nl'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
+            try {
+                let imgObjs = []; for(let i=0; i<pendingNlFiles.length; i++) { imgObjs.push({ name: pendingNlFiles[i].name, mimeType: pendingNlFiles[i].type, base64: await fileToBase64(pendingNlFiles[i]) }); }
+                const payload = { action: editNlId ? "edit_newsletter" : "add_newsletter", id: editNlId, imageObjs: imgObjs, retainedImageUrls: editNlId ? retainedNlImages : undefined };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
+                if(data.status === "success") { showAlert('success','สำเร็จ', editNlId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'อัปโหลดจดหมายข่าวเรียบร้อยแล้ว'); toggleForm('form-newsletter-container'); fetchAllData(); } else throw new Error(data.message);
+            } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNlId ? "บันทึกการแก้ไข" : "บันทึกจดหมายข่าว"; }
+        }
 
-        function renderAnnImagePreview() { const ps = document.getElementById('ann-edit-preview-section'); const pc = document.getElementById('ann-edit-image-preview'); pc.innerHTML = ''; if(retainedAnnImages.length > 0 || pendingAnnFiles.length > 0) { ps.classList.remove('hidden'); retainedAnnImages.forEach((url, i) => { pc.innerHTML += `<div class="relative w-40 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedAnnImage(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingAnnFiles.forEach((file, i) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-40 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingAnnFile(${i})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('ann-image-req').classList.add('hidden'); } else { ps.classList.add('hidden'); document.getElementById('ann-image-req').classList.remove('hidden'); } lucide.createIcons(); }
-        function removeRetainedAnnImage(idx) { retainedAnnImages.splice(idx, 1); renderAnnImagePreview(); }
+        function renderAnnImagePreview() { const ps = document.getElementById('ann-edit-preview-section'); const pc = document.getElementById('ann-edit-image-preview'); pc.innerHTML = ''; if(retainedAnnImages.length > 0 || pendingAnnFiles.length > 0) { ps.classList.remove('hidden'); retainedAnnImages.forEach(url => { pc.innerHTML += `<div class="relative w-40 h-20 border rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removeRetainedAnnImage('${url}')" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div></div>`; }); pendingAnnFiles.forEach((file, idx) => { const url = URL.createObjectURL(file); pc.innerHTML += `<div class="relative w-40 h-20 border border-blue-400 rounded overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onclick="removePendingAnnFile(${idx})" class="text-white hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-6 h-6"></i></button></div><span class="absolute bottom-0 right-0 bg-blue-500 text-white text-[10px] px-1 rounded-tl-sm">ใหม่</span></div>`; }); document.getElementById('ann-image-req').classList.add('hidden'); } else { ps.classList.add('hidden'); document.getElementById('ann-image-req').classList.remove('hidden'); } lucide.createIcons(); }
+        function removeRetainedAnnImage(url) { retainedAnnImages = retainedAnnImages.filter(u => u !== url); renderAnnImagePreview(); }
         function removePendingAnnFile(idx) { pendingAnnFiles.splice(idx, 1); renderAnnImagePreview(); }
 
-        function editAnnouncement(id) { const a = globalAnnouncements.find(x => x.id == id); if(!a) return; editAnnId = id; document.getElementById('ann-title').value = a.title; document.getElementById('ann-link').value = a.link || ""; document.getElementById('ann-isactive').checked = a.isActive; document.getElementById('form-ann-header').innerText="ฟอร์มแก้ไขภาพประกาศ"; document.getElementById('btn-submit-ann').innerText="บันทึกการแก้ไข"; retainedAnnImages = (a.img && a.img.trim() !== '') ? a.img.split(',') : []; pendingAnnFiles = []; renderAnnImagePreview(); document.getElementById('form-announcement-container').classList.remove('hidden'); document.getElementById('form-announcement-container').scrollIntoView({ behavior: 'smooth' }); }
-        
-        async function submitAnnouncement(e) { e.preventDefault(); const btn = document.getElementById('btn-submit-ann'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...'; try { const imageObjs = await Promise.all(pendingAnnFiles.map(async file => { const b64 = await fileToBase64(file); return { name: file.name, mimeType: file.type, base64: b64 }; })); const payload = { action: editAnnId ? "edit_data" : "add_data", type: "Announcements", id: editAnnId, title: document.getElementById('ann-title').value, link: document.getElementById('ann-link').value, isActive: document.getElementById('ann-isactive').checked, imageObjs: imageObjs, retainedImageUrls: editAnnId ? retainedAnnImages.join(',') : undefined }; const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json(); if(data.status === "success") { showAlert('success','สำเร็จ', editAnnId ? 'แก้ไขประกาศเรียบร้อยแล้ว' : 'เพิ่มประกาศเรียบร้อยแล้ว'); toggleForm('form-announcement-container'); fetchAllData(); } else throw new Error(data.message); } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editAnnId ? "บันทึกการแก้ไข" : "บันทึกประกาศ"; } }
-
-        function deleteData(type, id) { 
-            Swal.fire({ title: 'ยืนยันการลบ?', text: "ข้อมูลนี้จะถูกลบและไม่สามารถกู้คืนได้!", icon: 'warning', showCancelButton: true, confirmButtonText: 'ลบข้อมูล', cancelButtonText: 'ยกเลิก', ...swalTheme }).then(async (result) => { 
-                if (result.isConfirmed) { 
-                    Swal.fire({ title: 'กำลังลบ...', text: 'โปรดรอสักครู่', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme }); 
-                    try { 
-                        const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "delete_data", type, id }) }); const data = await res.json(); 
-                        if(data.status === "success") { Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', ...swalTheme }); fetchAllData(); } else throw new Error(data.message); 
-                    } catch(err) { Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: err.message, ...swalTheme }); } 
-                } 
-            }); 
+        async function submitAnnouncement(e) {
+            e.preventDefault(); const btn = document.getElementById('btn-submit-ann'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
+            try {
+                let imgObjs = []; for(let i=0; i<pendingAnnFiles.length; i++) { imgObjs.push({ name: pendingAnnFiles[i].name, mimeType: pendingAnnFiles[i].type, base64: await fileToBase64(pendingAnnFiles[i]) }); }
+                if(imgObjs.length === 0 && (!retainedAnnImages || retainedAnnImages.length === 0)) throw new Error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
+                const payload = { action: editAnnId ? "edit_announcement" : "add_announcement", id: editAnnId, title: document.getElementById('ann-title').value, link: document.getElementById('ann-link').value, isActive: document.getElementById('ann-isactive').checked, imageObjs: imgObjs, retainedImageUrls: editAnnId ? retainedAnnImages : undefined };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
+                if(data.status === "success") { showAlert('success','สำเร็จ', editAnnId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มภาพประกาศเรียบร้อยแล้ว'); toggleForm('form-announcement-container'); fetchAllData(); } else throw new Error(data.message);
+            } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editAnnId ? "บันทึกการแก้ไข" : "บันทึกประกาศ"; }
         }
 
-        // =============================================== UI HANDLERS ===============================================
-        function toggleForm(formId) { 
-            const form = document.getElementById(formId); 
-            form.classList.toggle('hidden'); 
-            if(formId === 'form-news-container' && form.classList.contains('hidden')) { editNewsId = null; document.getElementById('form-add-news').reset(); newsQuillEditor.root.innerHTML = ""; pendingNewsFiles = []; retainedNewsImages = []; renderNewsImagePreview(); document.getElementById('btn-submit-news').innerText="บันทึกข่าว"; document.getElementById('form-news-header').innerText="ฟอร์มเพิ่มข่าวประชาสัมพันธ์"; }
-            if(formId === 'form-activity-container' && form.classList.contains('hidden')) { editActId = null; document.getElementById('form-add-activity').reset(); pendingActFiles = []; retainedActImages = []; renderActImagePreview(); document.getElementById('btn-submit-act').innerText="บันทึกกิจกรรม"; document.getElementById('form-act-header').innerText="ฟอร์มเพิ่มภาพกิจกรรม"; }
-            if(formId === 'form-newsletter-container' && form.classList.contains('hidden')) { editNlId = null; document.getElementById('form-add-newsletter').reset(); pendingNlFiles = []; retainedNlImages = []; renderNlImagePreview(); document.getElementById('btn-submit-nl').innerText="บันทึกจดหมายข่าว"; document.getElementById('form-nl-header').innerText="ฟอร์มเพิ่มจดหมายข่าว"; }
-            if(formId === 'form-announcement-container' && form.classList.contains('hidden')) { editAnnId = null; document.getElementById('form-add-announcement').reset(); pendingAnnFiles = []; retainedAnnImages = []; renderAnnImagePreview(); document.getElementById('btn-submit-ann').innerText="บันทึกประกาศ"; document.getElementById('form-ann-header').innerText="ฟอร์มเพิ่มภาพประกาศ"; document.getElementById('ann-isactive').checked = true; }
-            if(formId === 'form-staff-container' && form.classList.contains('hidden')) { editStaffId = null; document.getElementById('form-add-staff').reset(); croppedStaffBase64 = null; retainedStaffImage = ""; renderStaffImagePreview(); document.getElementById('btn-submit-staff').innerText="บันทึกข้อมูลบุคลากร"; document.getElementById('form-staff-header').innerText="ฟอร์มเพิ่มข้อมูลบุคลากร"; }
-        }
-        
-        function hideAllPublicViews() {
-            const views = ['home-main-content', 'all-news-view', 'all-activities-view', 'all-newsletters-view', 'news-detail-view', 'activity-detail-view', 'newsletter-detail-view', 'contact-us-view', 'staff-view', 'custom-page-view'];
-            views.forEach(v => document.getElementById(v).classList.add('hidden'));
+        // --- Editing and Deleting Logic ---
+        function toggleForm(id) {
+            const form = document.getElementById(id);
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                form.classList.add('hidden');
+                document.getElementById('form-add-news').reset(); document.getElementById('form-add-activity').reset(); document.getElementById('form-add-newsletter').reset(); document.getElementById('form-add-announcement').reset(); document.getElementById('form-add-staff').reset();
+                editNewsId = null; editActId = null; editNlId = null; editAnnId = null; editStaffId = null;
+                retainedNewsImages = []; retainedActImages = []; retainedNlImages = []; retainedAnnImages = []; retainedStaffImage = "";
+                pendingNewsFiles = []; pendingActFiles = []; pendingNlFiles = []; pendingAnnFiles = [];
+                croppedStaffBase64 = null;
+                document.getElementById('form-news-header').innerText = "ฟอร์มเพิ่มข่าวประชาสัมพันธ์"; document.getElementById('btn-submit-news').innerText = "บันทึกข่าว";
+                document.getElementById('form-act-header').innerText = "ฟอร์มเพิ่มภาพกิจกรรม"; document.getElementById('btn-submit-act').innerText = "บันทึกกิจกรรม";
+                document.getElementById('form-nl-header').innerText = "ฟอร์มเพิ่มจดหมายข่าว"; document.getElementById('btn-submit-nl').innerText = "บันทึกจดหมายข่าว";
+                document.getElementById('form-ann-header').innerText = "ฟอร์มเพิ่มภาพประกาศ"; document.getElementById('btn-submit-ann').innerText = "บันทึกประกาศ";
+                document.getElementById('form-staff-header').innerText = "ฟอร์มเพิ่มข้อมูลบุคลากร"; document.getElementById('btn-submit-staff').innerText = "บันทึกข้อมูลบุคลากร";
+                renderNewsImagePreview(); renderActImagePreview(); renderNlImagePreview(); renderAnnImagePreview(); renderStaffImagePreview();
+            }
         }
 
-        function setPublicNavActive(navId) {
-            const navIds = ['nav-pub-home', 'nav-pub-exec', 'nav-pub-news', 'nav-pub-act', 'nav-pub-newsletter', 'nav-pub-contact'];
-            navIds.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    if (id === navId) el.className = "flex items-center py-3 px-4 border-b-4 border-school-brassLight text-school-brassLight font-medium transition";
-                    else el.className = "flex items-center py-3 px-4 border-b-4 border-transparent hover:border-school-brassLight hover:text-school-brassLight transition";
+        function editNews(id) { const item = globalNews.find(x => x.id == id); if(!item) return; editNewsId = id; document.getElementById('news-title').value = item.title; document.getElementById('news-content').value = item.content || ''; document.getElementById('form-news-header').innerText="ฟอร์มแก้ไขข่าว"; document.getElementById('btn-submit-news').innerText="บันทึกการแก้ไข"; retainedNewsImages = item.img ? item.img.split(',').filter(u => u.trim() !== "") : []; pendingNewsFiles = []; renderNewsImagePreview(); document.getElementById('form-news-container').classList.remove('hidden'); document.getElementById('form-news-container').scrollIntoView({behavior: 'smooth'}); }
+        function editActivity(id) { const item = globalActivities.find(x => x.id == id); if(!item) return; editActId = id; document.getElementById('act-title').value = item.title; document.getElementById('form-act-header').innerText="ฟอร์มแก้ไขกิจกรรม"; document.getElementById('btn-submit-act').innerText="บันทึกการแก้ไข"; retainedActImages = item.img ? item.img.split(',').filter(u => u.trim() !== "") : []; pendingActFiles = []; renderActImagePreview(); document.getElementById('form-activity-container').classList.remove('hidden'); document.getElementById('form-activity-container').scrollIntoView({behavior: 'smooth'}); }
+        function editNewsletter(id) { const item = globalNewsletters.find(x => x.id == id); if(!item) return; editNlId = id; document.getElementById('form-nl-header').innerText="ฟอร์มแก้ไขจดหมายข่าว"; document.getElementById('btn-submit-nl').innerText="บันทึกการแก้ไข"; retainedNlImages = item.img ? item.img.split(',').filter(u => u.trim() !== "") : []; pendingNlFiles = []; renderNlImagePreview(); document.getElementById('form-newsletter-container').classList.remove('hidden'); document.getElementById('form-newsletter-container').scrollIntoView({behavior: 'smooth'}); }
+        function editAnnouncement(id) { const item = globalAnnouncements.find(x => x.id == id); if(!item) return; editAnnId = id; document.getElementById('ann-title').value = item.title; document.getElementById('ann-link').value = item.link || ''; document.getElementById('ann-isactive').checked = item.isActive; document.getElementById('form-ann-header').innerText="ฟอร์มแก้ไขภาพประกาศ"; document.getElementById('btn-submit-ann').innerText="บันทึกการแก้ไข"; retainedAnnImages = item.img ? item.img.split(',').filter(u => u.trim() !== "") : []; pendingAnnFiles = []; renderAnnImagePreview(); document.getElementById('form-announcement-container').classList.remove('hidden'); document.getElementById('form-announcement-container').scrollIntoView({behavior: 'smooth'}); }
+
+        function deleteData(sheet, id) {
+            const deleteTheme = { customClass: { popup: 'rounded-xl shadow-2xl border border-gray-100 bg-white pb-4', title: 'text-xl font-bold text-red-600', htmlContainer: 'text-gray-600 mt-2 text-sm', confirmButton: 'bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md font-medium transition shadow-sm ml-2', cancelButton: 'bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200 px-6 py-2 rounded-md font-medium transition mr-2' } };
+            Swal.fire({ title: 'ยืนยันการลบ?', text: "ลบแล้วจะไม่สามารถกู้คืนได้!", icon: 'warning', showCancelButton: true, confirmButtonText: 'ยืนยันการลบ', cancelButtonText: 'ยกเลิก', ...deleteTheme }).then(async (r) => {
+                if(r.isConfirmed) {
+                    Swal.fire({ title: 'กำลังลบข้อมูล...', text: 'กรุณารอสักครู่ ระบบกำลังทำการลบข้อมูลและรูปภาพที่เกี่ยวข้องในระบบ', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
+                    try {
+                        const res = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify({action:"delete_item", sheetName:sheet, id:id}) });
+                        const data = await res.json();
+                        if(data.status==="success") { showAlert('success','ลบสำเร็จ','ลบข้อมูลเรียบร้อยแล้ว'); fetchAllData(); }
+                        else { throw new Error(data.message); }
+                    } catch(err) { showAlert('error','เกิดข้อผิดพลาด',err.message); }
                 }
             });
         }
 
-        function saveCurrentScroll() { scrollPositions[lastAppView] = window.scrollY; }
-        function restoreScroll(view) { setTimeout(() => { window.scrollTo({ top: scrollPositions[view] || 0, behavior: 'instant' }); }, 150); }
-        function scrollToTarget(id, offset=0) { setTimeout(() => { const target = document.getElementById(id); if (target) { const y = target.getBoundingClientRect().top + window.scrollY - offset; window.scrollTo({ top: y, behavior: 'smooth' }); } }, 100); }
-
-        function goBackHistory() {
-            if (lastAppView === 'news-detail') {
-                if (currentDetailCameFrom === 'all-news') showAllNews(true, true); else goBackToHome(true);
-            } else if (lastAppView === 'act-detail') {
-                if (currentDetailCameFrom === 'all-activities') showAllActivities(true, true); else goBackToHome(true);
-            } else if (lastAppView === 'nl-detail') {
-                if (currentDetailCameFrom === 'all-newsletters') showAllNewsletters(true, true); else goBackToHome(true);
-            } else {
-                goBackToHome(true);
-            }
-        }
-
-        function goBackToHome(isBack = false) { 
-            hideAllPublicViews(); document.getElementById('home-main-content').classList.remove('hidden'); 
-            setPublicNavActive('nav-pub-home'); lastAppView = 'home';
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('home');
-            else scrollToTarget('main-nav-menu');
-        }
-
-        function showStaffView(replaceState = false, isBack = false) { 
-            if (!isBack) saveCurrentScroll(); 
-            hideAllPublicViews(); document.getElementById('staff-view').classList.remove('hidden'); document.getElementById('staff-view').classList.add('flex');
-            setPublicNavActive('nav-pub-exec'); lastAppView = 'staff'; 
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('view', 'staff'); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('staff'); else scrollToTarget('staff-view', 15);
-        }
-
-        function showAllNews(replaceState = false, isBack = false) { 
-            if (!isBack) saveCurrentScroll(); 
-            hideAllPublicViews(); document.getElementById('all-news-view').classList.remove('hidden'); document.getElementById('all-news-view').classList.add('flex');
-            setPublicNavActive('nav-pub-news'); lastAppView = 'all-news'; 
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('view', 'all-news'); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('all-news'); else scrollToTarget('all-news-view', 15); 
-        }
-
-        function showAllActivities(replaceState = false, isBack = false) { 
-            if (!isBack) saveCurrentScroll(); 
-            hideAllPublicViews(); document.getElementById('all-activities-view').classList.remove('hidden'); document.getElementById('all-activities-view').classList.add('flex');
-            setPublicNavActive('nav-pub-act'); lastAppView = 'all-activities'; 
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('view', 'all-activities'); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('all-activities'); else scrollToTarget('all-activities-view', 15); 
-        }
-
-        function showAllNewsletters(replaceState = false, isBack = false) { 
-            if (!isBack) saveCurrentScroll(); 
-            hideAllPublicViews(); document.getElementById('all-newsletters-view').classList.remove('hidden'); document.getElementById('all-newsletters-view').classList.add('flex');
-            setPublicNavActive('nav-pub-newsletter'); lastAppView = 'all-newsletters'; 
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('view', 'all-newsletters'); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('all-newsletters'); else scrollToTarget('all-newsletters-view', 15); 
-        }
-
-        function showContactUs(replaceState = false, isBack = false) { 
-            if (!isBack) saveCurrentScroll(); 
-            hideAllPublicViews(); document.getElementById('contact-us-view').classList.remove('hidden'); document.getElementById('contact-us-view').classList.add('flex');
-            setPublicNavActive('nav-pub-contact'); lastAppView = 'contact'; 
-            try { 
-                const url = new URL(window.location); url.searchParams.delete('newsId'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('view', 'contact'); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
-            } catch(e){}
-            if (isBack) restoreScroll('contact'); else scrollToTarget('contact-us-view', 15); 
-        }
-
-        function viewNewsDetail(id) { 
-            currentDetailCameFrom = lastAppView; saveCurrentScroll(); 
-            try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('actId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('newsId', id); window.history.pushState({}, '', url); } catch(e){}
-            showNewsDetailUI(id); 
-        }
-        
-        function showNewsDetailUI(id) {
-            const n = globalNews.find(x => x.id == id); if(!n) { showAlert('error','ไม่พบข้อมูล','ขออภัย ไม่พบข่าวประชาสัมพันธ์นี้'); goBackToHome(); return; }
-            hideAllPublicViews(); document.getElementById('news-detail-view').classList.remove('hidden'); document.getElementById('news-detail-view').classList.add('flex');
-            
-            document.getElementById('news-detail-title').innerHTML = `${n.title} ${n.isHot?'<span class="badge-new-container ml-2"><span class="badge-new" style="position:relative; bottom:2px;">NEW</span></span>':''}`;
-            document.getElementById('news-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> ${n.date}`;
-            document.getElementById('news-detail-content').innerHTML = n.content || '';
-            const ic = document.getElementById('news-detail-image-container');
-            const imgs = (n.img && n.img.trim() !== '') ? n.img.split(',') : [];
-            if(imgs.length > 0) {
-                ic.innerHTML = imgs.map((url, i) => `<div class="cursor-pointer overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm" onclick="openLightbox('news', '${id}', ${i})"><img src="${url}" class="w-full h-auto object-cover hover:scale-105 transition duration-300"></div>`).join('');
-                ic.classList.remove('hidden');
-            } else ic.classList.add('hidden');
-            lastAppView = 'news-detail';
-            lucide.createIcons();
-            scrollToTarget('news-detail-view', 15);
-        }
-
-        function viewActivityDetail(id) { 
-            currentDetailCameFrom = lastAppView; saveCurrentScroll(); 
-            try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.delete('newsId'); url.searchParams.delete('nlId'); url.searchParams.delete('pageId'); url.searchParams.set('actId', id); window.history.pushState({}, '', url); } catch(e){}
-            showActivityDetailUI(id); 
-        }
-        
-        function showActivityDetailUI(id) {
-            const a = globalActivities.find(x => x.id == id); if(!a) { showAlert('error','ไม่พบข้อมูล','ขออภัย ไม่พบภาพกิจกรรมนี้'); goBackToHome(); return; }
-            hideAllPublicViews(); document.getElementById('activity-detail-view').classList.remove('hidden'); document.getElementById('activity-detail-view').classList.add('flex');
-            
-            document.getElementById('act-detail-title').innerText = a.title;
-            document.getElementById('act-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> ${a.date}`;
-            const ic = document.getElementById('act-detail-image-container');
-            const imgs = (a.img && a.img.trim() !== '') ? a.img.split(',') : [];
-            if(imgs.length > 0) {
-                ic.innerHTML = imgs.map((url, i) => `<div class="aspect-[4/3] cursor-pointer overflow-hidden rounded shadow-sm hover:shadow-md border border-gray-200 bg-white transition-all duration-300 relative group" onclick="openLightbox('act', '${id}', ${i})"><img src="${url}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500"><div class="absolute inset-0 bg-school-navy bg-opacity-0 group-hover:bg-opacity-20 transition duration-300 flex items-center justify-center"><i data-lucide="zoom-in" class="text-white opacity-0 group-hover:opacity-100 w-8 h-8 transform scale-50 group-hover:scale-100 transition duration-300"></i></div></div>`).join('');
-                ic.classList.remove('hidden');
-            } else ic.classList.add('hidden');
-            lastAppView = 'act-detail';
-            lucide.createIcons();
-            scrollToTarget('activity-detail-view', 15);
-        }
-
-        function showNewsletterDetailUI(id) {
-            const n = globalNewsletters.find(x => x.id == id); if(!n) { showAlert('error','ไม่พบข้อมูล','ขออภัย ไม่พบจดหมายข่าวนี้'); goBackToHome(); return; }
-            hideAllPublicViews(); document.getElementById('newsletter-detail-view').classList.remove('hidden'); document.getElementById('newsletter-detail-view').classList.add('flex');
-            
-            document.getElementById('nl-detail-badge').innerHTML = n.isHot ? '<span class="badge-new-container"><span class="badge-new" style="position:relative; bottom:2px;">NEW</span></span>' : '';
-            document.getElementById('nl-detail-date').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-1"></i> อัปโหลดเมื่อ: ${n.date}`;
-            const ic = document.getElementById('nl-detail-image-container');
-            const imgs = (n.img && n.img.trim() !== '') ? n.img.split(',') : [];
-            if(imgs.length > 0) {
-                ic.innerHTML = imgs.map((url, i) => `<div class="cursor-pointer overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm" onclick="openLightbox('nl', '${id}', ${i})"><img src="${url}" class="w-full h-auto object-cover hover:scale-105 transition duration-300"></div>`).join('');
-                ic.classList.remove('hidden');
-            } else ic.classList.add('hidden');
-            lastAppView = 'nl-detail';
-            lucide.createIcons();
-            scrollToTarget('newsletter-detail-view', 15);
-        }
-
-        window.onpopstate = function(event) {
-            if (event.state && event.state.lightbox) { return; }
-            if (event.state && event.state.cropper) { closeCropperModal(true); return; }
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            const view = urlParams.get('view'); const newsId = urlParams.get('newsId'); const actId = urlParams.get('actId'); const nlId = urlParams.get('nlId'); const pageId = urlParams.get('pageId');
-
-            const lModal = document.getElementById('lightbox-modal'); if (lModal && !lModal.classList.contains('hidden')) { closeLightbox(true); }
-
-            if (view === 'admin') { showAdminDashboard(true); } 
-            else if (view === 'all-news') { showAllNews(true, true); } 
-            else if (view === 'all-activities') { showAllActivities(true, true); } 
-            else if (view === 'all-newsletters') { showAllNewsletters(true, true); }
-            else if (view === 'contact') { showContactUs(true, true); }
-            else if (view === 'staff') { showStaffView(true, true); }
-            else if (newsId) { showNewsDetailUI(newsId); } 
-            else if (actId) { showActivityDetailUI(actId); }
-            else if (nlId) { showNewsletterDetailUI(nlId); }
-            else if (pageId) { viewCustomPage(pageId); }
-            else { 
-                hideAllPublicViews(); document.getElementById('home-main-content').classList.remove('hidden'); 
-                setPublicNavActive('nav-pub-home'); lastAppView = 'home';
-                restoreScroll('home');
-            }
-        };
-
-        function openLightbox(type, id, index) { 
-            let items = []; if(type === 'news') items = globalNews; else if(type === 'act') items = globalActivities; else if(type === 'nl') items = globalNewsletters;
-            const item = items.find(x => x.id == id); if(!item || !item.img) return; 
-            currentLightboxImages = item.img.split(','); currentLightboxIndex = index; updateLightboxImage(); 
-            const modal = document.getElementById('lightbox-modal'); modal.classList.remove('hidden'); 
-            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10); 
-            document.body.classList.add('overflow-hidden');
-            try { window.history.pushState({ lightbox: true }, '', window.location.href); } catch(e){}
-        }
-
-        function openDirectLightbox(imgStr) {
-            if(!imgStr) return;
-            currentLightboxImages = imgStr.split(','); currentLightboxIndex = 0; updateLightboxImage(); 
-            const modal = document.getElementById('lightbox-modal'); modal.classList.remove('hidden'); 
-            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10); 
-            document.body.classList.add('overflow-hidden');
-            try { window.history.pushState({ lightbox: true }, '', window.location.href); } catch(e){}
-        }
-
-        function closeLightbox(fromPopState = false) { 
-            const modal = document.getElementById('lightbox-modal'); 
-            modal.classList.add('opacity-0'); 
-            setTimeout(() => { modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 300); 
-            if(fromPopState !== true && window.history.state && window.history.state.lightbox) { window.history.back(); }
-        }
-        function changeLightboxImage(dir) { currentLightboxIndex += dir; if(currentLightboxIndex < 0) currentLightboxIndex = currentLightboxImages.length - 1; else if(currentLightboxIndex >= currentLightboxImages.length) currentLightboxIndex = 0; updateLightboxImage(); }
-        function updateLightboxImage() { 
-            const imgEl = document.getElementById('lightbox-image');
-            imgEl.style.transform = 'scale(0.95)'; imgEl.style.opacity = '0.5';
-            setTimeout(() => {
-                imgEl.src = currentLightboxImages[currentLightboxIndex];
-                document.getElementById('lightbox-counter').innerText = `${currentLightboxIndex + 1} / ${currentLightboxImages.length}`; 
-                imgEl.onload = () => { imgEl.style.transform = 'scale(1)'; imgEl.style.opacity = '1'; };
-            }, 150);
-        }
-
+        // --- Auth System ---
         function updateUserWidget() {
             if(loggedInUser) {
                 document.getElementById('login-form-widget').classList.add('hidden');
                 document.getElementById('user-profile-widget').classList.remove('hidden');
                 document.getElementById('user-profile-widget').classList.add('flex');
                 document.getElementById('widget-user-name').innerText = loggedInUser.name;
-                document.getElementById('widget-user-position').innerText = loggedInUser.position || '';
+                document.getElementById('widget-user-position').innerText = loggedInUser.position;
+                document.getElementById('widget-user-role').innerText = getRoleName(loggedInUser.role);
+                document.getElementById('widget-user-role').className = `text-[10px] px-2 py-0.5 rounded-full font-bold mb-4 border ${getRoleColor(loggedInUser.role)}`;
+                document.getElementById('widget-user-image').src = loggedInUser.imageUrl || loggedInUser.profileImage || 'https://placehold.co/100';
                 
-                // แก้ไข: รองรับชื่อตัวแปรรูปภาพหลายรูปแบบจากระบบหลังบ้าน
-                document.getElementById('widget-user-image').src = loggedInUser.img || loggedInUser.imageUrl || loggedInUser.image || loggedInUser.profileImage || 'https://placehold.co/100';
-                
-                const roleSpan = document.getElementById('widget-user-role');
-                roleSpan.innerText = getRoleName(loggedInUser.role);
-                roleSpan.className = `text-[10px] px-2 py-0.5 rounded-full font-bold mb-4 border ${getRoleColor(loggedInUser.role)}`;
-                
-                if(String(loggedInUser.role) === "2" || String(loggedInUser.role) === "3") {
+                if(loggedInUser.role === "2" || loggedInUser.role === "3") {
                     document.getElementById('btn-manage-system').classList.remove('hidden');
                     document.getElementById('btn-manage-system').classList.add('flex');
-                }
+                } else { document.getElementById('btn-manage-system').classList.add('hidden'); }
             } else {
                 document.getElementById('user-profile-widget').classList.add('hidden');
+                document.getElementById('user-profile-widget').classList.remove('flex');
                 document.getElementById('login-form-widget').classList.remove('hidden');
+                document.getElementById('login-form').reset();
             }
         }
 
         async function processLogin(e) {
             e.preventDefault();
-            const u = document.getElementById('username').value; const p = document.getElementById('password').value;
-            const btnText = document.getElementById('btn-text'); const spinner = document.getElementById('loading-spinner'); const submitBtn = document.getElementById('submit-btn');
+            const btn = document.getElementById('submit-btn'); 
+            const spin = document.getElementById('loading-spinner'); 
+            const text = document.getElementById('btn-text');
             
-            btnText.classList.add('opacity-0'); spinner.classList.remove('hidden'); submitBtn.disabled = true;
+            btn.disabled = true; 
+            spin.classList.remove('hidden'); 
+            text.classList.add('invisible');
+            
             try {
-                const res = await fetch(AUTH_SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "login", username: u, password: p }) });
+                const usernameVal = document.getElementById('username').value;
+                const passwordVal = document.getElementById('password').value;
+                
+                const res = await fetch(AUTH_SCRIPT_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: 'login', username: usernameVal, password: passwordVal }) 
+                });
+                
                 const data = await res.json();
-                if(data.status === "success") {
-                    // รองรับรูปแบบข้อมูลทั้งสองแบบ (data.user หรือ data.userData) ป้องกัน Error
+                
+                if (data.status === 'success') {
+                    // รองรับข้อมูลทั้งสองรูปแบบ ป้องกันปัญหาจากการใช้ Code.gs คนละเวอร์ชัน
                     loggedInUser = data.user || data.userData;
                     
-                    if (!loggedInUser) throw new Error("ไม่สามารถดึงข้อมูลผู้ใช้งานได้");
-                    
+                    if (!loggedInUser) throw new Error("เข้าสู่ระบบสำเร็จ แต่ไม่พบข้อมูลผู้ใช้งานจากเซิร์ฟเวอร์");
+
                     localStorage.setItem("school_user_session", JSON.stringify(loggedInUser));
-                    updateUserWidget();
-                    renderStaffTable();
-                    renderPublicData();
                     
-                    // ป้องกันการ Error ในกรณีที่ข้อมูล name ไม่มี
-                    Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ', text: `ยินดีต้อนรับ ${loggedInUser.name || 'ผู้ใช้งาน'}`, timer: 1500, showConfirmButton: false, ...swalTheme });
+                    // เรียกใช้ฟังก์ชันอัปเดตหน้าจอ
+                    updateUserWidget(); 
+                    if (typeof renderStaffTable === "function") renderStaffTable(); 
+                    if (typeof renderPublicData === "function") renderPublicData();
+                    if (typeof fetchAllData === "function") fetchAllData();
+
+                    Swal.fire({ 
+                        icon: 'success', 
+                        title: 'เข้าสู่ระบบสำเร็จ', 
+                        text: `ยินดีต้อนรับ ${loggedInUser.name || 'ผู้ใช้งาน'}`, 
+                        timer: 1500, 
+                        showConfirmButton: false, 
+                        ...swalTheme 
+                    });
                     
                     document.getElementById("login-form").reset();
-                } else throw new Error(data.message);
-            } catch(err) { Swal.fire({ icon: 'error', title: 'เข้าสู่ระบบไม่สำเร็จ', text: err.message, ...swalTheme }); } 
-            finally { btnText.classList.remove('opacity-0'); spinner.classList.add('hidden'); submitBtn.disabled = false; }
+                } else {
+                    throw new Error(data.message || 'ข้อมูลการเข้าสู่ระบบไม่ถูกต้อง');
+                }
+            } catch (error) { 
+                showAlert('error', 'ล้มเหลว', error.message); 
+                document.getElementById("password").value = "";
+            } finally { 
+                btn.disabled = false; 
+                spin.classList.add('hidden'); 
+                text.classList.remove('invisible'); 
+            }
         }
 
         function handleLogout() {
-            Swal.fire({ title: 'ออกจากระบบ?', text: "คุณต้องการออกจากระบบใช่หรือไม่?", icon: 'question', showCancelButton: true, confirmButtonText: 'ออกจากระบบ', cancelButtonText: 'ยกเลิก', ...swalTheme }).then((result) => {
-                if (result.isConfirmed) {
+            Swal.fire({ title: 'ยืนยันออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออกจากระบบ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#ef4444', ...swalTheme }).then((r) => {
+                if (r.isConfirmed) {
                     loggedInUser = null; localStorage.removeItem("school_user_session");
-                    updateUserWidget();
-                    if(!document.getElementById('admin-view').classList.contains('hidden')) { backToPublicView(); }
-                    Swal.fire({ icon: 'success', title: 'ออกจากระบบแล้ว', timer: 1000, showConfirmButton: false, ...swalTheme });
+                    updateUserWidget(); renderStaffTable(); renderPublicData();
+                    if(!document.getElementById('admin-view').classList.contains('hidden')) backToPublicView();
                 }
             });
         }
 
-        function showAdminDashboard(replaceState = false) {
-            if(!loggedInUser || (String(loggedInUser.role) !== "2" && String(loggedInUser.role) !== "3")) { showAlert('error', 'ปฏิเสธการเข้าถึง', 'เฉพาะผู้ดูแลระบบเท่านั้น'); return; }
+        // --- Admin Dashboard Navigation ---
+        function showAdminDashboard(isPopState = false) {
+            if (!loggedInUser || (loggedInUser.role !== "2" && loggedInUser.role !== "3")) { showAlert('error', 'ปฏิเสธการเข้าถึง', 'คุณไม่มีสิทธิ์เข้าใช้งานส่วนนี้'); return; }
+            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.set('view', 'admin'); window.history.pushState({}, '', url); } catch(e){} }
             
             document.getElementById('sidebar-user-name').innerText = loggedInUser.name;
-            document.getElementById('sidebar-user-position').innerText = loggedInUser.position || '';
-            
-            // แก้ไข: รองรับชื่อตัวแปรรูปภาพหลายรูปแบบจากระบบหลังบ้าน
-            document.getElementById('sidebar-user-image').src = loggedInUser.img || loggedInUser.imageUrl || loggedInUser.image || loggedInUser.profileImage || 'https://placehold.co/150';
-            
+            document.getElementById('sidebar-user-position').innerText = loggedInUser.position;
             document.getElementById('sidebar-user-role').innerText = getRoleName(loggedInUser.role);
-
+            
+            // แก้ไขเพิ่มการรองรับ loggedInUser.profileImage ตรงนี้
+            document.getElementById('sidebar-user-image').src = loggedInUser.imageUrl || loggedInUser.profileImage || 'https://placehold.co/150';
+            
             document.getElementById('public-view').classList.add('hidden');
-            document.getElementById('admin-view').classList.remove('hidden');
-            setTimeout(() => { document.getElementById('admin-view').classList.remove('opacity-0'); }, 50);
-            document.body.classList.add('bg-gray-100');
+            const adminView = document.getElementById('admin-view');
+            adminView.classList.remove('hidden');
+            setTimeout(() => { adminView.classList.remove('opacity-0'); }, 10);
             
             const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab') || 'pages';
-            switchAdminTab(tab, replaceState);
+            const initialTab = urlParams.get('tab') || 'pages'; // เริ่มต้นที่หน้าจัดการเมนู
+            switchAdminTab(initialTab, true);
         }
 
         function backToPublicView() {
-            document.getElementById('admin-view').classList.add('opacity-0');
+            const adminView = document.getElementById('admin-view');
+            adminView.classList.add('opacity-0');
             setTimeout(() => {
-                document.getElementById('admin-view').classList.add('hidden');
+                adminView.classList.add('hidden');
                 document.getElementById('public-view').classList.remove('hidden');
-                document.body.classList.remove('bg-gray-100');
                 goBackToHome();
             }, 300);
         }
@@ -2992,21 +2994,13 @@
         function switchAdminTab(tab, replaceState = false) {
             const sections = ['pages', 'staff', 'news', 'activities', 'newsletters', 'announcements', 'settings'];
             sections.forEach(s => {
-                const el = document.getElementById(`section-${s}`);
-                const nav = document.getElementById(`nav-tab-${s}`);
-                if(el && nav) {
-                    if(s === tab) {
-                        el.classList.remove('hidden');
-                        nav.classList.add('bg-blue-900', 'text-school-brassLight', 'font-medium', 'shadow-inner');
-                        nav.classList.remove('text-gray-200', 'hover:bg-blue-800');
-                    } else {
-                        el.classList.add('hidden');
-                        nav.classList.remove('bg-blue-900', 'text-school-brassLight', 'font-medium', 'shadow-inner');
-                        nav.classList.add('text-gray-200', 'hover:bg-blue-800');
-                    }
-                }
+                document.getElementById(`section-${s}`).classList.add('hidden');
+                document.getElementById(`nav-tab-${s}`).className = "flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition";
             });
-
+            
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-tab-${tab}`).className = "flex items-center px-4 py-3 bg-blue-900 rounded-md text-school-brassLight font-medium transition shadow-inner";
+            
             const titles = {
                 'pages': '<i data-lucide="layout-list" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการเมนูและหน้าเว็บ',
                 'staff': '<i data-lucide="users" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการข้อมูลและผังบุคลากร',
@@ -3026,11 +3020,13 @@
                 const url = new URL(window.location); 
                 url.searchParams.set('view', 'admin'); 
                 url.searchParams.set('tab', tab); 
-                if(replaceState) window.history.replaceState({}, '', url); else window.history.pushState({}, '', url); 
+                if(replaceState) window.history.replaceState({}, '', url);
+                else window.history.pushState({}, '', url); 
             } catch(e){}
             
             lucide.createIcons();
         }
+
     </script>
 </body>
 </html>
