@@ -17,6 +17,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -195,6 +198,9 @@
         .ql-toolbar.ql-snow { border-radius: 0.375rem 0.375rem 0 0; background-color: #f8fafc; border-color: #e5e7eb; }
         .ql-container.ql-snow { border-radius: 0 0 0.375rem 0.375rem; border-color: #e5e7eb; font-family: 'Sarabun', sans-serif; font-size: 1rem; height: auto; }
         .ql-editor { height: auto; min-height: 80px; }
+        .ql-toolbar .ql-picker-options { 
+            z-index: 9999 !important; 
+        }
         
         /* ปรับแต่งตัวเลือกขนาดตัวหนังสือ (Font Size) ใน Quill ให้แสดงตัวเลขชัดเจน */
         .ql-snow .ql-picker.ql-size { width: 85px; }
@@ -202,6 +208,17 @@
         .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: attr(data-value); }
         .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before,
         .ql-snow .ql-picker.ql-size .ql-picker-item:not([data-value])::before { content: 'ปกติ (14px)'; }
+
+        /* ================= แก้ไขระยะห่างตารางส่วนเกินในหน้าแสดงผล ================= */
+        .rich-text-content.ql-editor {
+            min-height: auto !important; /* ยกเลิกการบังคับความสูงขั้นต่ำ 80px */
+            padding: 10px 16px !important; /* ปรับขนาด Padding บน-ล่าง ให้แคบลง (แก้ตัวเลข 10px ได้ตามต้องการ) */
+        }
+        
+        /* ลบระยะห่าง (Margin) ด้านล่างของบรรทัดสุดท้าย ไม่ให้ดันกรอบ */
+        .rich-text-content.ql-editor > *:last-child {
+            margin-bottom: 0 !important;
+        }
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -726,6 +743,8 @@
 
                                     <div class="border border-gray-200 rounded-md bg-gray-50 p-4">
                                         <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center"><i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> ส่วนสร้างเนื้อหา (Blocks)</h4>
+
+                                        <div id="global-quill-toolbar-container" class="sticky top-0 z-[60] shadow-md mb-4 hidden rounded-t-md bg-white"></div>
                                         
                                         <div id="page-blocks-container" class="space-y-4 mb-4">
                                             <!-- บล็อกต่างๆ จะถูกเพิ่มตรงนี้ -->
@@ -1245,9 +1264,9 @@
 
         // =================================== QUILL EDITOR SETTINGS ===================================
         
-        // ลงทะเบียนขนาดตัวอักษรแบบ Pixel เพื่อให้อิสระในการกำหนดขนาด
+        // ลงทะเบียนขนาดตัวอักษรแบบ Pixel และปลดล็อก (null) เพื่อให้พิมพ์เลขอะไรก็ได้
         const Size = Quill.import('attributors/style/size');
-        Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px'];
+        Size.whitelist = null; 
         Quill.register(Size, true);
 
         let currentPageBlocks = [];
@@ -1255,7 +1274,7 @@
         let newsQuillEditor = null; // เก็บ Instance ของ Quill.js ในหน้าข่าว
 
         const quillToolbarOptions = [
-            [{ 'size': ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px'] }], // เมนูเลือกขนาดตัวหนังสือ
+            // ลบเมนู 'size' เดิมออกไป เพราะเราจะสร้างช่องกรอกตัวเลขไปแปะเอง
             ['bold', 'italic', 'underline', 'strike'],        // ตัวหนา เอียง ขีดเส้นใต้ ขีดทับ
             [{ 'color': [] }, { 'background': [] }],          // สีตัวอักษร, สีพื้นหลัง
             [{ 'list': 'ordered'}, { 'list': 'bullet' }],     // ลิสต์ตัวเลข, ลิสต์จุด
@@ -1282,7 +1301,7 @@
             showClass: { popup: 'swal2-show swal-pop-animation' },
             hideClass: { popup: 'swal2-hide' }
         };
-        const showAlert = (icon, title, text) => Swal.fire({ icon, title, text, ...swalTheme });
+        const showAlert = (icon, title, html) => Swal.fire({ icon, title, html, ...swalTheme });
 
         function getRoleName(r) { return r=="3" ? "ผู้ดูแลระบบสูงสุด" : (r=="2" ? "แอดมิน/ผู้ดูแล" : "บุคลากร"); }
         function getRoleColor(r) { return r=="3" ? "bg-red-100 text-red-700 border-red-200" : (r=="2" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-gray-100 text-gray-700 border-gray-200"); }
@@ -1325,6 +1344,45 @@
                 modules: { toolbar: quillToolbarOptions },
                 placeholder: 'พิมพ์เนื้อหาข่าวที่นี่...'
             });
+
+            // เพิ่มช่องกรอกขนาดตัวอักษรให้ระบบข่าว
+            const newsToolbar = document.querySelector('#news-content-editor').previousElementSibling;
+            if (newsToolbar && !newsToolbar.querySelector('.custom-size-input')) {
+                const inputHtml = `
+                    <span class="ql-formats mr-2 flex items-center">
+                        <input type="number" class="custom-size-input w-14 border border-gray-300 rounded text-center text-xs focus:border-school-blue outline-none" style="height: 24px;" value="14" min="8" max="100" title="พิมพ์ขนาดตัวอักษร (px)">
+                        <span class="text-xs text-gray-500 ml-1">px</span>
+                    </span>`;
+                newsToolbar.insertAdjacentHTML('afterbegin', inputHtml);
+                
+                const customInput = newsToolbar.querySelector('.custom-size-input');
+                let newsLastSelection = null; 
+                let isNewsTypingSize = false; // ตัวล็อคสำหรับหน้าข่าว
+
+                newsQuillEditor.on('selection-change', function(range) {
+                    if (isNewsTypingSize) return; // ถ้าล็อคอยู่ข้ามไปเลย
+                    
+                    if (range) {
+                        newsLastSelection = range;
+                        let format = newsQuillEditor.getFormat(range);
+                        if (format.size) customInput.value = parseInt(format.size);
+                        else customInput.value = 14;
+                    }
+                });
+
+                customInput.addEventListener('change', function() {
+                    let val = parseInt(this.value);
+                    if(val) {
+                        isNewsTypingSize = true; // เปิดล็อค
+                        
+                        if (newsLastSelection) newsQuillEditor.setSelection(newsLastSelection.index, newsLastSelection.length);
+                        newsQuillEditor.format('size', val + 'px');
+                        
+                        // ปลดล็อค
+                        setTimeout(() => { isNewsTypingSize = false; }, 100);
+                    }
+                });
+            }
 
             const bannerInput = document.getElementById('settings-banner-image');
             if(bannerInput) {
@@ -1786,10 +1844,12 @@
                 newBlock.imgUrl = "";
             }
             if(type === 'table') {
-                newBlock.rows = [{ left: '', right: '' }]; // แถวเริ่มต้น 2 คอลัมน์
+                newBlock.rows = [{ left: '', right: '' }];
+                newBlock.colWidths = [50, 50]; // กำหนดเป็น Array
             }
             if(type === 'table3') {
-                newBlock.rows = [{ col1: '', col2: '', col3: '' }]; // แถวเริ่มต้น 3 คอลัมน์
+                newBlock.rows = [{ col1: '', col2: '', col3: '' }];
+                newBlock.colWidths = [33, 33, 34]; // กำหนดเป็น Array
             }
 
             currentPageBlocks.push(newBlock);
@@ -1829,6 +1889,289 @@
             }
         }
 
+        // --- เพิ่มฟังก์ชันคำนวณ % อัตโนมัติ ---
+        function updateTableColWidth(blockId, index, value, maxCols) {
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            if (block && (block.type === 'table' || block.type === 'table3')) {
+                // กำหนดค่าเริ่มต้นถ้ายังไม่มี
+                if (!block.colWidths) block.colWidths = maxCols === 2 ? [50, 50] : [33, 33, 34];
+                
+                let val = parseInt(value) || 1;
+                
+                if (maxCols === 2) {
+                    if (val > 99) val = 99;
+                    if (val < 1) val = 1;
+                    block.colWidths[0] = val;
+                    block.colWidths[1] = 100 - val; // คำนวณช่องสุดท้ายอัตโนมัติ
+                } else if (maxCols === 3) {
+                    let otherIndex = index === 0 ? 1 : 0;
+                    // ป้องกันไม่ให้กรอกเลขเกินจนช่องสุดท้ายติดลบ (เหลือเผื่อไว้ 1%)
+                    let maxAllowed = 100 - block.colWidths[otherIndex] - 1; 
+                    
+                    if (val > maxAllowed) val = maxAllowed;
+                    if (val < 1) val = 1;
+                    
+                    block.colWidths[index] = val;
+                    block.colWidths[2] = 100 - block.colWidths[0] - block.colWidths[1]; // คำนวณช่องสุดท้ายอัตโนมัติ
+                }
+                renderPageBlocks();
+            }
+        }
+
+
+        // ฟังก์ชันเสริมสำหรับดึงข้อมูลจาก Quill มาลงตัวแปร (ป้องกันข้อมูลหายขณะสลับแถว)
+        function syncQuillToData(blockId) {
+            for (const key in quillEditors) {
+                if (key.startsWith(blockId + "_")) {
+                    const parts = key.split('_');
+                    const rIdx = parseInt(parts[2]);
+                    const cKey = parts[3];
+                    const block = currentPageBlocks.find(b => b.id === blockId);
+                    if(block && block.rows[rIdx]) {
+                        block.rows[rIdx][cKey] = quillEditors[key].root.innerHTML;
+                    }
+                }
+            }
+        }
+
+
+        // ฟังก์ชันสำหรับนำเข้าไฟล์ CSV เข้าสู่ตาราง
+        function importCsvToTable(blockId, event, maxCols) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                // แยกบรรทัดและกรองบรรทัดว่างออก
+                const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+                
+                let newRows = [];
+                lines.forEach(line => {
+                    // แยกคอลัมน์ด้วยเครื่องหมาย comma (,)
+                    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                    
+                    if (maxCols === 2) {
+                        newRows.push({ 
+                            left: `<p>${cols[0] || ""}</p>`, 
+                            right: `<p>${cols[1] || ""}</p>` 
+                        });
+                    } else if (maxCols === 3) {
+                        newRows.push({ 
+                            col1: `<p>${cols[0] || ""}</p>`, 
+                            col2: `<p>${cols[1] || ""}</p>`, 
+                            col3: `<p>${cols[2] || ""}</p>` 
+                        });
+                    }
+                });
+
+                if (newRows.length > 0) {
+                    const block = currentPageBlocks.find(b => b.id === blockId);
+                    if (block) {
+                        block.rows = newRows;
+                        renderPageBlocks(); // วาดตารางใหม่พร้อมข้อมูลที่นำเข้า
+                        showAlert('success', 'นำเข้าสำเร็จ', `นำเข้าข้อมูลทั้งหมด ${newRows.length} แถว เรียบร้อยแล้ว`);
+                    }
+                }
+            };
+            // รองรับไฟล์ที่เป็นภาษาไทย (TIS-620 หรือ UTF-8)
+            reader.readAsText(file, 'UTF-8');
+            event.target.value = ''; // รีเซ็ตค่าเพื่อให้เลือกไฟล์เดิมซ้ำได้
+        }
+
+
+// ฟังก์ชันดึงข้อมูลจาก Google Sheet (รองรับการระบุหน้าชีต และรวมคอลัมน์ 3+4)
+        async function importFromGoogleSheet(blockId, maxCols) {
+            const { value: formValues } = await Swal.fire({
+                title: 'ดึงข้อมูลจาก Google Sheet',
+                html: `
+                    <div class="flex flex-col gap-4 text-left mt-4">
+                        <div>
+                            <label class="block text-sm text-gray-700 font-bold mb-1">1. Google Sheet ID <span class="text-red-500">*</span></label>
+                            <input id="swal-sheet-id" class="w-full border border-gray-300 rounded p-2 focus:border-school-blue outline-none text-sm" placeholder="เช่น 1qYIx7G5TDJ3n2wreMmS...">
+                            <p class="text-[11px] text-gray-500 mt-1">คัดลอกรหัสยาวๆ จาก URL ของไฟล์มาวาง</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-700 font-bold mb-1">2. ชื่อแผ่นงาน (Sheet Name) <span class="text-xs text-gray-500 font-normal">(ไม่บังคับ)</span></label>
+                            <input id="swal-sheet-name" class="w-full border border-gray-300 rounded p-2 focus:border-school-blue outline-none text-sm" placeholder="เช่น แผ่นที่ 1, สถิติปี67">
+                            <p class="text-[11px] text-gray-500 mt-1">หากเว้นว่างไว้ ระบบจะดึงข้อมูลจากหน้าแรกสุด (ซ้ายสุด) อัตโนมัติ</p>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'ดึงข้อมูล',
+                cancelButtonText: 'ยกเลิก',
+                preConfirm: () => {
+                    const sheetId = document.getElementById('swal-sheet-id').value.trim();
+                    const sheetName = document.getElementById('swal-sheet-name').value.trim();
+                    if (!sheetId) {
+                        Swal.showValidationMessage('กรุณาระบุ Google Sheet ID');
+                        return false;
+                    }
+                    return { sheetId, sheetName };
+                },
+                ...swalTheme
+            });
+
+            if (formValues) {
+                Swal.fire({ title: 'กำลังดึงข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
+                
+                try {
+                    const res = await fetch(SCRIPT_URL, { 
+                        method: "POST", 
+                        body: JSON.stringify({ 
+                            action: "get_sheet_data", 
+                            sheetId: formValues.sheetId,
+                            sheetName: formValues.sheetName 
+                        }) 
+                    });
+                    const result = await res.json();
+
+                    if (result.status === "success") {
+                        const values = result.data;
+                        const aligns = result.alignments || [];
+                        const weights = result.fontWeights || [];
+
+                        if (values.length === 0) throw new Error(`ไม่พบข้อมูลในชีต "${result.sheetNameFetched}"`);
+
+                        let newRows = [];
+                        
+                        // วนลูปข้อมูลทุกบรรทัด (รวมหัวตารางตามที่คุณต้องการ)
+                        values.forEach((row, rIndex) => {
+                            let formattedCols = [];
+                            
+                            // จัดการคอลัมน์ทีละช่อง ตามจำนวนคอลัมน์ของตาราง (2 หรือ 3)
+                            for(let c = 0; c < maxCols; c++) {
+                                let text = row[c] || "";
+                                let align = aligns[rIndex] ? aligns[rIndex][c] : "general-left";
+                                let weight = weights[rIndex] ? weights[rIndex][c] : "normal";
+                                
+                                // ================== ส่วนที่เพิ่มเข้ามาใหม่ ==================
+                                // ถ้านี่คือตาราง 3 คอลัมน์ และกำลังประมวลผลคอลัมน์ที่ 3 (Index 2)
+                                if (maxCols === 3 && c === 2) {
+                                    let text4 = row[3] || ""; // ดึงข้อมูลคอลัมน์ที่ 4 มาด้วย
+                                    let weight4 = weights[rIndex] ? weights[rIndex][3] : "normal"; // ดึงความหนาของคอลัมน์ที่ 4
+                                    
+                                    // จัดรูปแบบตัวหนาแยกกันแต่ละข้อความ
+                                    if (weight === "bold" && text !== "") text = `<strong>${text}</strong>`;
+                                    if (weight4 === "bold" && text4 !== "") text4 = `<strong>${text4}</strong>`;
+                                    
+                                    // ถ้ารูปแบบคอลัมน์ที่ 4 มีข้อมูล ให้เอามาต่อท้ายคอลัมน์ที่ 3
+                                    if (text4 !== "") {
+                                        if (text !== "") {
+                                            // มีทั้งคอลัมน์ 3 และ 4 -> คั่นด้วยช่องว่าง 2 ช่อง (&nbsp;&nbsp;)
+                                            text = text + "&nbsp;&nbsp;" + text4;
+                                        } else {
+                                            // คอลัมน์ 3 ว่าง แต่คอลัมน์ 4 มีข้อมูล -> ดึง 4 มาใส่เลย
+                                            text = text4;
+                                        }
+                                    }
+                                } else {
+                                    // ถ้าเป็นคอลัมน์ทั่วไป แปลงตัวหนาตามปกติ
+                                    if (weight === "bold" && text !== "") {
+                                        text = `<strong>${text}</strong>`;
+                                    }
+                                }
+                                // =======================================================
+                                
+                                // แปลงการจัดหน้า (Alignment) ให้ตรงกับคลาสของ Quill Editor
+                                let alignClass = "";
+                                if (align === "center") alignClass = "ql-align-center";
+                                else if (align === "right") alignClass = "ql-align-right";
+                                else if (align === "justify") alignClass = "ql-align-justify";
+                                
+                                // นำข้อความใส่กลับลงใน <p> พร้อมแนบคลาสจัดหน้า
+                                formattedCols.push(`<p class="${alignClass}">${text}</p>`);
+                            }
+
+                            // แยกชุดข้อมูลลงตาราง 2 หรือ 3 คอลัมน์
+                            if (maxCols === 2) {
+                                newRows.push({ left: formattedCols[0], right: formattedCols[1] });
+                            } else {
+                                newRows.push({ col1: formattedCols[0], col2: formattedCols[1], col3: formattedCols[2] });
+                            }
+                        });
+
+                        const block = currentPageBlocks.find(b => b.id === blockId);
+                        if (block) {
+                            block.rows = newRows;
+                            renderPageBlocks();
+                            showAlert('success', 'ดึงข้อมูลสำเร็จ', `ดึงข้อมูลจากชีต <b>"${result.sheetNameFetched}"</b> มาจำนวน ${newRows.length} แถว (รวมคอลัมน์ 3 และ 4 เข้าด้วยกัน) เรียบร้อยแล้ว`);
+                        }
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } catch (err) {
+                    showAlert('error', 'ผิดพลาด', err.message);
+                }
+            }
+        }
+
+
+        // ฟังก์ชันสำหรับส่งออกข้อมูลจริงในตารางออกเป็นไฟล์ CSV
+        function exportTableToCsv(blockId) {
+            // ดึงข้อมูลล่าสุดจาก Quill Editor เข้าตัวแปรหลักก่อน Export
+            for (const key in quillEditors) {
+                if (key.startsWith(blockId + "_")) { // เฉพาะช่องที่อยู่ในตารางนี้
+                    const parts = key.split('_');
+                    const rIdx = parseInt(parts[2]);
+                    const cKey = parts[3];
+                    const block = currentPageBlocks.find(b => b.id === blockId);
+                    if(block && block.rows[rIdx]) {
+                        block.rows[rIdx][cKey] = quillEditors[key].root.innerHTML;
+                    }
+                }
+            }
+            
+            const block = currentPageBlocks.find(b => b.id === blockId);
+            if (!block || !block.rows) return;
+
+            let csvRows = [];
+            
+            // 1. สร้างหัวตาราง (Headers)
+            if (block.type === 'table') {
+                csvRows.push("คอลัมน์ซ้าย,คอลัมน์ขวา");
+            } else {
+                csvRows.push("คอลัมน์ 1,คอลัมน์ 2,คอลัมน์ 3");
+            }
+
+            // ฟังก์ชันช่วยล้างแท็ก HTML (เพราะข้อมูลในตารางเป็น Rich Text)
+            const stripHtml = (html) => {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return tmp.textContent || tmp.innerText || "";
+            };
+
+            // 2. ดึงข้อมูลจากแต่ละแถว
+            block.rows.forEach(row => {
+                let rowData = [];
+                if (block.type === 'table') {
+                    // ล้าง HTML และใส่เครื่องหมายคำพูดครอบไว้ป้องกันปัญหาถ้าในข้อความมีเครื่องหมาย comma (,)
+                    rowData.push(`"${stripHtml(row.left || "").replace(/"/g, '""')}"`);
+                    rowData.push(`"${stripHtml(row.right || "").replace(/"/g, '""')}"`);
+                } else {
+                    rowData.push(`"${stripHtml(row.col1 || "").replace(/"/g, '""')}"`);
+                    rowData.push(`"${stripHtml(row.col2 || "").replace(/"/g, '""')}"`);
+                    rowData.push(`"${stripHtml(row.col3 || "").replace(/"/g, '""')}"`);
+                }
+                csvRows.push(rowData.join(","));
+            });
+
+            const csvString = csvRows.join("\n");
+            
+            // 3. เริ่มการดาวน์โหลดไฟล์
+            const blob = new Blob(["\ufeff" + csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `data_${block.type}_${new Date().getTime()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+
         function handleBlockImageSelect(event, blockId) {
             const file = event.target.files[0];
             if(!file) return;
@@ -1849,13 +2192,13 @@
 
         function renderPageBlocks() {
             const container = document.getElementById('page-blocks-container');
+            const gContainer = document.getElementById('global-quill-toolbar-container');
             
-            // สำรองค่า content ของ Quill ตัวเดิมไว้ก่อนวาดใหม่ (ป้องกันข้อมูลหายตอนกดเพิ่มบล็อกอื่น)
-            currentPageBlocks.forEach(b => {
-                if (quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
-                    b.content = quillEditors[b.id].root.innerHTML;
-                }
-            });
+            // ล้าง Toolbar ที่ค้างอยู่ด้านบนออก
+            if(gContainer) {
+                gContainer.innerHTML = '';
+                gContainer.classList.add('hidden');
+            }
 
             if (currentPageBlocks.length === 0) {
                 container.innerHTML = '<div class="text-center py-6 border-2 border-dashed border-gray-300 rounded text-gray-400 text-sm">ยังไม่มีเนื้อหา กดเลือกรูปแบบด้านล่างเพื่อเพิ่ม</div>';
@@ -1866,9 +2209,7 @@
             currentPageBlocks.forEach((block, index) => {
                 let innerHtml = '';
                 
-                // ใช้ <div> เพื่อให้ Quill.js เข้ามาผูก แทนการใช้ textarea แบบเดิม
                 const textInput = `<div class="bg-white"><div id="editor-${block.id}" class="quill-editor" data-block-id="${block.id}">${block.content || ''}</div></div>`;
-                
                 const imgPreview = block.imgUrl ? `<img src="${block.imgUrl}" class="w-full h-auto max-h-48 object-cover rounded shadow-sm border border-gray-200">` : `<div class="w-full h-32 bg-gray-100 border border-gray-200 rounded flex items-center justify-center text-gray-400 text-xs"><i data-lucide="image" class="w-6 h-6 mb-1 opacity-50 block mx-auto"></i> พื้นที่รูปภาพ</div>`;
                 const imgInput = `
                     <div class="flex flex-col gap-2">
@@ -1885,37 +2226,135 @@
                 } else if (block.type === 'image-text') {
                     innerHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div>${imgInput}</div><div>${textInput}</div></div>`;
                 } else if (block.type === 'table') {
-                    // ส่วนควบคุม Block แบบตาราง (2 คอลัมน์)
+                    if (!block.colWidths) block.colWidths = [50, 50];
+                    let wLeft = `w-[${block.colWidths[0]}%]`;
+                    let wRight = `w-[${block.colWidths[1]}%]`;
+
                     let tableHtml = `<div class="space-y-2 bg-gray-50 border border-gray-200 p-2 rounded-md">`;
-                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ซ้าย</div><div class="w-2/3 text-xs font-bold text-gray-600">คอลัมน์ขวา</div></div>`;
+                    tableHtml += `
+                        <div class="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
+                            <span class="text-xs font-bold text-gray-700">สัดส่วน (%):</span>
+                            <input type="number" min="1" max="99" value="${block.colWidths[0]}" onchange="updateTableColWidth('${block.id}', 0, this.value, 2)" class="w-16 text-xs border border-gray-300 rounded p-1 text-center focus:border-school-blue">
+                            <span class="text-xs text-gray-500">+</span>
+                            <input type="number" value="${block.colWidths[1]}" class="w-16 text-xs border border-gray-300 rounded p-1 text-center bg-gray-200 text-gray-600 cursor-not-allowed" readonly>
+                        </div>
+                    `;
+                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="${wLeft} text-xs font-bold text-gray-600">คอลัมน์ซ้าย</div><div class="${wRight} text-xs font-bold text-gray-600">คอลัมน์ขวา</div></div>`;
+                    
+                    // --- เพิ่มกล่องครอบแถวทั้งหมดตรงนี้ ---
+                    tableHtml += `<div class="sortable-rows-list space-y-1" data-block-id="${block.id}">`;
+                    
                     if(!block.rows) block.rows = [];
                     block.rows.forEach((row, rIndex) => {
                         tableHtml += `
-                            <div class="flex gap-2 items-start">
-                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุหัวข้อ" value="${row.left || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'left', this.value)">
-                                <input type="text" class="w-2/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="ระบุรายละเอียด" value="${row.right || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'right', this.value)">
-                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <div class="row-container flex gap-2 items-stretch pt-2 pb-1 bg-white">
+                                <div class="drag-handle flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-school-blue px-1 group">
+                                    <i data-lucide="grip-vertical" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                                </div>
+
+                                <div class="${wLeft} bg-white border border-gray-300 rounded flex flex-col">
+                                    <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="left" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.left || ''}</div>
+                                </div>
+                                <div class="${wRight} bg-white border border-gray-300 rounded flex flex-col">
+                                    <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="right" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.right || ''}</div>
+                                </div>
+                                
+                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded shrink-0 self-start mt-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         `;
                     });
-                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว</button></div></div>`;
+
+                    // --- ปิดกล่องครอบตรงนี้ ---
+                    tableHtml += `</div>`;
+
+                    tableHtml += `
+                        <div class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                            <button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm">
+                                <i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว
+                            </button>
+                            <div class="relative inline-block">
+                                <input type="file" id="csv-${block.id}" accept=".csv" class="hidden" onchange="importCsvToTable('${block.id}', event, 2)">
+                                <button type="button" onclick="document.getElementById('csv-${block.id}').click()" class="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition flex items-center shadow-sm">
+                                    <i data-lucide="file-up" class="w-3 h-3 mr-1"></i> นำเข้า CSV
+                                </button>
+                            </div>
+                            <button type="button" onclick="exportTableToCsv('${block.id}')" class="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition flex items-center shadow-sm">
+                                <i data-lucide="download" class="w-3 h-3 mr-1"></i> ส่งออก CSV
+                            </button>
+                            <button type="button" onclick="importFromGoogleSheet('${block.id}', 2)" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded hover:bg-amber-100 transition flex items-center shadow-sm">
+                                <i data-lucide="sheet" class="w-3 h-3 mr-1"></i> ดึงจาก Sheet
+                            </button>
+                        </div>
+                    </div>`;
                     innerHtml = tableHtml;
+
                 } else if (block.type === 'table3') {
-                    // ส่วนควบคุม Block แบบตาราง (3 คอลัมน์)
+                    if (!block.colWidths) block.colWidths = [33, 33, 34];
+                    let wC1 = `w-[${block.colWidths[0]}%]`;
+                    let wC2 = `w-[${block.colWidths[1]}%]`;
+                    let wC3 = `w-[${block.colWidths[2]}%]`;
+
                     let tableHtml = `<div class="space-y-2 bg-gray-50 border border-gray-200 p-2 rounded-md">`;
-                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 1</div><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 2</div><div class="w-1/3 text-xs font-bold text-gray-600">คอลัมน์ 3</div></div>`;
+                    tableHtml += `
+                        <div class="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200 flex-wrap">
+                            <span class="text-xs font-bold text-gray-700">สัดส่วน (%):</span>
+                            <input type="number" min="1" max="98" value="${block.colWidths[0]}" onchange="updateTableColWidth('${block.id}', 0, this.value, 3)" class="w-14 text-xs border border-gray-300 rounded p-1 text-center focus:border-school-blue">
+                            <span class="text-xs text-gray-500">+</span>
+                            <input type="number" min="1" max="98" value="${block.colWidths[1]}" onchange="updateTableColWidth('${block.id}', 1, this.value, 3)" class="w-14 text-xs border border-gray-300 rounded p-1 text-center focus:border-school-blue">
+                            <span class="text-xs text-gray-500">+</span>
+                            <input type="number" value="${block.colWidths[2]}" class="w-14 text-xs border border-gray-300 rounded p-1 text-center bg-gray-200 text-gray-600 cursor-not-allowed" readonly>
+                        </div>
+                    `;
+                    tableHtml += `<div class="flex gap-2 mb-1 px-1"><div class="${wC1} text-xs font-bold text-gray-600">คอลัมน์ 1</div><div class="${wC2} text-xs font-bold text-gray-600">คอลัมน์ 2</div><div class="${wC3} text-xs font-bold text-gray-600">คอลัมน์ 3</div></div>`;
+                    
+                    // --- เพิ่มกล่องครอบแถวทั้งหมดตรงนี้ ---
+                    tableHtml += `<div class="sortable-rows-list space-y-1" data-block-id="${block.id}">`;
+                    
                     if(!block.rows) block.rows = [];
                     block.rows.forEach((row, rIndex) => {
                         tableHtml += `
-                            <div class="flex gap-2 items-start">
-                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col1 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col1', this.value)">
-                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col2 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col2', this.value)">
-                                <input type="text" class="w-1/3 border border-gray-300 rounded p-1.5 text-sm focus:border-school-blue" placeholder="..." value="${row.col3 || ''}" onchange="updateTableRow('${block.id}', ${rIndex}, 'col3', this.value)">
-                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <div class="row-container flex gap-2 items-stretch pt-2 pb-1 bg-white">
+                                <div class="drag-handle flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-300 hover:text-school-blue px-1 group">
+                                    <i data-lucide="grip-vertical" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                                </div>
+
+                                <div class="${wC1} bg-white border border-gray-300 rounded flex flex-col">
+                                    <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col1" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col1 || ''}</div>
+                                </div>
+                                <div class="${wC2} bg-white border border-gray-300 rounded flex flex-col">
+                                    <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col2" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col2 || ''}</div>
+                                </div>
+                                <div class="${wC3} bg-white border border-gray-300 rounded flex flex-col">
+                                    <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col3" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col3 || ''}</div>
+                                </div>
+                                
+                                <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded shrink-0 self-start mt-1.5" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         `;
                     });
-                    tableHtml += `<div class="mt-2"><button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว</button></div></div>`;
+                    
+                    // --- ปิดกล่องครอบตรงนี้ ---
+                    tableHtml += `</div>`;
+
+                    tableHtml += `
+                        <div class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                            <button type="button" onclick="addTableRow('${block.id}')" class="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded hover:bg-gray-50 hover:text-school-blue transition flex items-center shadow-sm">
+                                <i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มแถว
+                            </button>
+                            <div class="relative inline-block">
+                                <input type="file" id="csv-${block.id}" accept=".csv" class="hidden" onchange="importCsvToTable('${block.id}', event, 3)">
+                                <button type="button" onclick="document.getElementById('csv-${block.id}').click()" class="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition flex items-center shadow-sm">
+                                    <i data-lucide="file-up" class="w-3 h-3 mr-1"></i> นำเข้า CSV
+                                </button>
+                            </div>
+                            <button type="button" onclick="exportTableToCsv('${block.id}')" class="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition flex items-center shadow-sm">
+                                <i data-lucide="download" class="w-3 h-3 mr-1"></i> ส่งออก CSV
+                            </button>
+                            <button type="button" onclick="importFromGoogleSheet('${block.id}', 3)" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded hover:bg-amber-100 transition flex items-center shadow-sm">
+                                <i data-lucide="sheet" class="w-3 h-3 mr-1"></i> ดึงจาก Sheet
+                            </button>
+                        </div>
+                    </div>`;
                     innerHtml = tableHtml;
                 }
 
@@ -1933,21 +2372,126 @@
             container.innerHTML = html;
             lucide.createIcons();
 
-            // สร้าง Instance ของ Quill หลังจากที่ DOM ถูกวาดเสร็จ
+
+            // เริ่มต้นระบบลากสไลด์แถวแบบสมูท (SortableJS)
+            document.querySelectorAll('.sortable-rows-list').forEach(list => {
+                new Sortable(list, {
+                    animation: 250, // ความเร็วแอนิเมชัน 250ms (ปรับให้ช้าลงได้ เช่น 300)
+                    handle: '.drag-handle', // บังคับให้ลากได้เฉพาะตรงจุด 6 จุด
+                    ghostClass: 'opacity-30', // แถวที่กำลังลากอยู่จะโปร่งใส
+                    onEnd: function (evt) {
+                        const blockId = evt.from.getAttribute('data-block-id');
+                        const oldIndex = evt.oldIndex;
+                        const newIndex = evt.newIndex;
+                        
+                        if (oldIndex === newIndex) return; // ลากปล่อยที่เดิม ไม่ต้องทำอะไร
+
+                        let block = currentPageBlocks.find(b => b.id === blockId);
+                        if (block && block.rows) {
+                            // ดึงข้อมูลที่เพิ่งพิมพ์เซฟเข้า Array ก่อน
+                            syncQuillToData(blockId);
+                            
+                            // สลับข้อมูลใน Array
+                            const movedRow = block.rows.splice(oldIndex, 1)[0];
+                            block.rows.splice(newIndex, 0, movedRow);
+                            
+                            // วาดตารางใหม่เพื่อให้ระบบจัดเรียงสมบูรณ์
+                            renderPageBlocks();
+                        }
+                    }
+                });
+            });
+
+
+            // --- เริ่มต้นการทำงานของ Quill ---
             quillEditors = {};
-            const editorDivs = document.querySelectorAll('.quill-editor');
+            const editorDivs = document.querySelectorAll('.quill-editor, .quill-table-cell');
+            
             editorDivs.forEach(div => {
                 const blockId = div.getAttribute('data-block-id');
-                const quill = new Quill(div, { theme: 'snow', modules: { toolbar: quillToolbarOptions } });
-                quillEditors[blockId] = quill;
+                const rowIdx = div.getAttribute('data-row'); 
+                const colKey = div.getAttribute('data-col'); 
+                const editorKey = rowIdx !== null ? `${blockId}_${rowIdx}_${colKey}` : blockId;
                 
-                // ดักจับการเปลี่ยนแปลงอัปเดตลงตัวแปรหลักทันที
+                // 1. ให้ Quill สร้าง Toolbar ปกติแยกของใครของมัน ป้องกัน Error
+                const quill = new Quill(div, { 
+                    theme: 'snow', 
+                    modules: { toolbar: quillToolbarOptions } 
+                });
+
+                quillEditors[editorKey] = quill;
+                
+                // 2. จับ Toolbar ที่ถูกสร้างมาใหม่มาปรับแต่ง และเพิ่มช่องกรอกขนาดตัวอักษร
+                const ownToolbar = div.previousElementSibling;
+                if(ownToolbar && ownToolbar.classList.contains('ql-toolbar')) {
+                    ownToolbar.style.display = 'none';
+                    // ปรับแต่งขอบให้สวยงามเวลาโดนย้ายไปอยู่ด้านบน
+                    ownToolbar.classList.add('!border-0', '!border-b', '!border-gray-200');
+
+                    // ตรวจสอบว่าใส่ช่องกรอกตัวเลขไปหรือยัง ป้องกันการใส่ซ้ำ
+                    if (!ownToolbar.querySelector('.custom-size-input')) {
+                        const inputHtml = `
+                            <span class="ql-formats mr-2 flex items-center">
+                                <input type="number" class="custom-size-input w-14 border border-gray-300 rounded text-center text-xs focus:border-school-blue outline-none" style="height: 24px;" value="14" min="8" max="100" title="พิมพ์ขนาดตัวอักษร (px)">
+                                <span class="text-xs text-gray-500 ml-1">px</span>
+                            </span>`;
+                        ownToolbar.insertAdjacentHTML('afterbegin', inputHtml);
+                        
+                        const customInput = ownToolbar.querySelector('.custom-size-input');
+                        let lastSelection = null; 
+                        let isTypingSize = false; // 1. สร้างตัวล็อคป้องกันค่าเด้งกลับ
+                        
+                        quill.on('selection-change', function(range) {
+                            if (isTypingSize) return; // 2. ถ้ากำลังล็อคอยู่ ให้ข้ามการดึงค่าเก่าไปเลย
+                            
+                            if (range) {
+                                lastSelection = range; 
+                                let format = quill.getFormat(range);
+                                if (format.size) {
+                                    customInput.value = parseInt(format.size);
+                                } else {
+                                    customInput.value = 14;
+                                }
+                            }
+                        });
+
+                        customInput.addEventListener('change', function() {
+                            let val = parseInt(this.value);
+                            if(val) {
+                                isTypingSize = true; // 3. เปิดตัวล็อค
+                                
+                                if (lastSelection) quill.setSelection(lastSelection.index, lastSelection.length);
+                                quill.format('size', val + 'px');
+                                
+                                // 4. ปลดล็อคหลังจากระบบเปลี่ยนขนาดเสร็จแล้ว (หน่วงเวลา 100ms)
+                                setTimeout(() => { isTypingSize = false; }, 100);
+                            }
+                        });
+                    }
+                }
+
+                // 3. เมื่อผู้ใช้คลิกพิมพ์ที่กล่องไหน ให้จับ Toolbar กล่องนั้นย้ายไปใส่ไว้ที่แถบเหนียว (Sticky) ด้านบน
+                quill.root.addEventListener('focus', () => {
+                    if (gContainer && ownToolbar) {
+                        gContainer.innerHTML = ''; // เอาอันเก่าออก
+                        ownToolbar.style.display = 'block'; // โชว์อันใหม่
+                        gContainer.appendChild(ownToolbar); // ย้ายเข้าไปเสียบด้านบน
+                        gContainer.classList.remove('hidden');
+                    }
+                });
+
+                // 4. บันทึกค่าแบบ Real-time เข้าตัวแปร
                 quill.on('text-change', function() {
                     const idx = currentPageBlocks.findIndex(b => b.id === blockId);
                     if (idx > -1) {
-                        currentPageBlocks[idx].content = quill.root.innerHTML;
+                        if(rowIdx !== null) {
+                            currentPageBlocks[idx].rows[parseInt(rowIdx)][colKey] = quill.root.innerHTML;
+                        } else {
+                            currentPageBlocks[idx].content = quill.root.innerHTML;
+                        }
                     }
                 });
+
             });
         }
 
@@ -1956,14 +2500,25 @@
             const btn = document.getElementById('btn-save-page');
             btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             
-            // ดึงข้อมูล HTML ล่าสุดจาก Quill Editor มั่นใจว่าข้อมูลครบ
-            currentPageBlocks.forEach(b => {
-                if(quillEditors[b.id] && (b.type === 'text' || b.type === 'text-image' || b.type === 'image-text')) {
-                    b.content = quillEditors[b.id].root.innerHTML;
-                }
-            });
 
             try {
+                for (const key in quillEditors) {
+                const parts = key.split('_'); 
+                const blockId = parts[0] + '_' + parts[1];
+                const block = currentPageBlocks.find(b => b.id === blockId);
+                if (block) {
+                    if (parts.length > 2) {
+                        // เป็นตาราง
+                        const rIdx = parseInt(parts[2]);
+                        const cKey = parts[3];
+                        if(block.rows && block.rows[rIdx]) block.rows[rIdx][cKey] = quillEditors[key].root.innerHTML;
+                    } else {
+                        // เป็นข้อความธรรมดา
+                        block.content = quillEditors[key].root.innerHTML;
+                    }
+                }
+            }
+
                 const payload = {
                     action: "save_page",
                     id: document.getElementById('page-id').value,
@@ -2031,36 +2586,43 @@
                     } else if (block.type === 'image-text') {
                         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div class="order-2 md:order-1">${imgHtml}</div><div class="order-1 md:order-2">${textHtml}</div></div>`;
                     } else if (block.type === 'table') {
-                        // รูปแบบแสดงผลตาราง 2 คอลัมน์ แบบสะอาดตา
+                        let wLeft = block.colWidths ? `sm:w-[${block.colWidths[0]}%]` : 'sm:w-1/2';
+                        let wRight = block.colWidths ? `sm:w-[${block.colWidths[1]}%]` : 'sm:w-1/2';
+
                         let rowsHtml = '';
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                                 rowsHtml += `
-                                    <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors">
-                                        <div class="sm:w-1/3 p-3 sm:p-4 font-semibold text-school-navy border-b sm:border-b-0 sm:border-r border-gray-100">${row.left || ''}</div>
-                                        <div class="sm:w-2/3 p-3 sm:p-4 text-gray-700">${row.right || ''}</div>
+                                    <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors w-full">
+                                        <div class="w-full ${wLeft} p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-gray-100 rich-text-content ql-editor" style="padding: 1rem;">${row.left || ''}</div>
+                                        
+                                        <div class="w-full ${wRight} p-3 sm:p-4 rich-text-content ql-editor" style="padding: 1rem;">${row.right || ''}</div>
                                     </div>
                                 `;
                             });
                         }
-                        html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">${rowsHtml}</div>`;
+                        html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm w-full">${rowsHtml}</div>`;
+                    
                     } else if (block.type === 'table3') {
-                        // รูปแบบแสดงผลตาราง 3 คอลัมน์
+                        let wC1 = block.colWidths ? `sm:w-[${block.colWidths[0]}%]` : 'sm:w-1/3';
+                        let wC2 = block.colWidths ? `sm:w-[${block.colWidths[1]}%]` : 'sm:w-1/3';
+                        let wC3 = block.colWidths ? `sm:w-[${block.colWidths[2]}%]` : 'sm:w-1/3';
+
                         let rowsHtml = '';
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
                                 rowsHtml += `
-                                    <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors">
-                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-100">${row.col1 || ''}</div>
-                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700 border-b sm:border-b-0 sm:border-r border-gray-100">${row.col2 || ''}</div>
-                                        <div class="sm:w-1/3 p-3 sm:p-4 text-gray-700">${row.col3 || ''}</div>
+                                    <div class="flex flex-col sm:flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors w-full">
+                                        <div class="w-full ${wC1} p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-gray-100 rich-text-content ql-editor" style="padding: 1rem;">${row.col1 || ''}</div>
+                                        <div class="w-full ${wC2} p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-gray-100 rich-text-content ql-editor" style="padding: 1rem;">${row.col2 || ''}</div>
+                                        <div class="w-full ${wC3} p-3 sm:p-4 rich-text-content ql-editor" style="padding: 1rem;">${row.col3 || ''}</div>
                                     </div>
                                 `;
                             });
                         }
-                        html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">${rowsHtml}</div>`;
+                        html += `<div class="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm w-full">${rowsHtml}</div>`;
                     }
                 });
                 contentContainer.innerHTML = html;
@@ -3037,6 +3599,22 @@
             
             lucide.createIcons();
         }
+
+        // ป้องกันการกด Enter แล้วบันทึกฟอร์มอัตโนมัติ (ยกเว้นฟอร์มล็อกอิน)
+        // ==========================================
+        document.addEventListener('keydown', function(event) {
+            // เช็คว่าปุ่มที่กดคือปุ่ม Enter หรือไม่
+            if (event.key === 'Enter') {
+                // เช็คว่าตำแหน่งที่กำลังพิมพ์อยู่คือช่อง <input> ธรรมดาหรือไม่
+                if (event.target.tagName === 'INPUT') {
+                    // เช็คว่า input นี้ "ไม่ได้" อยู่ในฟอร์มล็อกอิน (id="login-form") ใช่หรือไม่
+                    if (!event.target.closest('#login-form')) {
+                        // ถ้าไม่ได้อยู่ในฟอร์มล็อกอิน ให้ระงับการทำงาน (ป้องกันการบันทึกข้อมูล)
+                        event.preventDefault();
+                    }
+                }
+            }
+        });
 
     </script>
 </body>
