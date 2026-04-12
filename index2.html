@@ -219,6 +219,15 @@
         .rich-text-content.ql-editor > *:last-child {
             margin-bottom: 0 !important;
         }
+
+        /* ================= สไตล์สำหรับ Tooltip ปฏิทิน ================= */
+        .calendar-tooltip-anim {
+            animation: tooltipFadeIn 0.2s ease-out forwards;
+        }
+        @keyframes tooltipFadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -714,7 +723,8 @@
                 <a href="javascript:void(0);" onclick="switchAdminTab('staff')" id="nav-tab-staff" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition">
                     <i data-lucide="users" class="w-5 h-5 mr-3"></i> จัดการบุคลากร
                 </a>
-                <a href="javascript:void(0);" onclick="switchAdminTab('settings')" id="nav-tab-settings" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition border-t border-blue-800 pt-5 mt-3">
+                <div class="border-t border-blue-800 my-2 mx-2"></div>
+                <a href="javascript:void(0);" onclick="switchAdminTab('settings')" id="nav-tab-settings" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition">
                     <i data-lucide="settings" class="w-5 h-5 mr-3"></i> ตั้งค่าเว็บไซต์
                 </a>
             </nav>
@@ -3931,6 +3941,97 @@
         }
 
 
+        // ฟังก์ชันแสดงกล่องข้อความเล็กๆ (Tooltip) เมื่อคลิกที่วันที่
+        function showDayEventsTooltip(dateStr, element, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+
+            const targetDate = new Date(dateStr).setHours(0,0,0,0);
+            const dayEvents = globalCalendar.filter(ev => {
+                const s = new Date(ev.start).setHours(0,0,0,0);
+                const e = new Date(ev.end).setHours(0,0,0,0);
+                return targetDate >= s && targetDate <= e;
+            });
+
+            if (dayEvents.length === 0) return;
+
+            // ลบ Tooltip อันเก่าออกก่อน (ถ้ามีค้างอยู่)
+            const oldTooltip = document.getElementById('calendar-tooltip');
+            if (oldTooltip) oldTooltip.remove();
+
+            // แปลงวันที่เป็นภาษาไทย
+            const d = new Date(dateStr);
+            const thaiDate = `${d.getDate()} ${monthNamesTH[d.getMonth()]} ${d.getFullYear()+543}`;
+
+            // สร้างกล่อง Tooltip ใหม่
+            const tooltip = document.createElement('div');
+            tooltip.id = 'calendar-tooltip';
+            tooltip.className = 'absolute z-[9999] bg-white border border-gray-200 shadow-[0_10px_40px_-10px_rgba(26,58,110,0.3)] rounded-lg p-3 w-56 text-left text-sm calendar-tooltip-anim';
+
+            // สร้างรายการกิจกรรม
+            let html = '<div class="space-y-2 mt-2">';
+            dayEvents.forEach(ev => {
+                html += `
+                    <div class="flex items-start gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style="background-color: ${ev.color};"></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-800 leading-tight truncate" title="${ev.title}">${ev.title}</p>
+                            <p class="text-[10px] text-gray-500">${ev.category}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            tooltip.innerHTML = `
+                <div class="flex justify-between items-center mb-1 pb-1 border-b border-gray-100">
+                    <span class="font-bold text-school-blue text-[11px]">${thaiDate}</span>
+                    <button onclick="document.getElementById('calendar-tooltip').remove()" class="text-gray-400 hover:text-red-500 bg-gray-50 rounded p-0.5 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
+                </div>
+                ${html}
+            `;
+
+            document.body.appendChild(tooltip);
+            if (typeof lucide !== 'undefined') lucide.createIcons({ root: tooltip });
+
+            // การคำนวณตำแหน่งให้กล่องลอยอยู่ใกล้ๆ จุดที่คลิก
+            const rect = element.getBoundingClientRect();
+            const tooltipWidth = tooltip.offsetWidth;
+            const tooltipHeight = tooltip.offsetHeight;
+            
+            // ตั้งค่าเริ่มต้นให้อยู่ "ด้านบน" และ "กึ่งกลาง" ของกล่องวันที่
+            let top = rect.top + window.scrollY - tooltipHeight - 8; 
+            let left = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
+
+            // ถ้าลอยสูงเกินขอบจอ (โดนบัง) ให้สลับมาแสดง "ด้านล่าง" แทน
+            if (top < window.scrollY + 10) {
+                top = rect.bottom + window.scrollY + 8;
+            }
+
+            // ถ้าล้นจอฝั่งซ้ายหรือขวา ให้ดันกลับเข้ามา
+            if (left < 10) left = 10;
+            if (left + tooltipWidth > window.innerWidth - 10) {
+                left = window.innerWidth - tooltipWidth - 10;
+            }
+
+            tooltip.style.top = top + 'px';
+            tooltip.style.left = left + 'px';
+
+            // ตั้งค่าให้ปิด Tooltip ทันทีเมื่อคลิกที่อื่นในหน้าเว็บ
+            setTimeout(() => {
+                const closeTooltip = function(evt) {
+                    if (!tooltip.contains(evt.target) && evt.target !== element && !element.contains(evt.target)) {
+                        tooltip.remove();
+                        document.removeEventListener('click', closeTooltip);
+                    }
+                };
+                document.addEventListener('click', closeTooltip);
+            }, 50);
+        }
+
+
         function renderMiniCalendar() {
             const containers = document.querySelectorAll('.mini-calendar-render-target');
             if(containers.length === 0) return;
@@ -3965,13 +4066,20 @@
                 else dayClass += " text-gray-700";
 
                 let dotsHtml = '';
+                let clickAction = `onclick="showFullCalendar()"`; // ค่าเริ่มต้น: กดแล้วขยายหน้าต่าง
+
                 if(events.length > 0) {
+                    // ถ้าวันนั้นมีกิจกรรม: ให้เปลี่ยนเป็นการเรียก Popup แทน
+                    const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    clickAction = `onclick="showDayEventsTooltip('${dateString}', this, event)"`;
+                    
                     dotsHtml = `<div class="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 flex gap-0.5">`;
                     events.slice(0,3).forEach(ev => { dotsHtml += `<span class="w-1 h-1 rounded-full" style="background-color: ${ev.color};"></span>`; });
                     dotsHtml += `</div>`;
                 }
 
-                html += `<div class="${dayClass}" onclick="showFullCalendar()">${i}${dotsHtml}</div>`;
+                // แนบคำสั่งคลิก (clickAction) เข้าไปในกล่อง div
+                html += `<div class="${dayClass}" ${clickAction}>${i}${dotsHtml}</div>`;
             }
             html += `</div>`;
             
@@ -4066,7 +4174,14 @@
                 else boxClass += "border-gray-200 bg-white";
 
                 let evHtml = '';
+                let clickAction = ''; // 1. สร้างตัวแปรเก็บคำสั่งคลิก
+
                 if(events.length > 0) {
+                    // 2. เพิ่มคำสั่งคลิกเรียก Popup และเปลี่ยนเมาส์เป็นรูปมือ
+                    const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    clickAction = `onclick="showDayEventsTooltip('${dateString}', this, event)"`;
+                    boxClass += " cursor-pointer hover:bg-gray-50";
+
                     evHtml = `<div class="mt-auto space-y-0.5 overflow-hidden w-full">`;
                     events.slice(0,3).forEach(ev => { 
                         evHtml += `<div class="text-[9px] md:text-[10px] text-white px-1 py-0.5 rounded truncate shadow-sm" style="background-color: ${ev.color};" title="${ev.title}">${ev.title}</div>`; 
@@ -4075,8 +4190,9 @@
                     evHtml += `</div>`;
                 }
 
+                // 3. แนบคำสั่งคลิก (clickAction) เข้าไปในกล่อง div
                 calHtml += `
-                    <div class="${boxClass}">
+                    <div class="${boxClass}" ${clickAction}>
                         <div class="text-center w-full mb-1">
                             <span class="text-xs md:text-sm font-medium ${isToday ? 'text-school-blue font-bold' : 'text-gray-700'}">${i}</span>
                         </div>
