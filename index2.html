@@ -261,6 +261,50 @@
             from { opacity: 0; transform: translateY(5px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+
+        /* สไตล์สำหรับลูกศรของ Tooltip */
+        #calendar-tooltip::after {
+            content: "";
+            position: absolute;
+            border-width: 8px;
+            border-style: solid;
+            /* เปลี่ยนจาก left: 50% เป็นรับค่าจาก JavaScript */
+            left: var(--arrow-pos, 50%);
+            transform: translateX(-50%);
+        }
+
+        /* เมื่อกล่องอยู่ด้านบนวันที่ (ลูกศรชี้ลง) */
+        #calendar-tooltip.tooltip-top::after {
+            bottom: -14px; /* ดันลูกศรสีขาวเข้าไปอีก 1px ปิดรอยต่อให้มิด */
+            border-color: #ffffff transparent transparent transparent;
+        }
+        #calendar-tooltip.tooltip-top::before {
+            content: "";
+            position: absolute;
+            bottom: -15px; /* ดันขอบสีเทาเข้าไปอีก 1px */
+            left: var(--arrow-pos, 50%);
+            transform: translateX(-50%);
+            border-width: 8px;
+            border-style: solid;
+            border-color: #e5e7eb transparent transparent transparent;
+        }
+
+        /* เมื่อกล่องอยู่ด้านล่างวันที่ (ลูกศรชี้ขึ้น) */
+        #calendar-tooltip.tooltip-bottom::after {
+            top: -14px; /* ดันลูกศรสีขาวเข้าไปอีก 1px */
+            border-color: transparent transparent #ffffff transparent;
+        }
+        #calendar-tooltip.tooltip-bottom::before {
+            content: "";
+            position: absolute;
+            top: -15px; /* ดันขอบสีเทาเข้าไปอีก 1px */
+            left: var(--arrow-pos, 50%);
+            transform: translateX(-50%);
+            border-width: 8px;
+            border-style: solid;
+            border-color: transparent transparent #e5e7eb transparent;
+        }
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -4303,6 +4347,34 @@
                 event.preventDefault();
             }
 
+            let targetElement = element;
+            
+            // 1. ตรวจสอบว่าสิ่งที่คลิก มี "data-cal-date" (เป็นช่องปฏิทิน) อยู่แล้วหรือไม่
+            if (!element.hasAttribute('data-cal-date')) {
+                // 2. เช็คว่ากำลังเปิดหน้า "ปฏิทินเต็ม" อยู่หรือไม่
+                const fullCalView = document.getElementById('full-calendar-view');
+                const isFullCalActive = fullCalView && !fullCalView.classList.contains('hidden');
+                
+                if (isFullCalActive) {
+                    // ถ้าอยู่หน้าปฏิทินเต็ม ให้หาช่องวันที่ในปฏิทินเต็ม
+                    const fullCalCell = document.querySelector(`#full-calendar-render [data-cal-date="${dateStr}"]`);
+                    if (fullCalCell) targetElement = fullCalCell;
+                } else {
+                    // ถ้าอยู่หน้าอื่นๆ ให้หาช่องวันที่ในปฏิทินย่อ 
+                    // เลือกตัวที่มองเห็นได้บนหน้าจอ (หลบตัวที่ซ่อนอยู่ในเมนูมือถือ)
+                    const miniCalCells = document.querySelectorAll(`.mini-calendar-render-target [data-cal-date="${dateStr}"]`);
+                    for (let cell of miniCalCells) {
+                        if (cell.offsetParent !== null) { 
+                            targetElement = cell;
+                            break;
+                        }
+                    }
+                    if(targetElement === element && miniCalCells.length > 0) {
+                        targetElement = miniCalCells[0]; // Fallback
+                    }
+                }
+            }
+
             const targetDate = new Date(dateStr).setHours(0,0,0,0);
             const dayEvents = globalCalendar.filter(ev => {
                 const s = new Date(ev.start).setHours(0,0,0,0);
@@ -4310,23 +4382,17 @@
                 return targetDate >= s && targetDate <= e;
             });
 
-            // ลบ Tooltip อันเก่าออกก่อน (ถ้ามีค้างอยู่)
             const oldTooltip = document.getElementById('calendar-tooltip');
             if (oldTooltip) oldTooltip.remove();
 
-            // แปลงวันที่เป็นภาษาไทย
             const d = new Date(dateStr);
             const thaiDate = `${d.getDate()} ${monthNamesTH[d.getMonth()]} ${d.getFullYear()+543}`;
 
-            // สร้างกล่อง Tooltip ใหม่
             const tooltip = document.createElement('div');
             tooltip.id = 'calendar-tooltip';
             tooltip.className = 'absolute z-[9999] bg-white border border-gray-200 shadow-[0_10px_40px_-10px_rgba(26,58,110,0.3)] rounded-lg p-3 w-56 text-left text-sm calendar-tooltip-anim';
 
-            // สร้างรายการกิจกรรม
             let html = '<div class="space-y-2 mt-2">';
-            
-            // เช็คว่ามีกิจกรรมหรือไม่ ถ้าไม่มีให้แสดงข้อความ
             if (dayEvents.length === 0) {
                 html += `<div class="text-center text-gray-500 text-xs py-2">ไม่มีกิจกรรมในวันนี้</div>`;
             } else {
@@ -4355,18 +4421,25 @@
             document.body.appendChild(tooltip);
             if (typeof lucide !== 'undefined') lucide.createIcons({ root: tooltip });
 
-            // การคำนวณตำแหน่งให้กล่องลอยอยู่ใกล้ๆ จุดที่คลิก
-            const rect = element.getBoundingClientRect();
+            // --- ส่วนคำนวณตำแหน่งและทิศทางของลูกศร ---
+            const rect = targetElement.getBoundingClientRect();
             const tooltipWidth = tooltip.offsetWidth;
             const tooltipHeight = tooltip.offsetHeight;
             
-            let top = rect.top + window.scrollY - tooltipHeight - 8; 
-            let left = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
-
+            // ปัดเศษเพื่อป้องกันรอยต่อบางๆ ของลูกศร
+            let top = Math.round(rect.top + window.scrollY - tooltipHeight - 15);
+            let targetCenterX = Math.round(rect.left + window.scrollX + (rect.width / 2));
+            let left = Math.round(targetCenterX - (tooltipWidth / 2));
+            
+            // ตรวจสอบว่ากล่องล้นขอบบนหรือไม่
             if (top < window.scrollY + 10) {
-                top = rect.bottom + window.scrollY + 8;
+                top = Math.round(rect.bottom + window.scrollY + 15);
+                tooltip.classList.add('tooltip-bottom'); // ลูกศรอยู่บน ชี้ขึ้น
+            } else {
+                tooltip.classList.add('tooltip-top');    // ลูกศรอยู่ล่าง ชี้ลง
             }
 
+            // ป้องกันกล่องข้อความล้นขอบจอซ้าย-ขวา
             if (left < 10) left = 10;
             if (left + tooltipWidth > window.innerWidth - 10) {
                 left = window.innerWidth - tooltipWidth - 10;
@@ -4374,6 +4447,15 @@
 
             tooltip.style.top = top + 'px';
             tooltip.style.left = left + 'px';
+
+            // คำนวณตำแหน่งของหางลูกศรเทียบกับตัวกล่อง
+            let arrowOffset = Math.round(targetCenterX - left);
+            
+            // ป้องกันไม่ให้หางลูกศรล้นทะลุความโค้งของขอบกล่อง
+            if (arrowOffset < 20) arrowOffset = 20;
+            if (arrowOffset > tooltipWidth - 20) arrowOffset = tooltipWidth - 20;
+            
+            tooltip.style.setProperty('--arrow-pos', arrowOffset + 'px');
 
             setTimeout(() => {
                 const closeTooltip = function(evt) {
@@ -4432,54 +4514,61 @@
                     dotsHtml += `</div>`;
                 }
 
-                // แนบคำสั่งคลิก (clickAction) เข้าไปในกล่อง div
-                html += `<div class="${dayClass}" ${clickAction}>${i}${dotsHtml}</div>`;
+                // แนบคำสั่งคลิก และที่อยู่ (data-cal-date) เข้าไปในกล่อง div
+                html += `<div class="${dayClass}" data-cal-date="${dateString}" ${clickAction}>${i}${dotsHtml}</div>`;
             }
             html += `</div>`;
             
             // รายการกิจกรรมย่อด้านล่าง
             let upcomingHtml = '';
-            // 1. ลบ .slice(0, 3) ออกจากท้ายบรรทัดนี้ เพื่อให้ดึงข้อมูลมาทั้งหมด
             const upcomingEvents = globalCalendar.filter(ev => new Date(ev.end) >= new Date(new Date().setHours(0,0,0,0)) && !String(ev.id).startsWith('auto_')).sort((a,b) => new Date(a.start) - new Date(b.start));
 
             if(upcomingEvents.length > 0) {
-                // 2. เพิ่ม max-h-[300px] และ overflow-y-auto เข้าไป เพื่อให้กล่องมีความสูงจำกัดและเลื่อนสกอร์บาร์ดูได้
                 upcomingHtml = `<div class="mt-3 space-y-2 border-t pt-2 max-h-[300px] overflow-y-auto no-scrollbar">`;
                 upcomingEvents.forEach(ev => {
-                const sd = new Date(ev.start);
-                const ed = new Date(ev.end);
-                
-                // จัดการรูปแบบวันที่ให้แสดงถึงวันสิ้นสุด เหมือน Agenda
-                let dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} ${sd.getFullYear()+543}`;
-                if(sd.getTime() !== ed.getTime()) {
-                    dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} - ${ed.getDate()} ${monthNamesTH[ed.getMonth()]} ${ed.getFullYear()+543}`;
-                }
+                    const today = new Date();
+                    const todayTime = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+                    const sTime = new Date(ev.start).setHours(0,0,0,0);
+                    const eTime = new Date(ev.end).setHours(0,0,0,0);
+                    
+                    const sd = new Date(ev.start);
+                    const ed = new Date(ev.end);
+                    
+                    let dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} ${sd.getFullYear()+543}`;
+                    if(sd.getTime() !== ed.getTime()) {
+                        dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} - ${ed.getDate()} ${monthNamesTH[ed.getMonth()]} ${ed.getFullYear()+543}`;
+                    }
 
-                // ดึงคลาสสีตามความเร่งด่วน
-                const proximityClass = getProximityClass(ev.start, ev.end); 
-                const countdown = getCountdownText(ev.start, ev.end);
-                
-                upcomingHtml += `
-                    <div class="flex items-start gap-2 p-1.5 rounded transition border ${proximityClass}">
-                        <div class="w-2 h-2 rounded-full mt-1.5 shrink-0" style="background-color: ${ev.color};"></div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs font-bold text-gray-800 truncate mb-1">
-                                <span>${ev.title}</span>
-                            </p>
-                            <div class="text-[10px] text-gray-500 flex flex-col gap-0.5">
-                                <span>${dateStr}</span>
-                                ${countdown ? `<span>${countdown}</span>` : ''}
+                    const proximityClass = getProximityClass(ev.start, ev.end); 
+                    const countdown = getCountdownText(ev.start, ev.end);
+                    
+                    // --- ปรับปรุงตรรกะจุดที่ป้ายจะไปชี้ ---
+                    let targetD = sd;
+                    if (todayTime >= sTime && todayTime <= eTime && today.getMonth() === currentCalMonth && today.getFullYear() === currentCalYear) {
+                        targetD = today;
+                    }
+                    const tooltipDateStr = `${targetD.getFullYear()}-${String(targetD.getMonth() + 1).padStart(2, '0')}-${String(targetD.getDate()).padStart(2, '0')}`;
+                    
+                    upcomingHtml += `
+                        <div class="flex items-start gap-2 p-1.5 rounded transition border cursor-pointer hover:shadow-sm ${proximityClass}" onclick="showDayEventsTooltip('${tooltipDateStr}', this, event)">
+                            <div class="w-2 h-2 rounded-full mt-1.5 shrink-0" style="background-color: ${ev.color};"></div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-bold text-gray-800 truncate mb-1">
+                                    <span>${ev.title}</span>
+                                </p>
+                                <div class="text-[10px] text-gray-500 flex flex-col gap-0.5">
+                                    <span>${dateStr}</span>
+                                    ${countdown ? `<span>${countdown}</span>` : ''}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
                 upcomingHtml += `</div>`;
             } else {
                 upcomingHtml = `<div class="mt-3 text-center text-[10px] text-gray-400">ไม่มีกิจกรรมเร็วๆ นี้</div>`;
             }
 
-            // ส่ง HTML ไปยังทุกกล่องปฏิทิน (ทั้งซ้ายและขวา)
             containers.forEach(container => {
                 container.innerHTML = html + upcomingHtml;
             });
@@ -4493,7 +4582,6 @@
             const daysInMonth = getDaysInMonth(currentCalMonth, currentCalYear);
             const firstDay = getFirstDayOfMonth(currentCalMonth, currentCalYear);
             
-            // แบ่งหน้าจอเป็น 2 ฝั่ง ฝั่งซ้ายคือปฏิทิน ฝั่งขวาคือรายการ (Agenda)
             let calHtml = `
                 <div class="w-full bg-white border border-gray-200 rounded-md shadow-sm p-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
@@ -4514,7 +4602,7 @@
                     <div class="grid grid-cols-7 gap-1 md:gap-2">
             `;
 
-            for(let i=0; i<firstDay; i++) { calHtml += `<div class="aspect-square bg-gray-50 rounded border border-gray-100"></div>`; }
+            for(let i=0; i<firstDay; i++) { calHtml += `<div class="aspect-square bg-gray-50 rounded border border-gray-100 opacity-50"></div>`; }
 
             const today = new Date();
             for(let i=1; i<=daysInMonth; i++) {
@@ -4522,33 +4610,27 @@
                 const events = getEventsForDate(currentDateStr);
                 let isToday = (i === today.getDate() && currentCalMonth === today.getMonth() && currentCalYear === today.getFullYear());
                 
-                // เพิ่ม items-center เพื่อจัดเนื้อหาให้อยู่ตรงกลางแนวนอน
-                let boxClass = "aspect-square rounded border relative p-1 flex flex-col items-center transition hover:border-school-blue ";
-                if(isToday) boxClass += "border-school-blue bg-blue-50";
+                let boxClass = "aspect-square rounded border relative p-1 flex flex-col items-center cursor-pointer transition hover:border-school-blue hover:bg-gray-50 ";
+                if(isToday) boxClass += "border-school-blue bg-blue-50 shadow-sm";
                 else boxClass += "border-gray-200 bg-white";
 
                 let evHtml = '';
-                let clickAction = ''; // 1. สร้างตัวแปรเก็บคำสั่งคลิก
-
+                const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                
                 if(events.length > 0) {
-                    // 2. เพิ่มคำสั่งคลิกเรียก Popup และเปลี่ยนเมาส์เป็นรูปมือ
-                    const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    clickAction = `onclick="showDayEventsTooltip('${dateString}', this, event)"`;
-                    boxClass += " cursor-pointer hover:bg-gray-50";
-
-                    evHtml = `<div class="mt-auto space-y-0.5 overflow-hidden w-full">`;
-                    events.slice(0,3).forEach(ev => { 
-                        evHtml += `<div class="text-[9px] md:text-[10px] text-white px-1 py-0.5 rounded truncate shadow-sm" style="background-color: ${ev.color};" title="${ev.title}">${ev.title}</div>`; 
+                    // ปรับเป็นจุดสีเล็กๆ (Dots) เรียงกันเพื่อให้ดูสะอาดตาเหมือนปฏิทินย่อ
+                    evHtml = `<div class="mt-auto flex flex-wrap justify-center gap-1 w-full pb-1">`;
+                    events.slice(0, 5).forEach(ev => { 
+                        evHtml += `<div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shadow-sm border border-white/20" style="background-color: ${ev.color};" title="${ev.title}"></div>`; 
                     });
-                    if(events.length > 3) evHtml += `<div class="text-[9px] text-gray-500 font-bold text-center">+${events.length-3}</div>`;
+                    if(events.length > 5) evHtml += `<div class="text-[8px] ${isToday ? 'text-school-blue' : 'text-gray-400'} font-bold">+</div>`;
                     evHtml += `</div>`;
                 }
 
-                // 3. แนบคำสั่งคลิก (clickAction) เข้าไปในกล่อง div
                 calHtml += `
-                    <div class="${boxClass}" ${clickAction}>
-                        <div class="text-center w-full mb-1">
-                            <span class="text-xs md:text-sm font-medium ${isToday ? 'text-school-blue font-bold' : 'text-gray-700'}">${i}</span>
+                    <div class="${boxClass}" data-cal-date="${dateString}" onclick="showDayEventsTooltip('${dateString}', this, event)">
+                        <div class="text-center w-full mt-0.5">
+                            <span class="text-xs md:text-sm ${isToday ? 'font-bold' : 'font-medium'} ${isToday ? 'text-school-blue' : 'text-gray-700'}">${i}</span>
                         </div>
                         ${evHtml}
                     </div>
@@ -4556,61 +4638,69 @@
             }
             calHtml += `</div></div>`;
 
-            // ส่วน Agenda ย้ายมาด้านล่าง
-            let agendaHtml = `<div class="w-full flex flex-col gap-4 mt-2">`;
-            agendaHtml += `<div class="bg-gray-50 border border-gray-200 rounded-md p-4">
-                <h3 class="font-bold text-school-navy border-b pb-2 mb-4 flex items-center"><i data-lucide="list" class="w-5 h-5 mr-2"></i> รายการกิจกรรมเดือนนี้</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-1 no-scrollbar">
+            // ส่วนรายการกิจกรรม (Agenda) ปรับจาก Card Grid เป็น Row List
+            let agendaHtml = `<div class="w-full mt-4">`;
+            agendaHtml += `<div class="bg-white border border-gray-200 rounded-md p-4 shadow-sm">
+                <h3 class="font-bold text-school-navy border-b pb-2 mb-4 flex items-center"><i data-lucide="list" class="w-5 h-5 mr-2"></i> รายการกิจกรรมประจำเดือน</h3>
+                <div class="flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-1 no-scrollbar">
             `;
 
-            // หากิจกรรมทั้งหมดที่คาบเกี่ยวในเดือนนี้
             const monthStart = new Date(currentCalYear, currentCalMonth, 1).setHours(0,0,0,0);
             const monthEnd = new Date(currentCalYear, currentCalMonth, daysInMonth).setHours(23,59,59,999);
             
             const eventsThisMonth = globalCalendar.filter(ev => {
                 const s = new Date(ev.start).getTime();
                 const e = new Date(ev.end).getTime();
-                // แสดงเฉพาะกิจกรรมที่อยู่ในเดือนนี้ และ ไม่ใช่กิจกรรมที่ดึงมาอัตโนมัติ (auto_)
                 return (s <= monthEnd && e >= monthStart) && !String(ev.id).startsWith('auto_');
             }).sort((a,b) => new Date(a.start) - new Date(b.start));
 
             if(eventsThisMonth.length > 0) {
                 eventsThisMonth.forEach(ev => {
-                    // 1. เช็คสถานะวันและเวลา
-                    const today = new Date().setHours(0,0,0,0);
-                    const isPassed = today > new Date(ev.end).setHours(0,0,0,0);
-                    const proximityClass = getProximityClass(ev.start, ev.end); // ได้สีพื้นหลังของกล่องมาแล้ว
+                    const now = new Date();
+                    const todayTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                    const sTime = new Date(ev.start).setHours(0,0,0,0);
+                    const eTime = new Date(ev.end).setHours(0,0,0,0);
+                    
+                    const proximityClass = getProximityClass(ev.start, ev.end);
                     const countdown = getCountdownText(ev.start, ev.end);
                     
-                    // 2. จัดการรูปแบบข้อความวันที่ (dateStr)
                     const sd = new Date(ev.start);
                     const ed = new Date(ev.end);
-                    let dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]}`;
+                    let dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} ${sd.getFullYear()+543}`;
                     if(sd.getTime() !== ed.getTime()) {
-                        dateStr += ` - ${ed.getDate()} ${monthNamesTH[ed.getMonth()]}`;
+                        dateStr = `${sd.getDate()} ${monthNamesTH[sd.getMonth()]} - ${ed.getDate()} ${monthNamesTH[ed.getMonth()]} ${ed.getFullYear()+543}`;
                     }
                     
-                    // 3. กำหนดสีเส้นขอบซ้าย
-                    const borderColor = isPassed ? "#9ca3af" : ev.color;
+                    const borderColor = todayTime > eTime ? "#9ca3af" : ev.color;
 
-                    // 4. สร้าง HTML ของการ์ด
+                    // กำหนดจุดชี้ Tooltip: ถ้าวันนี้อยู่ในช่วงกิจกรรม ให้ไปชี้ที่วันปัจจุบัน
+                    let targetD = sd;
+                    if (todayTime >= sTime && todayTime <= eTime && now.getMonth() === currentCalMonth && now.getFullYear() === currentCalYear) {
+                        targetD = now;
+                    }
+                    const tooltipDateStr = `${targetD.getFullYear()}-${String(targetD.getMonth() + 1).padStart(2, '0')}-${String(targetD.getDate()).padStart(2, '0')}`;
+
                     agendaHtml += `
-                        <div class="${proximityClass} p-3 rounded flex flex-col border shadow-sm" style="border-left-width: 4px; border-left-color: ${borderColor};">
-                            <h4 class="font-bold text-gray-800 text-sm mb-2">
-                                <span>${ev.title}</span>
-                            </h4>
-                            <div class="text-xs text-gray-500 flex flex-col gap-1 mb-2">
-                                <span class="flex items-center"><i data-lucide="clock" class="w-3 h-3 mr-1"></i> ${dateStr}</span>
-                                ${countdown ? `<span class="pl-4">${countdown}</span>` : ''}
+                        <div class="${proximityClass} p-3 rounded flex flex-col md:flex-row md:items-center justify-between border shadow-sm cursor-pointer hover:shadow-md transition-all group" style="border-left-width: 4px; border-left-color: ${borderColor};" onclick="showDayEventsTooltip('${tooltipDateStr}', this, event)">
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-3 rounded-full shrink-0 shadow-sm" style="background-color: ${ev.color};"></div>
+                                <div class="flex flex-col">
+                                    <h4 class="font-bold text-gray-800 text-sm group-hover:text-school-navy transition-colors">${ev.title}</h4>
+                                    <span class="text-[11px] text-gray-500 flex items-center mt-0.5"><i data-lucide="calendar" class="w-3 h-3 mr-1"></i> ${dateStr}</span>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-1">
-                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-white bg-opacity-80 text-gray-700 inline-block border border-white border-opacity-50">${ev.category}</span>
+                            <div class="mt-2 md:mt-0 flex items-center gap-4">
+                                <div class="text-right">
+                                    <div class="text-[10px] font-bold">${countdown}</div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">${ev.category}</span>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-school-navy transition-all"></i>
                             </div>
                         </div>
                     `;
                 });
             } else {
-                agendaHtml += `<p class="text-center text-gray-400 text-sm py-4">ไม่มีกิจกรรมในเดือนนี้</p>`;
+                agendaHtml += `<p class="text-center text-gray-400 text-sm py-10 bg-gray-50 rounded border border-dashed border-gray-200">ไม่มีกิจกรรมในเดือนนี้</p>`;
             }
             agendaHtml += `</div></div></div>`;
 
