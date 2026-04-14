@@ -4261,8 +4261,6 @@
                 return targetDate >= s && targetDate <= e;
             });
 
-            if (dayEvents.length === 0) return;
-
             // ลบ Tooltip อันเก่าออกก่อน (ถ้ามีค้างอยู่)
             const oldTooltip = document.getElementById('calendar-tooltip');
             if (oldTooltip) oldTooltip.remove();
@@ -4278,17 +4276,23 @@
 
             // สร้างรายการกิจกรรม
             let html = '<div class="space-y-2 mt-2">';
-            dayEvents.forEach(ev => {
-                html += `
-                    <div class="flex items-start gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style="background-color: ${ev.color};"></div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-bold text-gray-800 leading-tight truncate" title="${ev.title}">${ev.title}</p>
-                            <p class="text-[10px] text-gray-500">${ev.category}</p>
+            
+            // เช็คว่ามีกิจกรรมหรือไม่ ถ้าไม่มีให้แสดงข้อความ
+            if (dayEvents.length === 0) {
+                html += `<div class="text-center text-gray-500 text-xs py-2">ไม่มีกิจกรรมในวันนี้</div>`;
+            } else {
+                dayEvents.forEach(ev => {
+                    html += `
+                        <div class="flex items-start gap-2">
+                            <div class="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style="background-color: ${ev.color};"></div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-gray-800 leading-tight truncate" title="${ev.title}">${ev.title}</p>
+                                <p class="text-[10px] text-gray-500">${ev.category}</p>
+                            </div>
                         </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            }
             html += '</div>';
 
             tooltip.innerHTML = `
@@ -4307,16 +4311,13 @@
             const tooltipWidth = tooltip.offsetWidth;
             const tooltipHeight = tooltip.offsetHeight;
             
-            // ตั้งค่าเริ่มต้นให้อยู่ "ด้านบน" และ "กึ่งกลาง" ของกล่องวันที่
             let top = rect.top + window.scrollY - tooltipHeight - 8; 
             let left = rect.left + window.scrollX + (rect.width / 2) - (tooltipWidth / 2);
 
-            // ถ้าลอยสูงเกินขอบจอ (โดนบัง) ให้สลับมาแสดง "ด้านล่าง" แทน
             if (top < window.scrollY + 10) {
                 top = rect.bottom + window.scrollY + 8;
             }
 
-            // ถ้าล้นจอฝั่งซ้ายหรือขวา ให้ดันกลับเข้ามา
             if (left < 10) left = 10;
             if (left + tooltipWidth > window.innerWidth - 10) {
                 left = window.innerWidth - tooltipWidth - 10;
@@ -4325,7 +4326,6 @@
             tooltip.style.top = top + 'px';
             tooltip.style.left = left + 'px';
 
-            // ตั้งค่าให้ปิด Tooltip ทันทีเมื่อคลิกที่อื่นในหน้าเว็บ
             setTimeout(() => {
                 const closeTooltip = function(evt) {
                     if (!tooltip.contains(evt.target) && evt.target !== element && !element.contains(evt.target)) {
@@ -4372,13 +4372,12 @@
                 else dayClass += " text-gray-700";
 
                 let dotsHtml = '';
-                let clickAction = `onclick="showFullCalendar()"`; // ค่าเริ่มต้น: กดแล้วขยายหน้าต่าง
+                
+                // ให้ทุกวันเมื่อคลิกแล้วเรียก Tooltip เสมอ (ไม่ว่าจะว่างหรือมีกิจกรรม)
+                const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                let clickAction = `onclick="showDayEventsTooltip('${dateString}', this, event)"`;
 
                 if(events.length > 0) {
-                    // ถ้าวันนั้นมีกิจกรรม: ให้เปลี่ยนเป็นการเรียก Popup แทน
-                    const dateString = `${currentCalYear}-${String(currentCalMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    clickAction = `onclick="showDayEventsTooltip('${dateString}', this, event)"`;
-                    
                     dotsHtml = `<div class="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 flex gap-0.5">`;
                     events.slice(0,3).forEach(ev => { dotsHtml += `<span class="w-1 h-1 rounded-full" style="background-color: ${ev.color};"></span>`; });
                     dotsHtml += `</div>`;
@@ -4412,7 +4411,7 @@
                 const countdown = getCountdownText(ev.start, ev.end);
                 
                 upcomingHtml += `
-                    <div class="flex items-start gap-2 p-1.5 rounded transition cursor-pointer border ${proximityClass}" onclick="showFullCalendar()">
+                    <div class="flex items-start gap-2 p-1.5 rounded transition border ${proximityClass}">
                         <div class="w-2 h-2 rounded-full mt-1.5 shrink-0" style="background-color: ${ev.color};"></div>
                         <div class="flex-1 min-w-0">
                             <p class="text-xs font-bold text-gray-800 truncate mb-1">
