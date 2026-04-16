@@ -1285,8 +1285,15 @@
                                                 <input type="text" id="settings-copyright-text" placeholder="© 2024 All rights reserved." class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue">
                                             </div>
                                             <div>
-                                                <label class="block text-sm text-gray-700 mb-1">ระยะเวลาแสดงป้าย NEW (วัน)</label>
-                                                <input type="number" id="settings-new-badge-days" min="0" max="365" placeholder="เช่น 7" class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue">
+                                                <div>
+                                                    <label class="block text-sm text-gray-700 mb-1">ระยะเวลาแสดงป้าย NEW (วัน)</label>
+                                                    <input type="number" id="settings-new-badge-days" min="0" max="365" placeholder="เช่น 7" class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm text-gray-700 mb-1">เวลาออกจากระบบอัตโนมัติ (นาที)</label>
+                                                    <input type="number" id="settings-auto-logout" min="0" max="1440" placeholder="เช่น 30" class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue">
+                                                    <p class="text-[10px] text-gray-500 mt-1">หากไม่ใช้งานจะออกจากระบบอัตโนมัติ (ใส่ 0 เพื่อปิดระบบนี้)</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1579,6 +1586,50 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxObNOOwr4D8dDeBVMKZyDQTnP8Wzk_qFKCldYZ1xVyhPz_nidr7J7Bn8oBrSuNzvgyZA/exec";
         const AUTH_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxs73UfTpKBvRc4J75bAFlar18Ga6HCjq1YmSJ9lu0BrNECE-YIebvY3BTu5EDKLr0b/exec";
         
+        // ================= AUTO LOGOUT SYSTEM =================
+        let inactivityTimer = null;
+
+        // จับเหตุการณ์การเคลื่อนไหวของผู้ใช้
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+            document.addEventListener(evt, resetInactivityTimer, { passive: true });
+        });
+
+        function resetInactivityTimer() {
+            // ทำงานเฉพาะตอนที่ล็อกอินแล้วเท่านั้น
+            if (!loggedInUser) return; 
+            
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+
+            const minutes = Number(globalSettings.autoLogoutMinutes) || 0;
+            if (minutes <= 0) return; // ถ้าแอดมินตั้งค่าเป็น 0 คือปิดระบบนี้
+
+            const ms = minutes * 60 * 1000;
+            inactivityTimer = setTimeout(executeAutoLogout, ms);
+        }
+
+        function executeAutoLogout() {
+            if (!loggedInUser) return;
+
+            // บันทึก Log
+            logSystemActivity("LOGOUT", "ออกจากระบบอัตโนมัติ (ไม่ได้ใช้งานเป็นเวลานาน)");
+
+            // ล้างข้อมูล Session
+            loggedInUser = null; 
+            localStorage.removeItem("school_user_session");
+            updateUserWidget(); 
+            if(typeof renderStaffTable === "function") renderStaffTable(); 
+            if(typeof renderPublicData === "function") renderPublicData();
+            
+            // ถ้าเปิดหน้าหลังบ้านอยู่ ให้เด้งกลับหน้าแรก
+            if(!document.getElementById('admin-view').classList.contains('hidden')) {
+                backToPublicView();
+            }
+
+            // แจ้งเตือนผู้ใช้
+            showAlert('warning', 'หมดเวลาการใช้งาน', 'ระบบได้ทำการออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งานเป็นเวลานาน เพื่อความปลอดภัยของบัญชีครับ');
+        }
+        // =======================================================
+
         let loggedInUser = null;
         let globalNews = []; let globalActivities = []; let globalNewsletters = []; let globalAnnouncements = [];
         let globalStaff = []; let globalOrgLayout = []; let globalPages = []; let globalCalendar = []; let globalQuickLinks = [];
@@ -1592,7 +1643,8 @@
             marqueeText: "", showMarquee: true, marqueeSpeed: 25, marqueeDelay: 0,
             siteTitle: "", favicon: "", copyrightText: "© 2024 All rights reserved.",
             newBadgeDays: 7,
-            contactAddress: "", contactPhone: "", contactEmail: "", contactMap: ""
+            contactAddress: "", contactPhone: "", contactEmail: "", contactMap: "",
+            autoLogoutMinutes: 30
         };
         
         let editNewsId = null; let editActId = null; let editNlId = null; let editAnnId = null; let editStaffId = null; let editCalId = null;
@@ -1940,6 +1992,9 @@
                         globalSettings.contactMap = result.settings.contactMap || "";
                         globalSettings.role2Permissions = result.settings.role2Permissions || "[]";
                         if (result.settings.newBadgeDays !== undefined) globalSettings.newBadgeDays = result.settings.newBadgeDays;
+                        if(result.settings.autoLogoutMinutes !== undefined) globalSettings.autoLogoutMinutes = result.settings.autoLogoutMinutes; // <--- ดึงค่ามาอัปเดต
+                    
+                        resetInactivityTimer(); // <--- รีเซ็ตเวลาหลังจากดึงข้อมูลตั้งค่าเสร็จ
                     }
                     
                     calculateNewBadge(globalNews);
@@ -3359,6 +3414,7 @@
             document.getElementById('settings-site-title').value = globalSettings.siteTitle;
             document.getElementById('settings-copyright-text').value = globalSettings.copyrightText;
             document.getElementById('settings-new-badge-days').value = globalSettings.newBadgeDays;
+            document.getElementById('settings-auto-logout').value = globalSettings.autoLogoutMinutes;
             document.getElementById('settings-show-banner').checked = globalSettings.showBanner;
             document.getElementById('settings-slide-interval').value = globalSettings.slideInterval;
 
@@ -3562,6 +3618,7 @@
                     contactPhone: document.getElementById('settings-contact-phone').value,
                     contactEmail: document.getElementById('settings-contact-email').value,
                     contactMap: document.getElementById('settings-contact-map').value,
+                    autoLogoutMinutes: document.getElementById('settings-auto-logout').value,
                     faviconImageObj: favObj, retainedFaviconUrl: retainedSettingsFavicon,
                     bannerImageObj: bannerObj, retainedBannerUrl: retainedSettingsBanner,
                     directorImageObj: dirObj, retainedDirectorImageUrl: retainedSettingsDirector,
@@ -4071,17 +4128,36 @@
                 document.getElementById('widget-user-role').className = `text-[10px] px-2 py-0.5 rounded-full font-bold mb-4 border ${getRoleColor(loggedInUser.role)}`;
                 document.getElementById('widget-user-image').src = loggedInUser.imageUrl || loggedInUser.profileImage || 'https://placehold.co/100';
                 
-                if(["2", "3", "4"].includes(String(loggedInUser.role))) {
+                // --- ส่วนที่แก้ไข: ตรวจสอบสิทธิ์การแสดงปุ่มจัดการระบบ ---
+                let showAdminBtn = false;
+                if (["3", "4"].includes(String(loggedInUser.role))) {
+                    showAdminBtn = true; // แอดมิน (Role 3, 4) เห็นปุ่มเสมอ
+                } else if (String(loggedInUser.role) === "2") {
+                    let perms = [];
+                    try { perms = JSON.parse(globalSettings.role2Permissions || "[]"); } catch(e){}
+                    const myPerm = perms.find(p => p.username === loggedInUser.username);
+                    // ถ้าเป็น Role 2 ต้องมีสิทธิ์เมนูอย่างน้อย 1 อัน ถึงจะแสดงปุ่ม
+                    if (myPerm && myPerm.tabs && myPerm.tabs.length > 0) {
+                        showAdminBtn = true;
+                    }
+                }
+
+                if(showAdminBtn) {
                     document.getElementById('btn-manage-system').classList.remove('hidden');
                     document.getElementById('btn-manage-system').classList.add('flex');
-                } else { document.getElementById('btn-manage-system').classList.add('hidden'); }
+                } else { 
+                    document.getElementById('btn-manage-system').classList.remove('flex');
+                    document.getElementById('btn-manage-system').classList.add('hidden'); 
+                }
+                // ---------------------------------------------------
+
             } else {
                 document.getElementById('user-profile-widget').classList.add('hidden');
                 document.getElementById('user-profile-widget').classList.remove('flex');
                 document.getElementById('login-form-widget').classList.remove('hidden');
                 document.getElementById('login-form').reset();
 
-                // --- เพิ่ม 3 บรรทัดนี้ เพื่อบังคับรีเซ็ตปุ่มเข้าสู่ระบบให้กลับเป็นปกติ ---
+                // บังคับรีเซ็ตปุ่มเข้าสู่ระบบให้กลับเป็นปกติ
                 document.getElementById('submit-btn').disabled = false;
                 document.getElementById('loading-spinner').classList.add('hidden');
                 document.getElementById('btn-text').classList.remove('invisible');
@@ -4128,6 +4204,8 @@
                     if (typeof renderPublicData === "function") renderPublicData();
                     if (typeof fetchAllData === "function") fetchAllData();
 
+                    resetInactivityTimer(); // <--- เพิ่มบรรทัดนี้เพื่อเริ่มจับเวลาทันทีที่ล็อกอิน
+
                     
                     document.getElementById("login-form").reset();
                 } else {
@@ -4147,6 +4225,7 @@
             Swal.fire({ title: 'ยืนยันออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออกจากระบบ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#ef4444', ...swalTheme }).then((r) => {
                 if (r.isConfirmed) {
                     logSystemActivity("LOGOUT", "ออกจากระบบ");
+                    if (inactivityTimer) clearTimeout(inactivityTimer); // <--- เพิ่มบรรทัดนี้เพื่อหยุดจับเวลา
 
                     loggedInUser = null; localStorage.removeItem("school_user_session");
                     updateUserWidget(); renderStaffTable(); renderPublicData();
