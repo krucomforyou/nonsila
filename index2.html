@@ -539,6 +539,7 @@
                                 <ul id="all-news-container" class="text-sm divide-y divide-gray-100">
                                     <li class="p-4 flex justify-center"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</li>
                                 </ul>
+                                <div id="pagination-news" class="flex justify-center items-center flex-wrap gap-2 mt-6 mb-4"></div>
                             </div>
                         </div>
 
@@ -557,6 +558,7 @@
                                 <div id="all-activities-container" class="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                                     <div class="col-span-full flex justify-center py-4"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</div>
                                 </div>
+                                <div id="pagination-activities" class="flex justify-center items-center flex-wrap gap-2 mt-8 mb-2"></div>
                             </div>
                         </div>
 
@@ -575,6 +577,7 @@
                                 <div id="all-newsletters-container" class="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                                     <div class="col-span-full flex justify-center py-4"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</div>
                                 </div>
+                                <div id="pagination-newsletters" class="flex justify-center items-center flex-wrap gap-2 mt-8 mb-2"></div>
                             </div>
                         </div>
 
@@ -1459,6 +1462,7 @@
                             <thead class="bg-gray-50"><tr><th class="px-4 md:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-16">ลำดับ</th><th class="px-4 md:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-full">หัวข้อข่าว</th><th class="px-4 md:px-6 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell min-w-[100px]">วันที่ลง</th><th class="px-4 md:px-6 py-3 text-center font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">จัดการ</th></tr></thead>
                             <tbody class="bg-white divide-y divide-gray-200" id="admin-news-table"></tbody>
                         </table>
+                        <div id="admin-pagination-news" class="flex justify-center items-center flex-wrap gap-2 mt-4 mb-4"></div>
                     </div>
                 </div>
 
@@ -1481,6 +1485,7 @@
                             <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider w-12">ลำดับ</th><th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-20">หน้าปก</th><th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-full">ชื่อกิจกรรม</th><th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell min-w-[100px]">วันที่ลง</th><th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">จัดการ</th></tr></thead>
                             <tbody class="bg-white divide-y divide-gray-200" id="admin-activities-table"></tbody>
                         </table>
+                        <div id="admin-pagination-activities" class="flex justify-center items-center flex-wrap gap-2 mt-4 mb-4"></div>
                     </div>
                 </div>
 
@@ -1502,6 +1507,7 @@
                             <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider w-12">ลำดับ</th><th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-20">รูปภาพ</th><th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-full">วันที่อัปโหลด</th><th class="px-4 py-3 text-center font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">จัดการ</th></tr></thead>
                             <tbody class="bg-white divide-y divide-gray-200" id="admin-newsletters-table"></tbody>
                         </table>
+                        <div id="admin-pagination-newsletters" class="flex justify-center items-center flex-wrap gap-2 mt-4 mb-4"></div>
                     </div>
                 </div>
 
@@ -1633,6 +1639,21 @@
         let loggedInUser = null;
         let globalNews = []; let globalActivities = []; let globalNewsletters = []; let globalAnnouncements = [];
         let globalStaff = []; let globalOrgLayout = []; let globalPages = []; let globalCalendar = []; let globalQuickLinks = [];
+        // เพิ่มตัวแปรนี้สำหรับเก็บ Cache ของแต่ละหน้า
+        let pageCache = { news: {}, activities: {}, newsletters: {} };
+        // ================= ตัวแปรระบบแบ่งหน้า (Pagination) =================
+        let paginationState = {
+            news: { current: 1, total: 0, limit: 20 },
+            activities: { current: 1, total: 0, limit: 20 },
+            newsletters: { current: 1, total: 0, limit: 20 }
+        };
+        // เพิ่ม State สำหรับจัดการหน้าในฝั่งแอดมิน
+        let adminPaginationState = {
+            news: { current: 1, total: 0, limit: 20 },
+            activities: { current: 1, total: 0, limit: 20 },
+            newsletters: { current: 1, total: 0, limit: 20 }
+        };
+        
         let editQuickLinkId = null;
         let maxOrgRows = 2;
 
@@ -1970,17 +1991,55 @@
 
         async function fetchAllData() {
             try {
+                // ทุกครั้งที่โหลดข้อมูลใหม่ (เช่น แอดมินลบ/เพิ่มข่าว) ให้เคลียร์ Cache ทิ้งก่อน
+                pageCache = { news: {}, activities: {}, newsletters: {} };
+
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "get_all_data" }) });
                 const result = await res.json();
                 if (result.status === "success") {
                     globalNews = result.news || []; 
                     globalActivities = result.activities || [];
                     globalNewsletters = result.newsletters || [];
+                    
+                    // เก็บข้อมูลที่ได้มาเป็นของ "หน้า 1" ลงใน Cache ทันที
+                    pageCache.news[1] = [...globalNews];
+                    pageCache.activities[1] = [...globalActivities];
+                    pageCache.newsletters[1] = [...globalNewsletters];
+
                     globalAnnouncements = result.announcements || [];
                     globalStaff = result.staff || [];
                     globalPages = result.pages || []; // ดึงข้อมูล Pages
                     globalCalendar = result.calendar || [];
                     globalQuickLinks = result.quicklinks || [];
+                    
+                    // เก็บยอดรวมข้อมูลไว้คำนวณปุ่มเลขหน้า
+                    if(result.totalRecords) {
+                        paginationState.news.total = result.totalRecords.news || 0;
+                        paginationState.activities.total = result.totalRecords.activities || 0;
+                        paginationState.newsletters.total = result.totalRecords.newsletters || 0;
+                        // เพิ่มส่วนนี้เพื่ออัปเดต State ของแอดมินด้วย
+                        adminPaginationState.news.total = result.totalRecords.news || 0;
+                        adminPaginationState.activities.total = result.totalRecords.activities || 0;
+                        adminPaginationState.newsletters.total = result.totalRecords.newsletters || 0;
+                    } else {
+                        paginationState.news.total = globalNews.length;
+                        paginationState.activities.total = globalActivities.length;
+                        paginationState.newsletters.total = globalNewsletters.length;
+                        // เพิ่มส่วนนี้เพื่ออัปเดต State ของแอดมินด้วย
+                        adminPaginationState.news.total = globalNews.length;
+                        adminPaginationState.activities.total = globalActivities.length;
+                        adminPaginationState.newsletters.total = globalNewsletters.length;
+                    }
+                    
+                    // รีเซ็ตกลับไปหน้า 1 เสมอเมื่อมีการโหลดข้อมูลใหม่ (เช่น แอดมินลบข่าว)
+                    paginationState.news.current = 1;
+                    paginationState.activities.current = 1;
+                    paginationState.newsletters.current = 1;
+                    // เพิ่มส่วนนี้เพื่อรีเซ็ต State ของแอดมินด้วย
+                    adminPaginationState.news.current = 1;
+                    adminPaginationState.activities.current = 1;
+                    adminPaginationState.newsletters.current = 1;
+
                     renderPublicQuickLinks(); // สั่งให้วาดปุ่มหน้าบ้าน
                     renderAdminQuickLinksTable(); // สั่งวาดตารางหลังบ้าน
                     renderCalendars();
@@ -2168,29 +2227,17 @@
                 return `<div class="group border border-gray-100 rounded-md overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer relative bg-white" onclick="openDirectLightbox('${n.img}')"><div class="absolute top-2 left-2 z-10 bg-school-brassLight text-school-navy text-[10px] md:text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center"><i data-lucide="calendar" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${n.date.split(' ').slice(0,3).join(' ')}</div>${n.isHot ? '<div class="absolute top-2 right-2 z-10"><div class="badge-new shadow-sm" style="position: relative; bottom: auto; left: auto; font-size: 10px; padding: 2px 4px;">NEW</div></div>' : ''}<div class="relative overflow-hidden aspect-[3/4] bg-gray-100 shine-sweep"><img src="${(n.img||'').split(',')[0] || 'https://placehold.co/300x400?text=No+Image'}" class="w-full h-full object-cover transition duration-300">${imgCountHtml}</div></div>`;
             }).join('');
 
-            const allNewsContainer = document.getElementById('all-news-container');
-            if(globalNews.length === 0) allNewsContainer.innerHTML = '<li class="p-4 text-center text-gray-500">ยังไม่มีข่าวประชาสัมพันธ์</li>';
-            else allNewsContainer.innerHTML = globalNews.map(n => `<li class="py-3 px-4 hover:bg-gray-50 flex items-baseline gap-3 cursor-pointer group transition" onclick="viewNewsDetail('${n.id}')"><i data-lucide="chevron-right" class="w-5 h-5 text-school-brass flex-shrink-0 group-hover:text-school-blue transition relative top-[3px]"></i><div class="flex-1 min-w-0 flex items-baseline pr-2"><span class="text-gray-800 text-base font-medium group-hover:text-school-navy transition truncate block inline-block max-w-full">${n.title}</span>${n.isHot?'<span class="badge-new-container flex-shrink-0"><span class="badge-new">NEW</span></span>':''}</div><span class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">${n.date}</span></li>`).join('');
-
-            const allActContainer = document.getElementById('all-activities-container');
-            if(globalActivities.length === 0) allActContainer.innerHTML = '<div class="col-span-full text-center py-4 text-gray-500">ยังไม่มีภาพกิจกรรม</div>';
-            else allActContainer.innerHTML = globalActivities.map(a => {
-                const imgCount = (a.img || '').split(',').filter(u => u.trim() !== '').length;
-                const imgCountHtml = imgCount > 0 ? `<div class="absolute bottom-2 right-2 z-10 bg-black bg-opacity-70 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-md flex items-center shadow-sm"><i data-lucide="camera" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${imgCount}</div>` : '';
-                return `<div class="group border border-gray-200 rounded-md overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white relative" onclick="viewActivityDetail('${a.id}')"><div class="absolute top-2 left-2 z-10 bg-school-brassLight text-school-navy text-[10px] md:text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center"><i data-lucide="calendar" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${a.date.split(' ').slice(0,3).join(' ')}</div>${a.isHot ? '<div class="absolute top-2 right-2 z-10"><div class="badge-new shadow-sm" style="position: relative; bottom: auto; left: auto; font-size: 10px; padding: 2px 4px;">NEW</div></div>' : ''}<div class="relative overflow-hidden aspect-[4/3] bg-gray-100 shine-sweep"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x300?text=No+Image'}" alt="${a.title}" class="w-full h-full object-cover transition duration-300">${imgCountHtml}</div><div class="p-3 bg-gray-50 border-t border-gray-100 text-left"><h3 class="text-sm text-gray-800 font-medium group-hover:text-school-navy truncate px-1" title="${a.title}">${a.title}</h3></div></div>`;
-            }).join('');
-
-            const allNlContainer = document.getElementById('all-newsletters-container');
-            if(globalNewsletters.length === 0) allNlContainer.innerHTML = '<div class="col-span-full text-center py-4 text-gray-500">ยังไม่มีจดหมายข่าว</div>';
-            else allNlContainer.innerHTML = globalNewsletters.map(n => {
-                const imgCount = (n.img || '').split(',').filter(u => u.trim() !== '').length;
-                const imgCountHtml = imgCount > 0 ? `<div class="absolute bottom-2 right-2 z-10 bg-black bg-opacity-70 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-md flex items-center shadow-sm"><i data-lucide="camera" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${imgCount}</div>` : '';
-                return `<div class="group border border-gray-200 rounded-md overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white relative" onclick="openDirectLightbox('${n.img}')"><div class="absolute top-2 left-2 z-10 bg-school-brassLight text-school-navy text-[10px] md:text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center"><i data-lucide="calendar" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${n.date.split(' ').slice(0,3).join(' ')}</div>${n.isHot ? '<div class="absolute top-2 right-2 z-10"><div class="badge-new shadow-sm" style="position: relative; bottom: auto; left: auto; font-size: 10px; padding: 2px 4px;">NEW</div></div>' : ''}<div class="relative overflow-hidden aspect-[3/4] bg-gray-100 shine-sweep"><img src="${(n.img||'').split(',')[0] || 'https://placehold.co/300x400?text=No+Image'}" class="w-full h-full object-cover transition duration-300">${imgCountHtml}</div></div>`;
-            }).join('');
+            // วาดข้อมูลทั้งหมดและปุ่มกดหน้า
+            renderPaginatedList('news', globalNews);
+            renderPaginationUI('news');
+            renderPaginatedList('activities', globalActivities);
+            renderPaginationUI('activities');
+            renderPaginatedList('newsletters', globalNewsletters);
+            renderPaginationUI('newsletters');
 
 
             // Admin Tables
-            const isAdmin = loggedInUser && ["2", "3", "4"].includes(String(loggedInUser.role));
+            /*const isAdmin = loggedInUser && ["2", "3", "4"].includes(String(loggedInUser.role));
             const ant = document.getElementById('admin-news-table');
             if(globalNews.length === 0) ant.innerHTML = `<tr><td colspan="${isAdmin ? '4' : '3'}" class="text-center py-6 text-gray-500">ไม่มีข้อมูลข่าว</td></tr>`;
             else ant.innerHTML = globalNews.map((n, i) => `<tr class="hover:bg-gray-50"><td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 md:px-6 py-4"><div class="text-gray-900 flex items-baseline max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg pr-4"><span class="truncate block inline-block max-w-full">${n.title}</span>${n.isHot ? '<span class="badge-new-container flex-shrink-0"><span class="badge-new">NEW</span></span>' : ''}</div></td><td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-xs hidden sm:table-cell">${n.date}</td>${isAdmin ? `<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm font-medium"><button onclick="editNews(${n.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('News', ${n.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
@@ -2202,8 +2249,23 @@
             const anlt = document.getElementById('admin-newsletters-table');
             if(globalNewsletters.length === 0) anlt.innerHTML = `<tr><td colspan="${isAdmin ? '4' : '3'}" class="text-center py-8 text-gray-400">ไม่มีข้อมูลจดหมายข่าว</td></tr>`;
             else anlt.innerHTML = globalNewsletters.map((n, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-12 h-16 bg-gray-100 rounded overflow-hidden border border-gray-200 relative">${n.isHot ? '<div class="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-bold px-1 rounded-bl shadow-sm z-10 leading-tight">NEW</div>' : ''}<img src="${(n.img||'').split(',')[0] || 'https://placehold.co/300x400?text=No+Image'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3 whitespace-nowrap text-gray-800 text-sm">${n.date}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editNewsletter(${n.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Newsletters', ${n.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
+            */
+
+            // เรียกฟังก์ชัน Render แบบแบ่งหน้าสำหรับแอดมิน
+            renderAdminPaginatedTable('news', globalNews);
+            renderAdminPaginationUI('news');
+            
+            renderAdminPaginatedTable('activities', globalActivities);
+            renderAdminPaginationUI('activities');
+            
+            renderAdminPaginatedTable('newsletters', globalNewsletters);
+            renderAdminPaginationUI('newsletters');
+
+            const isAdmin = loggedInUser && ["2", "3", "4"].includes(String(loggedInUser.role));
 
             const aann = document.getElementById('admin-announcements-table');
+
+            
             if(globalAnnouncements.length === 0) aann.innerHTML = `<tr><td colspan="${isAdmin ? '5' : '4'}" class="text-center py-8 text-gray-400">ไม่มีข้อมูลภาพประกาศ</td></tr>`;
             else aann.innerHTML = globalAnnouncements.map((a, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-20 h-12 bg-gray-100 rounded overflow-hidden border border-gray-200 relative"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x200?text=No+Image'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3"><div class="text-gray-900 flex flex-col justify-center max-w-[150px] sm:max-w-xs md:max-w-md pr-2"><span class="truncate block w-full font-medium">${a.title}</span><span class="text-xs text-gray-400 truncate w-full">${a.link ? a.link : 'ไม่มีลิงก์'}</span></div></td><td class="px-4 py-3 whitespace-nowrap text-center">${a.isActive ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">เปิดแสดง</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ซ่อนอยู่</span>'}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editAnnouncement(${a.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Announcements', ${a.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
 
@@ -3146,6 +3208,276 @@
             // ล้างไฮไลต์เมนูข้าง
             const navIds = ['nav-pub-home', 'nav-pub-exec', 'nav-pub-news', 'nav-pub-act', 'nav-pub-newsletter', 'nav-pub-contact'];
             navIds.forEach(id => { const el = document.getElementById(id); if(el) el.className = "flex items-center py-3 px-4 border-b-4 border-transparent hover:border-school-brassLight hover:text-school-brassLight transition"; });
+        }
+
+        // =============================================== ระบบแบ่งหน้า (Pagination) ===============================================
+        function renderPaginatedList(type, dataArray) {
+            let containerId = type === 'news' ? 'all-news-container' : type === 'activities' ? 'all-activities-container' : 'all-newsletters-container';
+            const container = document.getElementById(containerId);
+            
+            if (!dataArray || dataArray.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-gray-500">ไม่มีข้อมูล</div>`;
+                return;
+            }
+
+            if (type === 'news') {
+                container.innerHTML = dataArray.map(n => `<li class="py-3 px-4 hover:bg-gray-50 flex items-baseline gap-3 cursor-pointer group transition" onclick="viewNewsDetail('${n.id}')"><i data-lucide="chevron-right" class="w-5 h-5 text-school-brass flex-shrink-0 group-hover:text-school-blue transition relative top-[3px]"></i><div class="flex-1 min-w-0 flex items-baseline pr-2"><span class="text-gray-800 text-base font-medium group-hover:text-school-navy transition truncate block inline-block max-w-full">${n.title}</span>${n.isHot?'<span class="badge-new-container flex-shrink-0"><span class="badge-new">NEW</span></span>':''}</div><span class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">${n.date}</span></li>`).join('');
+            } else if (type === 'activities') {
+                container.innerHTML = dataArray.map(a => {
+                    const imgCount = (a.img || '').split(',').filter(u => u.trim() !== '').length;
+                    const imgCountHtml = imgCount > 0 ? `<div class="absolute bottom-2 right-2 z-10 bg-black bg-opacity-70 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-md flex items-center shadow-sm"><i data-lucide="camera" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${imgCount}</div>` : '';
+                    return `<div class="group border border-gray-200 rounded-md overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white relative" onclick="viewActivityDetail('${a.id}')"><div class="absolute top-2 left-2 z-10 bg-school-brassLight text-school-navy text-[10px] md:text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center"><i data-lucide="calendar" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${a.date.split(' ').slice(0,3).join(' ')}</div>${a.isHot ? '<div class="absolute top-2 right-2 z-10"><div class="badge-new shadow-sm" style="position: relative; bottom: auto; left: auto; font-size: 10px; padding: 2px 4px;">NEW</div></div>' : ''}<div class="relative overflow-hidden aspect-[4/3] bg-gray-100 shine-sweep"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x300?text=No+Image'}" alt="${a.title}" class="w-full h-full object-cover transition duration-300">${imgCountHtml}</div><div class="p-3 bg-gray-50 border-t border-gray-100 text-left"><h3 class="text-sm text-gray-800 font-medium group-hover:text-school-navy truncate px-1" title="${a.title}">${a.title}</h3></div></div>`;
+                }).join('');
+            } else if (type === 'newsletters') {
+                container.innerHTML = dataArray.map(n => {
+                    const imgCount = (n.img || '').split(',').filter(u => u.trim() !== '').length;
+                    const imgCountHtml = imgCount > 0 ? `<div class="absolute bottom-2 right-2 z-10 bg-black bg-opacity-70 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-md flex items-center shadow-sm"><i data-lucide="camera" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${imgCount}</div>` : '';
+                    return `<div class="group border border-gray-200 rounded-md overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white relative" onclick="openDirectLightbox('${n.img}')"><div class="absolute top-2 left-2 z-10 bg-school-brassLight text-school-navy text-[10px] md:text-xs font-bold px-2 py-1 rounded shadow-sm flex items-center"><i data-lucide="calendar" class="w-3 h-3 md:w-3.5 md:h-3.5 mr-1"></i> ${n.date.split(' ').slice(0,3).join(' ')}</div>${n.isHot ? '<div class="absolute top-2 right-2 z-10"><div class="badge-new shadow-sm" style="position: relative; bottom: auto; left: auto; font-size: 10px; padding: 2px 4px;">NEW</div></div>' : ''}<div class="relative overflow-hidden aspect-[3/4] bg-gray-100 shine-sweep"><img src="${(n.img||'').split(',')[0] || 'https://placehold.co/300x400?text=No+Image'}" class="w-full h-full object-cover transition duration-300">${imgCountHtml}</div></div>`;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        function renderPaginationUI(type) {
+            const containerId = 'pagination-' + type;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const state = paginationState[type];
+            const totalPages = Math.ceil(state.total / state.limit);
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            // เพิ่ม container ครอบอีกชั้นเพื่อบังคับให้ชิดขวา (justify-end)
+            let html = '<div class="w-full flex justify-end gap-1.5">';
+            
+            // ปุ่ม "ก่อนหน้า" (ปรับ px-2 py-1 text-sm ให้เล็กลง)
+            const isFirst = state.current === 1;
+            const prevClass = isFirst ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
+            html += `<button onclick="if(!${isFirst}) loadPageData('${type}', ${state.current - 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${prevClass}" ${isFirst ? 'disabled' : ''}><i data-lucide="chevron-left" class="w-4 h-4 mr-0.5"></i> ก่อนหน้า</button>`;
+
+            // ปุ่มตัวเลขหน้า (ปรับให้เล็กลงด้วย w-7 h-7 และ text-sm)
+            for(let i=1; i<=totalPages; i++) {
+                const isActive = i === state.current;
+                const btnClass = isActive ? 'bg-school-navy text-white border-school-navy shadow-md pointer-events-none' : 'bg-white text-gray-700 hover:bg-blue-50 border-gray-300 cursor-pointer shadow-sm hover:border-school-blue hover:text-school-blue';
+                html += `<button onclick="loadPageData('${type}', ${i})" class="w-7 h-7 flex items-center justify-center border rounded text-sm font-medium transition-all ${btnClass}">${i}</button>`;
+            }
+
+            // ปุ่ม "ถัดไป" (ปรับ px-2 py-1 text-sm ให้เล็กลง)
+            const isLast = state.current === totalPages;
+            const nextClass = isLast ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
+            html += `<button onclick="if(!${isLast}) loadPageData('${type}', ${state.current + 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${nextClass}" ${isLast ? 'disabled' : ''}>ถัดไป <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i></button>`;
+
+            html += '</div>';
+            container.innerHTML = html;
+            lucide.createIcons(); // วาดไอคอนใหม่
+        }
+
+
+        // =============================================== ระบบแบ่งหน้าสำหรับแอดมิน (Admin Pagination) ===============================================
+
+        function renderAdminPaginatedTable(type, dataArray) {
+            const isAdmin = loggedInUser && ["2", "3", "4"].includes(String(loggedInUser.role));
+            let tableId = type === 'news' ? 'admin-news-table' : type === 'activities' ? 'admin-activities-table' : 'admin-newsletters-table';
+            const tbody = document.getElementById(tableId);
+            
+            if (!tbody) return;
+
+            // คำนวณลำดับที่ของแถวแรกในหน้านี้ เพื่อแสดงหมายเลขลำดับ (i+1) ให้ถูกต้อง
+            const state = adminPaginationState[type];
+            const startIndex = (state.current - 1) * state.limit;
+
+            if (!dataArray || dataArray.length === 0) {
+                let colspan = type === 'activities' ? (isAdmin ? '5' : '4') : (isAdmin ? '4' : '3');
+                let text = type === 'news' ? 'ข่าว' : type === 'activities' ? 'กิจกรรม' : 'จดหมายข่าว';
+                tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-6 text-gray-500">ไม่มีข้อมูล${text}</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            dataArray.forEach((item, index) => {
+                const globalIndex = startIndex + index + 1; // ลำดับจริงๆ ของไอเทม
+
+                if (type === 'news') {
+                    html += `<tr class="hover:bg-gray-50">
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-center">${globalIndex}</td>
+                        <td class="px-4 md:px-6 py-4"><div class="text-gray-900 flex items-baseline max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg pr-4"><span class="truncate block inline-block max-w-full">${item.title}</span>${item.isHot ? '<span class="badge-new-container flex-shrink-0"><span class="badge-new">NEW</span></span>' : ''}</div></td>
+                        <td class="px-4 md:px-6 py-4 whitespace-nowrap text-gray-500 text-xs hidden sm:table-cell">${item.date}</td>
+                        ${isAdmin ? `<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm font-medium"><button onclick="editNews(${item.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('News', ${item.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 md:px-6 py-4 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}
+                    </tr>`;
+                } else if (type === 'activities') {
+                    html += `<tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${globalIndex}</td>
+                        <td class="px-4 py-3 whitespace-nowrap"><div class="w-16 h-12 bg-gray-100 rounded overflow-hidden border border-gray-200 relative">${item.isHot ? '<div class="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-bold px-1 rounded-bl shadow-sm z-10 leading-tight">NEW</div>' : ''}<img src="${(item.img||'').split(',')[0] || 'https://placehold.co/400x300?text=No+Image'}" class="w-full h-full object-cover"></div></td>
+                        <td class="px-4 py-3"><div class="text-gray-900 flex items-baseline max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-lg pr-2"><span class="truncate block inline-block max-w-full font-medium">${item.title}</span></div></td>
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-500 text-xs hidden sm:table-cell">${item.date}</td>
+                        ${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editActivity(${item.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Activities', ${item.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}
+                    </tr>`;
+                } else if (type === 'newsletters') {
+                    html += `<tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${globalIndex}</td>
+                        <td class="px-4 py-3 whitespace-nowrap"><div class="w-12 h-16 bg-gray-100 rounded overflow-hidden border border-gray-200 relative">${item.isHot ? '<div class="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-bold px-1 rounded-bl shadow-sm z-10 leading-tight">NEW</div>' : ''}<img src="${(item.img||'').split(',')[0] || 'https://placehold.co/300x400?text=No+Image'}" class="w-full h-full object-cover"></div></td>
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-800 text-sm">${item.date}</td>
+                        ${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editNewsletter(${item.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Newsletters', ${item.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}
+                    </tr>`;
+                }
+            });
+            tbody.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function renderAdminPaginationUI(type) {
+            const containerId = 'admin-pagination-' + type;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const state = adminPaginationState[type];
+            const totalPages = Math.ceil(state.total / state.limit);
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '<div class="w-full flex justify-end gap-1.5">';
+            
+            const isFirst = state.current === 1;
+            const prevClass = isFirst ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
+            html += `<button onclick="if(!${isFirst}) loadAdminPageData('${type}', ${state.current - 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${prevClass}" ${isFirst ? 'disabled' : ''}><i data-lucide="chevron-left" class="w-4 h-4 mr-0.5"></i> ก่อนหน้า</button>`;
+
+            for(let i=1; i<=totalPages; i++) {
+                const isActive = i === state.current;
+                const btnClass = isActive ? 'bg-school-navy text-white border-school-navy shadow-md pointer-events-none' : 'bg-white text-gray-700 hover:bg-blue-50 border-gray-300 cursor-pointer shadow-sm hover:border-school-blue hover:text-school-blue';
+                html += `<button onclick="loadAdminPageData('${type}', ${i})" class="w-7 h-7 flex items-center justify-center border rounded text-sm font-medium transition-all ${btnClass}">${i}</button>`;
+            }
+
+            const isLast = state.current === totalPages;
+            const nextClass = isLast ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
+            html += `<button onclick="if(!${isLast}) loadAdminPageData('${type}', ${state.current + 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${nextClass}" ${isLast ? 'disabled' : ''}>ถัดไป <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i></button>`;
+
+            html += '</div>';
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        async function loadAdminPageData(type, page) {
+            const state = adminPaginationState[type];
+            const limit = state.limit;
+            const offset = (page - 1) * limit;
+
+            let tableId = type === 'news' ? 'admin-news-table' : type === 'activities' ? 'admin-activities-table' : 'admin-newsletters-table';
+            let sectionId = type === 'news' ? 'section-news' : type === 'activities' ? 'section-activities' : 'section-newsletters';
+
+            // ใช้ Cache ชุดเดียวกันกับหน้า Public ได้เลย เพราะเป็นข้อมูลชุดเดียวกัน
+            if (pageCache[type][page]) {
+                state.current = page;
+                renderAdminPaginatedTable(type, pageCache[type][page]);
+                renderAdminPaginationUI(type);
+                // เลื่อนหน้าจอกลับขึ้นไปด้านบนของตารางอย่างนุ่มนวล
+                document.getElementById(sectionId).scrollIntoView({behavior: 'smooth', block: 'start'});
+                return;
+            }
+
+            const tbody = document.getElementById(tableId);
+            const colspan = type === 'activities' ? '5' : '4'; // สำหรับแอดมิน (สันนิษฐานว่าล็อกอินแล้ว)
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-10"><div class="flex justify-center"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</div></td></tr>`;
+
+            try {
+                const res = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "get_all_data", limit: limit, offset: offset })
+                });
+                const result = await res.json();
+                
+                if (result.status === "success") {
+                    state.current = page;
+                    if(result.totalRecords) {
+                        state.total = result.totalRecords[type];
+                        // อัปเดตฝั่ง Public เผื่อไว้ด้วยเลย
+                        paginationState[type].total = result.totalRecords[type]; 
+                    }
+
+                    let newData = result[type] || [];
+                    
+                    pageCache[type][page] = newData;
+                    
+                    // นำข้อมูลไปรวมกับ Global Array เผื่อไว้ใช้ตอนกดแก้ไข (Edit)
+                    if (type === 'news') {
+                        newData.forEach(n => { if(!globalNews.find(gn => gn.id === n.id)) globalNews.push(n); });
+                    } else if (type === 'activities') {
+                        newData.forEach(a => { if(!globalActivities.find(ga => ga.id === a.id)) globalActivities.push(a); });
+                    } else if (type === 'newsletters') {
+                        newData.forEach(nl => { if(!globalNewsletters.find(gnl => gnl.id === nl.id)) globalNewsletters.push(nl); });
+                    }
+
+                    renderAdminPaginatedTable(type, newData);
+                    renderAdminPaginationUI(type);
+                    document.getElementById(sectionId).scrollIntoView({behavior: 'smooth', block: 'start'});
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-10 text-red-500">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+            }
+        }
+
+        async function loadPageData(type, page) {
+            const state = paginationState[type];
+            const limit = state.limit;
+            const offset = (page - 1) * limit;
+
+            let containerId = type === 'news' ? 'all-news-container' : type === 'activities' ? 'all-activities-container' : 'all-newsletters-container';
+            let targetView = type === 'news' ? 'all-news-view' : type === 'activities' ? 'all-activities-view' : 'all-newsletters-view';
+
+            // 1. ตรวจสอบว่ามีข้อมูลของหน้านี้ใน Cache หรือไม่
+            if (pageCache[type][page]) {
+                state.current = page; // อัปเดตเลขหน้าปัจจุบัน
+                
+                // ดึงข้อมูลจาก Cache มาวาดหน้าเว็บได้เลยทันทีไม่ต้องรอ
+                renderPaginatedList(type, pageCache[type][page]);
+                renderPaginationUI(type);
+                
+                scrollToTarget(targetView, 15);
+                return; // จบการทำงานของฟังก์ชันทันที
+            }
+
+            // 2. ถ้าไม่มีใน Cache ถึงจะขึ้น Loading และไปดึงจาก Server
+            document.getElementById(containerId).innerHTML = '<div class="col-span-full flex justify-center py-10"><div class="spinner mr-2"></div> กำลังโหลดข้อมูลหน้า ' + page + '...</div>';
+
+            try {
+                const res = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "get_all_data", limit: limit, offset: offset })
+                });
+                const result = await res.json();
+                
+                if (result.status === "success") {
+                    state.current = page;
+                    if(result.totalRecords) state.total = result.totalRecords[type];
+
+                    let newData = result[type] || [];
+                    
+                    // 3. เมื่อได้ข้อมูลมาใหม่ ให้บันทึกเก็บไว้ใน Cache สำหรับใช้ครั้งหน้า
+                    pageCache[type][page] = newData;
+                    
+                    if (type === 'news') {
+                        newData.forEach(n => { if(!globalNews.find(gn => gn.id === n.id)) globalNews.push(n); });
+                    } else if (type === 'activities') {
+                        newData.forEach(a => { if(!globalActivities.find(ga => ga.id === a.id)) globalActivities.push(a); });
+                    } else if (type === 'newsletters') {
+                        newData.forEach(nl => { if(!globalNewsletters.find(gnl => gnl.id === nl.id)) globalNewsletters.push(nl); });
+                    }
+
+                    renderPaginatedList(type, newData);
+                    renderPaginationUI(type);
+                    scrollToTarget(targetView, 15);
+                }
+            } catch(e) {
+                console.error(e);
+                document.getElementById(containerId).innerHTML = '<div class="col-span-full text-center py-10 text-red-500">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+            }
         }
 
 
