@@ -4156,8 +4156,66 @@
         }
 
         // --- Admin Dashboard Navigation ---
-        function showAdminDashboard(isPopState = false) {
-            if (!loggedInUser || !["2", "3", "4"].includes(String(loggedInUser.role))) { showAlert('error', 'ปฏิเสธการเข้าถึง', 'คุณไม่มีสิทธิ์เข้าใช้งานส่วนนี้'); return; }
+        async function showAdminDashboard(isPopState = false) {
+            if (!loggedInUser || !loggedInUser.username) { 
+                showAlert('error', 'ไม่พบข้อมูลการเข้าระบบ', 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง'); 
+                return; 
+            }
+
+            // แสดง Loading ระหว่างเช็คสิทธิ์จริงจากฐานข้อมูล
+            Swal.fire({
+                title: 'กำลังยืนยันสิทธิ์...',
+                text: 'ระบบกำลังตรวจสอบความถูกต้องของบัญชี',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); },
+                ...swalTheme
+            });
+
+            try {
+                const res = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "verify_role", username: loggedInUser.username })
+                });
+                const data = await res.json();
+
+                if (data.status === "success") {
+                    // ตรวจสอบว่า Role จากชีต มีสิทธิ์เข้าหลังบ้านหรือไม่ (ต้องเป็น 2, 3, 4)
+                    const actualRole = String(data.role);
+                    
+                    if (!["2", "3", "4"].includes(actualRole)) {
+                        // กรณีพบว่าในชีตไม่มีสิทธิ์ (เช่น เป็น Role 1 หรืออื่นๆ) 
+                        // ให้เขียนทับ LocalStorage ด้วยข้อมูลจริง แล้วดีดกลับหน้าแรก
+                        loggedInUser.role = actualRole;
+                        localStorage.setItem("school_user_session", JSON.stringify(loggedInUser));
+
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'ปฏิเสธการเข้าถึง',
+                            text: 'บัญชีของคุณไม่มีสิทธิ์เข้าใช้งานระบบหลังบ้าน ระบบจะรีเซ็ตข้อมูลสิทธิ์ของคุณให้เป็นปัจจุบัน',
+                            confirmButtonText: 'ตกลง',
+                            ...swalTheme
+                        }).then(() => {
+                            // รีเฟรชหน้าเว็บและกลับไปที่หน้าหลัก (ลบ Parameter ?view=admin ออก)
+                            window.location.href = window.location.pathname;
+                        });
+                        return;
+                    }
+
+                    // ถ้าสิทธิ์ถูกต้อง ให้อัปเดต Role ในเครื่องให้ตรงกับฐานข้อมูล (เผื่อมีการเลื่อนขั้น)
+                    loggedInUser.role = actualRole;
+                    localStorage.setItem("school_user_session", JSON.stringify(loggedInUser));
+                    Swal.close(); 
+
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                Swal.close();
+                showAlert('error', 'การตรวจสอบล้มเหลว', 'ไม่สามารถยืนยันสิทธิ์ได้ในขณะนี้: ' + error.message);
+                return;
+            }
+
+            // --- ส่วนการแสดงผลหน้า Admin (คงเดิม) ---
             if (!isPopState) { try { const url = new URL(window.location); url.searchParams.set('view', 'admin'); window.history.pushState({}, '', url); } catch(e){} }
             
             document.getElementById('sidebar-user-name').innerText = loggedInUser.name;
@@ -4170,10 +4228,8 @@
             let allowedTabs = allTabs; // ค่าเริ่มต้นคือเข้าถึงได้หมด (Role 3, 4)
             
             if (String(loggedInUser.role) === "2") {
-                // ถ้าเป็น Role 2 ให้อ่านสิทธิ์จากที่ตั้งค่าไว้
                 let perms = [];
                 try { perms = JSON.parse(globalSettings.role2Permissions || "[]"); } catch(e){}
-                // ใช้ username ในการอ้างอิง
                 const myPerm = perms.find(p => p.username === loggedInUser.username); 
                 
                 if (myPerm && myPerm.tabs.length > 0) {
@@ -4187,7 +4243,6 @@
             allTabs.forEach(tab => {
                 const navBtn = document.getElementById('nav-tab-' + tab);
                 if(navBtn) {
-                    // บังคับซ่อนเมนู 'บุคลากร' และ 'ตั้งค่า' สำหรับ Role 2 เพื่อความปลอดภัยสูงสุด
                     if (String(loggedInUser.role) === "2" && (tab === 'staff' || tab === 'settings' || tab === 'permissions')) {
                         navBtn.classList.add('hidden');
                     }
@@ -4207,16 +4262,13 @@
             const urlParams = new URLSearchParams(window.location.search);
             let initialTab = urlParams.get('tab') || 'calendar'; 
             
-            // ตรวจสอบว่าแท็บที่พยายามเข้าถึง มีสิทธิ์หรือไม่
             if (String(loggedInUser.role) === "2" && !allowedTabs.includes(initialTab)) {
-                // ถ้าไม่มีสิทธิ์ ให้เด้งไปที่แท็บแรกที่เขามีสิทธิ์
                 initialTab = allowedTabs.length > 0 ? allowedTabs[0] : null;
             }
 
             if (initialTab) {
                 switchAdminTab(initialTab, true);
             } else {
-                // กรณีไม่มีสิทธิ์เข้าเมนูไหนเลย
                 resetAllAdminForms();
                 document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
                 document.getElementById('admin-header-title').innerHTML = '<i data-lucide="lock" class="w-6 h-6 mr-2 text-red-500"></i> ไม่มีสิทธิ์เข้าถึง';
