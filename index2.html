@@ -305,6 +305,36 @@
             border-style: solid;
             border-color: transparent transparent #e5e7eb transparent;
         }
+
+        /* ================= DOS Terminal Style ================= */
+        .dos-terminal {
+            background-color: #0c0c0c;
+            color: #33ff00; /* สีเขียวแบบจอคอมเก่า */
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            border-radius: 4px;
+            border: 2px solid #474747;
+            box-shadow: inset 0 0 15px rgba(67, 68, 67, 0.2);
+            font-size: 13px;
+            line-height: 1.5;
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+        }
+        .dos-terminal::-webkit-scrollbar { width: 8px; }
+        .dos-terminal::-webkit-scrollbar-track { background: #141414; border-left: 1px solid #333; }
+        .dos-terminal::-webkit-scrollbar-thumb { background: #757575; }
+        .dos-line { margin: 0 0 4px 0; letter-spacing: 0.5px; }
+        .dos-prompt::before { content: 'C:\\ADMIN> '; color: #fff; font-weight: bold; }
+        .blink-cursor {
+            display: inline-block;
+            width: 8px; height: 15px;
+            background-color: #33ff00;
+            animation: blinker 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+        @keyframes blinker { 50% { opacity: 0; } }
+
     </style>
 </head>
 <body class="body-pattern text-gray-800 antialiased min-h-screen flex flex-col">
@@ -808,6 +838,9 @@
                     <i data-lucide="users" class="w-5 h-5 mr-3"></i> จัดการบุคลากร
                 </a>
                 <div class="border-t border-blue-800 my-2 mx-2"></div>
+                <a href="javascript:void(0);" onclick="switchAdminTab('logs')" id="nav-tab-logs" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition">
+                    <i data-lucide="terminal" class="w-5 h-5 mr-3"></i> Logs System
+                </a>
                 <a href="javascript:void(0);" onclick="switchAdminTab('permissions')" id="nav-tab-permissions" class="flex items-center px-4 py-3 hover:bg-blue-800 rounded-md text-gray-200 transition">
                     <i data-lucide="shield-check" class="w-5 h-5 mr-3"></i> จัดการสิทธิ์ (Role 2)
                 </a>
@@ -1200,6 +1233,23 @@
                                 <i data-lucide="save" class="w-4 h-4 mr-2"></i> บันทึกสิทธิ์ทั้งหมด
                             </button>
                         </div>
+                    </div>
+                </div>
+
+
+                <div id="section-logs" class="hidden">
+                    <div class="bg-gray-900 p-2 rounded shadow-lg border border-gray-800 relative">
+                        <div class="flex justify-between items-center bg-gray-300 px-3 py-1 text-black font-sans font-bold text-xs mb-1">
+                            <span><i data-lucide="terminal" class="w-3 h-3 inline"></i> MS-DOS Prompt - System_Audit_Log</span>
+                            <div class="flex gap-1">
+                                <span class="w-3 h-3 border border-black cursor-pointer bg-gray-400"></span>
+                                <span class="w-3 h-3 border border-black cursor-pointer bg-gray-400"></span>
+                                <span class="w-3 h-3 border border-black cursor-pointer bg-gray-400 text-center leading-[10px]" onclick="switchAdminTab('calendar')">x</span>
+                            </div>
+                        </div>
+                        
+                        <div id="dos-terminal-content" class="dos-terminal" onclick="const i = document.getElementById('dos-search-input'); if(i) i.focus();">
+                            </div>
                     </div>
                 </div>
 
@@ -1821,6 +1871,30 @@
                 }
             });
         }
+
+
+        // ฟังก์ชันกลางสำหรับส่งข้อมูล Log ไปบันทึก
+        function logSystemActivity(actionType, details) {
+            // ถ้าไม่ได้ล็อกอินอยู่ จะไม่บันทึก (หรือจะบันทึกเป็น Guest ก็ได้)
+            if (!loggedInUser) return;
+
+            try {
+                const payload = {
+                    action: "log_activity",
+                    username: loggedInUser.name + " (" + (loggedInUser.username || "N/A") + ")",
+                    role: getRoleName(loggedInUser.role),
+                    actionType: actionType,
+                    details: details
+                };
+
+                // ใช้ fetch แบบไม่ต้องรอ (fire-and-forget) เพื่อไม่ให้เว็บค้าง
+                fetch(SCRIPT_URL, { 
+                    method: "POST", 
+                    body: JSON.stringify(payload) 
+                }).catch(e => console.log("Log error", e));
+            } catch(e) {}
+        }
+
 
         async function fetchAllData() {
             try {
@@ -2883,6 +2957,8 @@
                 
                 if(data.status === "success") {
                     showAlert('success', 'สำเร็จ', 'บันทึกข้อมูลหน้าเว็บเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity(document.getElementById('page-id').value ? "EDIT_DATA" : "ADD_DATA", "บันทึกหน้าเว็บ: " + document.getElementById('page-title-input').value);
                     closePageEditor();
                     fetchAllData();
                 } else { throw new Error(data.message); }
@@ -3070,7 +3146,11 @@
                     retainedImageUrl: editStaffId ? retainedStaffImage : undefined 
                 }; 
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json(); 
-                if(data.status === "success") { showAlert('success','สำเร็จ', editStaffId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มบุคลากรเรียบร้อยแล้ว'); toggleForm('form-staff-container'); fetchAllData(); } 
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editStaffId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มบุคลากรเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity(editStaffId ? "EDIT_DATA" : "ADD_DATA", (editStaffId ? "แก้ไขบุคลากร: " : "เพิ่มบุคลากร: ") + document.getElementById('staff-name').value);
+                    toggleForm('form-staff-container'); fetchAllData(); } 
                 else throw new Error(data.message); 
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } 
             finally { btn.disabled = false; btn.innerText = editStaffId ? "บันทึกการแก้ไข" : "บันทึกข้อมูลบุคลากร"; } 
@@ -3212,6 +3292,8 @@
                 
                 if(data.status === "success") { 
                     showAlert('success', 'สำเร็จ', 'บันทึกผังองค์กรเรียบร้อยแล้ว'); 
+                    //log system
+                    logSystemActivity("EDIT_SYSTEM", "อัปเดตผังโครงสร้างองค์กรบุคลากร");
                     fetchAllData(); 
                 } else throw new Error(data.message);
             } catch(err) { showAlert('error', 'ผิดพลาด', err.message); }
@@ -3431,6 +3513,8 @@
                 const data = await response.json();
                 if (data.status === 'success') {
                     showAlert('success', 'สำเร็จ', 'บันทึกสิทธิ์การเข้าถึงเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity("EDIT_SYSTEM", "อัปเดตสิทธิ์การเข้าถึงเมนูของบุคลากร (Role 2)");
                 } else {
                     throw new Error(data.message);
                 }
@@ -3491,6 +3575,8 @@
                 
                 if(data.status === "success") { 
                     showAlert('success', 'สำเร็จ', 'บันทึกการตั้งค่าเว็บไซต์เรียบร้อยแล้ว'); 
+                    //log system
+                    logSystemActivity("EDIT_SYSTEM", "บันทึกการตั้งค่าข้อมูลและโครงสร้างหน้าแรกเว็บไซต์");
                     document.getElementById('form-settings').reset(); croppedBannerBase64 = null; fetchAllData(); 
                 } else throw new Error(data.message);
             } catch(err) { showAlert('error', 'ผิดพลาด', err.message); } 
@@ -3813,7 +3899,12 @@
                 
                 const payload = { action: editNewsId ? "edit_news" : "add_news", id: editNewsId, title: document.getElementById('news-title').value, content: quillHtmlContent, imageObjs: imgObjs, retainedImageUrls: editNewsId ? retainedNewsImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
-                if(data.status === "success") { showAlert('success','สำเร็จ', editNewsId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มข่าวเรียบร้อยแล้ว'); toggleForm('form-news-container'); fetchAllData(); } else throw new Error(data.message);
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editNewsId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มข่าวเรียบร้อยแล้ว');
+                    
+                    logSystemActivity(editNewsId ? "EDIT_DATA" : "ADD_DATA", (editNewsId ? "แก้ไขข่าว: " : "เพิ่มข่าวใหม่: ") + document.getElementById('news-title').value);
+
+                    toggleForm('form-news-container'); fetchAllData(); } else throw new Error(data.message);
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNewsId ? "บันทึกการแก้ไข" : "บันทึกข่าว"; }
         }
 
@@ -3827,7 +3918,11 @@
                 let imgObjs = []; for(let i=0; i<pendingActFiles.length; i++) { imgObjs.push({ name: pendingActFiles[i].name, mimeType: pendingActFiles[i].type, base64: await fileToBase64(pendingActFiles[i]) }); }
                 const payload = { action: editActId ? "edit_activity" : "add_activity", id: editActId, title: document.getElementById('act-title').value, imageObjs: imgObjs, retainedImageUrls: editActId ? retainedActImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
-                if(data.status === "success") { showAlert('success','สำเร็จ', editActId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว'); toggleForm('form-activity-container'); fetchAllData(); } else throw new Error(data.message);
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editActId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity(editActId ? "EDIT_DATA" : "ADD_DATA", (editActId ? "แก้ไขภาพกิจกรรม: " : "เพิ่มภาพกิจกรรม: ") + document.getElementById('act-title').value);
+                    toggleForm('form-activity-container'); fetchAllData(); } else throw new Error(data.message);
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editActId ? "บันทึกการแก้ไข" : "บันทึกกิจกรรม"; }
         }
 
@@ -3841,7 +3936,11 @@
                 let imgObjs = []; for(let i=0; i<pendingNlFiles.length; i++) { imgObjs.push({ name: pendingNlFiles[i].name, mimeType: pendingNlFiles[i].type, base64: await fileToBase64(pendingNlFiles[i]) }); }
                 const payload = { action: editNlId ? "edit_newsletter" : "add_newsletter", id: editNlId, imageObjs: imgObjs, retainedImageUrls: editNlId ? retainedNlImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
-                if(data.status === "success") { showAlert('success','สำเร็จ', editNlId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'อัปโหลดจดหมายข่าวเรียบร้อยแล้ว'); toggleForm('form-newsletter-container'); fetchAllData(); } else throw new Error(data.message);
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editNlId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'อัปโหลดจดหมายข่าวเรียบร้อยแล้ว');
+                    //log sysmtem
+                    logSystemActivity(editNlId ? "EDIT_DATA" : "ADD_DATA", (editNlId ? "แก้ไขจดหมายข่าว ID: " : "อัปโหลดจดหมายข่าวใหม่ ID: ") + data.id); // อาจจะต้องปรับให้เก็บชื่อถ้ามี
+                    toggleForm('form-newsletter-container'); fetchAllData(); } else throw new Error(data.message);
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editNlId ? "บันทึกการแก้ไข" : "บันทึกจดหมายข่าว"; }
         }
 
@@ -3856,7 +3955,11 @@
                 if(imgObjs.length === 0 && (!retainedAnnImages || retainedAnnImages.length === 0)) throw new Error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
                 const payload = { action: editAnnId ? "edit_announcement" : "add_announcement", id: editAnnId, title: document.getElementById('ann-title').value, link: document.getElementById('ann-link').value, isActive: document.getElementById('ann-isactive').checked, imageObjs: imgObjs, retainedImageUrls: editAnnId ? retainedAnnImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
-                if(data.status === "success") { showAlert('success','สำเร็จ', editAnnId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มภาพประกาศเรียบร้อยแล้ว'); toggleForm('form-announcement-container'); fetchAllData(); } else throw new Error(data.message);
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editAnnId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มภาพประกาศเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity(editAnnId ? "EDIT_DATA" : "ADD_DATA", (editAnnId ? "แก้ไขภาพประกาศ: " : "เพิ่มภาพประกาศ: ") + document.getElementById('ann-title').value);
+                    toggleForm('form-announcement-container'); fetchAllData(); } else throw new Error(data.message);
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } finally { btn.disabled = false; btn.innerText = editAnnId ? "บันทึกการแก้ไข" : "บันทึกประกาศ"; }
         }
 
@@ -3917,7 +4020,12 @@
                     try {
                         const res = await fetch(SCRIPT_URL, { method:"POST", body: JSON.stringify({action:"delete_item", sheetName:sheet, id:id}) });
                         const data = await res.json();
-                        if(data.status==="success") { showAlert('success','ลบสำเร็จ','ลบข้อมูลเรียบร้อยแล้ว'); fetchAllData(); }
+                        if(data.status==="success") {
+                            showAlert('success','ลบสำเร็จ','ลบข้อมูลเรียบร้อยแล้ว');
+                            
+                            logSystemActivity("DELETE_DATA", `ลบข้อมูลในชีต ${sheet} (ID: ${id})`);
+                            
+                            fetchAllData(); }
                         else { throw new Error(data.message); }
                     } catch(err) { showAlert('error','เกิดข้อผิดพลาด',err.message); }
                 }
@@ -3985,6 +4093,8 @@
 
                     localStorage.setItem("school_user_session", JSON.stringify(loggedInUser));
                     
+                    logSystemActivity("LOGIN", "เข้าสู่ระบบสำเร็จ");
+
                     // เรียกใช้ฟังก์ชันอัปเดตหน้าจอ
                     updateUserWidget(); 
                     if (typeof renderStaffTable === "function") renderStaffTable(); 
@@ -4009,6 +4119,8 @@
         function handleLogout() {
             Swal.fire({ title: 'ยืนยันออกจากระบบ?', icon: 'question', showCancelButton: true, confirmButtonText: 'ออกจากระบบ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#ef4444', ...swalTheme }).then((r) => {
                 if (r.isConfirmed) {
+                    logSystemActivity("LOGOUT", "ออกจากระบบ");
+
                     loggedInUser = null; localStorage.removeItem("school_user_session");
                     updateUserWidget(); renderStaffTable(); renderPublicData();
                     if(!document.getElementById('admin-view').classList.contains('hidden')) backToPublicView();
@@ -4027,7 +4139,7 @@
             document.getElementById('sidebar-user-image').src = loggedInUser.imageUrl || loggedInUser.profileImage || 'https://placehold.co/150';
             
             // --- ระบบจัดการสิทธิ์เมนู ---
-            const allTabs = ['calendar', 'news', 'activities', 'newsletters', 'announcements', 'pages', 'quicklinks', 'staff', 'permissions', 'settings'];
+            const allTabs = ['calendar', 'news', 'activities', 'newsletters', 'announcements', 'pages', 'quicklinks', 'staff', 'logs', 'permissions', 'settings'];
             let allowedTabs = allTabs; // ค่าเริ่มต้นคือเข้าถึงได้หมด (Role 3, 4)
             
             if (String(loggedInUser.role) === "2") {
@@ -4167,6 +4279,10 @@
         function switchAdminTab(tab, replaceState = false) {
             resetAllAdminForms(); 
 
+            if (!replaceState) { // ดักไว้ไม่ให้รัวบันทึกตอนโหลดหน้าแรก
+                logSystemActivity("PAGE_VIEW", "คลิกเปิดเมนู: " + tab);
+            }
+
             // --- ตรวจจับความปลอดภัย ---
             if (loggedInUser && String(loggedInUser.role) === "2") {
                 let perms = [];
@@ -4182,7 +4298,7 @@
             // -------------------------
 
             // ปรับลำดับที่นี่ให้ตรงกับเมนู
-            const sections = ['calendar', 'news', 'activities', 'newsletters', 'announcements', 'pages', 'quicklinks', 'staff', 'permissions', 'settings']; 
+            const sections = ['calendar', 'news', 'activities', 'newsletters', 'announcements', 'pages', 'quicklinks', 'staff', 'logs', 'permissions', 'settings']; 
             
             sections.forEach(s => {
                 const btn = document.getElementById('nav-tab-' + s);
@@ -4214,12 +4330,14 @@
                 'newsletters': '<i data-lucide="mail" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการจดหมายข่าว',
                 'announcements': '<i data-lucide="bell" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการภาพประกาศหน้าหลัก',
                 'quicklinks': '<i data-lucide="link" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการเมนูลัด',
+                'logs': '<i data-lucide="terminal" class="w-6 h-6 mr-2 text-school-navy"></i> System Audit Logs',
                 'permissions': '<i data-lucide="shield-check" class="w-6 h-6 mr-2 text-school-navy"></i> จัดการสิทธิ์การเข้าถึง',
                 'settings': '<i data-lucide="settings" class="w-6 h-6 mr-2 text-school-navy"></i> ตั้งค่าระบบและข้อมูลโรงเรียน'
             };
             document.getElementById('admin-header-title').innerHTML = titles[tab] || '';
             
             if (tab === 'permissions') loadPermissionsTab();
+            if (tab === 'logs') loadDosLogs();
 
             if (window.innerWidth < 768 && !document.getElementById('admin-sidebar').classList.contains('-translate-x-full')) {
                 toggleAdminSidebar();
@@ -4780,6 +4898,9 @@
                 const data = await res.json();
                 if(data.status === "success") { 
                     showAlert('success','สำเร็จ', editCalId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว'); 
+                    //log system
+                    logSystemActivity(editCalId ? "EDIT_DATA" : "ADD_DATA", (editCalId ? "แก้ไขปฏิทิน: " : "เพิ่มปฏิทิน: ") + document.getElementById('cal-title').value);
+
                     toggleForm('form-calendar-container'); fetchAllData(); 
                 } else throw new Error(data.message);
             } catch(err) { showAlert('error','ผิดพลาด', err.message); } 
@@ -4876,6 +4997,8 @@
                 
                 if(data.status === "success") { 
                     showAlert('success', 'สำเร็จ', editQuickLinkId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มปุ่มเรียบร้อยแล้ว'); 
+                    //log system
+                    logSystemActivity(editQuickLinkId ? "EDIT_DATA" : "ADD_DATA", (editQuickLinkId ? "แก้ไขเมนูลัด: " : "เพิ่มเมนูลัด: ") + document.getElementById('ql-title').value);
                     toggleForm('form-quicklink-container'); 
                     fetchAllData(); 
                 } else throw new Error(data.message);
@@ -4901,6 +5024,98 @@
             document.getElementById('btn-submit-ql').innerText = "บันทึกการแก้ไข"; 
             document.getElementById('form-quicklink-container').classList.remove('hidden'); 
             document.getElementById('form-quicklink-container').scrollIntoView({behavior: 'smooth'}); 
+        }
+
+        async function loadDosLogs() {
+            const terminal = document.getElementById('dos-terminal-content');
+            
+            // เอฟเฟกต์ตอนเริ่มโหลด
+            terminal.innerHTML = `
+                <p class="dos-line text-white">Starting MS-DOS...</p>
+                <p class="dos-line text-white">HIMEM is testing extended memory...done.</p>
+                <p class="dos-prompt mt-2"><span class="text-white">CONNECTING TO SECURE SERVER...</span> <span class="blink-cursor"></span></p>
+            `;
+            
+            try {
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "get_logs" }) });
+                const data = await res.json();
+                
+                if (data.status === "success") {
+                    let html = `
+                        <p class="dos-line text-white">System Date: ${new Date().toLocaleDateString('en-GB')}</p>
+                        <p class="dos-line text-white">Connection Established.</p>
+                        <p class="dos-line text-yellow-300">=============================================================</p>
+                        <p class="dos-line font-bold text-white uppercase">DATE/TIME           | ACTION      | USERNAME & DETAILS</p>
+                        <p class="dos-line text-yellow-300 mb-2">=============================================================</p>
+                        <div id="dos-log-lines-container">
+                    `;
+                    
+                    if (data.logs.length === 0) {
+                        html += `<p class="dos-line text-red-500">NO LOGS FOUND IN DATABASE.</p>`;
+                    } else {
+                        data.logs.forEach(log => {
+                            // ตัดข้อความตั้งแต่คำว่า GMT+... เป็นต้นไปออก เพื่อความสะอาดของ Log
+                            let cleanTime = log.time.replace(/ GMT\+\d{4}.*/, '').trim();
+
+                            let act = log.action.padEnd(11, ' ');
+                            let actColor = "text-green-500";
+                            if (log.action.includes("DELETE")) actColor = "text-red-500";
+                            else if (log.action.includes("EDIT")) actColor = "text-yellow-400";
+                            else if (log.action === "LOGIN" || log.action === "LOGOUT") actColor = "text-blue-300";
+
+                            // ใส่คลาส dos-log-item สำหรับให้ระบบค้นหาจับคู่ได้
+                            html += `<p class="dos-line dos-log-item break-words"><span class="text-gray-400">[${cleanTime}]</span> | <span class="${actColor} font-bold">${act}</span> | <span class="text-white">${log.user}</span> -> ${log.details}</p>`;
+                        });
+                    }
+                    
+                    // ปรับส่วนท้ายให้เป็นช่อง Input สำหรับพิมพ์ค้นหา
+                    html += `
+                        </div>
+                        <p class="dos-line text-yellow-300 mt-2">=============================================================</p>
+                        <p class="dos-line text-white mb-4">END OF FILE. <span class="text-gray-500 text-[10px]">(Type below to search logs)</span></p>
+                        
+                        <div class="flex items-center mt-2">
+                            <span class="text-white font-bold mr-2">C:\\ADMIN></span>
+                            <input type="text" id="dos-search-input" onkeyup="searchDosLogs(this.value)" class="flex-1 bg-transparent border-none outline-none text-[#33ff00] font-mono text-[13px] shadow-none focus:ring-0 p-0" autocomplete="off" spellcheck="false" style="caret-color: #33ff00;">
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        terminal.innerHTML = html;
+                        terminal.scrollTop = terminal.scrollHeight; 
+                        
+                        // บังคับให้ช่องพิมพ์พร้อมใช้งานทันทีเมื่อโหลดเสร็จ
+                        const searchInput = document.getElementById('dos-search-input');
+                        if(searchInput) searchInput.focus();
+                    }, 600);
+                    
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (err) {
+                terminal.innerHTML += `
+                    <p class="dos-line text-red-500 mt-2">FATAL ERROR: ${err.message}</p>
+                    <p class="dos-prompt"><span class="blink-cursor"></span></p>
+                `;
+            }
+        }
+
+        // ฟังก์ชันระบบค้นหาแบบ Real-time ของ DOS Terminal
+        function searchDosLogs(query) {
+            const searchText = query.toLowerCase();
+            const logItems = document.querySelectorAll('.dos-log-item');
+            
+            logItems.forEach(item => {
+                if (item.innerText.toLowerCase().includes(searchText)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // เลื่อนจอลงมาที่พิมพ์เสมอ
+            const terminal = document.getElementById('dos-terminal-content');
+            terminal.scrollTop = terminal.scrollHeight;
         }
 
     </script>
