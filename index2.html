@@ -1386,7 +1386,13 @@
 
                             <!-- 4. Slideshow Upload -->
                             <div class="bg-gray-50 p-4 rounded border border-gray-100">
-                                <h3 class="text-sm font-bold text-gray-800 mb-3">4. ภาพสไลด์ตรงกลางเว็บ (Slideshow)</h3>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h3 class="text-sm font-bold text-gray-800">4. ภาพสไลด์ตรงกลางเว็บ (Slideshow)</h3>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="settings-show-slideshow" class="w-4 h-4 text-school-blue rounded border-gray-300 focus:ring-school-blue">
+                                        <label for="settings-show-slideshow" class="ml-2 text-sm text-gray-700 font-medium">แสดงภาพสไลด์บนหน้าเว็บไซต์</label>
+                                    </div>
+                                </div>
                                 <div id="settings-slide-preview-section" class="hidden mb-3">
                                     <label class="block text-sm text-gray-700 mb-1">ภาพสไลด์ที่เลือก (คลิกที่ปุ่มถังขยะเพื่อลบ)</label>
                                     <div id="settings-slide-preview" class="flex flex-wrap gap-3 mt-2 bg-white p-3 rounded border border-gray-200"></div>
@@ -1658,7 +1664,7 @@
         let maxOrgRows = 2;
 
         let globalSettings = { 
-            banner: "", slideshow: [], showBanner: true, slideInterval: 4,
+            banner: "", slideshow: [], showBanner: true, showSlideshow: true, slideInterval: 4,
             schoolNameTH: "", schoolNameEN: "", schoolAffiliation: "", 
             directorName: "", directorImage: "", 
             marqueeText: "", showMarquee: true, marqueeSpeed: 25, marqueeDelay: 0,
@@ -2052,6 +2058,7 @@
                         globalSettings.banner = result.settings.banner || "";
                         globalSettings.slideshow = result.settings.slideshow ? result.settings.slideshow.split(',').filter(u=>u.trim()!=="") : [];
                         globalSettings.showBanner = result.settings.showBanner !== undefined ? result.settings.showBanner : true;
+                        globalSettings.showSlideshow = result.settings.showSlideshow !== undefined ? result.settings.showSlideshow : true;
                         globalSettings.slideInterval = result.settings.slideInterval || 4;
                         globalSettings.schoolNameTH = result.settings.schoolNameTH || "";
                         globalSettings.schoolNameEN = result.settings.schoolNameEN || "";
@@ -2195,7 +2202,14 @@
                 bannerImg.classList.remove('hidden'); bannerImg.src = globalSettings.banner || `https://placehold.co/1200x180/1a3a6e/ffffff?text=${encodeURIComponent(globalSettings.schoolNameTH)}`;
             } else { bannerImg.classList.add('hidden'); }
 
-            startSlideshow();
+            const slideWrapper = document.getElementById('home-slideshow-container').parentElement;
+            if (globalSettings.showSlideshow) {
+                slideWrapper.classList.remove('hidden');
+                startSlideshow();
+            } else {
+                slideWrapper.classList.add('hidden');
+                if(slideIntervalId) clearInterval(slideIntervalId);
+            }
             
             const aw = document.getElementById('home-announcements-wrapper');
             const activeAnns = globalAnnouncements.filter(a => a.isActive);
@@ -3774,6 +3788,7 @@
             document.getElementById('settings-new-badge-days').value = globalSettings.newBadgeDays;
             document.getElementById('settings-auto-logout').value = globalSettings.autoLogoutMinutes;
             document.getElementById('settings-show-banner').checked = globalSettings.showBanner;
+            document.getElementById('settings-show-slideshow').checked = globalSettings.showSlideshow;
             document.getElementById('settings-slide-interval').value = globalSettings.slideInterval;
 
             document.getElementById('settings-contact-address').value = globalSettings.contactAddress;
@@ -3956,7 +3971,7 @@
 
                 let slideObjs = []; 
                 for(let i=0; i<pendingSlideFiles.length; i++) { 
-                    slideObjs.push({ name: pendingSlideFiles[i].name, mimeType: pendingSlideFiles[i].type, base64: await fileToBase64(pendingSlideFiles[i]) }); 
+                    slideObjs.push(await resizeImage(pendingSlideFiles[i], 1000, 1000)); 
                 }
                 
                 const payload = { 
@@ -3982,6 +3997,7 @@
                     directorImageObj: dirObj, retainedDirectorImageUrl: retainedSettingsDirector,
                     slideImageObjs: slideObjs, retainedSlideshowUrls: retainedSettingsSlides,
                     showBanner: document.getElementById('settings-show-banner').checked,
+                    showSlideshow: document.getElementById('settings-show-slideshow').checked,
                     slideInterval: document.getElementById('settings-slide-interval').value,
                 };
                 
@@ -4307,7 +4323,11 @@
         async function submitNews(e) {
             e.preventDefault(); const btn = document.getElementById('btn-submit-news'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             try {
-                let imgObjs = []; for(let i=0; i<pendingNewsFiles.length; i++) { imgObjs.push({ name: pendingNewsFiles[i].name, mimeType: pendingNewsFiles[i].type, base64: await fileToBase64(pendingNewsFiles[i]) }); }
+                let imgObjs = []; 
+                for(let i=0; i<pendingNewsFiles.length; i++) { 
+                    // ย่อขนาดภาพก่อนเพิ่มลง Array (จำกัดความกว้าง 1000px, ความสูง 1000px)
+                    imgObjs.push(await resizeImage(pendingNewsFiles[i], 1000, 1000)); 
+                }
                 
                 // ดึงข้อมูล HTML จาก Quill Editor ข่าว
                 const quillHtmlContent = newsQuillEditor ? newsQuillEditor.root.innerHTML : '';
@@ -4330,7 +4350,10 @@
         async function submitActivity(e) {
             e.preventDefault(); const btn = document.getElementById('btn-submit-act'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             try {
-                let imgObjs = []; for(let i=0; i<pendingActFiles.length; i++) { imgObjs.push({ name: pendingActFiles[i].name, mimeType: pendingActFiles[i].type, base64: await fileToBase64(pendingActFiles[i]) }); }
+                let imgObjs = []; 
+                for(let i=0; i<pendingNlFiles.length; i++) { 
+                    imgObjs.push(await resizeImage(pendingNlFiles[i], 1000, 1000)); 
+                }
                 const payload = { action: editActId ? "edit_activity" : "add_activity", id: editActId, title: document.getElementById('act-title').value, imageObjs: imgObjs, retainedImageUrls: editActId ? retainedActImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
                 if(data.status === "success") {
@@ -4366,7 +4389,10 @@
         async function submitAnnouncement(e) {
             e.preventDefault(); const btn = document.getElementById('btn-submit-ann'); btn.disabled = true; btn.innerHTML = '<div class="spinner mr-2" style="border-left-color: white;"></div> กำลังบันทึก...';
             try {
-                let imgObjs = []; for(let i=0; i<pendingAnnFiles.length; i++) { imgObjs.push({ name: pendingAnnFiles[i].name, mimeType: pendingAnnFiles[i].type, base64: await fileToBase64(pendingAnnFiles[i]) }); }
+                let imgObjs = []; 
+                for(let i=0; i<pendingAnnFiles.length; i++) { 
+                    imgObjs.push(await resizeImage(pendingAnnFiles[i], 1000, 1000)); 
+                }
                 if(imgObjs.length === 0 && (!retainedAnnImages || retainedAnnImages.length === 0)) throw new Error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
                 const payload = { action: editAnnId ? "edit_announcement" : "add_announcement", id: editAnnId, title: document.getElementById('ann-title').value, link: document.getElementById('ann-link').value, isActive: document.getElementById('ann-isactive').checked, imageObjs: imgObjs, retainedImageUrls: editAnnId ? retainedAnnImages : undefined };
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
@@ -5632,6 +5658,55 @@
                     <p class="dos-prompt"><span class="blink-cursor"></span></p>
                 `;
             }
+        }
+
+        // เพิ่มฟังก์ชันสำหรับย่อขนาดรูปภาพก่อนแปลงเป็น Base64
+        function resizeImage(file, maxWidth, maxHeight) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+
+                        // ตรวจสอบว่าภาพเป็นแนวตั้งหรือแนวนอน
+                        if (width > height) {
+                            // แนวนอน: จำกัดความกว้าง
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            // แนวตั้ง: จำกัดความสูง
+                            if (height > maxHeight) {
+                                width = Math.round((width * maxHeight) / height);
+                                height = maxHeight;
+                            }
+                        }
+
+                        // สร้าง Canvas เพื่อย่อรูปภาพ
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // วาดภาพที่ย่อขนาดแล้วลงบน Canvas
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // ดึง Base64 จาก Canvas
+                        resolve({
+                            name: file.name,
+                            mimeType: file.type,
+                            base64: canvas.toDataURL(file.type, 0.8) // คุณภาพ 80% (0.8)
+                        });
+                    };
+                    img.onerror = (error) => reject(error);
+                };
+                reader.onerror = (error) => reject(error);
+            });
         }
 
         // ฟังก์ชันระบบค้นหาแบบ Real-time ของ DOS Terminal
