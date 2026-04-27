@@ -2377,14 +2377,15 @@
             }
 
             const mainMenus = globalPages.filter(p => p.parentId === "0").sort((a,b) => a.orderIndex - b.orderIndex);
-            let html = '';
+            let html = '<div id="main-menu-sortable" class="space-y-2">'; 
             
             mainMenus.forEach(menu => {
                 const subMenus = globalPages.filter(p => p.parentId === menu.id).sort((a,b) => a.orderIndex - b.orderIndex);
                 html += `
-                    <div class="border border-gray-200 rounded overflow-hidden">
+                    <div class="border border-gray-200 rounded overflow-hidden menu-item bg-white" data-id="${menu.id}">
                         <div class="bg-gray-50 p-2 flex justify-between items-center group">
                             <span class="font-medium cursor-pointer hover:text-school-blue flex items-center" onclick="openPageEditor('${menu.id}')">
+                                <i data-lucide="menu" class="w-4 h-4 mr-2 text-gray-400 cursor-grab active:cursor-grabbing hover:text-school-blue drag-handle-main" title="เลื่อนสลับตำแหน่ง"></i>
                                 <i data-lucide="folder" class="w-4 h-4 mr-2 text-school-brass"></i> ${menu.title}
                             </span>
                             <div class="flex gap-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -2392,22 +2393,84 @@
                                 <button onclick="deleteData('Pages', '${menu.id}')" title="ลบเมนูและหน้าเว็บ" class="p-1 text-red-600 hover:bg-red-50 rounded"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             </div>
                         </div>
-                        ${subMenus.length > 0 ? `
-                        <div class="bg-white border-t border-gray-100">
+                        
+                        <div class="submenu-sortable pb-1 min-h-[10px] ${subMenus.length > 0 ? 'border-t border-gray-100' : ''}" data-parent-id="${menu.id}">
                             ${subMenus.map(sub => `
-                                <div class="p-2 pl-8 flex justify-between items-center group border-b border-gray-50 last:border-0 hover:bg-blue-50 transition">
+                                <div class="p-2 pl-8 flex justify-between items-center group border-b border-gray-50 last:border-0 hover:bg-blue-50 transition submenu-item bg-white" data-id="${sub.id}">
                                     <span class="text-sm cursor-pointer text-gray-600 hover:text-school-blue flex items-center" onclick="openPageEditor('${sub.id}')">
+                                        <i data-lucide="menu" class="w-3.5 h-3.5 mr-2 text-gray-400 cursor-grab active:cursor-grabbing hover:text-school-blue drag-handle-sub" title="เลื่อนสลับตำแหน่ง"></i>
                                         <i data-lucide="file-text" class="w-3.5 h-3.5 mr-2 text-gray-400"></i> ${sub.title}
                                     </span>
                                     <button onclick="deleteData('Pages', '${sub.id}')" title="ลบ" class="p-1 text-red-600 hover:bg-red-50 rounded opacity-100 lg:opacity-0 group-hover:opacity-100 transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                                 </div>
                             `).join('')}
-                        </div>` : ''}
+                        </div>
                     </div>
                 `;
             });
+            html += '</div>';
             container.innerHTML = html;
             lucide.createIcons();
+
+            // เปิดใช้งาน SortableJS สำหรับเมนูหลัก
+            const elMain = document.getElementById('main-menu-sortable');
+            if (elMain) {
+                Sortable.create(elMain, {
+                    handle: '.drag-handle-main',
+                    animation: 150,
+                    onEnd: function () { saveMenuOrder(); }
+                });
+            }
+
+            // เปิดใช้งาน SortableJS สำหรับเมนูย่อย
+            const elSubs = document.querySelectorAll('.submenu-sortable');
+            elSubs.forEach(elSub => {
+                Sortable.create(elSub, {
+                    group: 'submenus', // กำหนด group เดียวกันเพื่อให้ลากข้ามเมนูหลักได้
+                    handle: '.drag-handle-sub',
+                    animation: 150,
+                    onEnd: function () { saveMenuOrder(); }
+                });
+            });
+        }
+
+        // ฟังก์ชันคำนวณลำดับใหม่และบันทึกลงฐานข้อมูลเมื่อปล่อยเมาส์
+        async function saveMenuOrder() {
+            let orderData = [];
+            
+            // ดึงลำดับเมนูหลัก
+            const mainItems = document.querySelectorAll('#main-menu-sortable > .menu-item');
+            mainItems.forEach((mainEl, mainIndex) => {
+                const mainId = mainEl.getAttribute('data-id');
+                orderData.push({ id: mainId, parentId: "0", orderIndex: mainIndex + 1 });
+                
+                // ดึงลำดับเมนูย่อยภายใต้เมนูหลักนี้
+                const subItems = mainEl.querySelectorAll('.submenu-sortable > .submenu-item');
+                subItems.forEach((subEl, subIndex) => {
+                    const subId = subEl.getAttribute('data-id');
+                    orderData.push({ id: subId, parentId: mainId, orderIndex: subIndex + 1 });
+                });
+            });
+
+            try {
+                const payload = { action: "save_menu_order", orderData: JSON.stringify(orderData) };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+                const data = await res.json();
+                
+                if (data.status === "success") {
+                    // อัปเดตข้อมูลในตัวแปรระบบทันทีเพื่อให้เมนูหน้าเว็บสลับตาม
+                    orderData.forEach(item => {
+                        const page = globalPages.find(p => p.id === item.id);
+                        if (page) {
+                            page.parentId = item.parentId;
+                            page.orderIndex = item.orderIndex;
+                        }
+                    });
+                    renderPublicMenu(); 
+                }
+            } catch(err) {
+                console.error("Sort Error: " + err);
+            }
         }
 
         // ระบบ Page Builder (หลังบ้าน)
