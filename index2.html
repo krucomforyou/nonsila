@@ -5106,6 +5106,15 @@
             return "";
         }
 
+        // ฟังก์ชันล้างสีไฮไลท์ช่องวันที่
+        window.removeCalHighlight = function() {
+            document.querySelectorAll('.cal-active-day').forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.borderColor = '';
+                el.classList.remove('cal-active-day');
+            });
+        };
+
 
         // ฟังก์ชันแสดงกล่องข้อความเล็กๆ (Tooltip) เมื่อคลิกที่วันที่
         function showDayEventsTooltip(dateStr, element, event) {
@@ -5118,21 +5127,17 @@
             
             // 1. ตรวจสอบว่าสิ่งที่คลิก มี "data-cal-date" (เป็นช่องวันที่ในตาราง) อยู่แล้วหรือไม่
             if (!element.hasAttribute('data-cal-date')) {
-                // 2. เช็คว่าคลิกมาจากกล่องของ "ปฏิทินเต็ม" หรือ "ปฏิทินย่อ"
                 const fullCalContainer = element.closest('#full-calendar-render');
                 const miniCalContainer = element.closest('.mini-calendar-render-target');
                 
                 if (fullCalContainer) {
-                    // ถ้าคลิกจากรายการกิจกรรมในปฏิทินเต็ม ให้เป้าหมายเป็นช่องวันที่ในปฏิทินเต็ม
                     const fullCalCell = fullCalContainer.querySelector(`[data-cal-date="${dateStr}"]`);
                     if (fullCalCell) targetElement = fullCalCell;
                 } else if (miniCalContainer) {
-                    // ถ้าคลิกจากรายการกิจกรรมในปฏิทินย่อ ให้เป้าหมายเป็นช่องวันที่ในปฏิทินย่อที่กำลังคลิกอยู่
                     const miniCalCell = miniCalContainer.querySelector(`[data-cal-date="${dateStr}"]`);
                     if (miniCalCell && miniCalCell.offsetParent !== null) {
                         targetElement = miniCalCell;
                     } else {
-                        // Fallback: เผื่อกรณีสลับจอ Responsive (Mobile/Desktop) แล้วหาไม่เจอ
                         const miniCalCells = document.querySelectorAll(`.mini-calendar-render-target [data-cal-date="${dateStr}"]`);
                         for (let cell of miniCalCells) {
                             if (cell.offsetParent !== null) { 
@@ -5143,6 +5148,9 @@
                     }
                 }
             }
+
+            // [ส่วนที่เพิ่ม] ล้างไฮไลท์เก่าออกก่อนเปิดกล่องใหม่
+            if (typeof window.removeCalHighlight === 'function') window.removeCalHighlight();
 
             const targetDate = new Date(dateStr).setHours(0,0,0,0);
             const dayEvents = globalCalendar.filter(ev => {
@@ -5179,10 +5187,11 @@
             }
             html += '</div>';
 
+            // [ส่วนที่เพิ่ม] ใส่คำสั่ง window.removeCalHighlight() ในปุ่มกากบาทปิด (x)
             tooltip.innerHTML = `
                 <div class="flex justify-between items-center mb-1 pb-1 border-b border-gray-100">
                     <span class="font-bold text-school-blue text-[11px]">${thaiDate}</span>
-                    <button onclick="document.getElementById('calendar-tooltip').remove()" class="text-gray-400 hover:text-red-500 bg-gray-50 rounded p-0.5 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
+                    <button onclick="document.getElementById('calendar-tooltip').remove(); window.removeCalHighlight();" class="text-gray-400 hover:text-red-500 bg-gray-50 rounded p-0.5 transition"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
                 ${html}
             `;
@@ -5190,25 +5199,30 @@
             document.body.appendChild(tooltip);
             if (typeof lucide !== 'undefined') lucide.createIcons({ root: tooltip });
 
+            // [ส่วนที่เพิ่ม] ไฮไลท์สีช่องวันที่ (ตรวจสอบว่าไม่ใช่วันปัจจุบัน)
+            const isToday = targetElement.classList.contains('bg-school-blue');
+            if (!isToday && targetElement) {
+                targetElement.style.backgroundColor = '#eff6ff'; // เปลี่ยนเป็นสีฟ้าอ่อน (Tailwind blue-50)
+                targetElement.style.borderColor = '#93c5fd';     // เปลี่ยนขอบเป็นสีฟ้า (Tailwind blue-300)
+                targetElement.classList.add('cal-active-day');
+            }
+
             // --- ส่วนคำนวณตำแหน่งและทิศทางของลูกศร ---
             const rect = targetElement.getBoundingClientRect();
             const tooltipWidth = tooltip.offsetWidth;
             const tooltipHeight = tooltip.offsetHeight;
             
-            // ปัดเศษเพื่อป้องกันรอยต่อบางๆ ของลูกศร
             let top = Math.round(rect.top + window.scrollY - tooltipHeight - 15);
             let targetCenterX = Math.round(rect.left + window.scrollX + (rect.width / 2));
             let left = Math.round(targetCenterX - (tooltipWidth / 2));
             
-            // ตรวจสอบว่ากล่องล้นขอบบนหรือไม่
             if (top < window.scrollY + 10) {
                 top = Math.round(rect.bottom + window.scrollY + 15);
-                tooltip.classList.add('tooltip-bottom'); // ลูกศรอยู่บน ชี้ขึ้น
+                tooltip.classList.add('tooltip-bottom'); 
             } else {
-                tooltip.classList.add('tooltip-top');    // ลูกศรอยู่ล่าง ชี้ลง
+                tooltip.classList.add('tooltip-top');    
             }
 
-            // ป้องกันกล่องข้อความล้นขอบจอซ้าย-ขวา
             if (left < 10) left = 10;
             if (left + tooltipWidth > window.innerWidth - 10) {
                 left = window.innerWidth - tooltipWidth - 10;
@@ -5217,10 +5231,8 @@
             tooltip.style.top = top + 'px';
             tooltip.style.left = left + 'px';
 
-            // คำนวณตำแหน่งของหางลูกศรเทียบกับตัวกล่อง
             let arrowOffset = Math.round(targetCenterX - left);
             
-            // ป้องกันไม่ให้หางลูกศรล้นทะลุความโค้งของขอบกล่อง
             if (arrowOffset < 20) arrowOffset = 20;
             if (arrowOffset > tooltipWidth - 20) arrowOffset = tooltipWidth - 20;
             
@@ -5230,6 +5242,8 @@
                 const closeTooltip = function(evt) {
                     if (!tooltip.contains(evt.target) && evt.target !== element && !element.contains(evt.target)) {
                         tooltip.remove();
+                        // [ส่วนที่เพิ่ม] ล้างไฮไลท์เมื่อคลิกพื้นที่ว่างเพื่อปิด
+                        if (typeof window.removeCalHighlight === 'function') window.removeCalHighlight();
                         document.removeEventListener('click', closeTooltip);
                     }
                 };
