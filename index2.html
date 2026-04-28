@@ -1337,14 +1337,8 @@
                                             <input type="checkbox" id="settings-show-marquee" class="w-4 h-4 text-school-blue rounded border-gray-300 focus:ring-school-blue">
                                             <label for="settings-show-marquee" class="ml-2 text-sm text-gray-800 font-bold">เปิดใช้งานข้อความประกาศ (ตัวหนังสือวิ่ง)</label>
                                         </div>
-                                        <div class="flex justify-between items-end mb-1">
-                                            <label class="block text-sm text-gray-700">ข้อความประกาศ (วิ่งสลับกัน)</label>
-                                            <button type="button" onclick="addMarqueeItem()" class="text-xs bg-blue-50 text-school-blue border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition flex items-center shadow-sm">
-                                                <i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มข้อความ
-                                            </button>
-                                        </div>
-                                        <div id="marquee-items-container" class="space-y-2 mb-3 border border-gray-200 p-2 rounded bg-white min-h-[50px]">
-                                            </div>
+                                        <label class="block text-sm text-gray-700 mb-1">ข้อความประกาศ</label>
+                                        <input type="text" id="settings-marquee-text" placeholder="พิมพ์ข้อความประกาศ..." class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue mb-3">
                                         
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
@@ -1719,11 +1713,7 @@
         let currentLightboxImages = []; 
         let currentLightboxIndex = 0; 
         let slideIntervalId = null;
-        let marqueeTimeoutId = null;
-        let publicMarqueeItems = [];
-        let currentMarqueeIndex = 0;
-        let marqueePosition = 0;
-        let isMarqueeInitialized = false; // เพิ่มตัวเช็คสถานะการเริ่ม
+        let marqueeTimeoutId = null; 
         let draggedStaffId = null; 
 
         let currentCalMonth = new Date().getMonth();
@@ -1791,41 +1781,6 @@
                 sidebar.classList.add('-translate-x-full');
                 overlay.classList.add('hidden');
             }
-        }
-
-        let marqueeItems = []; // ตัวแปรเก็บรายการข้อความวิ่ง
-
-        function renderMarqueeAdmin() {
-            const container = document.getElementById('marquee-items-container');
-            if(marqueeItems.length === 0) {
-                container.innerHTML = '<div class="text-center text-xs text-gray-400 py-2">ยังไม่มีข้อความประกาศ กดปุ่มเพิ่มข้อความด้านบน</div>';
-                return;
-            }
-            container.innerHTML = marqueeItems.map((item, index) => `
-                <div class="flex items-center gap-2 bg-gray-50 p-2 border border-gray-200 rounded">
-                    <div class="flex items-center gap-1 bg-white border border-gray-300 p-1 rounded shrink-0">
-                        <input type="checkbox" id="mq-new-${index}" ${item.isNew ? 'checked' : ''} onchange="updateMarqueeItem(${index}, 'isNew', this.checked)" class="w-4 h-4 text-red-500 rounded border-gray-300 focus:ring-red-500 cursor-pointer">
-                        <label for="mq-new-${index}" class="text-[9px] font-bold text-white bg-red-500 px-1 py-0.5 rounded cursor-pointer leading-none">NEW</label>
-                    </div>
-                    <input type="text" value="${item.text.replace(/"/g, '&quot;')}" oninput="updateMarqueeItem(${index}, 'text', this.value)" placeholder="พิมพ์ข้อความที่นี่..." class="flex-1 border border-gray-300 rounded p-1 text-sm focus:ring-school-blue focus:border-school-blue">
-                    <button type="button" onclick="removeMarqueeItem(${index})" class="text-red-500 hover:bg-red-50 p-1.5 rounded border border-transparent hover:border-red-200"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        function addMarqueeItem() {
-            marqueeItems.push({text: "", isNew: false});
-            renderMarqueeAdmin();
-        }
-
-        function updateMarqueeItem(index, key, value) {
-            marqueeItems[index][key] = value;
-        }
-
-        function removeMarqueeItem(index) {
-            marqueeItems.splice(index, 1);
-            renderMarqueeAdmin();
         }
 
         function fileToBase64(file) {
@@ -2011,6 +1966,21 @@
             const mc = document.getElementById('cropper-modal'); if(mc && !mc.classList.contains('hidden')) { if(e.key==='Escape') closeCropperModal(); }
         });
 
+        function playMarquee() {
+            const wrapper = document.getElementById('marquee-wrapper');
+            if (!wrapper) return;
+            clearTimeout(marqueeTimeoutId);
+            const speed = globalSettings.marqueeSpeed || 25;
+            const delay = (globalSettings.marqueeDelay || 0) * 1000;
+            wrapper.style.animation = 'none';
+            void wrapper.offsetWidth; 
+            wrapper.style.animation = `marquee-scroll ${speed}s linear forwards`;
+            wrapper.onanimationend = () => {
+                wrapper.style.animation = 'none'; 
+                if (delay > 0) marqueeTimeoutId = setTimeout(() => { playMarquee(); }, delay);
+                else playMarquee();
+            };
+        }
 
         function calculateNewBadge(items) {
             const daysLimit = parseInt(globalSettings.newBadgeDays) || 7;
@@ -2249,37 +2219,11 @@
             document.getElementById('public-director-name').innerText = globalSettings.directorName;
             document.getElementById('public-director-image').src = globalSettings.directorImage || 'https://placehold.co/200x260/e0e7ff/1a3a6e?text=Director';
 
-            // ส่วนของ Marquee Text
             const marqueeSec = document.getElementById('marquee-section');
             const marqueeText = document.getElementById('public-marquee-text');
-
             if(globalSettings.showMarquee && globalSettings.marqueeText && globalSettings.marqueeText.trim() !== '') {
-                marqueeSec.classList.remove('hidden'); 
-                
-                let newItems = [];
-                try {
-                    newItems = JSON.parse(globalSettings.marqueeText);
-                } catch(e) {
-                    newItems = [{text: globalSettings.marqueeText, isNew: false}];
-                }
-                
-                // อัปเดตรายการข้อความ
-                publicMarqueeItems = newItems;
-
-                // เริ่มการวิ่ง "ครั้งแรกครั้งเดียว" หรือเมื่อเพิ่งเปิดใช้งาน
-                if (!isMarqueeInitialized) {
-                    currentMarqueeIndex = 0;
-                    updateMarqueeTextDisplay();
-                    marqueePosition = marqueeSec.offsetWidth || window.innerWidth;
-                    isMarqueeInitialized = true;
-                    playMarquee();
-                }
-            } else { 
-                marqueeSec.classList.add('hidden'); 
-                clearTimeout(marqueeTimeoutId);
-                isMarqueeInitialized = false; 
-            }
-            
+                marqueeSec.classList.remove('hidden'); marqueeText.innerText = globalSettings.marqueeText; playMarquee(); 
+            } else { marqueeSec.classList.add('hidden'); clearTimeout(marqueeTimeoutId); }
 
             const bannerImg = document.getElementById('public-banner-img');
             if (globalSettings.showBanner) {
@@ -2368,53 +2312,6 @@
             else aann.innerHTML = globalAnnouncements.map((a, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-20 h-12 bg-gray-100 rounded overflow-hidden border border-gray-200 relative"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x200?text=No+Image'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3"><div class="text-gray-900 flex flex-col justify-center max-w-[150px] sm:max-w-xs md:max-w-md pr-2"><span class="truncate block w-full font-medium">${a.title}</span><span class="text-xs text-gray-400 truncate w-full">${a.link ? a.link : 'ไม่มีลิงก์'}</span></div></td><td class="px-4 py-3 whitespace-nowrap text-center">${a.isActive ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">เปิดแสดง</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ซ่อนอยู่</span>'}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editAnnouncement(${a.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Announcements', ${a.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
 
             lucide.createIcons();
-        }
-
-
-        function updateMarqueeTextDisplay() {
-            const marqueeText = document.getElementById('public-marquee-text');
-            if(!marqueeText || publicMarqueeItems.length === 0) return;
-
-            let item = publicMarqueeItems[currentMarqueeIndex];
-            if (!item) return;
-
-            let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
-            
-            // บังคับให้เป็น inline-block เพื่อให้คำนวณความกว้างและใช้ transform ได้
-            marqueeText.style.display = 'inline-block';
-            marqueeText.style.whiteSpace = 'nowrap';
-            marqueeText.innerHTML = `${badge}${item.text}`;
-        }
-
-        function playMarquee() {
-            clearTimeout(marqueeTimeoutId); 
-            
-            const marqueeSec = document.getElementById('marquee-section');
-            const marqueeText = document.getElementById('public-marquee-text');
-            
-            if (!marqueeSec || marqueeSec.classList.contains('hidden') || !marqueeText) return;
-
-            // ถ้ายังไม่ได้เริ่ม หรือความกว้างยังเป็น 0 (ยังโหลดไม่เสร็จ) ให้รอแป๊บหนึ่ง
-            if (marqueeText.offsetWidth === 0) {
-                marqueeTimeoutId = setTimeout(playMarquee, 100);
-                return;
-            }
-
-            marqueePosition -= 1.2; // ความเร็ว (ปรับเลขนี้ได้: น้อย=ช้า, มาก=เร็ว)
-            marqueeText.style.transform = `translateX(${marqueePosition}px)`;
-
-            // ถ้าวิ่งพ้นขอบซ้าย
-            if (marqueePosition < -marqueeText.offsetWidth) {
-                marqueePosition = marqueeSec.offsetWidth; // เริ่มใหม่ที่ขอบขวาของแถบ
-                
-                currentMarqueeIndex++;
-                if (currentMarqueeIndex >= publicMarqueeItems.length) {
-                    currentMarqueeIndex = 0; 
-                }
-                updateMarqueeTextDisplay(); 
-            }
-
-            marqueeTimeoutId = setTimeout(playMarquee, 16); // ประมาณ 60fps
         }
 
         // =============================================== PAGES & MENU BUILDER ===============================================
@@ -3986,14 +3883,7 @@
             document.getElementById('settings-school-name-en').value = globalSettings.schoolNameEN;
             document.getElementById('settings-school-affiliation').value = globalSettings.schoolAffiliation;
             document.getElementById('settings-director-name').value = globalSettings.directorName; 
-            try {
-                marqueeItems = JSON.parse(globalSettings.marqueeText);
-                if (!Array.isArray(marqueeItems)) throw new Error("Not array");
-            } catch(e) {
-                // รองรับข้อมูลแบบเก่าที่เป็นข้อความธรรมดา
-                marqueeItems = globalSettings.marqueeText && globalSettings.marqueeText.trim() !== "" ? [{text: globalSettings.marqueeText, isNew: false}] : [];
-            }
-            renderMarqueeAdmin();
+            document.getElementById('settings-marquee-text').value = globalSettings.marqueeText;
             document.getElementById('settings-show-marquee').checked = globalSettings.showMarquee;
             document.getElementById('settings-marquee-speed').value = globalSettings.marqueeSpeed;
             document.getElementById('settings-marquee-delay').value = globalSettings.marqueeDelay;
@@ -4194,8 +4084,7 @@
                     schoolNameEN: document.getElementById('settings-school-name-en').value,
                     schoolAffiliation: document.getElementById('settings-school-affiliation').value,
                     directorName: document.getElementById('settings-director-name').value, 
-                    // เก็บเฉพาะบรรทัดที่ผู้ใช้กรอกข้อความ ไม่บันทึกช่องว่าง
-                    marqueeText: JSON.stringify(marqueeItems.filter(item => item.text.trim() !== '')),
+                    marqueeText: document.getElementById('settings-marquee-text').value,
                     showMarquee: document.getElementById('settings-show-marquee').checked,
                     marqueeSpeed: Number(document.getElementById('settings-marquee-speed').value) || 25,
                     marqueeDelay: Number(document.getElementById('settings-marquee-delay').value) || 0,
