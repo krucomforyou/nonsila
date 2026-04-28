@@ -403,7 +403,7 @@
                 <div class="flex flex-col lg:flex-row gap-6">
                     
                     <!-- ================= คอลัมน์ซ้าย (Left Column) ================= -->
-                    <aside class="contents lg:flex w-full lg:w-[23%] flex-col gap-4">
+                    <aside class="contents lg:flex w-full lg:w-[23%] flex-col gap-4 min-w-0">
                         <div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden order-3 lg:order-none w-full">
                             <div class="bg-school-navy text-white border-l-4 border-school-brassLight py-3 px-4 flex items-center font-bold font-serif text-lg">
                                 <i data-lucide="user" class="w-5 h-5 mr-2 text-school-brassLight"></i> ผู้บริหาร
@@ -438,7 +438,7 @@
                     </aside>
 
                     <!-- ================= คอลัมน์กลาง (Center Content) ================= -->
-                    <section class="w-full lg:w-[54%] flex flex-col gap-6 order-1 lg:order-none relative">
+                    <section class="w-full lg:w-[54%] flex flex-col gap-6 order-1 lg:order-none relative min-w-0">
                         
                         <!-- ================= ส่วนแสดงหน้าเว็บแบบกำหนดเอง (Custom Page View) ================= -->
                         <div id="custom-page-view" class="hidden bg-white border border-gray-200 rounded shadow-sm overflow-hidden flex-col min-h-[80vh]">
@@ -706,7 +706,7 @@
                     </section>
 
                     <!-- ================= คอลัมน์ขวา (Right Column) ================= -->
-                    <aside class="w-full lg:w-[23%] flex flex-col gap-4 order-4 lg:order-none">
+                    <aside class="w-full lg:w-[23%] flex flex-col gap-4 order-4 lg:order-none min-w-0">
                         
                         <div class="bg-white border border-gray-200 rounded shadow-sm overflow-hidden" id="login-widget-container">
                             <div class="bg-school-navy text-white border-l-4 border-school-brassLight py-3 px-4 flex items-center justify-center font-bold font-serif text-lg text-center">
@@ -1719,7 +1719,11 @@
         let currentLightboxImages = []; 
         let currentLightboxIndex = 0; 
         let slideIntervalId = null;
-        let marqueeTimeoutId = null; 
+        let marqueeTimeoutId = null;
+        let publicMarqueeItems = [];
+        let currentMarqueeIndex = 0;
+        let marqueePosition = 0;
+        let isMarqueeInitialized = false; // เพิ่มตัวเช็คสถานะการเริ่ม
         let draggedStaffId = null; 
 
         let currentCalMonth = new Date().getMonth();
@@ -2007,21 +2011,6 @@
             const mc = document.getElementById('cropper-modal'); if(mc && !mc.classList.contains('hidden')) { if(e.key==='Escape') closeCropperModal(); }
         });
 
-        function playMarquee() {
-            const wrapper = document.getElementById('marquee-wrapper');
-            if (!wrapper) return;
-            clearTimeout(marqueeTimeoutId);
-            const speed = globalSettings.marqueeSpeed || 25;
-            const delay = (globalSettings.marqueeDelay || 0) * 1000;
-            wrapper.style.animation = 'none';
-            void wrapper.offsetWidth; 
-            wrapper.style.animation = `marquee-scroll ${speed}s linear forwards`;
-            wrapper.onanimationend = () => {
-                wrapper.style.animation = 'none'; 
-                if (delay > 0) marqueeTimeoutId = setTimeout(() => { playMarquee(); }, delay);
-                else playMarquee();
-            };
-        }
 
         function calculateNewBadge(items) {
             const daysLimit = parseInt(globalSettings.newBadgeDays) || 7;
@@ -2260,30 +2249,37 @@
             document.getElementById('public-director-name').innerText = globalSettings.directorName;
             document.getElementById('public-director-image').src = globalSettings.directorImage || 'https://placehold.co/200x260/e0e7ff/1a3a6e?text=Director';
 
+            // ส่วนของ Marquee Text
             const marqueeSec = document.getElementById('marquee-section');
             const marqueeText = document.getElementById('public-marquee-text');
+
             if(globalSettings.showMarquee && globalSettings.marqueeText && globalSettings.marqueeText.trim() !== '') {
                 marqueeSec.classList.remove('hidden'); 
                 
-                let items = [];
+                let newItems = [];
                 try {
-                    items = JSON.parse(globalSettings.marqueeText);
-                    if(!Array.isArray(items)) throw new Error("Not array");
+                    newItems = JSON.parse(globalSettings.marqueeText);
                 } catch(e) {
-                    items = [{text: globalSettings.marqueeText, isNew: false}];
+                    newItems = [{text: globalSettings.marqueeText, isNew: false}];
                 }
                 
-                // เรียงข้อความและใส่ป้าย NEW
-                marqueeText.innerHTML = items.map(item => {
-                    let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mx-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
-                    return `<span>${badge}${item.text}</span>`;
-                }).join('<span class="mx-4 text-school-brass opacity-50">|</span>'); 
-                
-                playMarquee(); 
+                // อัปเดตรายการข้อความ
+                publicMarqueeItems = newItems;
+
+                // เริ่มการวิ่ง "ครั้งแรกครั้งเดียว" หรือเมื่อเพิ่งเปิดใช้งาน
+                if (!isMarqueeInitialized) {
+                    currentMarqueeIndex = 0;
+                    updateMarqueeTextDisplay();
+                    marqueePosition = marqueeSec.offsetWidth || window.innerWidth;
+                    isMarqueeInitialized = true;
+                    playMarquee();
+                }
             } else { 
                 marqueeSec.classList.add('hidden'); 
-                clearTimeout(marqueeTimeoutId); 
+                clearTimeout(marqueeTimeoutId);
+                isMarqueeInitialized = false; 
             }
+            
 
             const bannerImg = document.getElementById('public-banner-img');
             if (globalSettings.showBanner) {
@@ -2372,6 +2368,53 @@
             else aann.innerHTML = globalAnnouncements.map((a, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-20 h-12 bg-gray-100 rounded overflow-hidden border border-gray-200 relative"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x200?text=No+Image'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3"><div class="text-gray-900 flex flex-col justify-center max-w-[150px] sm:max-w-xs md:max-w-md pr-2"><span class="truncate block w-full font-medium">${a.title}</span><span class="text-xs text-gray-400 truncate w-full">${a.link ? a.link : 'ไม่มีลิงก์'}</span></div></td><td class="px-4 py-3 whitespace-nowrap text-center">${a.isActive ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">เปิดแสดง</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ซ่อนอยู่</span>'}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editAnnouncement(${a.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Announcements', ${a.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
 
             lucide.createIcons();
+        }
+
+
+        function updateMarqueeTextDisplay() {
+            const marqueeText = document.getElementById('public-marquee-text');
+            if(!marqueeText || publicMarqueeItems.length === 0) return;
+
+            let item = publicMarqueeItems[currentMarqueeIndex];
+            if (!item) return;
+
+            let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
+            
+            // บังคับให้เป็น inline-block เพื่อให้คำนวณความกว้างและใช้ transform ได้
+            marqueeText.style.display = 'inline-block';
+            marqueeText.style.whiteSpace = 'nowrap';
+            marqueeText.innerHTML = `${badge}${item.text}`;
+        }
+
+        function playMarquee() {
+            clearTimeout(marqueeTimeoutId); 
+            
+            const marqueeSec = document.getElementById('marquee-section');
+            const marqueeText = document.getElementById('public-marquee-text');
+            
+            if (!marqueeSec || marqueeSec.classList.contains('hidden') || !marqueeText) return;
+
+            // ถ้ายังไม่ได้เริ่ม หรือความกว้างยังเป็น 0 (ยังโหลดไม่เสร็จ) ให้รอแป๊บหนึ่ง
+            if (marqueeText.offsetWidth === 0) {
+                marqueeTimeoutId = setTimeout(playMarquee, 100);
+                return;
+            }
+
+            marqueePosition -= 1.2; // ความเร็ว (ปรับเลขนี้ได้: น้อย=ช้า, มาก=เร็ว)
+            marqueeText.style.transform = `translateX(${marqueePosition}px)`;
+
+            // ถ้าวิ่งพ้นขอบซ้าย
+            if (marqueePosition < -marqueeText.offsetWidth) {
+                marqueePosition = marqueeSec.offsetWidth; // เริ่มใหม่ที่ขอบขวาของแถบ
+                
+                currentMarqueeIndex++;
+                if (currentMarqueeIndex >= publicMarqueeItems.length) {
+                    currentMarqueeIndex = 0; 
+                }
+                updateMarqueeTextDisplay(); 
+            }
+
+            marqueeTimeoutId = setTimeout(playMarquee, 16); // ประมาณ 60fps
         }
 
         // =============================================== PAGES & MENU BUILDER ===============================================
@@ -5494,9 +5537,9 @@
                                 <p class="text-xs font-bold text-gray-800 truncate mb-1">
                                     <span>${ev.title}</span>
                                 </p>
-                                <div class="text-[10px] text-gray-500 flex flex-wrap items-center gap-1">
-                                    <span>${dateStr}</span>
-                                    ${countdown ? `${countdown}` : ''}
+                                <div class="text-[10px] text-gray-500 flex flex-wrap gap-x-1 gap-y-0.5 leading-tight w-full">
+                                    <span class="break-words max-w-full">${dateStr}</span>
+                                    ${countdown ? `<span class="whitespace-nowrap shrink-0">${countdown}</span>` : ''}
                                 </div>
                             </div>
                         </div>
