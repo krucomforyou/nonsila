@@ -1337,8 +1337,14 @@
                                             <input type="checkbox" id="settings-show-marquee" class="w-4 h-4 text-school-blue rounded border-gray-300 focus:ring-school-blue">
                                             <label for="settings-show-marquee" class="ml-2 text-sm text-gray-800 font-bold">เปิดใช้งานข้อความประกาศ (ตัวหนังสือวิ่ง)</label>
                                         </div>
-                                        <label class="block text-sm text-gray-700 mb-1">ข้อความประกาศ</label>
-                                        <input type="text" id="settings-marquee-text" placeholder="พิมพ์ข้อความประกาศ..." class="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-school-blue focus:border-school-blue mb-3">
+                                        <div class="flex justify-between items-end mb-1">
+                                            <label class="block text-sm text-gray-700">ข้อความประกาศ (วิ่งสลับกัน)</label>
+                                            <button type="button" onclick="addMarqueeItem()" class="text-xs bg-blue-50 text-school-blue border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 transition flex items-center shadow-sm">
+                                                <i data-lucide="plus" class="w-3 h-3 mr-1"></i> เพิ่มข้อความ
+                                            </button>
+                                        </div>
+                                        <div id="marquee-items-container" class="space-y-2 mb-3 border border-gray-200 p-2 rounded bg-white min-h-[50px]">
+                                            </div>
                                         
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
@@ -1783,6 +1789,41 @@
             }
         }
 
+        let marqueeItems = []; // ตัวแปรเก็บรายการข้อความวิ่ง
+
+        function renderMarqueeAdmin() {
+            const container = document.getElementById('marquee-items-container');
+            if(marqueeItems.length === 0) {
+                container.innerHTML = '<div class="text-center text-xs text-gray-400 py-2">ยังไม่มีข้อความประกาศ กดปุ่มเพิ่มข้อความด้านบน</div>';
+                return;
+            }
+            container.innerHTML = marqueeItems.map((item, index) => `
+                <div class="flex items-center gap-2 bg-gray-50 p-2 border border-gray-200 rounded">
+                    <div class="flex items-center gap-1 bg-white border border-gray-300 p-1 rounded shrink-0">
+                        <input type="checkbox" id="mq-new-${index}" ${item.isNew ? 'checked' : ''} onchange="updateMarqueeItem(${index}, 'isNew', this.checked)" class="w-4 h-4 text-red-500 rounded border-gray-300 focus:ring-red-500 cursor-pointer">
+                        <label for="mq-new-${index}" class="text-[9px] font-bold text-white bg-red-500 px-1 py-0.5 rounded cursor-pointer leading-none">NEW</label>
+                    </div>
+                    <input type="text" value="${item.text.replace(/"/g, '&quot;')}" oninput="updateMarqueeItem(${index}, 'text', this.value)" placeholder="พิมพ์ข้อความที่นี่..." class="flex-1 border border-gray-300 rounded p-1 text-sm focus:ring-school-blue focus:border-school-blue">
+                    <button type="button" onclick="removeMarqueeItem(${index})" class="text-red-500 hover:bg-red-50 p-1.5 rounded border border-transparent hover:border-red-200"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function addMarqueeItem() {
+            marqueeItems.push({text: "", isNew: false});
+            renderMarqueeAdmin();
+        }
+
+        function updateMarqueeItem(index, key, value) {
+            marqueeItems[index][key] = value;
+        }
+
+        function removeMarqueeItem(index) {
+            marqueeItems.splice(index, 1);
+            renderMarqueeAdmin();
+        }
+
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader(); reader.readAsDataURL(file);
@@ -2222,8 +2263,27 @@
             const marqueeSec = document.getElementById('marquee-section');
             const marqueeText = document.getElementById('public-marquee-text');
             if(globalSettings.showMarquee && globalSettings.marqueeText && globalSettings.marqueeText.trim() !== '') {
-                marqueeSec.classList.remove('hidden'); marqueeText.innerText = globalSettings.marqueeText; playMarquee(); 
-            } else { marqueeSec.classList.add('hidden'); clearTimeout(marqueeTimeoutId); }
+                marqueeSec.classList.remove('hidden'); 
+                
+                let items = [];
+                try {
+                    items = JSON.parse(globalSettings.marqueeText);
+                    if(!Array.isArray(items)) throw new Error("Not array");
+                } catch(e) {
+                    items = [{text: globalSettings.marqueeText, isNew: false}];
+                }
+                
+                // เรียงข้อความและใส่ป้าย NEW
+                marqueeText.innerHTML = items.map(item => {
+                    let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mx-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
+                    return `<span>${badge}${item.text}</span>`;
+                }).join('<span class="mx-4 text-school-brass opacity-50">|</span>'); 
+                
+                playMarquee(); 
+            } else { 
+                marqueeSec.classList.add('hidden'); 
+                clearTimeout(marqueeTimeoutId); 
+            }
 
             const bannerImg = document.getElementById('public-banner-img');
             if (globalSettings.showBanner) {
@@ -3883,7 +3943,14 @@
             document.getElementById('settings-school-name-en').value = globalSettings.schoolNameEN;
             document.getElementById('settings-school-affiliation').value = globalSettings.schoolAffiliation;
             document.getElementById('settings-director-name').value = globalSettings.directorName; 
-            document.getElementById('settings-marquee-text').value = globalSettings.marqueeText;
+            try {
+                marqueeItems = JSON.parse(globalSettings.marqueeText);
+                if (!Array.isArray(marqueeItems)) throw new Error("Not array");
+            } catch(e) {
+                // รองรับข้อมูลแบบเก่าที่เป็นข้อความธรรมดา
+                marqueeItems = globalSettings.marqueeText && globalSettings.marqueeText.trim() !== "" ? [{text: globalSettings.marqueeText, isNew: false}] : [];
+            }
+            renderMarqueeAdmin();
             document.getElementById('settings-show-marquee').checked = globalSettings.showMarquee;
             document.getElementById('settings-marquee-speed').value = globalSettings.marqueeSpeed;
             document.getElementById('settings-marquee-delay').value = globalSettings.marqueeDelay;
@@ -4084,7 +4151,8 @@
                     schoolNameEN: document.getElementById('settings-school-name-en').value,
                     schoolAffiliation: document.getElementById('settings-school-affiliation').value,
                     directorName: document.getElementById('settings-director-name').value, 
-                    marqueeText: document.getElementById('settings-marquee-text').value,
+                    // เก็บเฉพาะบรรทัดที่ผู้ใช้กรอกข้อความ ไม่บันทึกช่องว่าง
+                    marqueeText: JSON.stringify(marqueeItems.filter(item => item.text.trim() !== '')),
                     showMarquee: document.getElementById('settings-show-marquee').checked,
                     marqueeSpeed: Number(document.getElementById('settings-marquee-speed').value) || 25,
                     marqueeDelay: Number(document.getElementById('settings-marquee-delay').value) || 0,
