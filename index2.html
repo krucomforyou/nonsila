@@ -1719,7 +1719,10 @@
         let currentLightboxImages = []; 
         let currentLightboxIndex = 0; 
         let slideIntervalId = null;
-        let marqueeTimeoutId = null; 
+        let marqueeTimeoutId = null;
+        let publicMarqueeItems = [];
+        let currentMarqueeIndex = 0;
+        let marqueePosition = window.innerWidth;
         let draggedStaffId = null; 
 
         let currentCalMonth = new Date().getMonth();
@@ -2008,19 +2011,33 @@
         });
 
         function playMarquee() {
-            const wrapper = document.getElementById('marquee-wrapper');
-            if (!wrapper) return;
-            clearTimeout(marqueeTimeoutId);
-            const speed = globalSettings.marqueeSpeed || 25;
-            const delay = (globalSettings.marqueeDelay || 0) * 1000;
-            wrapper.style.animation = 'none';
-            void wrapper.offsetWidth; 
-            wrapper.style.animation = `marquee-scroll ${speed}s linear forwards`;
-            wrapper.onanimationend = () => {
-                wrapper.style.animation = 'none'; 
-                if (delay > 0) marqueeTimeoutId = setTimeout(() => { playMarquee(); }, delay);
-                else playMarquee();
-            };
+            // หยุดการทำงานซ้อนทับกัน
+            clearTimeout(marqueeTimeoutId); 
+            
+            if (!marqueeSec || marqueeSec.classList.contains('hidden')) return;
+
+            // ขยับข้อความไปทางซ้าย (ปรับเลข 1.5 ให้มากเพื่อวิ่งเร็วขึ้น หรือน้อยลงเพื่อวิ่งช้าลง)
+            marqueePosition -= 1.5; 
+            marqueeText.style.transform = `translateX(${marqueePosition}px)`;
+
+            // เช็คว่าข้อความวิ่งพ้นหน้าจอฝั่งซ้ายไปหมดหรือยัง
+            if (marqueePosition < -marqueeText.offsetWidth) {
+                // ดึงกลับมาเริ่มต้นที่ขอบจอฝั่งขวา
+                marqueePosition = marqueeSec.offsetWidth || window.innerWidth;
+                
+                // เลื่อนไปข้อความถัดไป
+                currentMarqueeIndex++;
+                
+                // ถ้ารันครบทุกข้อความแล้ว ให้กลับไปข้อความแรกใหม่
+                if (currentMarqueeIndex >= publicMarqueeItems.length) {
+                    currentMarqueeIndex = 0; 
+                }
+                // สลับข้อความบนหน้าจอ
+                updateMarqueeTextDisplay(); 
+            }
+
+            // สั่งให้วนลูปวิ่งต่อไป
+            marqueeTimeoutId = setTimeout(playMarquee, 15);
         }
 
         function calculateNewBadge(items) {
@@ -2265,25 +2282,26 @@
             if(globalSettings.showMarquee && globalSettings.marqueeText && globalSettings.marqueeText.trim() !== '') {
                 marqueeSec.classList.remove('hidden'); 
                 
-                let items = [];
                 try {
-                    items = JSON.parse(globalSettings.marqueeText);
-                    if(!Array.isArray(items)) throw new Error("Not array");
+                    publicMarqueeItems = JSON.parse(globalSettings.marqueeText);
+                    if(!Array.isArray(publicMarqueeItems)) throw new Error("Not array");
                 } catch(e) {
-                    items = [{text: globalSettings.marqueeText, isNew: false}];
+                    publicMarqueeItems = [{text: globalSettings.marqueeText, isNew: false}];
                 }
                 
-                // เรียงข้อความและใส่ป้าย NEW
-                marqueeText.innerHTML = items.map(item => {
-                    let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mx-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
-                    return `<span>${badge}${item.text}</span>`;
-                }).join('<span class="mx-4 text-school-brass opacity-50">|</span>'); 
+                // ตั้งค่าเริ่มต้น
+                currentMarqueeIndex = 0;
+                marqueePosition = marqueeSec.offsetWidth || window.innerWidth; 
+                
+                // เรียกใช้ฟังก์ชันอัปเดตข้อความ
+                updateMarqueeTextDisplay();
                 
                 playMarquee(); 
             } else { 
                 marqueeSec.classList.add('hidden'); 
                 clearTimeout(marqueeTimeoutId); 
             }
+            
 
             const bannerImg = document.getElementById('public-banner-img');
             if (globalSettings.showBanner) {
@@ -2372,6 +2390,15 @@
             else aann.innerHTML = globalAnnouncements.map((a, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-3 whitespace-nowrap text-gray-500 text-center">${i+1}</td><td class="px-4 py-3 whitespace-nowrap"><div class="w-20 h-12 bg-gray-100 rounded overflow-hidden border border-gray-200 relative"><img src="${(a.img||'').split(',')[0] || 'https://placehold.co/400x200?text=No+Image'}" class="w-full h-full object-cover"></div></td><td class="px-4 py-3"><div class="text-gray-900 flex flex-col justify-center max-w-[150px] sm:max-w-xs md:max-w-md pr-2"><span class="truncate block w-full font-medium">${a.title}</span><span class="text-xs text-gray-400 truncate w-full">${a.link ? a.link : 'ไม่มีลิงก์'}</span></div></td><td class="px-4 py-3 whitespace-nowrap text-center">${a.isActive ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">เปิดแสดง</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">ซ่อนอยู่</span>'}</td>${isAdmin ? `<td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium"><button onclick="editAnnouncement(${a.id})" class="text-blue-600 hover:text-blue-900 mr-3">แก้ไข</button><button onclick="deleteData('Announcements', ${a.id})" class="text-red-600 hover:text-red-900">ลบ</button></td>` : '<td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-400">-</td>'}</tr>`).join('');
 
             lucide.createIcons();
+        }
+
+
+        function updateMarqueeTextDisplay() {
+            if(publicMarqueeItems.length === 0) return;
+            let item = publicMarqueeItems[currentMarqueeIndex];
+            let badge = item.isNew ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded mr-2 shadow-sm animate-pulse relative -top-[1px]">NEW</span>' : '';
+            // แสดงเฉพาะข้อความของรอบนั้นๆ
+            marqueeText.innerHTML = `<span class="whitespace-nowrap">${badge}${item.text}</span>`;
         }
 
         // =============================================== PAGES & MENU BUILDER ===============================================
