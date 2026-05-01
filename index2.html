@@ -2781,6 +2781,10 @@
                         // บันทึกตั้งค่า ID และ ชื่อชีต เพื่อใช้อัพเดทในอนาคต
                         block.linkedSheetId = sheetId;
                         block.linkedSheetName = result.sheetNameFetched;
+
+                        block.isSingleCellMapping = false;
+                        block.cellMappings = {};
+
                         renderPageBlocks();
                         showAlert('success', 'ดึงข้อมูลสำเร็จ', `ดึงข้อมูลจากชีต <b>"${result.sheetNameFetched}"</b> มาจำนวน ${newRows.length} แถว เรียบร้อยแล้ว`);
                     }
@@ -2847,14 +2851,169 @@
             }
         }
 
+
+        window.linkSingleCell = async function(blockId, rIndex, colKey) {
+            // ซิงก์ข้อมูลจากบรรทัดอื่นก่อนเปลี่ยน UI ป้องกันข้อความหาย
+            syncQuillToData(blockId);
+
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            if (!block) return;
+
+            // 1. ถ้าบล็อกนี้ยังไม่มี Sheet ID ให้ถามก่อน
+            if (!block.linkedSheetId) {
+                const { value: sheetId } = await Swal.fire({
+                    title: 'ระบุ Google Sheet ID',
+                    input: 'text',
+                    inputPlaceholder: 'ใส่ Sheet ID ที่นี่...',
+                    showCancelButton: true,
+                    confirmButtonText: 'ถัดไป',
+                    cancelButtonText: 'ยกเลิก',
+                    ...swalTheme
+                });
+                if (!sheetId) return;
+
+                Swal.fire({ title: 'กำลังค้นหาแผ่นงาน...', didOpen: () => Swal.showLoading(), ...swalTheme });
+                try {
+                    const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "get_sheet_names", sheetId: sheetId.trim() }) });
+                    const result = await res.json();
+                    if (result.status !== "success") throw new Error(result.message);
+
+                    const optionsHtml = result.sheetNames.map(name => `<option value="${name}">${name}</option>`).join('');
+                    const { value: sheetName } = await Swal.fire({
+                        title: 'เลือกแผ่นงาน (Sheet)',
+                        html: `<div class="text-left"><select id="swal-sheet-select" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:border-school-blue mt-2">${optionsHtml}</select></div>`,
+                        showCancelButton: true,
+                        confirmButtonText: 'ตกลง',
+                        cancelButtonText: 'ยกเลิก',
+                        preConfirm: () => document.getElementById('swal-sheet-select').value,
+                        ...swalTheme
+                    });
+                    if (!sheetName) return;
+
+                    block.linkedSheetId = sheetId.trim();
+                    block.linkedSheetName = sheetName;
+                } catch(err) {
+                    showAlert('error', 'ผิดพลาด', err.message);
+                    return;
+                }
+            }
+
+            const currentMapping = (block.cellMappings && block.cellMappings[`${rIndex}_${colKey}`]) ? block.cellMappings[`${rIndex}_${colKey}`] : '';
+
+            // 2. ถามชื่อเซลล์ (เช่น B2, C5)
+            const { value: cellAddress } = await Swal.fire({
+                title: 'ระบุเซลล์ที่ต้องการดึง (1 ช่อง)',
+                input: 'text',
+                inputValue: currentMapping,
+                inputLabel: `เชื่อมโยงจากชีต: ${block.linkedSheetName}`,
+                inputPlaceholder: 'เช่น B2, C5 (ลบข้อความออกเพื่อยกเลิกการลิงก์)',
+                showCancelButton: true,
+                confirmButtonText: 'ดึงข้อมูล',
+                cancelButtonText: 'ยกเลิก',
+                ...swalTheme
+            });
+
+            if (cellAddress !== undefined) {
+                if (!block.cellMappings) block.cellMappings = {};
+                
+                if (cellAddress.trim() === "") {
+                    // ยกเลิกการลิงก์ช่องนี้
+                    delete block.cellMappings[`${rIndex}_${colKey}`];
+                    renderPageBlocks();
+                } else {
+                    // บันทึกการลิงก์ และดึงข้อมูลทันที
+                    block.cellMappings[`${rIndex}_${colKey}`] = cellAddress.trim().toUpperCase();
+                    block.isSingleCellMapping = true;
+                    await fetchAndApplySingleCell(blockId, rIndex, colKey, cellAddress.trim().toUpperCase());
+                }
+            }
+        };
+
+        window.fetchAndApplySingleCell = async function(blockId, rIndex, colKey, cellAddress) {
+            Swal.fire({ title: 'กำลังดึงข้อมูลเซลล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), ...swalTheme });
+            let block = currentPageBlocks.find(b => b.id === blockId);
+            try {
+                const res = await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "get_multiple_cells",
+                        sheetId: block.linkedSheetId,
+                        sheetName: block.linkedSheetName,
+                        cells: [cellAddress]
+                    })
+                });
+                const result = await res.json();
+                if (result.status === "success") {
+                    let val = result.data[cellAddress] || "";
+                    let htmlVal = `<p class="ql-align-center"><strong>${val}</strong></p>`; // จัดกึ่งกลาง+ตัวหนาให้เน้นตัวเลข
+                    
+                    let editorKey = `${blockId}_${rIndex}_${colKey}`;
+                    if (quillEditors[editorKey]) {
+                        quillEditors[editorKey].root.innerHTML = htmlVal;
+                        block.rows[rIndex][colKey] = htmlVal; 
+                    } else {
+                        block.rows[rIndex][colKey] = htmlVal;
+                    }
+                    renderPageBlocks();
+                    Swal.close();
+                } else { throw new Error(result.message); }
+            } catch(err) {
+                showAlert('error', 'ผิดพลาด', err.message);
+            }
+        };
+
+
         // ==========================================
         // 3. ฟังก์ชันสำหรับปุ่ม "อัพเดทข้อมูล"
         // ==========================================
         async function updateFromLinkedSheet(blockId, maxCols) {
+            syncQuillToData(blockId); // ซิงก์ข้อมูลก่อนกดอัปเดต
             const block = currentPageBlocks.find(b => b.id === blockId);
             if (!block || !block.linkedSheetId) return;
-            
-            await executeSheetDataFetch(blockId, maxCols, block.linkedSheetId, block.linkedSheetName);
+
+            // กรณีลิงก์แบบทีละเซลล์ (ข้อมูลนักเรียน)
+            if (block.isSingleCellMapping && block.cellMappings && Object.keys(block.cellMappings).length > 0) {
+                Swal.fire({ title: 'กำลังอัพเดทข้อมูลเซลล์ทั้งหมด...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), ...swalTheme });
+                const cellsToFetch = Object.values(block.cellMappings);
+
+                try {
+                    const res = await fetch(SCRIPT_URL, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            action: "get_multiple_cells",
+                            sheetId: block.linkedSheetId,
+                            sheetName: block.linkedSheetName,
+                            cells: cellsToFetch
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        // อัปเดตข้อมูลทีละช่องตาม Mapping
+                        Object.keys(block.cellMappings).forEach(mappingKey => {
+                            let cellAddr = block.cellMappings[mappingKey];
+                            let val = result.data[cellAddr] || "";
+                            let htmlVal = `<p class="ql-align-center"><strong>${val}</strong></p>`;
+                            let [rIdxStr, colKey] = mappingKey.split('_');
+                            let rIndex = parseInt(rIdxStr);
+                            
+                            let editorKey = `${blockId}_${rIndex}_${colKey}`;
+                            if (quillEditors[editorKey]) {
+                                quillEditors[editorKey].root.innerHTML = htmlVal;
+                                block.rows[rIndex][colKey] = htmlVal;
+                            } else {
+                                if(block.rows[rIndex]) block.rows[rIndex][colKey] = htmlVal;
+                            }
+                        });
+                        renderPageBlocks();
+                        showAlert('success', 'อัพเดทสำเร็จ', 'ดึงข้อมูลล่าสุดครบทุกเซลล์เรียบร้อยแล้ว');
+                    } else { throw new Error(result.message); }
+                } catch(err) {
+                    showAlert('error', 'ผิดพลาด', err.message);
+                }
+            } else {
+                // กรณีดึงข้อมูลตารางแบบเก่า (แทนที่ทั้งหมด)
+                await executeSheetDataFetch(blockId, maxCols, block.linkedSheetId, block.linkedSheetName);
+            }
         }
 
 
@@ -3001,11 +3160,19 @@
                                     <i data-lucide="grip-vertical" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                                 </div>
 
-                                <div class="${wLeft} bg-white border border-gray-300 rounded flex flex-col">
+                                <div class="${wLeft} bg-white border border-gray-300 rounded flex flex-col relative group/cell">
+                                    <div class="absolute top-1 right-1 z-10 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                        <button type="button" onclick="linkSingleCell('${block.id}', ${rIndex}, 'left')" class="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded shadow-sm hover:bg-indigo-100 flex items-center"><i data-lucide="link" class="w-3 h-3 mr-1"></i> ดึงเซลล์</button>
+                                    </div>
                                     <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="left" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.left || ''}</div>
+                                    ${block.cellMappings && block.cellMappings[`${rIndex}_left`] ? `<div class="bg-indigo-100 text-indigo-800 text-[10px] px-1 py-0.5 text-center border-t border-indigo-200 font-bold flex justify-center items-center"><i data-lucide="database" class="w-3 h-3 mr-1"></i> ดึงจาก: ${block.cellMappings[`${rIndex}_left`]}</div>` : ''}
                                 </div>
-                                <div class="${wRight} bg-white border border-gray-300 rounded flex flex-col">
+                                <div class="${wRight} bg-white border border-gray-300 rounded flex flex-col relative group/cell">
+                                    <div class="absolute top-1 right-1 z-10 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                        <button type="button" onclick="linkSingleCell('${block.id}', ${rIndex}, 'right')" class="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded shadow-sm hover:bg-indigo-100 flex items-center"><i data-lucide="link" class="w-3 h-3 mr-1"></i> ดึงเซลล์</button>
+                                    </div>
                                     <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="right" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.right || ''}</div>
+                                    ${block.cellMappings && block.cellMappings[`${rIndex}_right`] ? `<div class="bg-indigo-100 text-indigo-800 text-[10px] px-1 py-0.5 text-center border-t border-indigo-200 font-bold flex justify-center items-center"><i data-lucide="database" class="w-3 h-3 mr-1"></i> ดึงจาก: ${block.cellMappings[`${rIndex}_right`]}</div>` : ''}
                                 </div>
                                 
                                 <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded shrink-0 self-start mt-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -3072,14 +3239,26 @@
                                     <i data-lucide="grip-vertical" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
                                 </div>
 
-                                <div class="${wC1} bg-white border border-gray-300 rounded flex flex-col">
+                                <div class="${wC1} bg-white border border-gray-300 rounded flex flex-col relative group/cell">
+                                    <div class="absolute top-1 right-1 z-10 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                        <button type="button" onclick="linkSingleCell('${block.id}', ${rIndex}, 'col1')" class="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded shadow-sm hover:bg-indigo-100 flex items-center"><i data-lucide="link" class="w-3 h-3 mr-1"></i> ดึงเซลล์</button>
+                                    </div>
                                     <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col1" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col1 || ''}</div>
+                                    ${block.cellMappings && block.cellMappings[`${rIndex}_col1`] ? `<div class="bg-indigo-100 text-indigo-800 text-[10px] px-1 py-0.5 text-center border-t border-indigo-200 font-bold flex justify-center items-center"><i data-lucide="database" class="w-3 h-3 mr-1"></i> ดึงจาก: ${block.cellMappings[`${rIndex}_col1`]}</div>` : ''}
                                 </div>
-                                <div class="${wC2} bg-white border border-gray-300 rounded flex flex-col">
+                                <div class="${wC2} bg-white border border-gray-300 rounded flex flex-col relative group/cell">
+                                    <div class="absolute top-1 right-1 z-10 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                        <button type="button" onclick="linkSingleCell('${block.id}', ${rIndex}, 'col2')" class="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded shadow-sm hover:bg-indigo-100 flex items-center"><i data-lucide="link" class="w-3 h-3 mr-1"></i> ดึงเซลล์</button>
+                                    </div>
                                     <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col2" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col2 || ''}</div>
+                                    ${block.cellMappings && block.cellMappings[`${rIndex}_col2`] ? `<div class="bg-indigo-100 text-indigo-800 text-[10px] px-1 py-0.5 text-center border-t border-indigo-200 font-bold flex justify-center items-center"><i data-lucide="database" class="w-3 h-3 mr-1"></i> ดึงจาก: ${block.cellMappings[`${rIndex}_col2`]}</div>` : ''}
                                 </div>
-                                <div class="${wC3} bg-white border border-gray-300 rounded flex flex-col">
+                                <div class="${wC3} bg-white border border-gray-300 rounded flex flex-col relative group/cell">
+                                    <div class="absolute top-1 right-1 z-10 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                        <button type="button" onclick="linkSingleCell('${block.id}', ${rIndex}, 'col3')" class="bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] px-1.5 py-0.5 rounded shadow-sm hover:bg-indigo-100 flex items-center"><i data-lucide="link" class="w-3 h-3 mr-1"></i> ดึงเซลล์</button>
+                                    </div>
                                     <div class="quill-table-cell flex-1" data-block-id="${block.id}" data-row="${rIndex}" data-col="col3" style="min-height: 40px; padding: 8px; font-size: 14px;">${row.col3 || ''}</div>
+                                    ${block.cellMappings && block.cellMappings[`${rIndex}_col3`] ? `<div class="bg-indigo-100 text-indigo-800 text-[10px] px-1 py-0.5 text-center border-t border-indigo-200 font-bold flex justify-center items-center"><i data-lucide="database" class="w-3 h-3 mr-1"></i> ดึงจาก: ${block.cellMappings[`${rIndex}_col3`]}</div>` : ''}
                                 </div>
                                 
                                 <button type="button" onclick="removeTableRow('${block.id}', ${rIndex})" class="p-1.5 text-red-500 hover:bg-red-50 rounded shrink-0 self-start mt-1.5" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
