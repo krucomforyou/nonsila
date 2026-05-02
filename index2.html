@@ -2186,6 +2186,7 @@
                     else if (view === 'all-newsletters') showAllNewsletters(true);
                     else if (view === 'contact') showContactUs(true);
                     else if (view === 'staff') showStaffView(true);
+                    else if (view === 'calendar') showFullCalendar(true);
                     else if (newsId) showNewsDetailUI(newsId); 
                     else if (actId) showActivityDetailUI(actId);
                     else if (nlId) showNewsletterDetailUI(nlId);
@@ -4690,6 +4691,7 @@
             else if (view === 'all-newsletters') showAllNewsletters(true, true);
             else if (view === 'contact') showContactUs(true, true);
             else if (view === 'staff') showStaffView(true, true);
+            else if (view === 'calendar') showFullCalendar(true, true);
             else if (newsId) showNewsDetailUI(newsId);
             else if (actId) showActivityDetailUI(actId);
             else if (nlId) showNewsletterDetailUI(nlId);
@@ -5858,13 +5860,41 @@
 
         function showFullCalendar(isPopState = false, restoreScroll = false) {
             if(!isPopState) saveCurrentScroll();
-            lastAppView = 'calendar-full';
-            if (!isPopState) { try { const url = new URL(window.location); url.searchParams.delete('view'); url.searchParams.set('tab', 'calendar'); window.history.pushState({}, '', url); } catch(e){} }
+            lastAppView = 'calendar';
+            
+            if (!isPopState) {
+                try {
+                    const url = new URL(window.location);
+                    // 1. ลบ Parameter ที่ไม่เกี่ยวข้องออกให้หมด ป้องกันการซ้อนทับกัน
+                    url.searchParams.delete('id');
+                    url.searchParams.delete('actId');
+                    url.searchParams.delete('nlId');
+                    url.searchParams.delete('newsId');
+                    url.searchParams.delete('pageId');
+                    url.searchParams.delete('tab'); 
+                    
+                    // 2. ตั้งค่า URL ให้เป็น view=calendar แทน เพื่อให้เข้ากับระบบหลัก
+                    url.searchParams.set('view', 'calendar');
+                    window.history.pushState({}, '', url);
+                } catch(e){}
+            }
+            
             hideAllPublicViews();
             document.getElementById('full-calendar-view').classList.remove('hidden');
             document.getElementById('full-calendar-view').classList.add('flex');
-            if(restoreScroll || isPopState) setTimeout(() => window.scrollTo({ top: scrollPositions['calendar-full'] || 0, behavior: 'instant' }), 50);
-            else scrollToTarget('full-calendar-view', 15);
+            
+            // ล้างแถบสีทอง (Active) ของเมนูหลักออก เพราะเราอยู่หน้าปฏิทิน
+            const navIds = ['nav-pub-home', 'nav-pub-exec', 'nav-pub-news', 'nav-pub-act', 'nav-pub-newsletter', 'nav-pub-contact'];
+            navIds.forEach(id => { 
+                const el = document.getElementById(id); 
+                if(el) el.className = "flex items-center py-3 px-4 border-b-4 border-transparent hover:border-school-brassLight hover:text-school-brassLight transition"; 
+            });
+
+            if(restoreScroll || isPopState) {
+                setTimeout(() => window.scrollTo({ top: scrollPositions['calendar'] || 0, behavior: 'instant' }), 50);
+            } else {
+                scrollToTarget('full-calendar-view', 15);
+            }
         }
 
         // ================= ADMIN CALENDAR =================
