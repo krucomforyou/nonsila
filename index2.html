@@ -3595,15 +3595,16 @@
                     } else if (block.type === 'image-text') {
                         html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div class="order-2 md:order-1">${imgHtml}</div><div class="order-1 md:order-2">${textHtml}</div></div>`;
                     } else if (block.type === 'table') {
-                        // 1. เปลี่ยนจาก sm:w-[%] เป็น w-[%] เพื่อบังคับสัดส่วนทุกหน้าจอ
                         let wLeft = block.colWidths ? `w-[${block.colWidths[0]}%]` : 'w-1/2';
                         let wRight = block.colWidths ? `w-[${block.colWidths[1]}%]` : 'w-1/2';
+
+                        // สร้าง ID เฉพาะให้ตารางนี้
+                        const tableId = 'table-' + Math.random().toString(36).substring(2, 9);
 
                         let rowsHtml = '';
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-                                // 2. บังคับ flex-row (เรียงแนวนอนเสมอ) และกำหนด min-w-[500px] กันโดนบีบ
                                 rowsHtml += `
                                     <div class="flex flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors w-full min-w-[500px] md:min-w-full">
                                         <div class="${wLeft} p-3 sm:p-4 border-r border-gray-100 rich-text-content ql-editor" style="padding: 1rem;">${row.left || ''}</div>
@@ -3612,20 +3613,37 @@
                                 `;
                             });
                         }
-                        // 3. เปลี่ยน overflow-hidden เป็น overflow-x-auto เพื่อให้เลื่อนซ้ายขวาได้
-                        html += `<div class="border border-gray-200 rounded-lg overflow-x-auto no-scrollbar bg-white shadow-sm w-full">${rowsHtml}</div>`;
-                    
+
+                        // เพิ่มส่วน UI ค้นหา (Search Bar & Filter)
+                        let searchHtml = `
+                            <div class="mb-3 flex flex-wrap gap-2 items-center bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200 w-full">
+                                <div class="flex items-center justify-center bg-white border border-gray-300 rounded p-2 text-gray-500 shadow-sm">
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                </div>
+                                <input type="text" id="search-${tableId}" onkeyup="filterCustomTable('${tableId}', this.value, document.getElementById('col-${tableId}').value)" placeholder="ค้นหาข้อมูลในตาราง..." class="flex-1 border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:border-school-blue shadow-sm min-w-[150px]">
+                                <select id="col-${tableId}" onchange="filterCustomTable('${tableId}', document.getElementById('search-${tableId}').value, this.value)" class="border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:border-school-blue bg-white text-gray-700 shadow-sm">
+                                    <option value="all">ค้นหาทุกคอลัมน์</option>
+                                    <option value="0">เฉพาะคอลัมน์ 1</option>
+                                    <option value="1">เฉพาะคอลัมน์ 2</option>
+                                </select>
+                            </div>
+                        `;
+
+                        // รวมช่องค้นหากับตัวตาราง และใส่ ID ให้ตาราง
+                        html += `<div class="w-full">${searchHtml}<div id="${tableId}" class="border border-gray-200 rounded-lg overflow-x-auto no-scrollbar bg-white shadow-sm w-full">${rowsHtml}</div></div>`;
+
                     } else if (block.type === 'table3') {
-                        // 1. เปลี่ยนจาก sm:w-[%] เป็น w-[%] เพื่อบังคับสัดส่วนทุกหน้าจอ
                         let wC1 = block.colWidths ? `w-[${block.colWidths[0]}%]` : 'w-1/3';
                         let wC2 = block.colWidths ? `w-[${block.colWidths[1]}%]` : 'w-1/3';
                         let wC3 = block.colWidths ? `w-[${block.colWidths[2]}%]` : 'w-1/3';
+
+                        // สร้าง ID เฉพาะให้ตารางนี้
+                        const tableId = 'table-' + Math.random().toString(36).substring(2, 9);
 
                         let rowsHtml = '';
                         if(block.rows && block.rows.length > 0) {
                             block.rows.forEach((row, idx) => {
                                 let bgClass = idx % 2 === 0 ? 'bg-gray-50' : 'bg-white';
-                                // 2. บังคับ flex-row (เรียงแนวนอนเสมอ) และกำหนด min-w-[600px] กันโดนบีบ
                                 rowsHtml += `
                                     <div class="flex flex-row border-b border-gray-100 last:border-0 ${bgClass} hover:bg-blue-50/30 transition-colors w-full min-w-[600px] md:min-w-full">
                                         <div class="${wC1} p-3 sm:p-4 border-r border-gray-100 rich-text-content ql-editor" style="padding: 1rem;">${row.col1 || ''}</div>
@@ -3635,8 +3653,25 @@
                                 `;
                             });
                         }
-                        // 3. เปลี่ยน overflow-hidden เป็น overflow-x-auto เพื่อให้เลื่อนซ้ายขวาได้
-                        html += `<div class="border border-gray-200 rounded-lg overflow-x-auto no-scrollbar bg-white shadow-sm w-full">${rowsHtml}</div>`;
+
+                        // เพิ่มส่วน UI ค้นหา (Search Bar & Filter)
+                        let searchHtml = `
+                            <div class="mb-3 flex flex-wrap gap-2 items-center bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200 w-full">
+                                <div class="flex items-center justify-center bg-white border border-gray-300 rounded p-2 text-gray-500 shadow-sm">
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                </div>
+                                <input type="text" id="search-${tableId}" onkeyup="filterCustomTable('${tableId}', this.value, document.getElementById('col-${tableId}').value)" placeholder="ค้นหาข้อมูลในตาราง..." class="flex-1 border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:border-school-blue shadow-sm min-w-[150px]">
+                                <select id="col-${tableId}" onchange="filterCustomTable('${tableId}', document.getElementById('search-${tableId}').value, this.value)" class="border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:border-school-blue bg-white text-gray-700 shadow-sm">
+                                    <option value="all">ค้นหาทุกคอลัมน์</option>
+                                    <option value="0">เฉพาะคอลัมน์ 1</option>
+                                    <option value="1">เฉพาะคอลัมน์ 2</option>
+                                    <option value="2">เฉพาะคอลัมน์ 3</option>
+                                </select>
+                            </div>
+                        `;
+
+                        // รวมช่องค้นหากับตัวตาราง และใส่ ID ให้ตาราง
+                        html += `<div class="w-full">${searchHtml}<div id="${tableId}" class="border border-gray-200 rounded-lg overflow-x-auto no-scrollbar bg-white shadow-sm w-full">${rowsHtml}</div></div>`;
                     }
                 });
                 contentContainer.innerHTML = html;
@@ -6388,6 +6423,42 @@
             else {
                 return `${startDay} ${startMonth} ${startYear} - ${endDay} ${endMonth} ${endYear}`;
             }
+        }
+
+        // ฟังก์ชันสำหรับค้นหาและกรองข้อมูลในตาราง (รองรับทั้ง 2 และ 3 คอลัมน์)
+        function filterCustomTable(tableId, searchText, colIndex) {
+            // 1. แปลงคำค้นหาเป็นตัวพิมพ์เล็ก (เพื่อให้ค้นหาแบบ Case-insensitive)
+            const keyword = searchText.toLowerCase().trim();
+            const table = document.getElementById(tableId);
+            if (!table) return;
+
+            // 2. ดึงข้อมูลทุกแถว (Row) ในตารางนั้น
+            const rows = table.querySelectorAll('.flex-row');
+
+            rows.forEach(row => {
+                // ดึงคอลัมน์ทั้งหมดในแถวนี้ (ใช้คลาส .rich-text-content ตามโครงสร้างของคุณ)
+                const columns = row.querySelectorAll('.rich-text-content');
+                let matchFound = false;
+
+                // 3. ตรวจสอบเงื่อนไขการค้นหา
+                if (colIndex === "all") {
+                    // ค้นหาทุกคอลัมน์
+                    columns.forEach(col => {
+                        if (col.textContent.toLowerCase().includes(keyword)) {
+                            matchFound = true;
+                        }
+                    });
+                } else {
+                    // ค้นหาเฉพาะคอลัมน์ที่ระบุ
+                    const targetCol = columns[parseInt(colIndex)];
+                    if (targetCol && targetCol.textContent.toLowerCase().includes(keyword)) {
+                        matchFound = true;
+                    }
+                }
+
+                // 4. ซ่อน/แสดง แถวตามผลการค้นหา (โครงสร้างเดิมของคุณใช้ display: flex)
+                row.style.display = matchFound ? "flex" : "none";
+            });
         }
 
     </script>
