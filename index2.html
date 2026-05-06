@@ -584,6 +584,7 @@
                                 <span class="flex items-center"><i data-lucide="megaphone" class="w-5 h-5 mr-2 text-school-brassLight"></i> ข่าวประชาสัมพันธ์ทั้งหมด</span>
                             </div>
                             <div class="p-2">
+                                <div id="pagination-news-top" class="flex justify-end items-center flex-wrap gap-2 mt-2 mb-4"></div>
                                 <ul id="all-news-container" class="text-sm divide-y divide-gray-100">
                                     <li class="p-4 flex items-center gap-3 animate-pulse">
                                         <div class="w-4 h-4 bg-gray-200 rounded-full flex-shrink-0"></div>
@@ -623,6 +624,7 @@
                                 <span class="flex items-center"><i data-lucide="image" class="w-5 h-5 mr-2 text-school-brassLight"></i> ภาพกิจกรรมทั้งหมด</span>
                             </div>
                             <div class="p-4">
+                                <div id="pagination-activities-top" class="flex justify-end items-center flex-wrap gap-2 mt-2 mb-6"></div>
                                 <div id="all-activities-container" class="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                                     <div class="col-span-full flex justify-center py-4"><div class="spinner mr-2"></div> กำลังโหลดข้อมูล...</div>
                                 </div>
@@ -642,6 +644,7 @@
                                 <span class="flex items-center"><i data-lucide="mail" class="w-5 h-5 mr-2 text-school-brassLight"></i> จดหมายข่าวทั้งหมด</span>
                             </div>
                             <div class="p-4">
+                                <div id="pagination-newsletters-top" class="flex justify-end items-center flex-wrap gap-2 mt-2 mb-6"></div>
                                 <div id="all-newsletters-container" class="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                                     <div class="border border-gray-100 rounded-md overflow-hidden bg-white animate-pulse"><div class="aspect-[3/4] bg-gray-200 w-full"></div></div>
                                     <div class="border border-gray-100 rounded-md overflow-hidden bg-white animate-pulse"><div class="aspect-[3/4] bg-gray-200 w-full"></div></div>
@@ -3774,41 +3777,43 @@
         }
 
         function renderPaginationUI(type) {
-            const containerId = 'pagination-' + type;
-            const container = document.getElementById(containerId);
-            if (!container) return;
+            // ค้นหากล่องทั้งด้านบน (-top) และด้านล่าง (เดิม)
+            const containers = [
+                document.getElementById('pagination-' + type),
+                document.getElementById('pagination-' + type + '-top')
+            ].filter(Boolean); // กรองเอาเฉพาะอันที่มีอยู่ในหน้าเว็บ
+
+            if (containers.length === 0) return;
 
             const state = paginationState[type];
             const totalPages = Math.ceil(state.total / state.limit);
             
             if (totalPages <= 1) {
-                container.innerHTML = '';
+                containers.forEach(c => c.innerHTML = '');
                 return;
             }
 
-            // เพิ่ม container ครอบอีกชั้นเพื่อบังคับให้ชิดขวา (justify-end)
             let html = '<div class="w-full flex justify-end gap-1.5">';
             
-            // ปุ่ม "ก่อนหน้า" (ปรับ px-2 py-1 text-sm ให้เล็กลง)
             const isFirst = state.current === 1;
             const prevClass = isFirst ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
             html += `<button onclick="if(!${isFirst}) loadPageData('${type}', ${state.current - 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${prevClass}" ${isFirst ? 'disabled' : ''}><i data-lucide="chevron-left" class="w-4 h-4 mr-0.5"></i> ก่อนหน้า</button>`;
 
-            // ปุ่มตัวเลขหน้า (ปรับให้เล็กลงด้วย w-7 h-7 และ text-sm)
             for(let i=1; i<=totalPages; i++) {
                 const isActive = i === state.current;
                 const btnClass = isActive ? 'bg-school-navy text-white border-school-navy shadow-md pointer-events-none' : 'bg-white text-gray-700 hover:bg-blue-50 border-gray-300 cursor-pointer shadow-sm hover:border-school-blue hover:text-school-blue';
                 html += `<button onclick="loadPageData('${type}', ${i})" class="w-7 h-7 flex items-center justify-center border rounded text-sm font-medium transition-all ${btnClass}">${i}</button>`;
             }
 
-            // ปุ่ม "ถัดไป" (ปรับ px-2 py-1 text-sm ให้เล็กลง)
             const isLast = state.current === totalPages;
             const nextClass = isLast ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-school-blue hover:bg-blue-50 cursor-pointer shadow-sm border-gray-300 hover:border-school-blue';
             html += `<button onclick="if(!${isLast}) loadPageData('${type}', ${state.current + 1})" class="px-2 py-1 text-sm border rounded font-medium transition-colors flex items-center ${nextClass}" ${isLast ? 'disabled' : ''}>ถัดไป <i data-lucide="chevron-right" class="w-4 h-4 ml-0.5"></i></button>`;
 
             html += '</div>';
-            container.innerHTML = html;
-            lucide.createIcons(); // วาดไอคอนใหม่
+            
+            // วาดปุ่มลงในทุกกล่องที่พบ (ทั้งบนและล่าง)
+            containers.forEach(c => c.innerHTML = html);
+            lucide.createIcons(); 
         }
 
 
