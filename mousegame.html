@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมฝึกใช้เมาส์ ป.1 (2 ด่าน)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Mali', cursive;
+            background-color: #fef08a;
+            background-image: radial-gradient(#fde047 2px, transparent 2px);
+            background-size: 30px 30px;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        #game-board {
+            position: relative;
+            width: 1000px;
+            height: 600px;
+            background-color: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border: 8px dashed #fbbf24;
+            transform-origin: center center;
+        }
+
+        .station {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 45px;
+            color: white;
+            box-shadow: 0 6px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+            z-index: 10;
+        }
+
+        .station-label {
+            position: absolute;
+            top: -35px;
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+            background: rgba(255,255,255,0.9);
+            padding: 2px 10px;
+            border-radius: 10px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            pointer-events: none;
+        }
+
+        .start-end-badge {
+            position: absolute;
+            bottom: -30px;
+            font-weight: bold;
+            font-size: 16px;
+            color: #ef4444;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .station-code {
+            position: absolute;
+            bottom: -15px;
+            right: -15px;
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border: 4px solid #3b82f6;
+            color: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 22px;
+            z-index: 11;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .station i {
+            pointer-events: none;
+        }
+
+        .active-station {
+            animation: pulse-border 1.5s infinite;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); transform: scale(1); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); transform: scale(1.1); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+        }
+
+        .locked-station {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .completed-station {
+            opacity: 1; /* เปลี่ยนจาก 0.9 เป็น 1 เพื่อไม่ให้โปร่งใส */
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+
+        #path-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .path-line {
+            fill: none;
+            stroke: #374151;
+            stroke-width: 6;
+            stroke-dasharray: 12, 12;
+            stroke-linecap: round;
+        }
+
+        .path-line.active {
+            stroke: #ec4899;
+            stroke-width: 8;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: -24; }
+        }
+
+        #dragger {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-color: #fca5a5;
+            border: 4px solid #b91c1c;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            z-index: 20;
+            cursor: grab;
+            display: none;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        #dragger:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: shoot 1s ease-out forwards;
+            z-index: 50;
+        }
+
+        @keyframes shoot {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center m-0">
+
+    <!-- Header & Legend -->
+    <div class="w-full max-w-[1000px] flex justify-between items-end mb-4 px-4">
+        <div>
+            <h1 id="level-title" class="text-4xl font-bold text-orange-600" style="-webkit-text-stroke: 1px white;">ฝึกการใช้เมาส์</h1>
+            <p class="text-lg text-gray-700 font-semibold bg-white px-4 py-1 rounded-full inline-block mt-2 shadow">
+                ** ห้ามลากออกนอกเส้นนะ! ไม่งั้นเด้งกลับ **
+            </p>
+        </div>
+        <div class="bg-blue-100 p-3 rounded-xl shadow-md border-2 border-blue-300">
+            <h2 class="font-bold text-lg mb-1 text-blue-800"><i class="fas fa-mouse text-pink-500"></i> รหัสคำสั่ง</h2>
+            <ul class="text-sm font-semibold text-gray-700 grid grid-cols-2 gap-x-3 gap-y-1">
+                <li><span class="text-blue-600 font-bold">C</span> = คลิก (Click)</li>
+                <li><span class="text-blue-600 font-bold">D</span> = ดับเบิลคลิก</li>
+                <li><span class="text-blue-600 font-bold">R</span> = คลิกขวา</li>
+                <li><span class="text-blue-600 font-bold">S</span> = เลื่อนลูกกลิ้ง</li>
+                <li><span class="text-pink-500 font-bold">DR</span> = ลากเมาส์</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Instruction Bar -->
+    <div id="instruction-bar" class="w-full max-w-[1000px] text-center bg-yellow-400 text-yellow-900 font-bold text-2xl py-3 rounded-t-2xl shadow-md z-10 relative border-b-4 border-yellow-500">
+        กดปุ่ม <i class="fas fa-play mx-2"></i> เริ่มเกม!
+    </div>
+
+    <!-- Game Board -->
+    <div id="game-board-container" class="relative overflow-hidden flex justify-center items-center rounded-b-2xl shadow-xl bg-blue-50 max-w-[1000px] w-full" style="height: 600px;">
+        <div id="game-board">
+            <svg id="path-svg"></svg>
+            <div id="nodes-container"></div>
+            <div id="dragger" title="ลากฉันไปที่เป้าหมาย!"><i class="fas fa-hand-pointer text-white"></i></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="start-modal" class="modal-overlay">
+        <div class="bg-white p-8 rounded-3xl text-center shadow-2xl max-w-md border-8 border-yellow-400">
+            <h2 class="text-4xl font-bold text-blue-600 mb-4">พร้อมไหมเด็กๆ?</h2>
+            <p class="text-xl text-gray-600 mb-6">มีทั้งหมด 5 ด่าน ลากเมาส์ตามเส้นให้แม่นยำนะ ห้ามหลุดออกนอกเส้น!</p>
+            <img src="https://cdn-icons-png.flaticon.com/512/2040/2040492.png" onclick="startGame()" class="w-32 h-32 mx-auto mb-6 cursor-pointer hover:scale-110 transition-transform" alt="Mouse" title="คลิกที่รูปเพื่อเริ่มเกม!">
+            <button onclick="startGame()" class="bg-green-500 hover:bg-green-600 text-white font-bold text-2xl py-3 px-8 rounded-full shadow-[0_6px_0_#166534] active:shadow-[0_0px_0_#166534] active:translate-y-[6px] transition-all">
+                เริ่มด่าน 1
+            </button>
+        </div>
+    </div>
+
+    <div id="level-complete-modal" class="modal-overlay hidden">
+        <div class="bg-white p-8 rounded-3xl text-center shadow-2xl max-w-md border-8 border-blue-400">
+            <h2 class="text-4xl font-bold text-blue-600 mb-4">เก่งมาก!</h2>
+            <p class="text-xl text-gray-600 mb-6">ผ่านด่านนี้แล้ว ไปลุยด่านต่อไปกันเลย!</p>
+            <div class="text-6xl mb-6 cursor-pointer hover:scale-110 transition-transform" onclick="startNextLevel()" title="คลิกที่รูปเพื่อไปต่อ!">⭐️⭐️</div>
+            <button onclick="startNextLevel()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold text-2xl py-3 px-8 rounded-full shadow-[0_6px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-[6px] transition-all">
+                ไปด่านต่อไป
+            </button>
+        </div>
+    </div>
+
+    <div id="end-modal" class="modal-overlay hidden">
+        <div class="bg-white p-8 rounded-3xl text-center shadow-2xl max-w-md border-8 border-green-400">
+            <h2 class="text-4xl font-bold text-green-600 mb-4">ยอดเยี่ยมที่สุด!</h2>
+            <p class="text-xl text-gray-600 mb-6">หนูใช้เมาส์ได้คล่องแคล่วและแม่นยำมาก!</p>
+            <div class="text-6xl mb-6 cursor-pointer hover:scale-110 transition-transform" onclick="location.reload()" title="คลิกที่รูปเพื่อเล่นอีกครั้ง!">🏆⭐️⭐️⭐️</div>
+            <button onclick="location.reload()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold text-2xl py-3 px-8 rounded-full shadow-[0_6px_0_#c2410c] active:shadow-[0_0px_0_#c2410c] active:translate-y-[6px] transition-all">
+                เล่นอีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Data for both levels, matched exactly to the uploaded images
+        const levelData = [
+            { // Level 1: Hardware
+                title: "ด่านที่ 1: อุปกรณ์คอมพิวเตอร์",
+                bgColor: "#f0fdf4", // light green
+                nodes: [
+                    { id: 0, x: 460, y: 80, type: 'D', label: 'CPU', color: '#10b981', icon: 'fas fa-microchip', instruction: 'ด่าน 1: "ดับเบิลคลิก" (คลิก 2 ที) ที่ CPU', isStartEnd: true },
+                    { id: 1, x: 800, y: 150, type: 'C', label: 'เมนบอร์ด', color: '#047857', icon: 'fas fa-server', instruction: '"คลิกซ้าย 1 ครั้ง" ที่เมนบอร์ด' },
+                    { id: 2, x: 750, y: 450, type: 'D', label: 'CPU (ประกอบ)', color: '#10b981', icon: 'fas fa-microchip', instruction: '"ดับเบิลคลิก" ที่ CPU อีกครั้ง' },
+                    { id: 3, x: 460, y: 480, type: 'C', label: 'Power Supply', color: '#6b7280', icon: 'fas fa-fan', instruction: '"คลิกซ้าย 1 ครั้ง" ที่ Power Supply' },
+                    { id: 4, x: 100, y: 450, type: 'S', label: 'RAM', color: '#374151', icon: 'fas fa-memory', instruction: '"เลื่อนลูกกลิ้งเมาส์" (Scroll) ที่ RAM' },
+                    { id: 5, x: 150, y: 150, type: 'R', label: 'เคสคอมพิวเตอร์', color: '#065f46', icon: 'fas fa-desktop', instruction: '"คลิกขวา" ที่เคสคอมพิวเตอร์' },
+                    { id: 6, x: 460, y: 80, type: 'D', label: 'จุดจบ', color: '#10b981', icon: 'fas fa-flag-checkered', instruction: 'สุดท้าย "ดับเบิลคลิก" ที่จุดจบเพื่อผ่านด่าน!' }
+                ],
+                paths: [
+                    { d: "M 500 120 L 840 190", drX: 660, drY: 130 }, // 0->1
+                    { d: "M 840 190 L 790 490", drX: 840, drY: 340 }, // 1->2
+                    { d: "M 790 490 L 790 560 L 650 560 L 650 450 L 550 450 L 500 520", drX: 680, drY: 580 }, // 2->3 (Square wave)
+                    { d: "M 500 520 L 500 380 L 320 380 L 320 520 L 140 490", drX: 400, drY: 420 }, // 3->4 (Square wave)
+                    { d: "M 140 490 L 190 190", drX: 100, drY: 340 }, // 4->5
+                    { d: "M 190 190 Q 300 20 500 120", drX: 340, drY: 60 }  // 5->6 (Curve)
+                ]
+            },
+            { // Level 2: Software
+                title: "ด่านที่ 2: โปรแกรมคอมพิวเตอร์",
+                bgColor: "#eff6ff", // light blue
+                nodes: [
+                    { id: 0, x: 150, y: 150, type: 'C', label: 'Excel', color: '#ffffff', image: 'https://cdn-icons-png.flaticon.com/512/732/732220.png', instruction: 'ด่าน 2: "คลิกซ้าย" ที่โปรแกรม Excel', isStartEnd: true },
+                    { id: 1, x: 500, y: 120, type: 'S', label: 'Scratch', color: '#f59e0b', icon: 'fas fa-cat', instruction: '"เลื่อนลูกกลิ้งเมาส์" (Scroll) ที่ Scratch' },
+                    { id: 2, x: 800, y: 180, type: 'R', label: 'PowerPoint', color: '#ffffff', image: 'https://cdn-icons-png.flaticon.com/512/732/732224.png', instruction: '"คลิกขวา" ที่ PowerPoint' },
+                    { id: 3, x: 850, y: 450, type: 'D', label: 'Edge', color: '#ffffff', image: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Microsoft_Edge_logo_%282019%29.svg', instruction: '"ดับเบิลคลิก" ที่ Microsoft Edge' },
+                    { id: 4, x: 600, y: 380, type: 'S', label: 'Line', color: '#ffffff', image: 'https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg', instruction: '"เลื่อนลูกกลิ้งเมาส์" (Scroll) ที่ Line' },
+                    { id: 5, x: 450, y: 480, type: 'C', label: 'Word', color: '#ffffff', image: 'https://cdn-icons-png.flaticon.com/512/732/732226.png', instruction: '"คลิกซ้าย" ที่ Word' },
+                    { id: 6, x: 150, y: 480, type: 'D', label: 'Chrome', color: '#ffffff', image: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Chrome_icon_%28February_2022%29.svg', instruction: '"ดับเบิลคลิก" ที่ Google Chrome' },
+                    { id: 7, x: 150, y: 150, type: 'C', label: 'จุดจบ', color: '#16a34a', icon: 'fas fa-flag-checkered', instruction: 'สุดท้าย "คลิกซ้าย" เพื่อจบเกม!' }
+                ],
+                paths: [
+                    { d: "M 190 190 L 300 190 L 300 250 L 400 250 L 400 160 L 540 160", drX: 350, drY: 150 }, // 0->1
+                    { d: "M 540 160 Q 690 300 840 220", drX: 680, drY: 260 }, // 1->2
+                    { d: "M 840 220 L 890 490", drX: 900, drY: 340 }, // 2->3
+                    { d: "M 890 490 L 640 420", drX: 750, drY: 480 }, // 3->4
+                    { d: "M 640 420 L 600 350 L 550 480 L 490 520", drX: 560, drY: 360 }, // 4->5 (Zig zag)
+                    { d: "M 490 520 L 490 580 L 340 580 L 340 440 L 250 440 L 190 520", drX: 400, drY: 530 }, // 5->6 (Square loop)
+                    { d: "M 190 520 L 190 190", drX: 130, drY: 350 } // 6->7
+                ]
+            },
+            { // Level 3: Animals
+                title: "ด่านที่ 3: สัตว์โลกน่ารัก",
+                bgColor: "#fef3c7", // light amber
+                nodes: [
+                    { id: 0, x: 150, y: 150, type: 'D', label: 'น้องหมา', color: '#f59e0b', icon: 'fas fa-dog', instruction: 'ด่าน 3: "ดับเบิลคลิก" ที่น้องหมา', isStartEnd: true },
+                    { id: 1, x: 500, y: 100, type: 'C', label: 'น้องแมว', color: '#f97316', icon: 'fas fa-cat', instruction: '"คลิกซ้าย" 1 ครั้ง ที่น้องแมว' },
+                    { id: 2, x: 850, y: 150, type: 'S', label: 'นกน้อย', color: '#0ea5e9', icon: 'fas fa-dove', instruction: '"เลื่อนลูกกลิ้งเมาส์" (Scroll) ที่นกน้อย' },
+                    { id: 3, x: 850, y: 450, type: 'R', label: 'กบอ๊บๆ', color: '#22c55e', icon: 'fas fa-frog', instruction: '"คลิกขวา" ที่กบ' },
+                    { id: 4, x: 500, y: 450, type: 'C', label: 'ปลาบุ๋งๆ', color: '#3b82f6', icon: 'fas fa-fish', instruction: '"คลิกซ้าย" ที่ปลา' },
+                    { id: 5, x: 150, y: 450, type: 'D', label: 'ฮิปโป', color: '#8b5cf6', icon: 'fas fa-hippo', instruction: 'ด่านจบ: "ดับเบิลคลิก" ที่ฮิปโป!' }
+                ],
+                paths: [
+                    { d: "M 190 190 Q 365 50 540 140", drX: 340, drY: 90 }, // 0->1
+                    { d: "M 540 140 Q 715 230 890 190", drX: 690, drY: 200 }, // 1->2
+                    { d: "M 890 190 L 890 490", drX: 900, drY: 320 }, // 2->3
+                    { d: "M 890 490 L 770 440 L 650 540 L 540 490", drX: 730, drY: 480 }, // 3->4
+                    { d: "M 540 490 L 190 490", drX: 340, drY: 470 } // 4->5
+                ]
+            },
+            { // Level 4: Fruits
+                title: "ด่านที่ 4: ผลไม้และต้นไม้",
+                bgColor: "#fce7f3", // light pink
+                nodes: [
+                    { id: 0, x: 850, y: 100, type: 'C', label: 'แอปเปิ้ล', color: '#ef4444', icon: 'fas fa-apple-whole', instruction: 'ด่าน 4: "คลิกซ้าย" ที่แอปเปิ้ล', isStartEnd: true },
+                    { id: 1, x: 600, y: 250, type: 'D', label: 'เลมอน', color: '#eab308', icon: 'fas fa-lemon', instruction: '"ดับเบิลคลิก" ที่เลมอนสีเหลือง' },
+                    { id: 2, x: 850, y: 400, type: 'S', label: 'แครอท', color: '#f97316', icon: 'fas fa-carrot', instruction: '"เลื่อนลูกกลิ้งเมาส์" ที่แครอท' },
+                    { id: 3, x: 550, y: 500, type: 'R', label: 'ใบไม้', color: '#22c55e', icon: 'fas fa-leaf', instruction: '"คลิกขวา" ที่ใบไม้' },
+                    { id: 4, x: 300, y: 350, type: 'C', label: 'พริก', color: '#dc2626', icon: 'fas fa-pepper-hot', instruction: '"คลิกซ้าย" 1 ครั้ง ที่พริก' },
+                    { id: 5, x: 100, y: 500, type: 'S', label: 'ต้นกล้า', color: '#16a34a', icon: 'fas fa-seedling', instruction: '"เลื่อนลูกกลิ้งเมาส์" ที่ต้นกล้า' },
+                    { id: 6, x: 100, y: 150, type: 'D', label: 'ต้นไม้', color: '#15803d', icon: 'fas fa-tree', instruction: 'ด่านจบ: "ดับเบิลคลิก" ที่ต้นไม้ใหญ่!' }
+                ],
+                paths: [
+                    { d: "M 890 140 L 640 290", drX: 750, drY: 200 }, // 0->1
+                    { d: "M 640 290 L 890 440", drX: 750, drY: 380 }, // 1->2
+                    { d: "M 890 440 L 590 540", drX: 720, drY: 480 }, // 2->3
+                    { d: "M 590 540 L 340 390", drX: 450, drY: 480 }, // 3->4
+                    { d: "M 340 390 L 140 540", drX: 220, drY: 480 }, // 4->5
+                    { d: "M 140 540 L 140 190", drX: 110, drY: 350 } // 5->6
+                ]
+            },
+            { // Level 5: Vehicles
+                title: "ด่านที่ 5: ยานพาหนะพาเพลิน",
+                bgColor: "#e0f2fe", // light sky blue
+                nodes: [
+                    { id: 0, x: 100, y: 100, type: 'D', label: 'รถยนต์', color: '#3b82f6', icon: 'fas fa-car', instruction: 'ด่าน 5: "ดับเบิลคลิก" ที่รถยนต์', isStartEnd: true },
+                    { id: 1, x: 350, y: 100, type: 'S', label: 'รถบัส', color: '#eab308', icon: 'fas fa-bus', instruction: '"เลื่อนลูกกลิ้งเมาส์" ที่รถบัส' },
+                    { id: 2, x: 350, y: 300, type: 'C', label: 'จักรยาน', color: '#22c55e', icon: 'fas fa-bicycle', instruction: '"คลิกซ้าย" 1 ครั้ง ที่จักรยาน' },
+                    { id: 3, x: 600, y: 300, type: 'R', label: 'เครื่องบิน', color: '#0ea5e9', icon: 'fas fa-plane', instruction: '"คลิกขวา" ที่เครื่องบิน' },
+                    { id: 4, x: 600, y: 100, type: 'D', label: 'เรือ', color: '#1d4ed8', icon: 'fas fa-ship', instruction: '"ดับเบิลคลิก" ที่เรือ' },
+                    { id: 5, x: 850, y: 100, type: 'S', label: 'เฮลิคอปเตอร์', color: '#8b5cf6', icon: 'fas fa-helicopter', instruction: '"เลื่อนลูกกลิ้งเมาส์" ที่เฮลิคอปเตอร์' },
+                    { id: 6, x: 850, y: 500, type: 'C', label: 'จรวด', color: '#f43f5e', icon: 'fas fa-rocket', instruction: '"คลิกซ้าย" 1 ครั้ง ที่จรวด' },
+                    { id: 7, x: 100, y: 500, type: 'D', label: 'จุดจบ', color: '#10b981', icon: 'fas fa-flag-checkered', instruction: 'ด่านจบสุดท้าย: "ดับเบิลคลิก" เข้าเส้นชัย!' }
+                ],
+                paths: [
+                    { d: "M 140 140 L 390 140", drX: 240, drY: 130 }, // 0->1
+                    { d: "M 390 140 L 390 340", drX: 400, drY: 220 }, // 1->2
+                    { d: "M 390 340 L 640 340", drX: 500, drY: 330 }, // 2->3
+                    { d: "M 640 340 L 640 140", drX: 650, drY: 220 }, // 3->4
+                    { d: "M 640 140 L 890 140", drX: 750, drY: 130 }, // 4->5
+                    { d: "M 890 140 Q 980 340 890 540", drX: 950, drY: 320 }, // 5->6
+                    { d: "M 890 540 L 140 540", drX: 500, drY: 530 } // 6->7
+                ]
+            }
+        ];
+
+        let currentLevelIndex = 0;
+        let currentState = 0; 
+        let isDragging = false;
+        let activePathPoints = []; // For path constraint validation
+        
+        // แก้ไข: ลดระยะอนุโลมลงจาก 85 เป็น 50 เพื่อให้กฎการดึงกลับแม่นยำและศักดิ์สิทธิ์เท่ากันทุกเส้น!
+        const PATH_TOLERANCE = 50; 
+        
+        // Web Audio API Context
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playSuccessSound() {
+            playTone(600, 'sine', 0.1);
+            setTimeout(() => playTone(800, 'sine', 0.2), 100);
+        }
+
+        function playFailSound() {
+            playTone(200, 'sawtooth', 0.2);
+            setTimeout(() => playTone(150, 'sawtooth', 0.3), 150);
+        }
+
+        function playVictorySound() {
+            [400, 500, 600, 800, 1000].forEach((freq, i) => {
+                setTimeout(() => playTone(freq, 'square', 0.15), i * 150);
+            });
+        }
+
+        function initBoard() {
+            const level = levelData[currentLevelIndex];
+            document.getElementById('level-title').innerText = level.title;
+            document.getElementById('game-board').style.backgroundColor = level.bgColor;
+
+            const container = document.getElementById('nodes-container');
+            const svg = document.getElementById('path-svg');
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            
+            // Generate paths
+            level.paths.forEach((pathDef, i) => {
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathDef.d);
+                path.setAttribute('class', `path-line path-${i}`);
+                svg.appendChild(path);
+
+                // Add "DR" Text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', pathDef.drX);
+                text.setAttribute('y', pathDef.drY);
+                text.setAttribute('fill', '#ec4899'); // pink-500
+                text.setAttribute('font-size', '28');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = 'DR';
+                svg.appendChild(text);
+            });
+
+            // Generate nodes
+            level.nodes.forEach((node, index) => {
+                const el = document.createElement('div');
+                el.className = 'station locked-station';
+                el.id = `node-${index}`;
+                el.style.left = `${node.x}px`;
+                el.style.top = `${node.y}px`;
+                el.style.backgroundColor = node.color;
+
+                el.innerHTML = `
+                    <div class="station-label">${node.label}</div>
+                    ${node.image ? `<img src="${node.image}" style="width: 50px; height: 50px; object-fit: contain; pointer-events: none;" alt="${node.label}">` : `<i class="${node.icon}"></i>`}
+                    ${(node.isStartEnd && index === 0) ? `<div class="start-end-badge">เริ่ม/จบ</div>` : ''}
+                    ${(index !== level.nodes.length - 1 || currentLevelIndex===1) ? `<div class="station-code">${node.type}</div>` : ''}
+                `;
+
+                // Events
+                if (node.type === 'C' || (index === level.nodes.length - 1)) {
+                    el.addEventListener('click', () => handleNodeAction(index, 'C'));
+                }
+                if (node.type === 'D') {
+                    el.addEventListener('dblclick', () => handleNodeAction(index, 'D'));
+                    el.addEventListener('click', (e) => {
+                        if(currentState === index) showTempMessage(e.clientX, e.clientY, "ต้อง ดับเบิลคลิก นะ!", "text-red-500");
+                    });
+                }
+                if (node.type === 'R') {
+                    el.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleNodeAction(index, 'R');
+                    });
+                }
+                if (node.type === 'S') {
+                    el.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        handleNodeAction(index, 'S');
+                    }, {passive: false});
+                    el.addEventListener('click', (e) => {
+                        if(currentState === index) showTempMessage(e.clientX, e.clientY, "ใช้ลูกกลิ้งเมาส์สิ!", "text-purple-500");
+                    });
+                }
+
+                container.appendChild(el);
+            });
+            
+            setupDragger();
+            updateGameState();
+        }
+
+        function startGame() {
+            document.getElementById('start-modal').classList.add('hidden');
+            currentLevelIndex = 0;
+            currentState = 0;
+            initBoard();
+        }
+
+        function startNextLevel() {
+            document.getElementById('level-complete-modal').classList.add('hidden');
+            currentLevelIndex++;
+            currentState = 0;
+            initBoard();
+        }
+
+        function updateGameState() {
+            const level = levelData[currentLevelIndex];
+            
+            // Reset styles
+            level.nodes.forEach((_, i) => {
+                const el = document.getElementById(`node-${i}`);
+                if(el) {
+                    el.className = 'station locked-station';
+                    // ซ่อนจุดจบไว้ก่อน เพื่อไม่ให้เลเยอร์สีเทาไปซ้อนทับจุดเริ่มต้น
+                    if (i === level.nodes.length - 1) {
+                        el.style.display = 'none';
+                    } else {
+                        el.style.display = 'flex';
+                    }
+                }
+                const path = document.querySelector(`.path-${i}`);
+                if(path) path.classList.remove('active');
+            });
+
+            const instructionBar = document.getElementById('instruction-bar');
+
+            if (Number.isInteger(currentState)) {
+                // Action Phase
+                const node = level.nodes[currentState];
+                const el = document.getElementById(`node-${currentState}`);
+                
+                for(let i=0; i<currentState; i++) {
+                    const compEl = document.getElementById(`node-${i}`);
+                    if(compEl) compEl.className = 'station completed-station';
+                }
+
+                if(el) {
+                    el.className = 'station active-station';
+                    if (currentState === level.nodes.length - 1) {
+                        el.style.display = 'flex'; // แสดงจุดจบขึ้นมาเมื่อถึงคิว
+                    }
+                }
+                instructionBar.innerHTML = `<span class="text-red-600 text-3xl">🎯</span> ${node.instruction}`;
+                
+                // End condition
+                if(currentState === level.nodes.length - 1) {
+                    setTimeout(() => {
+                        playVictorySound();
+                        createParticles(node.x + 40, node.y + 40);
+                        if (currentLevelIndex < levelData.length - 1) {
+                            document.getElementById('level-complete-modal').classList.remove('hidden');
+                        } else {
+                            document.getElementById('end-modal').classList.remove('hidden');
+                        }
+                    }, 500);
+                }
+
+            } else {
+                // Drag Phase (e.g. 0.5)
+                const fromIndex = Math.floor(currentState);
+                const toIndex = fromIndex + 1;
+                
+                for(let i=0; i<=fromIndex; i++) {
+                    const compEl = document.getElementById(`node-${i}`);
+                    if(compEl) compEl.className = 'station completed-station';
+                }
+                
+                const toEl = document.getElementById(`node-${toIndex}`);
+                if(toEl) {
+                    toEl.classList.remove('locked-station');
+                    if (toIndex === level.nodes.length - 1) {
+                        toEl.style.display = 'flex'; // แสดงจุดจบเพื่อให้ลากมาวางได้
+                    }
+                }
+                const activePathEl = document.querySelector(`.path-${fromIndex}`);
+                if(activePathEl) activePathEl.classList.add('active');
+
+                instructionBar.innerHTML = `<span class="text-pink-600 text-3xl">👉</span> เก่งมาก! ตอนนี้ <strong class="text-pink-600">"คลิกค้างแล้วลาก (Drag)"</strong> เมาส์ไปตามเส้นห้ามออกนอกเส้น!`;
+
+                showDragger(fromIndex, toIndex, activePathEl);
+            }
+        }
+
+        function handleNodeAction(index, actionType) {
+            const level = levelData[currentLevelIndex];
+            if (currentState === index) {
+                const node = level.nodes[index];
+                if (node.type === actionType || (index === level.nodes.length - 1)) {
+                    playSuccessSound();
+                    createParticles(node.x + 40, node.y + 40);
+                    
+                    const el = document.getElementById(`node-${index}`);
+                    const codeEl = el.querySelector('.station-code');
+                    if(codeEl) codeEl.innerHTML = '<i class="fas fa-check"></i>';
+
+                    if (index < level.nodes.length - 1) {
+                        currentState = index + 0.5;
+                        updateGameState();
+                    } else {
+                        updateGameState();
+                    }
+                }
+            }
+        }
+
+        // --- Drag Logic & Path Constraints ---
+        const dragger = document.getElementById('dragger');
+        let dragTargetIndex = -1;
+        let boardRect;
+
+        function showDragger(fromIndex, toIndex, pathEl) {
+            const fromNode = levelData[currentLevelIndex].nodes[fromIndex];
+            dragTargetIndex = toIndex;
+            
+            dragger.style.display = 'flex';
+            dragger.style.left = `${fromNode.x + 10}px`;
+            dragger.style.top = `${fromNode.y + 10}px`;
+            
+            boardRect = document.getElementById('game-board').getBoundingClientRect();
+            
+            // Sample points along the active path for distance checking
+            activePathPoints = [];
+            if(pathEl) {
+                const len = pathEl.getTotalLength();
+                for(let i=0; i<=len; i+=10) {
+                    activePathPoints.push(pathEl.getPointAtLength(i));
+                }
+            }
+        }
+
+        function setupDragger() {
+            dragger.addEventListener('mousedown', startDrag);
+            dragger.addEventListener('touchstart', startDrag, {passive: false});
+            
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', drag, {passive: false});
+            
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function startDrag(e) {
+            if (dragTargetIndex === -1) return;
+            isDragging = true;
+            if(e.type === 'touchstart') e.preventDefault();
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            let clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            let clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+            let x = clientX - boardRect.left - 30; // 30 is half width
+            let y = clientY - boardRect.top - 30;
+
+            // Strict Path Checking
+            if (activePathPoints.length > 0) {
+                let minDistance = Infinity;
+                // Dragger center is roughly x+30, y+30
+                const centerX = x + 30;
+                const centerY = y + 30;
+
+                for(let pt of activePathPoints) {
+                    const dist = Math.hypot(pt.x - centerX, pt.y - centerY);
+                    if (dist < minDistance) minDistance = dist;
+                }
+
+                if (minDistance > PATH_TOLERANCE) {
+                    // Out of bounds!
+                    isDragging = false;
+                    playFailSound();
+                    showTempMessage(clientX, clientY, "อ๊ะ! ลากออกนอกเส้น!", "text-red-600");
+                    snapDraggerBack();
+                    return;
+                }
+            }
+
+            // Normal Bounds
+            x = Math.max(0, Math.min(x, 940));
+            y = Math.max(0, Math.min(y, 540));
+
+            dragger.style.left = `${x}px`;
+            dragger.style.top = `${y}px`;
+        }
+
+        function endDrag(e) {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const targetEl = document.getElementById(`node-${dragTargetIndex}`);
+            const draggerRect = dragger.getBoundingClientRect();
+            const targetRect = targetEl.getBoundingClientRect();
+
+            // Collision check
+            const isOverlap = !(draggerRect.right < targetRect.left + 20 || 
+                                draggerRect.left > targetRect.right - 20 || 
+                                draggerRect.bottom < targetRect.top + 20 || 
+                                draggerRect.top > targetRect.bottom - 20);
+
+            if (isOverlap) {
+                playSuccessSound();
+                dragger.style.display = 'none';
+                dragTargetIndex = -1;
+                currentState = Math.ceil(currentState);
+                updateGameState();
+            } else {
+                snapDraggerBack();
+            }
+        }
+
+        function snapDraggerBack() {
+            const fromNode = levelData[currentLevelIndex].nodes[Math.floor(currentState)];
+            dragger.style.transition = 'all 0.3s ease-out';
+            dragger.style.left = `${fromNode.x + 10}px`;
+            dragger.style.top = `${fromNode.y + 10}px`;
+            setTimeout(() => { dragger.style.transition = 'none'; }, 300);
+        }
+
+        // --- Visual Effects ---
+        function createParticles(x, y) {
+            const board = document.getElementById('game-board');
+            for(let i=0; i<15; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle rounded-full bg-yellow-400 absolute w-4 h-4';
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 40 + Math.random() * 60;
+                p.style.setProperty('--tx', `${Math.cos(angle) * distance}px`);
+                p.style.setProperty('--ty', `${Math.sin(angle) * distance}px`);
+                
+                board.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+
+        function showTempMessage(x, y, text, colorClass) {
+            const msg = document.createElement('div');
+            msg.className = `fixed font-bold text-2xl ${colorClass} pointer-events-none z-50 bg-white px-4 py-2 rounded-xl shadow-lg border-2 border-current`;
+            msg.style.left = `${x - 100}px`;
+            msg.style.top = `${y - 60}px`;
+            msg.style.transition = 'all 0.8s ease-out';
+            msg.innerText = text;
+            document.body.appendChild(msg);
+            
+            setTimeout(() => {
+                msg.style.transform = 'translateY(-40px)';
+                msg.style.opacity = '0';
+            }, 50);
+            setTimeout(() => msg.remove(), 850);
+        }
+
+        window.addEventListener('resize', () => {
+            if(dragger.style.display !== 'none') {
+                 boardRect = document.getElementById('game-board').getBoundingClientRect();
+            }
+        });
+
+    </script>
+</body>
+</html>
