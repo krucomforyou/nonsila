@@ -445,15 +445,28 @@
                  <h3 class="font-serif font-bold text-lg truncate pr-4 flex items-center"><i class="fas fa-users-cog mr-3 text-school-brassLight"></i> จัดการฐานข้อมูลนักเรียน</h3>
                  <button onclick="closeManageStudentModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
             </div>
+            
+            <!-- HEADER TOOLBAR MODAL -->
             <div class="p-4 bg-school-bg border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
-                <div class="flex items-center gap-2 w-full sm:w-auto">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                     <label class="font-bold text-sm text-school-navy whitespace-nowrap">เลือกห้อง:</label>
-                    <select id="manageClassSelector" onchange="loadManageStudents()" class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-school-navy bg-white w-full sm:w-auto min-w-[150px]"></select>
+                    <div class="flex items-center gap-1 w-full sm:w-auto">
+                        <select id="manageClassSelector" onchange="loadManageStudents()" class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-school-navy bg-white w-full sm:w-auto min-w-[120px]"></select>
+                        
+                        <!-- ปุ่มสร้างและลบห้องเรียน (Admin Only) -->
+                        <button onclick="promptAddClass()" class="admin-class-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="เพิ่มห้องเรียนใหม่">
+                            <i class="fas fa-folder-plus"></i>
+                        </button>
+                        <button onclick="confirmDeleteClass()" class="admin-class-btn bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="ลบห้องเรียนที่เลือก">
+                            <i class="fas fa-folder-minus"></i>
+                        </button>
+                    </div>
                 </div>
                 <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
                     <i class="fas fa-plus"></i> เพิ่มนักเรียน
                 </button>
             </div>
+
             <div class="flex-1 overflow-auto relative bg-gray-50 pb-32 md:pb-0">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-white text-school-navy sticky top-0 z-20 shadow-sm border-b border-gray-200">
@@ -1539,14 +1552,14 @@
         function openManageStudentModal() { 
             document.getElementById('manageStudentModal').classList.add('active'); 
             
+            const isAdmin = checkAdminPermission();
+            
             const addBtn = document.querySelector('button[onclick="openEditStudentForm(\'add\')"]');
-            if (addBtn) {
-                if (checkAdminPermission()) {
-                    addBtn.style.display = 'flex'; 
-                } else {
-                    addBtn.style.display = 'none'; 
-                }
-            }
+            if (addBtn) addBtn.style.display = isAdmin ? 'flex' : 'none'; 
+            
+            // ซ่อน/แสดงปุ่มเพิ่มและลบห้องเรียน
+            const adminClassBtns = document.querySelectorAll('.admin-class-btn');
+            adminClassBtns.forEach(btn => btn.style.display = isAdmin ? 'flex' : 'none');
 
             if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
                 document.getElementById('manageClassSelector').value = state.currentClass; 
@@ -1674,6 +1687,96 @@
                         const json = await res.json();
                         if (json.status === 'success') { loadManageStudents(); if (state.currentClass === className) loadStudents(); cuteAlert.success('ลบสำเร็จ! ✅', 'นำนักเรียนออกจากระบบแล้ว'); }
                     } catch (e) { cuteAlert.error('Error', 'ลบข้อมูลไม่สำเร็จ'); }
+                }
+            });
+        }
+        
+        // =========================================================================
+        // ฟังก์ชันจัดการห้องเรียน (สร้างห้อง / ลบห้อง)
+        // =========================================================================
+        function promptAddClass() {
+            if (!checkAdminPermission()) return;
+            Swal.fire({
+                title: 'เพิ่มห้องเรียนใหม่',
+                input: 'text',
+                inputLabel: 'ชื่อห้องเรียน (เช่น ม.1/1)',
+                inputPlaceholder: 'กรอกชื่อห้องเรียน...',
+                showCancelButton: true,
+                confirmButtonText: 'สร้างห้องเรียน',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#1a3a6e',
+                inputValidator: (value) => {
+                    if (!value || value.trim() === '') return 'กรุณากรอกชื่อห้องเรียน!';
+                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในระบบแล้ว!';
+                },
+                customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const newClass = result.value.trim();
+                    cuteAlert.loading('กำลังสร้างห้องเรียนใหม่ ⏳');
+                    
+                    const form = new FormData();
+                    form.append('actionType', 'addClass');
+                    form.append('className', newClass);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        
+                        if (json.status === 'success') {
+                            await fetchClasses(); // โหลดข้อมูลห้องใหม่
+                            document.getElementById('manageClassSelector').value = newClass;
+                            loadManageStudents(); // โหลดตารางที่ว่างเปล่ามาแสดง
+                            cuteAlert.success('สำเร็จ! ✨', `สร้างห้องเรียน ${newClass} เรียบร้อยแล้ว`);
+                        } else {
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+                    }
+                }
+            });
+        }
+
+        function confirmDeleteClass() {
+            if (!checkAdminPermission()) return;
+            
+            const className = document.getElementById('manageClassSelector').value;
+            if (!className) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการลบก่อน');
+                return;
+            }
+
+            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, 'การลบห้องเรียนจะทำให้ข้อมูลนักเรียนในห้องนี้หายไปทั้งหมด (ลบชีต)', 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบห้องเรียน ⏳');
+                    
+                    const form = new FormData();
+                    form.append('actionType', 'deleteClass');
+                    form.append('className', className);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        
+                        if (json.status === 'success') {
+                            await fetchClasses(); // รีเฟรชรายการห้องเรียนใหม่
+                            
+                            // เปลี่ยนไปเลือกห้องแรกสุดที่มี (ถ้ามี)
+                            if (state.classes.length > 0) {
+                                document.getElementById('manageClassSelector').value = state.classes[0];
+                                loadManageStudents();
+                            } else {
+                                document.getElementById('manageTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
+                            }
+                            
+                            cuteAlert.success('ลบสำเร็จ! ✅', `นำห้องเรียน ${className} ออกจากระบบแล้ว`);
+                        } else {
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('Error', 'ไม่สามารถลบห้องเรียนได้');
+                    }
                 }
             });
         }
