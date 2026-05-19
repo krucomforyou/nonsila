@@ -7,1180 +7,1641 @@
 
     <link id="favicon" rel="icon" type="image/png" href="https://lh3.google.com/u/0/d/1YkUNkaQc2mfZ3ptjyoH8Nge93eznBWvK=w1920-h919-iv1?auditContext=prefetch">
     
-    <!-- ฟอนต์สารบรรณ (Sarabun) และ Noto Serif Thai -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Noto+Serif+Thai:wght@500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS & FontAwesome -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- SweetAlert2, Flatpickr, SheetJS, html2canvas (แก้ไขลิงก์ CDN ให้เสถียรขึ้น) -->
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+    <!-- html2canvas สำหรับเซฟตารางสอนเป็นรูปภาพ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <!-- Tailwind Config ให้เข้ากับธีมโรงเรียน -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        school: {
-                            primary: '#1a3a6e', // สีน้ำเงินกรมท่า
-                            secondary: '#f59e0b', // สีเหลือง/ส้ม amber-500
-                            light: '#f0f4f8',
-                            accent: '#3b82f6'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Sarabun', 'sans-serif'],
-                        serif: ['Noto Serif Thai', 'serif'],
-                    }
-                }
-            }
-        }
-    </script>
-
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
-        .font-serif { font-family: 'Noto Serif Thai', serif; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .sidebar { background-color: #1e3a8a; } 
+        .sidebar-item:hover, .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #facc15; }
         
-        /* ซ่อน Scrollbar แต่ยังเลื่อนได้ */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        /* Loader */
-        .loader-spinner {
-            border: 4px solid rgba(26, 58, 110, 0.2);
-            border-top: 4px solid #1a3a6e;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
+        /* แก้ปัญหาหน้าจอขยับ/Sidebar หด เวลา SweetAlert ทำงาน แบบเด็ดขาด */
+        body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { 
+            padding-right: 0 !important; 
+            overflow: hidden !important; 
+            display: flex !important; /* บังคับให้โครงสร้าง Flex ของจอหลักยังคงอยู่ */
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .swal2-container { z-index: 9999 !important; padding-right: 0 !important; }
 
-        /* Custom Radio Buttons for Attendance */
-        .status-radio:checked + label.status-present { background-color: #10b981; color: white; border-color: #10b981; }
-        .status-radio:checked + label.status-absent { background-color: #ef4444; color: white; border-color: #ef4444; }
-        .status-radio:checked + label.status-leave { background-color: #f59e0b; color: white; border-color: #f59e0b; }
-        .status-radio:checked + label.status-late { background-color: #f97316; color: white; border-color: #f97316; }
+        /* สไตล์ปุ่มสถานะ */
+        .status-btn { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; color: #6b7280; background-color: #f3f4f6; }
+        .status-btn.selected { color: white; }
+        .status-present { border-color: #10b981; } .status-present.selected { background-color: #10b981; border-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
+        .status-leave { border-color: #3b82f6; } .status-leave.selected { background-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); }
+        .status-absent { border-color: #ef4444; } .status-absent.selected { background-color: #ef4444; border-color: #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3); }
+        .status-late { border-color: #f59e0b; } .status-late.selected { background-color: #f59e0b; border-color: #f59e0b; box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3); }
+        .status-sick { border-color: #8b5cf6; } .status-sick.selected { background-color: #8b5cf6; border-color: #8b5cf6; box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3); }
+
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Smooth Transitions */
-        .transition-all-200 { transition: all 0.2s ease-in-out; }
+        .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s; opacity: 0; visibility: hidden; pointer-events: none; }
+        .modal.active { opacity: 1; visibility: visible; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
+
+        /* ซ่อน Scrollbar ของตารางแต่ยังให้เลื่อนได้ */
+        .hide-scrollbar::-webkit-scrollbar { height: 6px; }
+        .hide-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* Tab Styles */
-        .tab-btn.active { background-color: #1a3a6e; color: white; box-shadow: 0 4px 6px -1px rgba(26, 58, 110, 0.2); }
-        
-        /* Table styles */
-        table { border-collapse: separate; border-spacing: 0; }
-        th:first-child { border-top-left-radius: 0.75rem; }
-        th:last-child { border-top-right-radius: 0.75rem; }
+        /* สไตล์ตารางรายงาน - แก้ไขให้ล็อคเฉพาะคอลัมน์แรก (เลขที่) */
+        .report-table th, .report-table td { white-space: nowrap; padding: 8px 12px; }
+        .report-table th { position: sticky; top: 0; background-color: #f3f4f6; z-index: 10; border-bottom: 1px solid #e5e7eb; }
+        /* ล็อคคอลัมน์แรก */
+        .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; z-index: 20; border-right: 1px solid #e5e7eb; width: 50px; min-width: 50px; max-width: 50px; text-align: center; background-color: #ffffff; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.05); }
+        .report-table th:first-child { background-color: #f3f4f6; z-index: 30; }
+        .report-table tbody tr:hover td:first-child { background-color: #f9fafb; }
     </style>
 </head>
-<body class="text-gray-800 antialiased min-h-screen flex flex-col relative">
+<body class="flex h-[100dvh] overflow-hidden">
 
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center hidden">
-        <div class="loader-spinner mb-4"></div>
-        <p class="text-school-primary font-medium text-lg" id="loadingText">กำลังโหลดข้อมูล...</p>
+    <!-- OVERLAY LOADING -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
+        <div class="loader mb-4 w-12 h-12 border-4"></div>
+        <p class="text-blue-900 font-bold text-lg animate-pulse" id="loadingText">กำลังโหลดข้อมูล...</p>
     </div>
 
-    <!-- Header Background (Curve Design) -->
-    <div class="bg-school-primary text-white pt-8 pb-24 px-4 rounded-b-[2.5rem] shadow-lg relative z-0">
-        <div class="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-                <!-- โลโก้โรงเรียน (ถ้ามี) หรือไอคอน -->
-                <div class="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/30">
-                    <i class="fa-solid fa-graduation-cap text-3xl text-white"></i>
-                </div>
-                <div class="text-center md:text-left">
-                    <h1 class="text-2xl md:text-3xl font-bold font-serif">ระบบจัดการห้องเรียน</h1>
-                    <p class="text-blue-100 mt-1 opacity-90 text-sm md:text-base">โรงเรียนโนนศิลาสว่างวิทย์</p>
-                </div>
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[140] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebarMenu" class="w-64 flex-none sidebar text-white flex flex-col h-full shadow-2xl z-[150] fixed md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 left-0 top-0 bottom-0">
+        <div class="p-6 border-b border-blue-800 flex flex-col items-center relative">
+            <button class="md:hidden absolute top-4 right-4 text-white hover:text-red-400" onclick="toggleSidebar()">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <div class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-blue-900 text-3xl shadow-lg mb-3 mt-2 md:mt-0">
+                <i class="fas fa-clock"></i>
             </div>
-            
-            <div class="text-sm bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 flex items-center gap-2 shadow-inner">
-                <i class="fa-regular fa-calendar-check"></i>
-                <span id="currentDateDisplay"></span>
-            </div>
+            <h1 class="font-bold text-lg">ระบบเช็คชื่อ</h1>
         </div>
-    </div>
-
-    <!-- Main Container (Overlapping Header) -->
-    <main class="flex-grow w-full max-w-5xl mx-auto p-4 -mt-16 relative z-10">
         
-        <!-- Navigation Tabs (ปรับให้เป็น Grid บนมือถือ เพื่อไม่ให้ซ้อนกันเละเทะ) -->
-        <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-2 mb-6 grid grid-cols-2 md:flex gap-2 border border-slate-100">
-            <button onclick="switchTab('check')" id="tab-check" class="tab-btn active w-full py-3 px-2 md:px-4 rounded-xl font-medium transition-all-200 text-center text-gray-600 hover:bg-slate-50 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-sm md:text-base">
-                <i class="fa-solid fa-user-check text-lg md:text-base"></i> <span>เช็คชื่อ</span>
-            </button>
-            <button onclick="switchTab('report')" id="tab-report" class="tab-btn w-full py-3 px-2 md:px-4 rounded-xl font-medium transition-all-200 text-center text-gray-600 hover:bg-slate-50 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-sm md:text-base">
-                <i class="fa-solid fa-chart-pie text-lg md:text-base"></i> <span>รายงาน</span>
-            </button>
-            <button onclick="switchTab('manage')" id="tab-manage" class="tab-btn w-full py-3 px-2 md:px-4 rounded-xl font-medium transition-all-200 text-center text-gray-600 hover:bg-slate-50 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-sm md:text-base hidden admin-only">
-                <i class="fa-solid fa-users-gear text-lg md:text-base"></i> <span>จัดการนร.</span>
-            </button>
-            <button onclick="switchTab('schedule')" id="tab-schedule" class="tab-btn w-full py-3 px-2 md:px-4 rounded-xl font-medium transition-all-200 text-center text-gray-600 hover:bg-slate-50 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-sm md:text-base">
-                <i class="fa-solid fa-calendar-days text-lg md:text-base"></i> <span>ตารางสอน</span>
-            </button>
-            <button onclick="logout()" class="col-span-2 md:col-span-1 md:ml-auto w-full md:w-auto py-3 px-4 rounded-xl font-medium text-red-500 hover:bg-red-50 transition-all-200 border border-transparent hover:border-red-100 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-right-from-bracket"></i> <span>ออกระบบ</span>
-            </button>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <div class="px-4 text-xs font-bold text-blue-300 mb-2 uppercase">เมนูหลัก</div>
+            <a href="#" data-tab="attendance" onclick="switchTab('attendance')" class="sidebar-item active border-l-4 border-yellow-400 flex items-center px-6 py-3 text-sm transition">
+                <i class="fas fa-clipboard-check w-6"></i> บันทึกเวลาเรียน
+            </a>
+            <a href="#" data-tab="manage-time" onclick="switchTab('manage-time')" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-history w-6"></i> จัดการข้อมูลย้อนหลัง
+            </a>
+            <a href="#" data-tab="schedule" onclick="switchTab('schedule')" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-calendar-alt w-6"></i> จัดการตารางสอน
+            </a>
+            <a href="#" onclick="openManageStudentModal()" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-users w-6"></i> จัดการนักเรียน
+            </a>
+            <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-300 transition border-l-4 border-transparent">
+                <i class="fas fa-file-excel w-6"></i> รายงาน / ดาวน์โหลด .xlsx
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-blue-800 bg-blue-950">
+            <div class="flex items-center gap-3">
+                <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-blue-400 object-cover bg-white">
+                <div class="flex-1 overflow-hidden">
+                    <div id="sidebarUserName" class="text-sm font-bold truncate">ผู้ใช้งาน</div>
+                    <div id="sidebarUserRole" class="text-xs text-blue-300 truncate">ตำแหน่ง</div>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2 mt-4">
+                <button onclick="goToMainWeb()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-arrow-left"></i> กลับหน้าระบบกลาง
+                </button>
+                <div class="text-[10px] text-blue-400 text-center mt-2 font-medium opacity-80">
+                    Version 2.0 (Integrated Auth)
+                </div>
+            </div>
         </div>
+    </aside>
 
-        <!-- ================= SECTION: CHECK ATTENDANCE ================= -->
-        <section id="sec-check" class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-4 md:p-6 mb-6 border border-slate-100">
-            <h2 class="text-xl md:text-2xl font-bold font-serif text-school-primary mb-6 flex items-center gap-2">
-                <i class="fa-solid fa-clipboard-user text-school-secondary"></i> บันทึกเวลาเรียน
-            </h2>
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-white w-full relative">
+        <!-- HEADER -->
+        <header class="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex justify-between items-center shadow-sm z-10 w-full shrink-0">
+            <div class="flex items-center gap-3 md:gap-4">
+                <button class="md:hidden text-gray-500 hover:text-blue-900 focus:outline-none" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-xl md:text-2xl"></i>
+                </button>
+                <h2 id="topHeaderTitle" class="text-lg md:text-xl font-bold text-gray-800 truncate max-w-[150px] sm:max-w-none">บันทึกเวลาเรียนประจำวัน</h2>
+            </div>
+            <div class="text-xs md:text-sm text-gray-500 font-medium bg-gray-100 px-3 md:px-4 py-2 rounded-lg border whitespace-nowrap">
+                <i class="far fa-calendar-alt mr-1 md:mr-2 text-blue-500"></i><span id="headerDateText">กำลังโหลด...</span>
+            </div>
+        </header>
+
+        <!-- TABS CONTAINER -->
+        <div class="flex-1 overflow-hidden relative bg-gray-50 w-full">
             
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">วันที่สอน</label>
-                    <div class="relative">
-                        <i class="fa-regular fa-calendar absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="checkDate" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary focus:border-school-primary outline-none transition-all" placeholder="เลือกวันที่">
+            <!-- 1. บันทึกเวลาเรียน (Attendance) -->
+            <div id="tab-attendance" class="tab-content absolute inset-0 overflow-y-auto p-2 sm:p-4 md:p-6 pb-32 md:pb-8">
+                <!-- CONTROLS CONTAINER -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 md:mb-6">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                            <!-- Date Picker -->
+                            <div class="w-full sm:w-48 relative">
+                                <input type="text" id="datePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่...">
+                                <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none"></i>
+                            </div>
+                            
+                            <!-- Subject/Period Selector (เชื่อมโยงตารางสอน) -->
+                            <div class="w-full sm:w-72 relative">
+                                <select id="attSubjectSelector" onchange="onSubjectSelect('att')" class="w-full appearance-none border border-gray-300 rounded-lg pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-blue-700">
+                                    <option value="">กำลังโหลดวิชาเรียน...</option>
+                                </select>
+                                <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                            </div>
+
+                            <div class="bg-blue-50 text-blue-800 px-4 py-2.5 rounded-lg text-sm border border-blue-100 font-bold hidden w-full sm:w-auto text-center" id="attClassDisplay">
+                                ห้อง: <span>-</span>
+                            </div>
+                        </div>
+                        <button id="btnSaveAttendance" onclick="saveAttendance()" class="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition flex items-center justify-center gap-2 hidden">
+                            <i class="fas fa-save"></i> บันทึกข้อมูล
+                        </button>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">ระดับชั้น</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-layer-group absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <select id="classSelector" onchange="loadStudents()" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary focus:border-school-primary outline-none transition-all appearance-none cursor-pointer">
-                            <option value="">-- เลือกระดับชั้น --</option>
-                        </select>
-                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+
+                <!-- TABLE AREA -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[400px]">
+                    <div class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 overflow-x-auto">
+                        <div class="text-sm font-bold text-gray-600 flex items-center whitespace-nowrap mr-4">
+                            <i class="fas fa-clipboard-list text-blue-500 mr-2 text-lg"></i> รายชื่อนักเรียน 
+                            <span id="studentCountBadge" class="bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full text-xs ml-2">0 คน</span>
+                            <button id="btnRefreshStudents" onclick="loadStudents()" class="ml-2 text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition text-[10px] sm:text-xs hidden" title="รีเฟรชข้อมูลนักเรียน">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="btnGroupStatus" class="flex items-center gap-1.5 sm:gap-2 bg-white px-2 sm:px-3 py-1.5 rounded-lg border shadow-sm whitespace-nowrap overflow-x-auto w-full md:w-auto hidden">
+                            <span class="text-[10px] sm:text-xs font-bold text-gray-500 mr-1 hidden sm:inline">ตั้งค่าทั้งหมด:</span>
+                            <button onclick="setAllStatus('present')" class="text-[10px] sm:text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 sm:px-3 py-1.5 rounded font-bold transition flex-1">/ มาทุกคน</button>
+                            <button onclick="setAllStatus('absent')" class="text-[10px] sm:text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 sm:px-3 py-1.5 rounded font-bold transition flex-1">ข ขาดทุกคน</button>
+                            <button onclick="setAllStatus(null)" class="text-[10px] sm:text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-3 py-1.5 rounded font-bold transition flex-1">ล้าง</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="bg-white border-b border-gray-100 text-gray-500">
+                                <tr>
+                                    <th class="px-4 md:px-6 py-4 font-semibold w-16 text-center">เลขที่</th>
+                                    <th class="px-4 md:px-6 py-4 font-semibold min-w-[200px]">ชื่อ - นามสกุล</th>
+                                    <th class="px-2 md:px-6 py-4 font-semibold text-center w-64">สถานะการเข้าเรียน</th>
+                                    <th class="px-4 md:px-6 py-4 font-semibold text-center w-20">หมายเหตุ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentListContainer" class="divide-y divide-gray-100">
+                                <tr>
+                                    <td colspan="4" class="py-20 text-center">
+                                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                                            <i class="fas fa-hand-pointer text-2xl text-gray-400"></i>
+                                        </div>
+                                        <p class="text-gray-500 font-medium">กรุณาเลือกวันที่ และวิชาเรียนด้านบน เพื่อแสดงรายชื่อ</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">คาบเรียน</label>
-                    <div class="relative">
-                        <i class="fa-regular fa-clock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <select id="periodSelector" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary focus:border-school-primary outline-none transition-all appearance-none cursor-pointer">
-                            <option value="1">คาบ 1</option>
-                            <option value="2">คาบ 2</option>
-                            <option value="3">คาบ 3</option>
-                            <option value="4">คาบ 4</option>
-                            <option value="5">คาบ 5</option>
-                            <option value="6">คาบ 6</option>
-                            <option value="7">คาบ 7</option>
-                            <option value="8">คาบ 8</option>
-                        </select>
-                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+            </div>
+
+            <!-- 2. จัดการเวลาเรียนย้อนหลัง (Manage Time) -->
+            <div id="tab-manage-time" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8 flex flex-col items-center justify-center">
+                 <div class="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 text-center">
+                      <div class="w-16 h-16 md:w-20 md:h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500">
+                          <i class="far fa-calendar-check text-3xl md:text-4xl"></i>
+                      </div>
+                      <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-2">ตรวจสอบ / แก้ไขเวลาย้อนหลัง</h3>
+                      <p class="text-xs md:text-sm text-gray-500 mb-6 md:mb-8">เลือกวันที่ และวิชาที่สอนในวันนั้น เพื่อดึงข้อมูลเดิมมาแก้ไข</p>
+                      
+                      <div class="space-y-4 text-left">
+                          <div>
+                              <label class="block text-sm font-bold text-gray-700 mb-1">เลือกวันที่ย้อนหลัง</label>
+                              <div class="relative">
+                                  <input type="text" id="manageTimeDate" class="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer" placeholder="เลือกวันที่...">
+                                  <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-blue-500"></i>
+                              </div>
+                          </div>
+                          <div>
+                              <label class="block text-sm font-bold text-gray-700 mb-1">เลือกวิชาและคาบ</label>
+                              <select id="manageTimeSubject" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                  <option value="">กรุณาเลือกวันที่ก่อน...</option>
+                              </select>
+                          </div>
+                          
+                          <button onclick="goToEditTime()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-2 transition shadow-md flex justify-center items-center gap-2">
+                              ดึงข้อมูลมาแก้ไข <i class="fas fa-arrow-right"></i>
+                          </button>
+                      </div>
+                 </div>
+            </div>
+
+            <!-- 3. จัดการตารางสอน (Schedule) -->
+            <div id="tab-schedule" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 max-w-5xl mx-auto">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div>
+                            <h3 class="text-lg md:text-xl font-bold text-blue-900"><i class="fas fa-calendar-alt mr-2"></i> ตารางสอนส่วนตัว</h3>
+                            <p class="text-xs md:text-sm text-gray-500 mt-1">กำหนดวิชาและคาบเรียน เพื่อให้ระบบแสดงตัวเลือกถูกต้องในแต่ละวัน</p>
+                        </div>
+                        <button onclick="saveScheduleToDB()" class="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2">
+                            <i class="fas fa-cloud-upload-alt"></i> บันทึกตารางสอน
+                        </button>
+                    </div>
+
+                    <!-- ฟอร์มเพิ่มตาราง -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex flex-col md:flex-row gap-3 items-end">
+                        <div class="w-full md:w-1/4">
+                            <label class="block text-xs font-bold text-gray-600 mb-1">วันในสัปดาห์</label>
+                            <select id="schDay" class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="จันทร์">วันจันทร์</option>
+                                <option value="อังคาร">วันอังคาร</option>
+                                <option value="พุธ">วันพุธ</option>
+                                <option value="พฤหัสบดี">วันพฤหัสบดี</option>
+                                <option value="ศุกร์">วันศุกร์</option>
+                            </select>
+                        </div>
+                        <div class="w-full md:w-2/4">
+                            <label class="block text-xs font-bold text-gray-600 mb-1">วิชาและคาบ (เช่น ภาษาไทย คาบ 1)</label>
+                            <input type="text" id="schSubject" placeholder="พิมพ์ชื่อวิชา และ คาบเรียน" class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="w-full md:w-1/4">
+                            <label class="block text-xs font-bold text-gray-600 mb-1">ห้องเรียน</label>
+                            <select id="schClass" class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="">เลือกห้อง...</option>
+                            </select>
+                        </div>
+                        <button onclick="addScheduleRow()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm transition whitespace-nowrap flex items-center justify-center gap-2 mt-2 md:mt-0">
+                            <i class="fas fa-plus"></i> เพิ่ม
+                        </button>
+                    </div>
+
+                    <!-- ตารางแสดงผลแบบรายการ (ย่อซ่อนได้) -->
+                    <details class="mb-8 group">
+                        <summary class="font-bold text-sm md:text-base text-gray-600 cursor-pointer mb-2 bg-gray-100 p-3 rounded-lg flex items-center justify-between hover:bg-gray-200 transition">
+                            <span><i class="fas fa-list mr-2"></i> ดูรายการตารางสอนทั้งหมด (แบบย่อ)</span>
+                            <i class="fas fa-chevron-down transform group-open:rotate-180 transition"></i>
+                        </summary>
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl mt-2">
+                            <table class="w-full text-sm text-left whitespace-nowrap">
+                                <thead class="bg-gray-100 text-gray-600 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-4 py-3 w-32">วัน</th>
+                                        <th class="px-4 py-3">วิชาและคาบเรียน</th>
+                                        <th class="px-4 py-3 w-48">ห้องเรียน</th>
+                                        <th class="px-4 py-3 w-20 text-center">ลบ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleTableBody" class="divide-y divide-gray-100 bg-white">
+                                    <!-- Render from JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+
+                    <!-- ตารางแสดงผลแบบสวยงามตามคาบเรียน -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                            <h4 class="font-bold text-base md:text-lg text-blue-900"><i class="fas fa-th mr-2"></i> หน้าตาตารางสอนของคุณ</h4>
+                            <button onclick="downloadTimetableImage()" class="w-full sm:w-auto text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 px-4 py-2 rounded-lg font-bold transition flex items-center justify-center gap-2">
+                                <i class="fas fa-image"></i> บันทึกเป็นภาพ
+                            </button>
+                        </div>
+                        <div id="visualTimetable" class="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200 hide-scrollbar pb-2 relative">
+                            <!-- Visual Timetable Rendered by JS -->
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">วิชาที่สอน (ถ้ามี)</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-book absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="subjectName" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary focus:border-school-primary outline-none transition-all" placeholder="เช่น คณิตศาสตร์">
+            </div>
+
+            <!-- 4. รายงาน (Report) / ดาวน์โหลด Excel -->
+            <div id="tab-report" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div>
+                            <h3 class="text-lg md:text-xl font-bold text-blue-900 mb-1"><i class="fas fa-chart-bar mr-2"></i> รายงานบันทึกเวลาเรียน / ดาวน์โหลด .xlsx</h3>
+                            <p class="text-xs md:text-sm text-gray-500">ดูสถิติทั้งหมด หรือดาวน์โหลดข้อมูลของวิชาในรูปแบบ Excel (.xlsx)</p>
+                        </div>
+                        <button onclick="downloadExcel()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 border-b-4 border-green-800">
+                            <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
+                        </button>
+                    </div>
+                    
+                    <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-8 bg-gray-50 p-4 rounded-lg border border-gray-100 items-end">
+                         <div class="w-full md:w-1/2">
+                             <label class="block text-xs font-bold text-gray-600 mb-1">เลือกห้องเรียน</label>
+                             <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" onchange="populateSubjectDropdown('reportSubjectSel', null, this.value)">
+                                 <option value="">-- เลือกห้อง --</option>
+                             </select>
+                         </div>
+                         <div class="w-full md:w-1/2">
+                             <label class="block text-xs font-bold text-gray-600 mb-1">เลือกวิชาและคาบเรียน</label>
+                             <select id="reportSubjectSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+                                 <option value="">เลือกห้องก่อน...</option>
+                             </select>
+                         </div>
+                         <button onclick="generateReport()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 whitespace-nowrap"><i class="fas fa-search"></i> ดูสถิติหน้าเว็บ</button>
+                    </div>
+
+                    <!-- ส่วนแสดงผลรวมหน้าเว็บ -->
+                    <div id="reportResult" class="hidden">
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">ภาพรวมสถิติ (ร้อยละ)</h4>
+                         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-8">
+                             <div class="bg-emerald-50 border border-emerald-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-emerald-600 text-xs md:text-sm font-bold">มาเรียน (ร้อยละ)</div><div id="repPresent" class="text-2xl md:text-3xl font-black mt-2 text-emerald-700">0%</div></div>
+                             <div class="bg-blue-50 border border-blue-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-blue-600 text-xs md:text-sm font-bold">ลากิจ (ร้อยละ)</div><div id="repLeave" class="text-2xl md:text-3xl font-black mt-2 text-blue-700">0%</div></div>
+                             <div class="bg-red-50 border border-red-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-red-600 text-xs md:text-sm font-bold">ขาดเรียน (ร้อยละ)</div><div id="repAbsent" class="text-2xl md:text-3xl font-black mt-2 text-red-700">0%</div></div>
+                             <div class="bg-orange-50 border border-orange-100 p-4 md:p-5 rounded-2xl text-center"><div class="text-orange-600 text-xs md:text-sm font-bold">สาย (ร้อยละ)</div><div id="repLate" class="text-2xl md:text-3xl font-black mt-2 text-orange-700">0%</div></div>
+                             <div class="bg-purple-50 border border-purple-100 p-4 md:p-5 rounded-2xl text-center col-span-2 md:col-span-1"><div class="text-purple-600 text-xs md:text-sm font-bold">ป่วย (ร้อยละ)</div><div id="repSick" class="text-2xl md:text-3xl font-black mt-2 text-purple-700">0%</div></div>
+                         </div>
+                         
+                         <h4 class="font-bold text-gray-800 mb-4 border-l-4 border-yellow-500 pl-3">ตารางบันทึกเวลาเรียนรายวัน <span class="text-xs text-gray-400 ml-2 font-normal">(แตะที่ช่องสีเหลืองเพื่อดูหมายเหตุ)</span></h4>
+                         <div class="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+                            <div class="overflow-x-auto" id="reportTableContainer">
+                                <div class="p-8 text-center text-gray-500">กรุณากดปุ่ม "ดูสถิติหน้าเว็บ"</div>
+                            </div>
+                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div id="quickActions" class="hidden mb-6 grid grid-cols-2 md:flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div class="col-span-2 md:col-span-1 flex items-center md:mr-2">
-                    <span class="text-sm font-medium text-gray-500 py-1">ตั้งค่าทั้งหมด:</span>
-                </div>
-                <button onclick="setAllStatus('มา')" class="px-2 py-2 bg-white border border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 text-sm font-medium transition-colors shadow-sm text-center">มาทั้งหมด</button>
-                <button onclick="setAllStatus('ขาด')" class="px-2 py-2 bg-white border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-50 text-sm font-medium transition-colors shadow-sm text-center">ขาดทั้งหมด</button>
-                <button onclick="setAllStatus('ลา')" class="px-2 py-2 bg-white border border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 text-sm font-medium transition-colors shadow-sm text-center">ลาทั้งหมด</button>
-                <button onclick="fetchHistoryAttendance()" class="col-span-2 md:col-span-1 px-4 py-2 bg-school-primary text-white rounded-lg hover:bg-blue-800 text-sm font-medium transition-colors shadow-sm md:ml-auto flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left"></i> ดึงข้อมูลเก่า
-                </button>
-            </div>
-
-            <!-- Student List Container -->
-            <div id="studentList" class="space-y-3">
-                <div class="text-center py-12 text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                    <i class="fa-solid fa-users text-4xl mb-3 text-slate-300"></i>
-                    <p>กรุณาเลือกระดับชั้นเพื่อแสดงรายชื่อนักเรียน</p>
-                </div>
-            </div>
-
-            <div class="mt-8 flex justify-end">
-                <button id="saveBtn" onclick="saveAttendance()" class="hidden w-full md:w-auto bg-school-primary hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/30 transition-all transform hover:scale-105 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-save"></i> บันทึกข้อมูล
-                </button>
-            </div>
-        </section>
-
-        <!-- ================= SECTION: REPORT ================= -->
-        <section id="sec-report" class="hidden bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-4 md:p-6 mb-6 border border-slate-100">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 class="text-xl md:text-2xl font-bold font-serif text-school-primary flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-school-secondary"></i> รายงานการมาเรียน
-                </h2>
-                <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="exportToExcel('reportTable', 'รายงานการมาเรียน')" class="flex-1 md:flex-none justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-file-excel"></i> Excel
-                    </button>
-                    <button onclick="exportToImage('reportContainer')" class="flex-1 md:flex-none justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-image"></i> Image
-                    </button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">วันที่เริ่มต้น</label>
-                    <input type="text" id="reportStartDate" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">วันที่สิ้นสุด</label>
-                    <input type="text" id="reportEndDate" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">ระดับชั้น</label>
-                    <select id="reportClassSelector" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary outline-none cursor-pointer">
-                        <option value="">-- ทั้งหมด --</option>
-                    </select>
-                </div>
-                <div class="md:col-span-3 flex justify-end mt-2">
-                    <button onclick="generateReport()" class="w-full md:w-auto bg-school-primary hover:bg-blue-800 text-white px-6 py-2.5 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-md">
-                        <i class="fa-solid fa-search"></i> ค้นหารายงาน
-                    </button>
-                </div>
-            </div>
-
-            <!-- Summary Cards -->
-            <div id="reportSummary" class="hidden grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-center shadow-sm">
-                    <p class="text-emerald-600 font-semibold text-xs md:text-sm">มาเรียน (ครั้ง)</p>
-                    <p id="sumPresent" class="text-2xl md:text-3xl font-bold text-emerald-700 mt-1">0</p>
-                </div>
-                <div class="bg-rose-50 rounded-xl p-4 border border-rose-100 text-center shadow-sm">
-                    <p class="text-rose-600 font-semibold text-xs md:text-sm">ขาด (ครั้ง)</p>
-                    <p id="sumAbsent" class="text-2xl md:text-3xl font-bold text-rose-700 mt-1">0</p>
-                </div>
-                <div class="bg-amber-50 rounded-xl p-4 border border-amber-100 text-center shadow-sm">
-                    <p class="text-amber-600 font-semibold text-xs md:text-sm">ลา (ครั้ง)</p>
-                    <p id="sumLeave" class="text-2xl md:text-3xl font-bold text-amber-700 mt-1">0</p>
-                </div>
-                <div class="bg-orange-50 rounded-xl p-4 border border-orange-100 text-center shadow-sm">
-                    <p class="text-orange-600 font-semibold text-xs md:text-sm">สาย (ครั้ง)</p>
-                    <p id="sumLate" class="text-2xl md:text-3xl font-bold text-orange-700 mt-1">0</p>
-                </div>
-            </div>
-
-            <div id="reportContainer" class="overflow-x-auto bg-white rounded-xl border border-slate-200 hidden shadow-sm">
-                <div class="p-4 bg-school-primary text-white text-center hidden" id="reportHeaderExport">
-                    <h3 class="text-xl font-bold font-serif">รายงานการมาเรียน โรงเรียนโนนศิลาสว่างวิทย์</h3>
-                    <p id="reportDateRangeText" class="text-sm opacity-90"></p>
-                </div>
-                <table id="reportTable" class="min-w-full text-sm text-left whitespace-nowrap">
-                    <thead class="bg-slate-100 text-gray-600 uppercase text-xs font-semibold">
-                        <tr>
-                            <th class="px-4 py-3">วันที่</th>
-                            <th class="px-4 py-3">คาบ</th>
-                            <th class="px-4 py-3">ชั้น</th>
-                            <th class="px-4 py-3">เลขที่</th>
-                            <th class="px-4 py-3">ชื่อ-สกุล</th>
-                            <th class="px-4 py-3">สถานะ</th>
-                            <th class="px-4 py-3">ผู้บันทึก</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reportBody" class="divide-y divide-gray-100"></tbody>
-                </table>
-            </div>
-            <div id="reportEmpty" class="text-center py-12 text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-300"></i>
-                <p>เลือกเงื่อนไขและกดค้นหาเพื่อดูรายงาน</p>
-            </div>
-        </section>
-
-        <!-- ================= SECTION: MANAGE STUDENTS ================= -->
-        <section id="sec-manage" class="hidden bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-4 md:p-6 mb-6 border border-slate-100 admin-only">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 class="text-xl md:text-2xl font-bold font-serif text-school-primary flex items-center gap-2">
-                    <i class="fa-solid fa-users-gear text-school-secondary"></i> จัดการข้อมูลนักเรียน
-                </h2>
-                <button onclick="openEditStudentForm()" class="w-full md:w-auto bg-school-primary hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex justify-center items-center gap-2 shadow-md">
-                    <i class="fa-solid fa-user-plus"></i> เพิ่มนักเรียนใหม่
-                </button>
-            </div>
-
-            <p class="text-sm text-gray-500 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100"><i class="fa-solid fa-circle-info text-school-primary mr-1"></i> <b>การเพิ่มห้องเรียนใหม่:</b> ทำได้โดยการกดปุ่ม "เพิ่มนักเรียนใหม่" แล้วพิมพ์ชื่อชั้นเรียนใหม่ (เช่น ม.1/1) ลงในช่อง "ระดับชั้น" ได้เลย ระบบจะเพิ่มห้องเรียนใหม่อัตโนมัติ</p>
-
-            <div class="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col md:flex-row gap-4 items-end">
-                <div class="w-full md:w-1/3">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">เลือกระดับชั้น</label>
-                    <select id="manageClassSelector" onchange="loadManageStudents()" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary outline-none cursor-pointer">
-                        <option value="">-- กรุณาเลือก --</option>
-                    </select>
-                </div>
-                <div class="w-full md:w-2/3 relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" id="searchStudent" onkeyup="filterManageStudent()" placeholder="ค้นหา ชื่อ, รหัส..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                </div>
-            </div>
-
-            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-                <table class="min-w-full text-sm text-left whitespace-nowrap">
-                    <thead class="bg-slate-100 text-gray-600 uppercase text-xs font-semibold">
-                        <tr>
-                            <th class="px-4 py-3 w-16 text-center">รหัส</th>
-                            <th class="px-4 py-3 w-16 text-center">เลขที่</th>
-                            <th class="px-4 py-3">ชื่อ-นามสกุล</th>
-                            <th class="px-4 py-3 w-20 text-center">เพศ</th>
-                            <th class="px-4 py-3 w-24 text-center">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="manageStudentBody" class="divide-y divide-gray-100">
-                        <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 bg-slate-50">เลือกระดับชั้นเพื่อแสดงข้อมูล</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- ================= SECTION: SCHEDULE ================= -->
-        <section id="sec-schedule" class="hidden bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-4 md:p-6 mb-6 border border-slate-100">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 class="text-xl md:text-2xl font-bold font-serif text-school-primary flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-days text-school-secondary"></i> ตารางสอนของฉัน
-                </h2>
-                <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="editSchedule()" class="flex-1 md:flex-none justify-center bg-school-secondary hover:bg-yellow-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-md">
-                        <i class="fa-solid fa-pen-to-square"></i> แก้ไขตารางสอน
-                    </button>
-                    <button onclick="saveSchedule()" id="saveScheduleBtn" class="hidden flex-1 md:flex-none justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-md">
-                        <i class="fa-solid fa-save"></i> บันทึก
-                    </button>
-                </div>
-            </div>
-            
-            <p class="text-sm text-gray-500 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100"><i class="fa-solid fa-circle-info text-school-primary mr-1"></i> ตั้งค่าตารางสอนเพื่อความรวดเร็วในการเช็คชื่อ ระบบจะเลือกชั้นและคาบให้อัตโนมัติตามวันเวลาปัจจุบัน</p>
-
-            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-                <table class="min-w-full text-sm text-center border-collapse">
-                    <thead class="bg-school-primary text-white text-xs uppercase">
-                        <tr>
-                            <th class="px-2 py-3 border-r border-blue-800 w-24">วัน / คาบ</th>
-                            <th class="px-2 py-3 border-r border-blue-800">1<br><span class="text-[10px] font-normal text-blue-200">08:30-09:20</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800">2<br><span class="text-[10px] font-normal text-blue-200">09:20-10:10</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800">3<br><span class="text-[10px] font-normal text-blue-200">10:10-11:00</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800">4<br><span class="text-[10px] font-normal text-blue-200">11:00-11:50</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800 bg-blue-800/50">พัก</th>
-                            <th class="px-2 py-3 border-r border-blue-800">5<br><span class="text-[10px] font-normal text-blue-200">12:50-13:40</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800">6<br><span class="text-[10px] font-normal text-blue-200">13:40-14:30</span></th>
-                            <th class="px-2 py-3 border-r border-blue-800">7<br><span class="text-[10px] font-normal text-blue-200">14:30-15:20</span></th>
-                            <th class="px-2 py-3">8<br><span class="text-[10px] font-normal text-blue-200">15:20-16:10</span></th>
-                        </tr>
-                    </thead>
-                    <tbody id="scheduleBody" class="divide-y divide-gray-200 bg-white">
-                        <!-- Generate by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        </div>
     </main>
 
-    <!-- Modal เพิ่ม/แก้ไข นักเรียน -->
-    <div id="studentModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300" id="studentModalContent">
-            <div class="bg-school-primary text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
-                <h3 class="text-xl font-bold font-serif" id="studentModalTitle">เพิ่มนักเรียน</h3>
-                <button onclick="closeEditStudentForm()" class="text-white hover:text-red-300 transition-colors">
-                    <i class="fa-solid fa-times text-xl"></i>
+    <!-- NOTE MODAL (สำหรับบันทึกหมายเหตุ) -->
+    <div id="noteModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-3xl shadow-2xl p-0 overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                 <h3 class="font-bold text-base md:text-lg text-gray-800 truncate pr-4" id="noteModalTitle">หมายเหตุ</h3>
+                 <button onclick="closeNoteModal()" class="text-gray-400 hover:text-red-500 focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="noteStudentIndex">
+                <textarea id="noteTextarea" rows="3" class="w-full border rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50" placeholder="พิมพ์เหตุผลการลา, ป่วย หรือข้อความอื่นๆ..."></textarea>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeNoteModal()" class="px-4 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 rounded-lg transition">ยกเลิก</button>
+                <button onclick="saveNote()" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow hover:bg-blue-700 transition">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE STUDENTS MODAL (Admin Only) -->
+    <div id="manageStudentModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="modal-content bg-white w-full max-w-4xl mx-0 md:mx-4 md:rounded-3xl shadow-2xl p-0 overflow-hidden flex flex-col h-full md:h-[90vh]">
+            <div class="bg-blue-900 px-4 md:px-6 py-4 flex justify-between items-center text-white shrink-0">
+                 <h3 class="font-bold text-base md:text-lg truncate pr-4"><i class="fas fa-users-cog mr-2"></i> จัดการฐานข้อมูลนักเรียน</h3>
+                 <button onclick="closeManageStudentModal()" class="text-white hover:text-red-300 focus:outline-none"><i class="fas fa-times text-xl md:text-2xl"></i></button>
+            </div>
+            <div class="p-4 bg-gray-50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <label class="font-bold text-sm text-gray-700 whitespace-nowrap">เลือกห้อง:</label>
+                    <select id="manageClassSelector" onchange="loadManageStudents()" class="border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 bg-white w-full sm:w-auto min-w-[150px]"></select>
+                </div>
+                <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded shadow text-sm font-bold flex items-center justify-center gap-2 transition">
+                    <i class="fas fa-plus"></i> เพิ่มนักเรียน
                 </button>
             </div>
-            <div class="p-6 space-y-4">
-                <input type="hidden" id="stuInput_oldId">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">รหัส นร. <span class="text-red-500">*</span></label>
-                        <input type="text" id="stuInput_id" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">เลขที่ <span class="text-red-500">*</span></label>
-                        <input type="number" id="stuInput_number" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">ระดับชั้น <span class="text-red-500">*</span></label>
-                    <input type="text" id="stuInput_class" list="classListOptions" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-school-primary outline-none" placeholder="เลือกหรือพิมพ์เพิ่มชั้นใหม่ (เช่น ม.1/1)">
-                    <datalist id="classListOptions"></datalist>
-                    <datalist id="subjectListOptions"></datalist>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
-                    <input type="text" id="stuInput_name" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">เพศ</label>
-                    <select id="stuInput_gender" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-school-primary outline-none">
-                        <option value="ชาย">ชาย</option>
-                        <option value="หญิง">หญิง</option>
-                    </select>
-                </div>
+            <div class="flex-1 overflow-auto relative bg-gray-100 pb-32 md:pb-0">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-200 text-gray-700 sticky top-0 z-20 shadow-md">
+                        <tr>
+                            <th class="p-3 md:p-4 w-12 md:w-16 text-center whitespace-nowrap">ลำดับ</th>
+                            <th class="p-3 md:p-4 whitespace-nowrap">รหัสประจำตัว</th>
+                            <th class="p-3 md:p-4 whitespace-nowrap">ชื่อ - นามสกุล</th>
+                            <th class="p-3 md:p-4 text-center w-24 whitespace-nowrap">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manageTableBody" class="divide-y divide-gray-200 bg-white">
+                        <tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-end gap-2">
-                <button onclick="closeEditStudentForm()" class="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 font-medium transition-colors">ยกเลิก</button>
-                <button onclick="submitStudentForm()" class="px-4 py-2 bg-school-primary text-white rounded-xl hover:bg-blue-800 font-medium shadow-md transition-colors">บันทึก</button>
+        </div>
+    </div>
+    
+    <!-- ADD/EDIT STUDENT FORM MODAL -->
+    <div id="studentFormModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-3xl shadow-xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-blue-50 px-6 py-4 border-b flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-blue-900" id="studentFormTitle">เพิ่มนักเรียน</h3>
+                 <button onclick="closeEditStudentForm()" class="text-gray-400 hover:text-red-500 focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-3 overflow-y-auto flex-1">
+                <input type="hidden" id="stuFormAction">
+                <input type="hidden" id="stuFormRowIndex">
+                <div id="stuDynamicInputs"></div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t flex justify-end gap-3 shrink-0">
+                <button onclick="closeEditStudentForm()" class="px-4 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 rounded-lg transition">ยกเลิก</button>
+                <button onclick="submitStudentForm()" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow hover:bg-blue-700 transition">บันทึกข้อมูล</button>
             </div>
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // การตั้งค่าเริ่มต้น และ Global Variables
-        // ==========================================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyjR1N1H5g_Gf42W-lQvJm21L4G0tNnJ0-hZ_zD8f9jAigNlDudP6N_e2_Jp2Q1lCof2A/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyhQSHxT5R2BzYsOXp9SkBo77ZID-5IG8A8FSconKoxHLQmNC-Ba8wKMf7BgC4FfoF99w/exec';
         
-        let currentUser = null;
-        let classList = [];
-        let currentStudents = [];
-        let teacherSchedule = {};
+        let state = {
+            user: null,
+            classes: [],
+            students: [],
+            headers: [],
+            attendance: [],
+            schedule: [],
+            currentDate: '',
+            currentClass: '',
+            currentSubjectPeriod: '',
+            manageData: []
+        };
 
-        // Custom Alert เพื่อให้เข้ากับธีม
+        const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+        const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        let fpMain, fpHistory; 
+
+        // Cute Alerts 
         const cuteAlert = {
-            success: (title, text) => Swal.fire({ title, text, icon: 'success', confirmButtonColor: '#1a3a6e', shape: 'rounded-xl' }),
-            error: (title, text) => Swal.fire({ title, text, icon: 'error', confirmButtonColor: '#ef4444' }),
-            warning: (title, text) => Swal.fire({ title, text, icon: 'warning', confirmButtonColor: '#f59e0b' }),
-            confirm: (title, text, confirmTxt, color = '#1a3a6e') => Swal.fire({
-                title, text, icon: 'question', showCancelButton: true, confirmButtonColor: color, cancelButtonColor: '#64748b', confirmButtonText: confirmTxt, cancelButtonText: 'ยกเลิก'
-            }),
-            loading: (title) => {
-                Swal.fire({ title, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            },
-            close: () => Swal.close()
+            loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div><div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div><i class="fas fa-paw text-xl md:text-2xl text-blue-400"></i></div><h3 class="text-lg md:text-xl font-bold text-blue-900 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-blue-50 w-11/12 md:w-auto' }}); },
+            success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce"><i class="fas fa-check"></i></div><h3 class="text-lg md:text-xl font-bold text-emerald-700 mb-2 font-sarabun">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-emerald-50 w-11/12 md:w-auto' }}); },
+            error: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-pulse"><i class="fas fa-times"></i></div><h3 class="text-lg md:text-xl font-bold text-red-700 mb-2 font-sarabun">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, confirmButtonText: 'ตกลง', confirmButtonColor: '#ef4444', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-red-50 w-11/12 md:w-auto' }}); },
+            confirm: (title, text, btnText, colorClass = '#3b82f6') => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm"><i class="fas fa-question"></i></div><h3 class="text-lg md:text-xl font-bold text-gray-800 mb-2 font-sarabun">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sarabun">${text}</p></div>`, showCancelButton: true, confirmButtonColor: colorClass, cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-blue-50 w-11/12 md:w-auto' }}); }
         };
 
-        function showLoading(show, text = 'กำลังโหลดข้อมูล...') {
-            const el = document.getElementById('loadingOverlay');
-            document.getElementById('loadingText').innerText = text;
-            if (show) el.classList.remove('hidden');
-            else el.classList.add('hidden');
-        }
-
-        // ==========================================
-        // การเชื่อมต่อกับ Google Apps Script
-        // ==========================================
-        async function fetchToGAS(payload) {
-            try {
-                const response = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-                return await response.json();
-            } catch (error) {
-                console.error("Fetch Error: ", error);
-                throw new Error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
-            }
-        }
-
-        // ==========================================
-        // ตรวจสอบสิทธิ์และการเข้าสู่ระบบ
-        // ==========================================
-        window.onload = function() {
-            let userData = localStorage.getItem('teacherData');
-            
-            // --- MOCK LOGIN สำหรับการทดสอบ (ป้องกันการโดนเตะออก) ---
-            if (!userData) {
-                console.warn("ไม่พบข้อมูล Login: สร้างข้อมูลจำลองเพื่อการทดสอบ");
-                userData = JSON.stringify({
-                    name: 'ครูทดสอบ ระบบ',
-                    email: 'admin@school.com',
-                    role: 'admin'
-                });
-                
-                // ⚠️ หมายเหตุ: หากนำไปใช้งานจริงบน Server ให้ลบ Mock Login ด้านบนทิ้ง
-                // และปลดคอมเมนต์โค้ด 2 บรรทัดด้านล่างนี้ เพื่อให้เด้งกลับไปหน้า index.html
-                
-                // window.location.href = 'index.html'; 
-                // return;
-            }
-            // ---------------------------------------------------
-
-            currentUser = JSON.parse(userData);
-            
-            // แสดงวันที่ปัจจุบัน
-            flatpickr.localize(flatpickr.l10ns.th);
-            const now = new Date();
-            const thaiDate = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
-            document.getElementById('currentDateDisplay').innerText = thaiDate;
-
-            // ตรวจสอบสิทธิ์แอดมิน
-            if(checkAdminPermission()) {
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebarMenu');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
             } else {
-                document.querySelectorAll('.admin-only').forEach(el => el.remove());
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
             }
+        }
 
-            initApp();
-        };
+        document.addEventListener('DOMContentLoaded', () => {
+            initDatePickers(); 
+            updateHeaderDate(new Date());
+            fetchClasses();
+            checkAuth(); // Check user from NEW login system
+            switchTab('attendance'); 
+        });
 
-        function logout() {
-            cuteAlert.confirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบใช่หรือไม่').then((result) => {
-                if (result.isConfirmed) {
-                    localStorage.removeItem('teacherData');
-                    window.location.href = 'index.html';
-                }
-            });
+        // =========================================================================
+        // เชื่อมระบบ Auth ใหม่
+        // =========================================================================
+        function checkAuth() {
+            // อ่านค่าจาก key ของระบบล็อกอินกลาง แทน 'nswUser'
+            const savedUser = localStorage.getItem('school_user_session');
+            if (savedUser) {
+                state.user = JSON.parse(savedUser);
+                
+                document.getElementById('sidebarUserName').innerText = state.user.name || 'ไม่ระบุชื่อ';
+                
+                // แปลงรหัส Role เป็นชื่อตำแหน่ง
+                let displayRole = 'บุคลากรทั่วไป';
+                if(state.user.role === '4') displayRole = 'ผู้ดูแลระบบสูงสุด';
+                else if(state.user.role === '3') displayRole = 'แอดมิน';
+                else if(state.user.role === '2') displayRole = 'เจ้าหน้าที่';
+                
+                document.getElementById('sidebarUserRole').innerText = state.user.position || displayRole;
+                
+                // ใช้ profileImage จากระบบใหม่
+                const imgUrl = state.user.profileImage && state.user.profileImage.startsWith('http') 
+                    ? state.user.profileImage 
+                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name || 'U')}&background=1e3a8a&color=ffffff`;
+                
+                document.getElementById('sidebarUserImg').src = imgUrl;
+                
+                fetchSchedule();
+            } else {
+                cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าระบบกลางก่อนใช้งาน').then(() => { 
+                    window.location.href = 'login.html'; // กลับไปหน้าล็อกอินกลาง
+                });
+            }
         }
 
         function checkAdminPermission() {
-            // สมมติว่า admin คือคนที่กำหนดสิทธิ์ไว้ (ปรับแก้ตามจริง)
-            const adminEmails = ['admin@school.com', 'director@school.com'];
-            return currentUser.role === 'admin' || adminEmails.includes(currentUser.email);
+            // อัปเดตการเช็คสิทธิ์แอดมิน โดยใช้ค่า Role (3 = Admin, 4 = Super Admin)
+            const userRole = state.user && state.user.role ? String(state.user.role) : '1'; 
+            return userRole === '3' || userRole === '4';
         }
 
-        // ==========================================
-        // การทำงานเริ่มต้น
-        // ==========================================
-        async function initApp() {
-            showLoading(true, 'กำลังเตรียมระบบ...');
-            
-            // Init Flatpickr
-            flatpickr("#checkDate", { defaultDate: "today", dateFormat: "Y-m-d", locale: "th" });
-            flatpickr("#reportStartDate", { defaultDate: new Date(new Date().setDate(new Date().getDate() - 7)), dateFormat: "Y-m-d", locale: "th" });
-            flatpickr("#reportEndDate", { defaultDate: "today", dateFormat: "Y-m-d", locale: "th" });
-
-            try {
-                // ดึงข้อมูลชั้นเรียน
-                const resClass = await fetchToGAS({ action: 'getStudentClasses' });
-                if (resClass.status === 'success') {
-                    classList = resClass.data;
-                    populateClassSelectors();
-                } else throw new Error(resClass.message);
-
-                // ดึงตารางสอน
-                await loadScheduleData();
-                renderScheduleTable();
-                
-                // ตรวจสอบคาบและชั้นจากตารางสอน
-                autoSelectClassAndPeriod();
-
-            } catch (error) {
-                // ข้ามการแจ้งเตือน Error ชั่วคราวถ้าเว็บโหลดจาก Preview ไม่ได้ต่อเน็ต
-                console.error('เกิดข้อผิดพลาดในการดึงข้อมูลเริ่มต้น', error.message);
-            } finally {
-                showLoading(false);
-            }
+        function goToMainWeb() { 
+            // กลับไปที่หน้าล็อกอิน/Dashboard ส่วนกลาง
+            window.location.href = 'login.html'; 
         }
 
         function switchTab(tabId) {
-            ['check', 'report', 'manage', 'schedule'].forEach(id => {
-                const el = document.getElementById(`sec-${id}`);
-                const btn = document.getElementById(`tab-${id}`);
-                if(el && btn) {
-                    if(id === tabId) {
-                        el.classList.remove('hidden');
-                        btn.classList.add('active');
-                        btn.classList.remove('text-gray-600', 'hover:bg-slate-50');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.sidebar-item').forEach(el => {
+                if(el.getAttribute('data-tab')) {
+                    el.classList.remove('active', 'border-l-4', 'border-yellow-400');
+                    el.classList.add('text-gray-300', 'border-transparent');
+                }
+            });
+            const activeLink = document.querySelector(`.sidebar-item[data-tab="${tabId}"]`);
+            if(activeLink) {
+                activeLink.classList.remove('text-gray-300', 'border-transparent');
+                activeLink.classList.add('active', 'border-l-4', 'border-yellow-400');
+            }
+
+            const tabTitles = {
+                'attendance': 'บันทึกเวลาเรียนประจำวัน', 'manage-time': 'ตรวจสอบ / แก้ไขเวลาย้อนหลัง',
+                'schedule': 'จัดการตารางสอน', 'report': 'รายงานการมาเรียน / .xlsx'
+            };
+            if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
+            
+            if(tabId === 'attendance') {
+                const prevSubj = state.currentSubjectPeriod;
+                populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                
+                if (prevSubj) {
+                    const attSel = document.getElementById('attSubjectSelector');
+                    const exists = Array.from(attSel.options).some(opt => opt.value === prevSubj);
+                    if (exists) {
+                        attSel.value = prevSubj;
+                        if (state.currentClass && state.currentClass !== '-') loadStudents();
                     } else {
-                        el.classList.add('hidden');
-                        btn.classList.remove('active');
-                        btn.classList.add('text-gray-600', 'hover:bg-slate-50');
+                        onSubjectSelect('att');
                     }
                 }
-            });
+            }
+            if(tabId === 'manage-time') populateSubjectDropdown('manageTimeSubject', state.currentDate);
+            if(tabId === 'report') populateReportClassDropdown();
 
-            if (tabId === 'manage') loadManageStudents();
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebarMenu');
+                const overlay = document.getElementById('mobileOverlay');
+                if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('hidden');
+                }
+            }
         }
 
-        function populateClassSelectors() {
-            const sels = ['classSelector', 'reportClassSelector', 'manageClassSelector'];
-            sels.forEach(id => {
-                const el = document.getElementById(id);
-                if (!el) return;
+        function initDatePickers() {
+            flatpickr.localize(flatpickr.l10ns.th);
+            const commonConfig = {
+                dateFormat: "Y-m-d", defaultDate: "today",
+                disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
+            };
+
+            fpMain = flatpickr("#datePicker", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'attSubjectSelector') });
+            fpHistory = flatpickr("#manageTimeDate", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'manageTimeSubject') });
+
+            const today = new Date();
+            if(today.getDay() === 0) today.setDate(today.getDate() - 2);
+            else if(today.getDay() === 6) today.setDate(today.getDate() - 1);
+            
+            [fpMain, fpHistory].forEach(fp => { if(fp) fp.setDate(today); });
+            state.currentDate = fpMain.formatDate(today, "Y-m-d");
+            updateHeaderDate(today);
+        }
+
+        function handleDateChange(dates, dateStr, targetSelectId) {
+            if (dates.length > 0) {
+                updateHeaderDate(dates[0]);
+                state.currentDate = dateStr;
+                populateSubjectDropdown(targetSelectId, dateStr);
                 
-                // เก็บ option แรกไว้ (ถ้ามี)
-                const firstOpt = el.options[0];
-                el.innerHTML = '';
-                if(firstOpt && firstOpt.value === "") el.appendChild(firstOpt);
-
-                classList.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c; opt.innerText = c;
-                    el.appendChild(opt);
-                });
-            });
-
-            // อัปเดตรายการห้องเรียนสำหรับ Datalist (หน้าเพิ่มนักเรียน)
-            const datalist = document.getElementById('classListOptions');
-            if (datalist) {
-                datalist.innerHTML = '';
-                classList.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c;
-                    datalist.appendChild(opt);
-                });
-            }
-        }
-
-        // ==========================================
-        // ระบบเช็คชื่อ
-        // ==========================================
-        async function loadStudents() {
-            const className = document.getElementById('classSelector').value;
-            const studentListDiv = document.getElementById('studentList');
-            const saveBtn = document.getElementById('saveBtn');
-            const quickActions = document.getElementById('quickActions');
-
-            if (!className) {
-                studentListDiv.innerHTML = `<div class="text-center py-12 text-gray-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                    <i class="fa-solid fa-users text-4xl mb-3 text-slate-300"></i>
-                    <p>กรุณาเลือกระดับชั้นเพื่อแสดงรายชื่อนักเรียน</p>
-                </div>`;
-                saveBtn.classList.add('hidden');
-                quickActions.classList.add('hidden');
-                return;
-            }
-
-            showLoading(true, 'กำลังดึงรายชื่อ...');
-            try {
-                const res = await fetchToGAS({ action: 'getStudents', className: className });
-                if (res.status === 'success') {
-                    currentStudents = res.data;
-                    renderStudentList();
-                    saveBtn.classList.remove('hidden');
-                    quickActions.classList.remove('hidden');
-                } else throw new Error(res.message);
-            } catch (error) {
-                cuteAlert.error('ผิดพลาด', error.message);
-                studentListDiv.innerHTML = `<div class="text-center text-red-500 py-8">${error.message}</div>`;
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        function renderStudentList() {
-            const div = document.getElementById('studentList');
-            if (currentStudents.length === 0) {
-                div.innerHTML = `<div class="text-center text-gray-500 py-8 bg-slate-50 rounded-xl">ไม่พบรายชื่อนักเรียนในชั้นนี้</div>`;
-                return;
-            }
-
-            let html = '';
-            currentStudents.forEach(student => {
-                // ปรับแต่ง Layout ของรายชื่อให้ยืดหยุ่นบนมือถือ (Radio Button แยกเป็น 4 คอลัมน์)
-                html += `
-                <div class="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 transition-colors shadow-sm gap-4" data-id="${student.id}">
-                    <div class="flex items-center gap-4 w-full md:w-auto">
-                        <div class="w-12 h-12 rounded-full bg-blue-50 text-school-primary flex items-center justify-center font-bold text-lg border border-blue-100 shrink-0">
-                            ${student.number}
-                        </div>
-                        <div>
-                            <p class="font-semibold text-gray-800 text-base md:text-lg">${student.fullName}</p>
-                            <p class="text-sm text-gray-500">รหัส: ${student.id} &bull; เพศ: ${student.gender}</p>
-                        </div>
-                    </div>
+                if(targetSelectId === 'attSubjectSelector') {
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4"><i class="fas fa-hand-pointer text-2xl text-gray-400"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกวิชาเรียนด้านบน เพื่อแสดงรายชื่อ</p></td></tr>`;
+                    document.getElementById('attClassDisplay').classList.add('hidden');
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
+                    document.getElementById('btnSaveAttendance').classList.add('hidden');
+                    document.getElementById('btnGroupStatus').classList.add('hidden');
+                    const refreshBtn = document.getElementById('btnRefreshStudents');
+                    if(refreshBtn) refreshBtn.classList.add('hidden');
                     
-                    <div class="grid grid-cols-4 md:flex gap-2 w-full md:w-auto mt-2 md:mt-0">
-                        <input type="radio" name="status_${student.id}" id="present_${student.id}" value="มา" class="hidden status-radio" checked>
-                        <label for="present_${student.id}" class="status-present cursor-pointer py-2 px-1 md:px-4 rounded-lg border border-gray-300 text-gray-600 font-medium text-sm text-center transition-colors hover:bg-gray-50">มา</label>
-                        
-                        <input type="radio" name="status_${student.id}" id="absent_${student.id}" value="ขาด" class="hidden status-radio">
-                        <label for="absent_${student.id}" class="status-absent cursor-pointer py-2 px-1 md:px-4 rounded-lg border border-gray-300 text-gray-600 font-medium text-sm text-center transition-colors hover:bg-gray-50">ขาด</label>
-                        
-                        <input type="radio" name="status_${student.id}" id="leave_${student.id}" value="ลา" class="hidden status-radio">
-                        <label for="leave_${student.id}" class="status-leave cursor-pointer py-2 px-1 md:px-4 rounded-lg border border-gray-300 text-gray-600 font-medium text-sm text-center transition-colors hover:bg-gray-50">ลา</label>
-                        
-                        <input type="radio" name="status_${student.id}" id="late_${student.id}" value="สาย" class="hidden status-radio">
-                        <label for="late_${student.id}" class="status-late cursor-pointer py-2 px-1 md:px-4 rounded-lg border border-gray-300 text-gray-600 font-medium text-sm text-center transition-colors hover:bg-gray-50">สาย</label>
-                    </div>
-                </div>
-                `;
-            });
-            div.innerHTML = html;
-        }
-
-        function setAllStatus(status) {
-            const map = { 'มา': 'present', 'ขาด': 'absent', 'ลา': 'leave', 'สาย': 'late' };
-            currentStudents.forEach(s => {
-                const el = document.getElementById(`${map[status]}_${s.id}`);
-                if (el) el.checked = true;
-            });
-        }
-
-        async function fetchHistoryAttendance() {
-            const date = document.getElementById('checkDate').value;
-            const className = document.getElementById('classSelector').value;
-            const period = document.getElementById('periodSelector').value;
-
-            if(!date || !className || !period) return cuteAlert.warning('ข้อมูลไม่ครบ', 'กรุณาเลือกวันที่ ชั้น และคาบให้ครบถ้วน');
-
-            showLoading(true, 'กำลังดึงประวัติ...');
-            try {
-                const res = await fetchToGAS({ action: 'getAttendance', date, className, period });
-                if(res.status === 'success' && res.data.length > 0) {
-                    const map = { 'มา': 'present', 'ขาด': 'absent', 'ลา': 'leave', 'สาย': 'late' };
-                    // Set Subject
-                    if(res.data[0].subject) document.getElementById('subjectName').value = res.data[0].subject;
-
-                    res.data.forEach(d => {
-                        const el = document.getElementById(`${map[d.status]}_${d.studentId}`);
-                        if(el) el.checked = true;
-                    });
-                    cuteAlert.success('ดึงข้อมูลสำเร็จ', 'พบประวัติการเช็คชื่อ ' + res.data.length + ' รายการ');
-                } else {
-                    cuteAlert.warning('ไม่พบข้อมูล', 'ยังไม่มีการบันทึกในคาบและวันที่ระบุ');
+                    state.currentSubjectPeriod = '';
+                    state.currentClass = '';
                 }
-            } catch (error) {
-                cuteAlert.error('ผิดพลาด', error.message);
-            } finally { showLoading(false); }
-        }
-
-        async function saveAttendance() {
-            const date = document.getElementById('checkDate').value;
-            const className = document.getElementById('classSelector').value;
-            const period = document.getElementById('periodSelector').value;
-            const subject = document.getElementById('subjectName').value || '-';
-
-            if (!date || !className) return cuteAlert.warning('กรุณากรอกข้อมูล', 'วันที่ และ ระดับชั้น จำเป็นต้องเลือก');
-
-            let records = [];
-            currentStudents.forEach(s => {
-                const status = document.querySelector(`input[name="status_${s.id}"]:checked`).value;
-                records.push({
-                    date: date,
-                    period: period,
-                    className: className,
-                    studentId: s.id,
-                    studentNumber: s.number,
-                    studentName: s.fullName,
-                    subject: subject,
-                    status: status,
-                    teacher: currentUser.name
-                });
-            });
-
-            showLoading(true, 'กำลังบันทึกข้อมูล...');
-            try {
-                const res = await fetchToGAS({ action: 'saveAttendance', data: records });
-                if (res.status === 'success') {
-                    cuteAlert.success('บันทึกสำเร็จ', 'บันทึกข้อมูลการมาเรียนเรียบร้อยแล้ว');
-                } else throw new Error(res.message);
-            } catch (error) {
-                cuteAlert.error('บันทึกล้มเหลว', error.message);
-            } finally {
-                showLoading(false);
             }
         }
 
-        // ==========================================
-        // ระบบรายงาน
-        // ==========================================
-        async function generateReport() {
-            const start = document.getElementById('reportStartDate').value;
-            const end = document.getElementById('reportEndDate').value;
-            const className = document.getElementById('reportClassSelector').value;
-
-            if(!start || !end) return cuteAlert.warning('คำเตือน', 'กรุณาเลือกช่วงวันที่ให้ครบถ้วน');
-
-            showLoading(true, 'กำลังสร้างรายงาน...');
-            try {
-                const res = await fetchToGAS({ action: 'getAttendanceReport', startDate: start, endDate: end, className: className });
-                if(res.status === 'success') {
-                    renderReportTable(res.data);
-                    // Update Text For Export
-                    document.getElementById('reportDateRangeText').innerText = `ระหว่างวันที่ ${start} ถึง ${end} ${className ? 'ชั้น '+className : ''}`;
-                } else throw new Error(res.message);
-            } catch(e) {
-                cuteAlert.error('ผิดพลาด', e.message);
-            } finally { showLoading(false); }
+        function updateHeaderDate(dateObj) {
+            if(!dateObj || !(dateObj instanceof Date) || isNaN(dateObj)) return;
+            const day = dateObj.getDate();
+            const month = THAI_MONTHS[dateObj.getMonth()];
+            const year = dateObj.getFullYear() + 543;
+            document.getElementById('headerDateText').innerText = `${day} ${month} ${year}`;
         }
 
-        function renderReportTable(data) {
-            const tbody = document.getElementById('reportBody');
-            const summaryDiv = document.getElementById('reportSummary');
-            const tableDiv = document.getElementById('reportContainer');
-            const emptyDiv = document.getElementById('reportEmpty');
+        function formatDate(dateString) {
+            if(!dateString) return "-";
+            try {
+                let dObj = new Date(dateString);
+                if (isNaN(dObj.getTime())) return dateString;
+                return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
+            } catch (e) { return dateString; }
+        }
 
-            if(data.length === 0) {
-                summaryDiv.classList.add('hidden');
-                tableDiv.classList.add('hidden');
-                emptyDiv.classList.remove('hidden');
-                emptyDiv.innerHTML = `<i class="fa-solid fa-box-open text-4xl mb-3 text-slate-300"></i><p>ไม่พบข้อมูลในช่วงเวลาที่เลือก</p>`;
+        function populateSubjectDropdown(selectId, dateStr, classFilter = null) {
+            const sel = document.getElementById(selectId);
+            if(!sel) return;
+            
+            if (selectId === 'reportSubjectSel') {
+                if(!classFilter || !state.schedule || state.schedule.length === 0) {
+                    sel.innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+                    return;
+                }
+                const classSchedules = state.schedule.filter(s => s.className === classFilter && s.className !== '-');
+                if (classSchedules.length === 0) {
+                    sel.innerHTML = `<option value="">-- ไม่มีวิชาที่สอนห้องนี้ --</option>`;
+                } else {
+                    let opts = '<option value="">-- เลือกวิชา --</option>';
+                    const uniqueOptions = new Set();
+                    classSchedules.forEach(s => {
+                        const displayValue = `[วัน${s.day}] ${s.subjectPeriod}`;
+                        const optionHTML = `<option value="${s.subjectPeriod}">${displayValue}</option>`;
+                        uniqueOptions.add(optionHTML);
+                    });
+                    opts += Array.from(uniqueOptions).join('');
+                    sel.innerHTML = opts;
+                }
                 return;
             }
 
-            emptyDiv.classList.add('hidden');
-            summaryDiv.classList.remove('hidden');
-            tableDiv.classList.remove('hidden');
+            if(!state.schedule || state.schedule.length === 0) {
+                sel.innerHTML = '<option value="">กำลังโหลดวิชาเรียน หรือ ยังไม่มีตารางสอน</option>';
+                return;
+            }
 
-            let html = '';
-            let counts = { 'มา': 0, 'ขาด': 0, 'ลา': 0, 'สาย': 0 };
-
-            data.forEach(row => {
-                counts[row.status] = (counts[row.status] || 0) + 1;
-                let statusBadge = '';
-                switch(row.status) {
-                    case 'มา': statusBadge = '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-xs font-bold">มา</span>'; break;
-                    case 'ขาด': statusBadge = '<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded-md text-xs font-bold">ขาด</span>'; break;
-                    case 'ลา': statusBadge = '<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded-md text-xs font-bold">ลา</span>'; break;
-                    case 'สาย': statusBadge = '<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded-md text-xs font-bold">สาย</span>'; break;
-                    default: statusBadge = row.status;
-                }
-
-                // Format Date
-                let dateStr = row.date;
-                try {
-                    const d = new Date(row.date);
-                    if(!isNaN(d)) dateStr = d.toLocaleDateString('th-TH');
-                } catch(e){}
-
-                html += `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-4 py-3 whitespace-nowrap">${dateStr}</td>
-                        <td class="px-4 py-3 text-center">${row.period}</td>
-                        <td class="px-4 py-3 text-center">${row.className}</td>
-                        <td class="px-4 py-3 text-center">${row.studentNumber}</td>
-                        <td class="px-4 py-3 font-medium text-gray-800">${row.studentName}</td>
-                        <td class="px-4 py-3 text-center">${statusBadge}</td>
-                        <td class="px-4 py-3 text-xs text-gray-500">${row.teacher}</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-            document.getElementById('sumPresent').innerText = counts['มา'];
-            document.getElementById('sumAbsent').innerText = counts['ขาด'];
-            document.getElementById('sumLeave').innerText = counts['ลา'];
-            document.getElementById('sumLate').innerText = counts['สาย'];
-        }
-
-        // ==========================================
-        // Export Functions
-        // ==========================================
-        function exportToExcel(tableID, filename = 'report') {
-            const table = document.getElementById(tableID);
-            if(table.classList.contains('hidden') || !document.getElementById('reportBody').innerHTML) return cuteAlert.warning('ไม่มีข้อมูล', 'กรุณาสร้างรายงานก่อนส่งออก');
+            if(!dateStr) {
+                sel.innerHTML = '<option value="">ยังไม่มีข้อมูลตารางสอน / เลือกวันก่อน</option>';
+                return;
+            }
             
-            const wb = XLSX.utils.table_to_book(table, {sheet: "Sheet 1"});
-            XLSX.writeFile(wb, `${filename}_${new Date().getTime()}.xlsx`);
-        }
-
-        function exportToImage(containerID) {
-            const container = document.getElementById(containerID);
-            if(container.classList.contains('hidden')) return cuteAlert.warning('ไม่มีข้อมูล', 'กรุณาสร้างรายงานก่อนส่งออก');
+            const d = new Date(dateStr);
+            const dayName = DAY_NAMES[d.getDay()];
             
-            cuteAlert.loading('กำลังประมวลผลรูปภาพ...');
+            const availableSubjects = state.schedule.filter(s => s.day === dayName && s.className !== '-');
             
-            const headerExport = document.getElementById('reportHeaderExport');
-            headerExport.classList.remove('hidden'); // แสดงหัวรายงานสำหรับรูป
-
-            html2canvas(container, {
-                scale: 2, backgroundColor: "#ffffff"
-            }).then(canvas => {
-                headerExport.classList.add('hidden'); // ซ่อนกลับ
-                
-                const link = document.createElement('a');
-                link.download = `Report_${new Date().getTime()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                cuteAlert.close();
-            });
-        }
-
-        // ==========================================
-        // ตารางสอน (Schedule)
-        // ==========================================
-        const daysOfWeek = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
-        let isEditingSchedule = false;
-
-        async function loadScheduleData() {
-            try {
-                const res = await fetchToGAS({ action: 'getSchedule', email: currentUser.email });
-                if(res.status === 'success') {
-                    teacherSchedule = res.data || {};
-                    updateSubjectDatalist();
-                }
-            } catch (e) { console.error("Load schedule fail", e); }
-        }
-
-        function updateSubjectDatalist() {
-            let subjects = new Set();
-            Object.values(teacherSchedule).forEach(d => {
-                if(d.subject) subjects.add(d.subject);
-            });
-            const dl = document.getElementById('subjectListOptions');
-            if(dl) {
-                dl.innerHTML = '';
-                subjects.forEach(sub => {
-                    const opt = document.createElement('option');
-                    opt.value = sub;
-                    dl.appendChild(opt);
+            if (availableSubjects.length === 0) {
+                sel.innerHTML = `<option value="">-- ไม่มีวิชาสอนในวัน${dayName} --</option>`;
+            } else {
+                let opts = '<option value="">เลือกวิชา/คาบเรียน...</option>';
+                availableSubjects.forEach(s => {
+                    const displayClass = s.className === '-' ? 'คาบกิจกรรม' : `ห้อง ${s.className}`;
+                    opts += `<option value="${s.subjectPeriod}" data-class="${s.className}">${s.subjectPeriod} (${displayClass})</option>`;
                 });
+                sel.innerHTML = opts;
+            }
+        }
+
+        function populateReportClassDropdown() {
+            const sel = document.getElementById('reportClassSel');
+            const prevVal = sel.value; 
+
+            if (!state.schedule || state.schedule.length === 0) {
+                 sel.innerHTML = '<option value="">-- กำลังโหลดตารางสอน... --</option>';
+                 return;
+            }
+            
+            const uniqueClasses = [...new Set(state.schedule.map(s => s.className).filter(c => c !== '-'))];
+            
+            if (uniqueClasses.length === 0) {
+                 sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
+                 return;
+            }
+
+            let opts = '<option value="">-- เลือกห้องเรียน --</option>';
+            uniqueClasses.sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
+            sel.innerHTML = opts;
+
+            if (prevVal && uniqueClasses.includes(prevVal)) {
+                sel.value = prevVal;
+                const subjSel = document.getElementById('reportSubjectSel');
+                const prevSubj = subjSel.value;
+                populateSubjectDropdown('reportSubjectSel', null, prevVal);
+                
+                setTimeout(() => {
+                    if (prevSubj && Array.from(subjSel.options).some(opt => opt.value === prevSubj)) {
+                        subjSel.value = prevSubj;
+                    }
+                }, 50);
+            } else {
+                document.getElementById('reportSubjectSel').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+            }
+        }
+
+        function onSubjectSelect(prefix) {
+            const sel = document.getElementById(prefix === 'att' ? 'attSubjectSelector' : 'manageTimeSubject');
+            const selectedOpt = sel.options[sel.selectedIndex];
+            
+            if (sel.value) {
+                state.currentSubjectPeriod = sel.value;
+                state.currentClass = selectedOpt.getAttribute('data-class');
+                
+                if(prefix === 'att') {
+                    const classDisplay = document.getElementById('attClassDisplay');
+                    classDisplay.querySelector('span').innerText = state.currentClass === '-' ? 'คาบกิจกรรม' : state.currentClass;
+                    classDisplay.classList.remove('hidden');
+                    
+                    if(state.currentClass === '-') {
+                        document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4"><i class="fas fa-users text-2xl text-green-500"></i></div><p class="text-gray-500 font-medium text-lg">วิชานี้คือคาบกิจกรรม (ไม่ต้องเช็คชื่อ)</p></td></tr>`;
+                        document.getElementById('studentCountBadge').innerText = '0 คน';
+                        document.getElementById('btnSaveAttendance').classList.add('hidden');
+                        document.getElementById('btnGroupStatus').classList.add('hidden');
+                        document.getElementById('btnRefreshStudents').classList.add('hidden');
+                    } else {
+                        document.getElementById('btnSaveAttendance').classList.remove('hidden');
+                        document.getElementById('btnGroupStatus').classList.remove('hidden');
+                        document.getElementById('btnRefreshStudents').classList.remove('hidden');
+                        loadStudents(); 
+                    }
+                }
+            } else {
+                state.currentSubjectPeriod = '';
+                state.currentClass = '';
+                if(prefix === 'att') {
+                    document.getElementById('attClassDisplay').classList.add('hidden');
+                    document.getElementById('btnSaveAttendance').classList.add('hidden');
+                    document.getElementById('btnGroupStatus').classList.add('hidden');
+                    document.getElementById('btnRefreshStudents').classList.add('hidden');
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4"><i class="fas fa-hand-pointer text-2xl text-gray-400"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกวิชาเรียนด้านบน เพื่อแสดงรายชื่อ</p></td></tr>`;
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
+                }
+            }
+        }
+
+        // =========================================================================
+        // จัดการตารางสอน (Schedule)
+        // =========================================================================
+        async function fetchSchedule() {
+            try {
+                const attSel = document.getElementById('attSubjectSelector');
+                if(attSel) attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
+
+                const res = await fetch(`${API_URL}?action=getSchedule&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    state.schedule = json.data;
+                    renderScheduleTable();
+                    populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                    populateSubjectDropdown('manageTimeSubject', state.currentDate);
+                    populateReportClassDropdown(); 
+                } else {
+                    if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                }
+            } catch (e) { 
+                console.error('Error fetching schedule:', e); 
+                const attSel = document.getElementById('attSubjectSelector');
+                if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
             }
         }
 
         function renderScheduleTable() {
-            const tbody = document.getElementById('scheduleBody');
-            let html = '';
-            
-            daysOfWeek.forEach((day, index) => {
-                let rowHtml = `<tr><td class="px-2 py-3 font-bold bg-slate-50 border-r border-slate-200">${day}</td>`;
-                
-                for(let period = 1; period <= 8; period++) {
-                    if(period === 5) {
-                        rowHtml += `<td class="bg-slate-100 border-r border-slate-200"></td>`; // พัก
-                    }
-                    
-                    const key = `${index+1}_${period}`; // 1_1 = จันทร์ คาบ 1
-                    const data = teacherSchedule[key] || { class: '', subject: '' };
-                    
-                    if(isEditingSchedule) {
-                        // โหมดแก้ไข
-                        rowHtml += `
-                            <td class="px-1 py-2 border border-slate-200 min-w-[100px]">
-                                <input type="text" list="classListOptions" id="sch_class_${key}" value="${data.class}" placeholder="ชั้น (เช่น ม.1/1)" class="w-full text-xs p-1 mb-1 border rounded focus:ring-1 focus:ring-school-primary outline-none">
-                                <input type="text" list="subjectListOptions" id="sch_sub_${key}" value="${data.subject}" placeholder="วิชา (เช่น คณิต)" class="w-full text-xs p-1 border rounded focus:ring-1 focus:ring-school-primary outline-none">
-                            </td>
-                        `;
-                    } else {
-                        // โหมดดู
-                        if(data.class) {
-                            rowHtml += `
-                            <td class="px-1 py-2 border border-slate-200 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors" onclick="jumpToCheck('${data.class}', ${period}, '${data.subject}')">
-                                <div class="font-bold text-school-primary text-sm">${data.class}</div>
-                                <div class="text-xs text-gray-600 truncate max-w-[80px] mx-auto">${data.subject}</div>
-                            </td>`;
-                        } else {
-                            rowHtml += `<td class="px-1 py-2 border border-slate-200 text-gray-300 text-xs">-</td>`;
-                        }
-                    }
-                }
-                rowHtml += '</tr>';
-                html += rowHtml;
-            });
-            tbody.innerHTML = html;
-        }
-
-        function editSchedule() {
-            isEditingSchedule = true;
-            renderScheduleTable();
-            document.getElementById('saveScheduleBtn').classList.remove('hidden');
-        }
-
-        async function saveSchedule() {
-            let newSchedule = {};
-            daysOfWeek.forEach((day, index) => {
-                for(let period = 1; period <= 8; period++) {
-                    if(period === 5) continue;
-                    const key = `${index+1}_${period}`;
-                    const cls = document.getElementById(`sch_class_${key}`).value;
-                    const sub = document.getElementById(`sch_sub_${key}`).value;
-                    if(cls) {
-                        newSchedule[key] = { class: cls, subject: sub };
-                    }
-                }
-            });
-
-            cuteAlert.loading('กำลังบันทึกตารางสอน...');
-            try {
-                const res = await fetchToGAS({ action: 'saveSchedule', email: currentUser.email, data: newSchedule });
-                if(res.status === 'success') {
-                    teacherSchedule = newSchedule;
-                    isEditingSchedule = false;
-                    
-                    // จดจำรายชื่อวิชาและห้องเรียนที่เพิ่งพิมพ์ไปในตารางสอน
-                    updateSubjectDatalist();
-                    let classAdded = false;
-                    Object.values(newSchedule).forEach(d => {
-                        if(d.class && !classList.includes(d.class)) {
-                            classList.push(d.class);
-                            classAdded = true;
-                        }
-                    });
-                    if(classAdded) {
-                        classList.sort();
-                        populateClassSelectors();
-                    }
-
-                    renderScheduleTable();
-                    document.getElementById('saveScheduleBtn').classList.add('hidden');
-                    cuteAlert.success('สำเร็จ', 'บันทึกตารางสอนแล้ว');
-                    autoSelectClassAndPeriod(); // อัปเดตเช็คชื่อ
-                } else throw new Error(res.message);
-            } catch(e) { cuteAlert.error('ผิดพลาด', e.message); }
-        }
-
-        function jumpToCheck(className, period, subject) {
-            switchTab('check');
-            document.getElementById('classSelector').value = className;
-            document.getElementById('periodSelector').value = period;
-            document.getElementById('subjectName').value = subject || '';
-            loadStudents();
-        }
-
-        function autoSelectClassAndPeriod() {
-            const now = new Date();
-            const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon ...
-            
-            // ข้ามเสาร์อาทิตย์
-            if(dayOfWeek === 0 || dayOfWeek === 6) return;
-
-            const hour = now.getHours();
-            const min = now.getMinutes();
-            const timeVal = hour * 60 + min;
-
-            let currentPeriod = 0;
-            // 08:30 - 09:20 = 510 - 560
-            if(timeVal >= 510 && timeVal < 560) currentPeriod = 1;
-            else if(timeVal >= 560 && timeVal < 610) currentPeriod = 2;
-            else if(timeVal >= 610 && timeVal < 660) currentPeriod = 3;
-            else if(timeVal >= 660 && timeVal < 710) currentPeriod = 4;
-            // พัก 710 - 770
-            else if(timeVal >= 770 && timeVal < 820) currentPeriod = 6; // หลังพักนับคาบ 6 ตาม UI
-            else if(timeVal >= 820 && timeVal < 870) currentPeriod = 7;
-            else if(timeVal >= 870 && timeVal < 920) currentPeriod = 8;
-
-            if(currentPeriod > 0) {
-                document.getElementById('periodSelector').value = currentPeriod;
-                const key = `${dayOfWeek}_${currentPeriod}`;
-                if(teacherSchedule[key] && teacherSchedule[key].class) {
-                    document.getElementById('classSelector').value = teacherSchedule[key].class;
-                    document.getElementById('subjectName').value = teacherSchedule[key].subject || '';
-                    loadStudents(); // โหลดเด็กอัตโนมัติ
-                }
-            }
-        }
-
-        // ==========================================
-        // จัดการข้อมูลนักเรียน (Admin Only)
-        // ==========================================
-        let allManageStudents = [];
-
-        async function loadManageStudents() {
-            const className = document.getElementById('manageClassSelector').value;
-            if(!className) return;
-
-            showLoading(true, 'กำลังดึงข้อมูลนักเรียน...');
-            try {
-                const res = await fetchToGAS({ action: 'getStudents', className: className });
-                if(res.status === 'success') {
-                    allManageStudents = res.data;
-                    renderManageStudentTable(allManageStudents);
-                } else throw new Error(res.message);
-            } catch(e) { cuteAlert.error('ผิดพลาด', e.message); }
-            finally { showLoading(false); }
-        }
-
-        function renderManageStudentTable(data) {
-            const tbody = document.getElementById('manageStudentBody');
-            if(data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500 bg-slate-50">ไม่พบรายชื่อในชั้นนี้</td></tr>`;
+            const tbody = document.getElementById('scheduleTableBody');
+            if (state.schedule.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">คุณยังไม่ได้เพิ่มตารางสอน</td></tr>`;
+                document.getElementById('visualTimetable').innerHTML = '<div class="text-center py-10 text-gray-400 bg-gray-50 rounded-xl mx-2"><i class="fas fa-calendar-times text-4xl mb-3 text-gray-300"></i><p>กรุณาเพิ่มวิชาสอนของคุณก่อน เพื่อแสดงตารางสอนที่นี่</p></div>';
                 return;
             }
 
-            let html = '';
-            data.forEach(s => {
-                html += `
-                <tr class="hover:bg-blue-50 transition-colors border-b border-gray-50">
-                    <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">${s.id}</td>
-                    <td class="px-4 py-3 text-center font-bold text-school-primary">${s.number}</td>
-                    <td class="px-4 py-3 font-medium text-gray-800">${s.fullName}</td>
-                    <td class="px-4 py-3 text-center text-sm">${s.gender}</td>
+            const order = { "จันทร์":1, "อังคาร":2, "พุธ":3, "พฤหัสบดี":4, "ศุกร์":5 };
+            state.schedule.sort((a, b) => order[a.day] - order[b.day]);
+
+            tbody.innerHTML = state.schedule.map((s, index) => {
+                const displayClass = s.className === '-' ? '' : s.className;
+                return `
+                <tr class="hover:bg-blue-50 border-b border-gray-100 transition-colors">
+                    <td class="px-4 py-3 font-bold text-gray-700">วัน${s.day}</td>
+                    <td class="px-4 py-3 text-blue-700 font-medium whitespace-normal break-words">${s.subjectPeriod}</td>
+                    <td class="px-4 py-3 text-gray-600">${displayClass}</td>
                     <td class="px-4 py-3 text-center">
-                        <button onclick='openEditStudentForm(${JSON.stringify(s)})' class="text-amber-500 hover:text-amber-700 mx-1 p-1" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button onclick='deleteStudent("${s.id}")' class="text-red-500 hover:text-red-700 mx-1 p-1" title="ลบ"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="removeSchedule(${index})" class="text-red-500 hover:bg-red-100 w-8 h-8 rounded-full transition"><i class="fas fa-trash"></i></button>
                     </td>
-                </tr>
-                `;
+                </tr>`;
+            }).join('');
+            
+            renderVisualTimetable();
+        }
+
+        function renderVisualTimetable() {
+            const container = document.getElementById('visualTimetable');
+            const days = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
+            const maxPeriods = 7; 
+            const periodTimes = ["08.30 - 09.30", "09.30 - 10.30", "10.30 - 11.30", "12.30 - 13.30", "13.30 - 14.30", "14.30 - 15.30", "15.30 - 16.00"];
+
+            let grid = {};
+            days.forEach(d => grid[d] = Array(maxPeriods).fill(null));
+
+            state.schedule.forEach(s => {
+                const match = s.subjectPeriod.match(/คาบ.*?(\d+)/i);
+                let periodIdx = -1;
+                if (match) periodIdx = parseInt(match[1]) - 1; 
+                
+                if (grid[s.day] && periodIdx >= 0 && periodIdx < maxPeriods) {
+                    grid[s.day][periodIdx] = s;
+                } else if (grid[s.day]) {
+                    const emptyIdx = grid[s.day].findIndex(x => x === null);
+                    if(emptyIdx !== -1) grid[s.day][emptyIdx] = s;
+                }
             });
-            tbody.innerHTML = html;
+
+            let html = '<div id="timetableExport" class="bg-white p-2 min-w-[900px] rounded-xl" style="font-family: \'Sarabun\', sans-serif;">';
+            html += '<table class="w-full text-center border-collapse text-sm">';
+            html += '<thead class="bg-blue-700 text-white border-b-2 border-blue-800">';
+            html += '<tr><th class="py-3 px-2 border border-blue-800 w-24 align-middle">วัน / คาบ</th>';
+            
+            for(let i=0; i<maxPeriods; i++) {
+                if (i === 3) {
+                    html += `<th class="py-3 px-2 border border-blue-800 w-20 bg-blue-800 shadow-inner align-middle leading-tight">พัก<br><span class="text-[10px] font-normal text-blue-200">11.30 - 12.30</span></th>`;
+                }
+                html += `<th class="py-3 px-2 border border-blue-800 w-28 align-middle leading-tight">คาบ ${i+1}<br><span class="text-[10px] font-normal text-blue-200">${periodTimes[i]}</span></th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            const dayConfig = { 
+                "จันทร์": { bg: "bg-yellow-100", text: "text-yellow-800", hov: "hover:bg-yellow-50" },
+                "อังคาร": { bg: "bg-pink-100", text: "text-pink-800", hov: "hover:bg-pink-50" },
+                "พุธ": { bg: "bg-green-100", text: "text-green-800", hov: "hover:bg-green-50" },
+                "พฤหัสบดี": { bg: "bg-orange-100", text: "text-orange-800", hov: "hover:bg-orange-50" },
+                "ศุกร์": { bg: "bg-blue-100", text: "text-blue-800", hov: "hover:bg-blue-50" }
+            };
+
+            days.forEach(day => {
+                const conf = dayConfig[day];
+                html += `<tr><td class="py-5 px-2 border border-gray-200 font-bold ${conf.bg} ${conf.text} shadow-[inset_0_0_8px_rgba(0,0,0,0.05)]">วัน${day}</td>`;
+                
+                for(let i=0; i<maxPeriods; i++) {
+                    if (i === 3) {
+                        if (day === "จันทร์") {
+                            html += `<td rowspan="5" class="py-4 px-2 border border-gray-200 bg-gray-50 text-center align-middle">
+                                <div class="flex items-center justify-center w-full h-full min-h-[200px]">
+                                    <div style="transform: rotate(-90deg); white-space: nowrap;">
+                                        <span class="text-gray-500 font-bold text-lg">พักกลางวัน</span>
+                                        <span class="text-gray-400 font-normal text-sm ml-2">11.30 - 12.30</span>
+                                    </div>
+                                </div>
+                            </td>`;
+                        }
+                    }
+                    
+                    const item = grid[day][i];
+                    if (item) {
+                        let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                        if(!cleanSubj) cleanSubj = item.subjectPeriod;
+                        
+                        let classPill = '';
+                        if (item.className !== '-') {
+                            classPill = `<div class="text-xs font-normal text-gray-500 mt-0.5 whitespace-nowrap">${item.className}</div>`;
+                        }
+
+                        html += `<td class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle">
+                            <div class="flex flex-col items-center justify-center w-full h-full py-1">
+                                <div class="font-bold text-gray-900 text-sm leading-tight">${cleanSubj}</div>
+                                ${classPill}
+                            </div>
+                        </td>`;
+                    } else {
+                        html += `<td class="py-2 px-2 border border-gray-200 text-gray-300 bg-white/40 font-light">-</td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
         }
 
-        function filterManageStudent() {
-            const kw = document.getElementById('searchStudent').value.toLowerCase();
-            const filtered = allManageStudents.filter(s => 
-                s.fullName.toLowerCase().includes(kw) || s.id.toString().includes(kw)
-            );
-            renderManageStudentTable(filtered);
+        function downloadTimetableImage() {
+            const container = document.getElementById('timetableExport');
+            if(!container) {
+                cuteAlert.error('ผิดพลาด', 'ไม่พบข้อมูลตารางสอน');
+                return;
+            }
+            cuteAlert.loading('กำลังประมวลผลรูปภาพ... 📸');
+            
+            html2canvas(container, { 
+                scale: 4, 
+                backgroundColor: '#ffffff',
+                useCORS: true 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `ตารางสอน_${state.user.name.replace(/\s+/g, '_')}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                Swal.close();
+                cuteAlert.success('สำเร็จ!', 'บันทึกภาพตารางสอนเรียบร้อยแล้ว');
+            }).catch(err => {
+                cuteAlert.error('ผิดพลาด', 'ไม่สามารถสร้างรูปภาพได้ กรุณาลองใหม่');
+            });
         }
 
-        function openEditStudentForm(data = null) {
-            const modal = document.getElementById('studentModal');
-            const title = document.getElementById('studentModalTitle');
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('studentModalContent').classList.remove('scale-95'); }, 10);
+        function addScheduleRow() {
+            const day = document.getElementById('schDay').value;
+            const subj = document.getElementById('schSubject').value.trim();
+            const cls = document.getElementById('schClass').value;
 
-            if(data) {
-                title.innerText = 'แก้ไขข้อมูลนักเรียน';
-                document.getElementById('stuInput_oldId').value = data.id;
-                document.getElementById('stuInput_id').value = data.id;
-                document.getElementById('stuInput_number').value = data.number;
-                document.getElementById('stuInput_class').value = document.getElementById('manageClassSelector').value;
-                document.getElementById('stuInput_name').value = data.fullName;
-                document.getElementById('stuInput_gender').value = data.gender;
-            } else {
-                title.innerText = 'เพิ่มนักเรียนใหม่';
-                document.getElementById('stuInput_oldId').value = '';
-                document.getElementById('stuInput_id').value = '';
-                document.getElementById('stuInput_number').value = '';
-                document.getElementById('stuInput_class').value = document.getElementById('manageClassSelector').value || '';
-                document.getElementById('stuInput_name').value = '';
-                document.getElementById('stuInput_gender').value = 'ชาย';
+            if (!subj || !cls) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุ วิชาและคาบเรียน พร้อมเลือกห้องเรียนให้ครบถ้วน');
+                return;
+            }
+
+            state.schedule.push({ day: day, subjectPeriod: subj, className: cls });
+            document.getElementById('schSubject').value = '';
+            renderScheduleTable();
+        }
+
+        function removeSchedule(index) {
+            state.schedule.splice(index, 1);
+            renderScheduleTable();
+        }
+
+        async function saveScheduleToDB() {
+            cuteAlert.loading('กำลังบันทึกตารางสอน ⏳');
+            const form = new FormData();
+            form.append('teacher', state.user.name);
+            form.append('scheduleData', JSON.stringify(state.schedule));
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    cuteAlert.success('สำเร็จ!', json.message);
+                    populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                    populateSubjectDropdown('manageTimeSubject', state.currentDate);
+                    populateReportClassDropdown(); 
+                } else cuteAlert.error('ผิดพลาด', json.message);
+            } catch(e) { cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
+        }
+
+        async function fetchClasses() {
+            try {
+                const res = await fetch(`${API_URL}?action=getStudentClasses&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    state.classes = json.data;
+                    
+                    let opts = '<option value="">เลือกห้อง...</option>';
+                    opts += '<option value="-">คาบกิจกรรม</option>';
+                    opts += state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+                    
+                    document.getElementById('schClass').innerHTML = opts;
+                    
+                    let manageOpts = '<option value="">เลือกห้อง...</option>' + state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+                    document.getElementById('manageClassSelector').innerHTML = manageOpts;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadStudents() {
+            if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-') return;
+
+            cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    if (json.data.length > 1) {
+                        state.headers = json.data[0];
+                        state.students = json.data.slice(1);
+                        document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
+                        await fetchAttendanceHistory(); 
+                        Swal.close();
+                    } else {
+                        document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
+                        document.getElementById('studentCountBadge').innerText = '0 คน';
+                        Swal.close();
+                    }
+                } else {
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล'}</td></tr>`;
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
+                    Swal.close();
+                }
+            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อโหลดรายชื่อได้'); }
+        }
+
+        async function fetchAttendanceHistory() {
+            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod) return;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(state.currentClass.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                state.attendance = state.students.map(row => ({
+                    id: getStudentUniqueId(row), status: null, note: ''
+                }));
+
+                if (json.status === 'success' && json.data && json.data.length > 0) {
+                    json.data.forEach(historyRow => {
+                        let historyId = String(historyRow.id);
+                        if (historyId.includes('|')) {
+                            historyId = historyId.split('|')[1].trim(); 
+                        }
+                        const target = state.attendance.find(a => String(a.id) === historyId);
+                        if(target) {
+                            target.status = historyRow.status;
+                            target.note = historyRow.note;
+                        }
+                    });
+                }
+                renderStudentTable();
+            } catch (e) { renderStudentTable(); }
+        }
+
+        function getStudentUniqueId(row) { 
+            return String(row[1]).trim(); 
+        }
+
+        function renderStudentTable() {
+            const container = document.getElementById('studentListContainer');
+            if(state.students.length === 0) return;
+
+            let html = '';
+            state.students.forEach((row, index) => {
+                const number = row[0] || '-';
+                const code = row[1] || '';
+                
+                const nameParts = row.slice(2).filter(Boolean); 
+                const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                
+                const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
+
+                const att = state.attendance[index];
+                const s = att.status;
+                
+                const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
+                const hasNote = noteStr.trim() !== '';
+                const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
+
+                html += `
+                <tr class="hover:bg-blue-50/50 transition border-b border-gray-50">
+                    <td class="px-3 sm:px-6 py-3 text-center text-gray-500 font-medium">${number}</td>
+                    <td class="px-3 sm:px-6 py-3 font-medium text-gray-800 whitespace-nowrap">${displayInfo}</td>
+                    <td class="px-2 sm:px-6 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1 sm:gap-2 min-w-max">
+                            <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
+                            <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
+                            <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
+                            <button onclick="setStatus(${index}, 'late')" class="status-btn status-late ${s === 'late' ? 'selected' : ''}" title="สาย">ส</button>
+                            <button onclick="setStatus(${index}, 'sick')" class="status-btn status-sick ${s === 'sick' ? 'selected' : ''}" title="ป่วย">ป</button>
+                        </div>
+                    </td>
+                    <td class="px-3 sm:px-6 py-3 text-center">
+                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto ${hasNote ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-inner' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}" title="${safeNoteTitle}">
+                            <i class="fas fa-comment-alt text-xs"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function setStatus(index, status) { state.attendance[index].status = (state.attendance[index].status === status) ? null : status; renderStudentTable(); }
+        function setAllStatus(status) { if(state.students.length === 0) return; state.attendance.forEach(a => a.status = status); renderStudentTable(); }
+
+        function openNoteModal(index) {
+            document.getElementById('noteStudentIndex').value = index;
+            document.getElementById('noteTextarea').value = state.attendance[index].note !== undefined && state.attendance[index].note !== null ? String(state.attendance[index].note) : '';
+            
+            const nameParts = state.students[index].slice(2).filter(Boolean);
+            const stuName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+            
+            document.getElementById('noteModalTitle').innerText = `หมายเหตุ: ${stuName}`;
+            document.getElementById('noteModal').classList.add('active');
+        }
+        function closeNoteModal() { document.getElementById('noteModal').classList.remove('active'); }
+        function saveNote() {
+            const index = document.getElementById('noteStudentIndex').value;
+            state.attendance[index].note = document.getElementById('noteTextarea').value;
+            closeNoteModal(); renderStudentTable();
+        }
+
+        async function saveAttendance() {
+            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod) {
+                cuteAlert.warning('แจ้งเตือน', 'กรุณาเลือกวิชาและคาบเรียนให้ครบถ้วนก่อนบันทึก');
+                return;
+            }
+            if(state.currentClass === '-') {
+                cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ');
+                return;
+            }
+
+            const unchecked = state.attendance.filter(a => a.status === null).length;
+            if(unchecked > 0) {
+                const conf = await cuteAlert.confirm('ยังระบุไม่ครบ!', `มีนักเรียนที่ยังไม่ได้เลือกสถานะจำนวน ${unchecked} คน บันทึกเลยหรือไม่?`, 'บันทึกเลย', '#f59e0b');
+                if(!conf.isConfirmed) return;
+            }
+
+            cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
+            
+            const form = new FormData();
+            form.append('className', state.currentClass.trim());
+            form.append('date', state.currentDate);
+            form.append('subjectPeriod', state.currentSubjectPeriod); 
+            form.append('records', JSON.stringify(state.attendance));
+            form.append('recordedBy', state.user.name); 
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveAttendance`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
+                else cuteAlert.error('ข้อผิดพลาด', json.message);
+            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
+        }
+
+        function goToEditTime() {
+            const dateStr = document.getElementById('manageTimeDate').value;
+            const subjSel = document.getElementById('manageTimeSubject');
+            const subj = subjSel.value;
+            const cls = subjSel.options[subjSel.selectedIndex]?.getAttribute('data-class');
+            
+            if(!dateStr || !subj || !cls) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกวันที่ และ วิชา/คาบเรียน ให้ครบถ้วน');
+                return;
+            }
+
+            fpMain.setDate(dateStr, true); 
+            
+            switchTab('attendance');
+            
+            setTimeout(() => {
+                const attSel = document.getElementById('attSubjectSelector');
+                if (attSel) {
+                     attSel.value = subj;
+                     onSubjectSelect('att'); 
+                }
+            }, 300);
+        }
+
+        function showReportNote(studentName, dateStr, note) {
+            Swal.fire({
+                title: '<i class="fas fa-comment-alt text-yellow-500 mr-2"></i> หมายเหตุ',
+                html: `
+                    <div class="text-left text-sm mt-2">
+                        <div class="mb-2 text-gray-600"><b>นักเรียน:</b> <span class="text-blue-600 font-medium">${studentName}</span></div>
+                        <div class="mb-3 text-gray-600"><b>วันที่:</b> ${dateStr}</div>
+                        <div class="bg-yellow-50 text-gray-800 p-3 rounded-lg border border-yellow-200 shadow-inner whitespace-pre-wrap">${note}</div>
+                    </div>
+                `,
+                confirmButtonText: 'ปิดหน้าต่าง',
+                confirmButtonColor: '#3b82f6',
+                heightAuto: false, 
+                scrollbarPadding: false,
+                customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-blue-50 w-11/12 max-w-sm' }
+            });
+        }
+
+        async function generateReport() {
+            const cls = document.getElementById('reportClassSel').value;
+            const subj = document.getElementById('reportSubjectSel').value;
+
+            if(!cls || !subj) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชาเพื่อดูรายงาน');
+                return;
+            }
+
+            cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
+            try {
+                const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuJson = await stuRes.json();
+                let rawStudents = [];
+                if(stuJson.status === 'success' && stuJson.data.length > 1) {
+                    rawStudents = stuJson.data.slice(1);
+                } else if(stuJson.status !== 'success') {
+                    cuteAlert.error('พบข้อผิดพลาด', stuJson.message || 'ไม่สามารถดึงข้อมูลนักเรียนได้');
+                    return;
+                }
+
+                let res, json;
+                try {
+                    res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                    json = await res.json();
+                } catch(err) {
+                    res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                    json = await res.json();
+                }
+                
+                let reportData = (json.status === 'success') ? json.data : [];
+
+                if (reportData.length === 0) {
+                     document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้</div>';
+                     document.getElementById('reportResult').classList.remove('hidden');
+                     Swal.close();
+                     return;
+                }
+
+                let uniqueDates = [...new Set(reportData.map(r => r.date))].filter(d => d).sort((a, b) => new Date(a) - new Date(b));
+
+                const studentAttendanceMap = {};
+                reportData.forEach(r => {
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+                    
+                    if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
+                    studentAttendanceMap[historyId][r.date] = { status: r.status, note: r.note };
+                });
+
+                let totalStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                let totalRecords = reportData.length; 
+
+                reportData.forEach(r => {
+                    if (totalStats[r.status] !== undefined) totalStats[r.status]++;
+                });
+
+                const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
+
+                document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
+                document.getElementById('repLeave').innerText = calcPercent(totalStats.leave);
+                document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
+                document.getElementById('repLate').innerText = calcPercent(totalStats.late);
+                document.getElementById('repSick').innerText = calcPercent(totalStats.sick);
+
+                const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
+                const statusColor = { 'present': 'text-green-600', 'absent': 'text-red-600 font-bold', 'leave': 'text-blue-600', 'late': 'text-orange-500', 'sick': 'text-purple-600' };
+
+                let tableHtml = `<table class="report-table w-full text-sm text-left border-collapse min-w-max">
+                    <thead class="bg-gray-100 text-gray-700">
+                        <tr>
+                            <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px; padding-left: 4px; padding-right: 4px;">เลขที่</th>
+                            <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
+                
+                uniqueDates.forEach(d => {
+                    let dObj = new Date(d);
+                    let dateStr = isNaN(dObj.getTime()) ? d : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                    tableHtml += `<th class="border text-center min-w-[50px]">${dateStr}</th>`;
+                });
+                
+                tableHtml += `<th class="border text-center bg-gray-200">มา</th>
+                              <th class="border text-center bg-gray-200">ลา</th>
+                              <th class="border text-center bg-gray-200">ขาด</th>
+                              <th class="border text-center bg-gray-200">สาย</th>
+                              <th class="border text-center bg-gray-200">ป่วย</th>
+                              </tr></thead><tbody>`;
+
+                rawStudents.forEach((stuRow, idx) => {
+                    const number = stuRow[0] || '-';
+                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const uniqueId = getStudentUniqueId(stuRow);
+
+                    let rowStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                    let rowCells = '';
+
+                    uniqueDates.forEach(d => {
+                        const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        const status = record ? record.status : null;
+                        
+                        const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
+                        const hasNote = noteStr.trim() !== '';
+
+                        if(status && rowStats[status] !== undefined) rowStats[status]++;
+                        
+                        const symbol = status ? statusSymbol[status] : '-';
+                        const colorClass = status ? statusColor[status] : 'text-gray-300';
+                        
+                        if (hasNote) {
+                            const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
+                            
+                            let dObj = new Date(d);
+                            let displayDate = isNaN(dObj.getTime()) ? d : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
+
+                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate}', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">
+                                ${symbol}
+                                <i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i>
+                            </td>`;
+                        } else {
+                            rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                        }
+                    });
+
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b">
+                        <td class="border text-center font-bold" style="padding-left: 4px; padding-right: 4px;">${number}</td>
+                        <td class="border">${fullName}</td>
+                        ${rowCells}
+                        <td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td>
+                        <td class="border text-center text-blue-700 bg-gray-50">${rowStats.leave}</td>
+                        <td class="border text-center text-red-700 bg-gray-50">${rowStats.absent}</td>
+                        <td class="border text-center text-orange-700 bg-gray-50">${rowStats.late}</td>
+                        <td class="border text-center text-purple-700 bg-gray-50">${rowStats.sick}</td>
+                    </tr>`;
+                });
+
+                tableHtml += '</tbody></table>';
+                document.getElementById('reportTableContainer').innerHTML = tableHtml;
+
+                document.getElementById('reportResult').classList.remove('hidden');
+                Swal.close();
+
+            } catch(e) { 
+                console.error(e);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); 
             }
         }
 
-        function closeEditStudentForm() {
-            const modal = document.getElementById('studentModal');
-            modal.classList.add('opacity-0');
-            document.getElementById('studentModalContent').classList.add('scale-95');
-            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        async function downloadExcel() {
+            const cls = document.getElementById('reportClassSel').value;
+            const subj = document.getElementById('reportSubjectSel').value;
+
+            if(!cls || !subj) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชาที่ต้องการดาวน์โหลด .xlsx');
+                return;
+            }
+
+            cuteAlert.loading('กำลังสร้างไฟล์เอกสาร Excel... 📄');
+
+            try {
+                const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuJson = await stuRes.json();
+                if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) {
+                    cuteAlert.error('เกิดข้อผิดพลาด', stuJson.message || 'ไม่พบข้อมูลนักเรียน หรือการเชื่อมต่อล้มเหลว');
+                    return;
+                }
+                const rawStudents = stuJson.data.slice(1);
+
+                let attRes, attJson;
+                try {
+                    attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                    attJson = await attRes.json();
+                } catch(err) {
+                    attRes = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                    attJson = await attRes.json();
+                }
+                
+                let reportData = attJson.data || [];
+
+                let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '')))].filter(Boolean);
+                uniqueDates.sort((a, b) => new Date(a) - new Date(b));
+
+                if(uniqueDates.length === 0) {
+                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้');
+                     return;
+                }
+
+                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
+                const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                
+                const excelData = [];
+                
+                excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
+                excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
+                excelData.push(["ครูผู้สอน:", state.user.name]); 
+                excelData.push([]); 
+                
+                let headerRow1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "", "", "เดือน"];
+                let headerRow2 = ["", "", "", "", `${uniqueDates.length} ชม.`, "", "", "", "", "", "วันที่"];
+                let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
+                
+                uniqueDates.forEach((d, idx) => {
+                    let dObj = new Date(d);
+                    if(isNaN(dObj.getTime())) {
+                        headerRow1.push(d); 
+                        headerRow2.push(""); 
+                        headerRow3.push("");
+                    } else {
+                        const dateWithMonthAndYear = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
+                        headerRow1.push(dateWithMonthAndYear);
+                        headerRow2.push("");
+                        headerRow3.push("");
+                    }
+                });
+                headerRow1.push("หมายเหตุ");
+                headerRow2.push("");
+                headerRow3.push("");
+
+                excelData.push(headerRow1); 
+                excelData.push(headerRow2); 
+                excelData.push(headerRow3); 
+
+                const studentAttendanceMap = {};
+                reportData.forEach(r => {
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+
+                    if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
+                    studentAttendanceMap[historyId][dateKey] = r.status;
+                });
+
+                rawStudents.forEach(stuRow => {
+                    const number = stuRow[0] || '-';
+                    const code = stuRow[1] || '-';
+                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const uniqueId = getStudentUniqueId(stuRow);
+
+                    let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+
+                    uniqueDates.forEach(d => {
+                        const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        if(status && stats[status] !== undefined) stats[status]++;
+                    });
+
+                    let percent = uniqueDates.length > 0 ? Math.round((stats.present / uniqueDates.length) * 100) : 0;
+
+                    let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
+
+                    uniqueDates.forEach(d => {
+                        const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
+                        rowData.push(status ? statusSymbol[status] : ''); 
+                    });
+
+                    rowData.push(""); 
+                    excelData.push(rowData);
+                });
+
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+                const merges = [
+                    { s: {r:4, c:0}, e: {r:6, c:0} }, 
+                    { s: {r:4, c:1}, e: {r:6, c:1} }, 
+                    { s: {r:4, c:2}, e: {r:6, c:3} }, 
+                    { s: {r:4, c:5}, e: {r:4, c:9} }, 
+                    { s: {r:4, c:11+uniqueDates.length}, e: {r:6, c:11+uniqueDates.length} } 
+                ];
+
+                for(let c = 11; c < 11 + uniqueDates.length; c++) {
+                    merges.push({ s: {r:4, c:c}, e: {r:6, c:c} });
+                }
+
+                ws['!merges'] = merges;
+
+                const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
+                uniqueDates.forEach(() => wscols.push({wch: 8})); 
+                wscols.push({wch: 15}); 
+                ws['!cols'] = wscols;
+
+                XLSX.utils.book_append_sheet(wb, ws, "บันทึกเวลาเรียน");
+                
+                const safeName = `${cls}_${subj}`.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 30);
+                XLSX.writeFile(wb, `รายงานเวลาเรียน_${safeName}.xlsx`);
+
+                Swal.close();
+
+            } catch (e) { 
+                console.error(e);
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ (กรุณาตรวจสอบ Console)'); 
+            }
+        }
+
+        // =========================================================================
+        // ADMIN: จัดการข้อมูลนักเรียน (อัปเดตสิทธิ์เชื่อมกับระบบล็อกอิน)
+        // =========================================================================
+        function openManageStudentModal() { 
+            document.getElementById('manageStudentModal').classList.add('active'); 
+            
+            const addBtn = document.querySelector('button[onclick="openEditStudentForm(\'add\')"]');
+            if (addBtn) {
+                if (checkAdminPermission()) {
+                    addBtn.style.display = 'flex'; 
+                } else {
+                    addBtn.style.display = 'none'; 
+                }
+            }
+
+            if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
+                document.getElementById('manageClassSelector').value = state.currentClass; 
+                loadManageStudents(); 
+            } 
+            disableBodyScroll(); 
+        }
+
+        function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); enableBodyScroll(); }
+        function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
+        function disableBodyScroll() { document.body.style.overflow = 'hidden'; }
+        function enableBodyScroll() { document.body.style.overflow = ''; }
+
+        async function loadManageStudents() {
+            const className = document.getElementById('manageClassSelector').value;
+            const tbody = document.getElementById('manageTableBody');
+            if (!className) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>'; return; }
+
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10"><div class="loader mx-auto mb-2"></div></td></tr>';
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className.trim())}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    if (json.data.length > 0) {
+                        state.headers = json.data[0]; 
+                        state.manageData = json.data.slice(1); 
+                        renderManageTable();
+                    } else {
+                        state.headers = ['เลขที่', 'รหัสประจำตัว', 'คำนำหน้า', 'ชื่อ', 'นามสกุล']; 
+                        state.manageData = [];
+                        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-blue-500 underline">เพิ่มคนแรกเลย</button></td></tr>`;
+                    }
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
+                }
+            } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-red-500">เชื่อมต่อล้มเหลว</td></tr>'; }
+        }
+
+        function renderManageTable() {
+            const tbody = document.getElementById('manageTableBody');
+            if(state.manageData.length === 0) return;
+            
+            const isAdmin = checkAdminPermission(); 
+
+            tbody.innerHTML = state.manageData.map((row, idx) => {
+                const no = row[0] || '-';
+                const stuId = row[1] || '-';
+                
+                const nameParts = row.slice(2).filter(Boolean);
+                const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                
+                const actionHtml = isAdmin 
+                    ? `<div class="flex items-center justify-center gap-1.5 sm:gap-2">
+                        <button onclick="openEditStudentForm('edit', ${idx})" class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteStudent(${idx})" class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-trash"></i></button>
+                    </div>`
+                    : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
+
+                return `
+                <tr class="hover:bg-blue-50 bg-white transition-colors border-b border-gray-100">
+                    <td class="p-3 md:p-4 text-center font-bold text-gray-600 align-middle">${no}</td>
+                    <td class="p-3 md:p-4 text-sm text-blue-600 font-mono font-bold align-middle whitespace-nowrap">${stuId}</td>
+                    <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td>
+                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">
+                        ${actionHtml}
+                    </td>
+                </tr>`
+            }).join('');
+        }
+
+        function openEditStudentForm(actionType, rowIndex = null) {
+            if (!checkAdminPermission()) {
+                cuteAlert.error('สิทธิ์การเข้าถึงไม่เพียงพอ! 🛑', 'สงวนสิทธิ์การแก้ไขข้อมูลเฉพาะ แอดมิน (Role 3) และ ผู้ดูแลระบบสูงสุด (Role 4) เท่านั้น');
+                return;
+            }
+            const className = document.getElementById('manageClassSelector').value;
+            if(!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
+
+            document.getElementById('stuFormAction').value = actionType;
+            document.getElementById('stuFormRowIndex').value = rowIndex !== null ? rowIndex : '';
+            document.getElementById('studentFormTitle').innerHTML = actionType === 'add' ? '<i class="fas fa-user-plus mr-2"></i> เพิ่มนักเรียน' : '<i class="fas fa-user-edit mr-2"></i> แก้ไขข้อมูลนักเรียน';
+
+            const container = document.getElementById('stuDynamicInputs'); container.innerHTML = '';
+            let rowData = actionType === 'edit' ? state.manageData[rowIndex] : [];
+
+            state.headers.forEach((headerName, i) => {
+                container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-gray-600 mb-1">${headerName}</label><input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>`;
+            });
+            document.getElementById('studentFormModal').classList.add('active');
         }
 
         async function submitStudentForm() {
-            const id = document.getElementById('stuInput_id').value.trim();
-            const num = document.getElementById('stuInput_number').value.trim();
-            const cls = document.getElementById('stuInput_class').value;
-            const name = document.getElementById('stuInput_name').value.trim();
-            const oldId = document.getElementById('stuInput_oldId').value;
+            const className = document.getElementById('manageClassSelector').value;
+            const actionType = document.getElementById('stuFormAction').value;
+            const rowIndex = document.getElementById('stuFormRowIndex').value;
+            const newRowData = [];
+            for (let i = 0; i < state.headers.length; i++) { const el = document.getElementById(`stuInput_${i}`); newRowData.push(el ? el.value : ''); }
 
-            if(!id || !num || !cls || !name) return cuteAlert.warning('เตือน', 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
+            const form = new FormData();
+            form.append('className', className.trim()); form.append('actionType', actionType); form.append('studentData', JSON.stringify(newRowData));
+            if(actionType === 'edit') form.append('rowIndex', rowIndex);
 
-            cuteAlert.loading('กำลังบันทึกข้อมูล...');
+            cuteAlert.loading('กำลังจัดการข้อมูลนักเรียน 📝');
             try {
-                const payload = {
-                    mode: oldId ? 'edit' : 'add',
-                    oldId: oldId,
-                    student: {
-                        id: id, number: num, className: cls, fullName: name,
-                        gender: document.getElementById('stuInput_gender').value
-                    }
-                };
-                const res = await fetchToGAS({ action: 'manageStudent', data: payload });
-                if(res.status === 'success') {
-                    closeEditStudentForm(); 
-                    
-                    // เพิ่มห้องเรียนใหม่เข้าระบบทันทีเพื่อให้แสดงใน Dropdown ต่างๆ
-                    if (!classList.includes(payload.student.className)) {
-                        classList.push(payload.student.className);
-                        classList.sort();
-                        populateClassSelectors();
-                    }
-                    
-                    document.getElementById('manageClassSelector').value = payload.student.className;
-                    loadManageStudents();
-                    cuteAlert.success('สำเร็จ!', res.message);
-                } else throw new Error(res.message);
-            } catch(e) { cuteAlert.error('ผิดพลาด', e.message); }
+                const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') { closeEditStudentForm(); loadManageStudents(); if (state.currentClass === className) loadStudents(); cuteAlert.success('สำเร็จ! ✨', 'อัปเดตข้อมูลเรียบร้อยแล้ว'); }
+                else cuteAlert.error('ข้อผิดพลาด', json.message);
+            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
         }
 
-        function deleteStudent(id) {
-            if(!checkAdminPermission()) return cuteAlert.error('สิทธิ์ไม่เพียงพอ', 'เฉพาะผู้ดูแล');
-            cuteAlert.confirm('ลบข้อมูล?', 'หากลบแล้วประวัติจะยังคงอยู่แต่ไม่ถูกผูกมัด', 'ลบเลย!', '#ef4444').then(async (res) => {
-                if(res.isConfirmed) {
-                    cuteAlert.loading('กำลังลบข้อมูล...');
+        function deleteStudent(rowIndex) {
+            if (!checkAdminPermission()) {
+                cuteAlert.error('สิทธิ์การเข้าถึงไม่เพียงพอ! 🛑', 'สงวนสิทธิ์การลบข้อมูลเฉพาะ แอดมิน (Role 3) และ ผู้ดูแลระบบสูงสุด (Role 4) เท่านั้น');
+                return;
+            }
+            cuteAlert.confirm('ลบข้อมูลนักเรียน?', 'หากลบแล้วข้อมูลจะหายไป รวมถึงประวัติการเช็คชื่อเดิมด้วย', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังนำข้อมูลออก ⏳');
+                    const className = document.getElementById('manageClassSelector').value;
+                    const form = new FormData();
+                    form.append('className', className.trim()); form.append('actionType', 'delete'); form.append('studentData', '[]'); form.append('rowIndex', rowIndex);
                     try {
-                        const r = await fetchToGAS({ action: 'manageStudent', data: { mode: 'delete', id: id } });
-                        if(r.status === 'success') { loadManageStudents(); cuteAlert.success('สำเร็จ!', 'ลบนักเรียนแล้ว'); }
-                        else throw new Error(r.message);
-                    } catch(e) { cuteAlert.error('ผิดพลาด', e.message); }
+                        const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') { loadManageStudents(); if (state.currentClass === className) loadStudents(); cuteAlert.success('ลบสำเร็จ! ✅', 'นำนักเรียนออกจากระบบแล้ว'); }
+                    } catch (e) { cuteAlert.error('Error', 'ลบข้อมูลไม่สำเร็จ'); }
                 }
             });
         }
