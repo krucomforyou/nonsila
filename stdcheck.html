@@ -1085,7 +1085,8 @@
             if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod) return;
             
             try {
-                const res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(state.currentClass.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                // เปลี่ยนมาใช้ API getAttendanceReport (ดึงทั้งวิชา) เพื่อแก้ปัญหา Google Sheets แปลงวันที่เป็น Date Object แล้วทำให้ Backend ค้นหา String ไม่เจอ
+                const res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 state.attendance = state.students.map(row => ({
@@ -1093,7 +1094,23 @@
                 }));
 
                 if (json.status === 'success' && json.data && json.data.length > 0) {
-                    json.data.forEach(historyRow => {
+                    const targetDateStr = state.currentDate;
+                    
+                    // กรองเอาเฉพาะข้อมูลของวันที่เลือกในหน้าเว็บ (ทำใน Frontend)
+                    const filteredRecords = json.data.filter(r => {
+                        if (!r.date) return false;
+                        try {
+                            const d = new Date(r.date);
+                            if (isNaN(d.getTime())) return String(r.date).trim() === targetDateStr;
+                            
+                            const rDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                            return rDateStr === targetDateStr;
+                        } catch(e) {
+                            return String(r.date).trim() === targetDateStr;
+                        }
+                    });
+
+                    filteredRecords.forEach(historyRow => {
                         let historyId = String(historyRow.id);
                         if (historyId.includes('|')) {
                             historyId = historyId.split('|')[1].trim(); 
@@ -1110,7 +1127,13 @@
         }
 
         function getStudentUniqueId(row) { 
-            return String(row[1]).trim(); 
+            const id = String(row[1] || '').trim(); 
+            if (id) return id;
+            
+            // กรณีเด็กไม่มีรหัสประจำตัว ให้ใช้ ชื่อ + สกุล เป็น ID หลักแทน
+            const name = String(row[2] || '').trim();
+            const surname = String(row[3] || '').trim();
+            return `${name} ${surname}`;
         }
 
         function renderStudentTable() {
