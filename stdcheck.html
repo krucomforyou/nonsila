@@ -50,27 +50,21 @@
     <!-- SheetJS for Excel Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-    <!-- html2canvas สำหรับเซฟตารางสอนเป็นรูปภาพ -->
+    <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
-        
-        /* Sidebar Styling */
         .sidebar { background: linear-gradient(180deg, #1a3a6e 0%, #2a5298 100%); } 
         .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.05); }
         .sidebar-item.active { background-color: rgba(255, 255, 255, 0.1); border-left: 4px solid #c9a84c; color: white; }
         .sidebar-item { color: #e2e8f0; transition: all 0.2s; }
         
-        /* แก้ปัญหาหน้าจอขยับ/Sidebar หด เวลา SweetAlert ทำงาน แบบเด็ดขาด */
         body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) { 
-            padding-right: 0 !important; 
-            overflow: hidden !important; 
-            display: flex !important; /* บังคับให้โครงสร้าง Flex ของจอหลักยังคงอยู่ */
+            padding-right: 0 !important; overflow: hidden !important; display: flex !important; 
         }
         .swal2-container { z-index: 9999 !important; padding-right: 0 !important; font-family: 'Sarabun', sans-serif; }
 
-        /* สไตล์ปุ่มสถานะ */
         .status-btn { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; color: #6b7280; background-color: #f3f4f6; }
         .status-btn.selected { color: white; }
         .status-present { border-color: #10b981; } .status-present.selected { background-color: #10b981; border-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
@@ -87,13 +81,11 @@
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
 
-        /* ซ่อน Scrollbar ของตารางแต่ยังให้เลื่อนได้ */
         .hide-scrollbar::-webkit-scrollbar { height: 6px; }
         .hide-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         .hide-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .hide-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* สไตล์ตารางรายงาน */
         .report-table th, .report-table td { white-space: nowrap; padding: 8px 12px; }
         .report-table th { position: sticky; top: 0; background-color: #f8fafc; z-index: 10; border-bottom: 1px solid #e2e8f0; color: #1a3a6e; }
         .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; z-index: 20; border-right: 1px solid #e2e8f0; width: 50px; min-width: 50px; max-width: 50px; text-align: center; background-color: #ffffff; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.05); }
@@ -144,6 +136,9 @@
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
+            <a href="#" onclick="openManageTermModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
+                <i class="fas fa-layer-group w-6 text-center mr-2"></i> จัดการภาคเรียน
+            </a>
         </nav>
 
         <div class="p-4 border-t border-white/10 bg-black/20">
@@ -165,15 +160,26 @@
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col h-full overflow-hidden bg-school-bg w-full relative">
         <!-- HEADER -->
-        <header class="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex justify-between items-center shadow-sm z-10 w-full shrink-0">
-            <div class="flex items-center gap-3 md:gap-4">
+        <header class="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm z-10 w-full shrink-0">
+            <div class="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
                 <button class="md:hidden text-gray-500 hover:text-school-navy focus:outline-none" onclick="toggleSidebar()">
                     <i class="fas fa-bars text-xl md:text-2xl"></i>
                 </button>
-                <h2 id="topHeaderTitle" class="text-lg md:text-xl font-serif font-bold text-school-navy truncate max-w-[150px] sm:max-w-none">บันทึกเวลาเรียนประจำวัน</h2>
+                <h2 id="topHeaderTitle" class="text-lg md:text-xl font-serif font-bold text-school-navy truncate">บันทึกเวลาเรียนประจำวัน</h2>
             </div>
-            <div class="text-xs md:text-sm text-school-navy font-medium bg-school-bg px-3 md:px-4 py-2 rounded-lg border border-gray-200 whitespace-nowrap shadow-inner flex items-center">
-                <i class="far fa-calendar-alt mr-1 md:mr-2 text-school-blue"></i><span id="headerDateText">กำลังโหลด...</span>
+            
+            <div class="flex flex-row items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                <!-- Term Selector -->
+                <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2 shadow-inner">
+                    <div class="px-2 border-r border-gray-200 py-1.5"><i class="fas fa-layer-group text-school-brass text-sm"></i></div>
+                    <select id="globalTermSelector" onchange="onTermChange()" class="bg-transparent text-sm font-bold text-school-navy py-2 px-2 outline-none cursor-pointer w-full sm:w-auto min-w-[90px]">
+                        <option value="">กำลังโหลด...</option>
+                    </select>
+                </div>
+                
+                <div class="text-xs md:text-sm text-school-navy font-medium bg-school-bg px-3 md:px-4 py-2 rounded-lg border border-gray-200 whitespace-nowrap shadow-inner flex items-center">
+                    <i class="far fa-calendar-alt mr-1 md:mr-2 text-school-blue"></i><span id="headerDateText">กำลังโหลด...</span>
+                </div>
             </div>
         </header>
 
@@ -182,17 +188,14 @@
             
             <!-- 1. บันทึกเวลาเรียน (Attendance) -->
             <div id="tab-attendance" class="tab-content absolute inset-0 overflow-y-auto p-2 sm:p-4 md:p-6 pb-32 md:pb-8">
-                <!-- CONTROLS CONTAINER -->
                 <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 mb-4 md:mb-6">
                     <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                            <!-- Date Picker -->
                             <div class="w-full sm:w-48 relative">
                                 <input type="text" id="datePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-school-navy focus:border-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่...">
                                 <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
                             </div>
                             
-                            <!-- Subject/Period Selector -->
                             <div class="w-full sm:w-72 relative">
                                 <select id="attSubjectSelector" onchange="onSubjectSelect('att')" class="w-full appearance-none border border-gray-300 rounded-lg pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-school-navy focus:border-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium text-school-navy">
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
@@ -211,7 +214,6 @@
                     </div>
                 </div>
 
-                <!-- TABLE AREA -->
                 <div class="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden relative min-h-[400px]">
                     <div class="bg-school-bg border-b border-gray-200 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 overflow-x-auto">
                         <div class="text-sm font-bold text-gray-700 flex items-center whitespace-nowrap mr-4">
@@ -297,14 +299,13 @@
                             <h3 class="text-lg md:text-xl font-serif font-bold text-school-navy flex items-center">
                                 <i class="fas fa-calendar-alt mr-2 text-school-brass"></i> ตารางสอนส่วนตัว
                             </h3>
-                            <p class="text-xs md:text-sm text-gray-500 mt-1">กำหนดวิชาและคาบเรียน เพื่อให้ระบบแสดงตัวเลือกอัตโนมัติในแต่ละวัน</p>
+                            <p class="text-xs md:text-sm text-gray-500 mt-1">กำหนดวิชาและคาบเรียนของภาคเรียน <span id="schDisplayTerm" class="font-bold text-school-blue"></span></p>
                         </div>
                         <button onclick="saveScheduleToDB()" class="w-full md:w-auto bg-school-navy hover:bg-school-navyLight text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
                             <i class="fas fa-cloud-upload-alt"></i> บันทึกตารางสอน
                         </button>
                     </div>
 
-                    <!-- ฟอร์มเพิ่มตาราง -->
                     <div class="bg-school-bg p-4 rounded-xl border border-gray-200 mb-6 flex flex-col md:flex-row gap-3 items-end shadow-inner">
                         <div class="w-full md:w-1/4">
                             <label class="block text-xs font-bold text-gray-600 mb-1">วันในสัปดาห์</label>
@@ -373,7 +374,7 @@
                             <h3 class="text-lg md:text-xl font-serif font-bold text-school-navy mb-1 flex items-center">
                                 <i class="fas fa-chart-line text-school-brass mr-2"></i> รายงานบันทึกเวลาเรียน
                             </h3>
-                            <p class="text-xs md:text-sm text-gray-500">ดูสถิติภาพรวม หรือดาวน์โหลดข้อมูลของแต่ละวิชาในรูปแบบ Excel (.xlsx)</p>
+                            <p class="text-xs md:text-sm text-gray-500">ภาคเรียน: <span id="reportDisplayTerm" class="font-bold text-school-blue"></span></p>
                         </div>
                         <button onclick="downloadExcel()" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
                             <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
@@ -396,7 +397,6 @@
                          <button onclick="generateReport()" class="w-full md:w-auto bg-school-navy hover:bg-school-navyLight text-white px-6 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5"><i class="fas fa-search"></i> ดูสถิติ</button>
                     </div>
 
-                    <!-- ส่วนแสดงผลรวมหน้าเว็บ -->
                     <div id="reportResult" class="hidden">
                          <h4 class="font-bold text-school-navy mb-4 border-l-4 border-school-brass pl-3">ภาพรวมสถิติ (ร้อยละ)</h4>
                          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-8">
@@ -420,7 +420,7 @@
         </div>
     </main>
 
-    <!-- NOTE MODAL (สำหรับบันทึกหมายเหตุ) -->
+    <!-- NOTE MODAL -->
     <div id="noteModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
         <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden border border-gray-100">
             <div class="bg-school-bg px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -438,22 +438,55 @@
         </div>
     </div>
 
-    <!-- MANAGE STUDENTS MODAL (Admin Only) -->
+    <!-- MANAGE TERM MODAL (Admin Only) -->
+    <div id="manageTermModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-lg mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-school-navy px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                 <h3 class="font-serif font-bold text-lg text-white"><i class="fas fa-layer-group mr-2 text-school-brassLight"></i> จัดการภาคเรียน / ปีการศึกษา</h3>
+                 <button onclick="closeManageTermModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto bg-gray-50">
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="newTermInput" placeholder="เช่น 1/2567" class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                    <button onclick="addTerm()" class="bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
+                        <i class="fas fa-plus mr-1"></i> เพิ่ม
+                    </button>
+                </div>
+                
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-100 text-school-navy border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3">ชื่อภาคเรียน</th>
+                                <th class="px-4 py-3 text-center w-24">สถานะ</th>
+                                <th class="px-4 py-3 text-center w-32">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="termTableBody" class="divide-y divide-gray-100">
+                            <!-- JS จะใส่ข้อมูลตรงนี้ -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-xs text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
+                    <i class="fas fa-info-circle text-school-blue mr-1"></i> ข้อมูลนักเรียน, ตารางสอน และประวัติการเช็คชื่อ จะถูกแยกเก็บตามภาคเรียนโดยอัตโนมัติ
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE STUDENTS MODAL -->
     <div id="manageStudentModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm">
         <div class="modal-content bg-white w-full max-w-4xl mx-0 md:mx-4 md:rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col h-full md:h-[90vh]">
             <div class="bg-school-navy px-4 md:px-6 py-4 flex justify-between items-center text-white shrink-0">
-                 <h3 class="font-serif font-bold text-lg truncate pr-4 flex items-center"><i class="fas fa-users-cog mr-3 text-school-brassLight"></i> จัดการฐานข้อมูลนักเรียน</h3>
+                 <h3 class="font-serif font-bold text-lg truncate pr-4 flex items-center"><i class="fas fa-users-cog mr-3 text-school-brassLight"></i> ฐานข้อมูลนักเรียน <span class="text-sm font-normal ml-2 opacity-80">(ภาคเรียน: <span id="stuManageDisplayTerm"></span>)</span></h3>
                  <button onclick="closeManageStudentModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
             </div>
             
-            <!-- HEADER TOOLBAR MODAL -->
             <div class="p-4 bg-school-bg border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                     <label class="font-bold text-sm text-school-navy whitespace-nowrap">เลือกห้อง:</label>
                     <div class="flex items-center gap-1 w-full sm:w-auto">
                         <select id="manageClassSelector" onchange="loadManageStudents()" class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-school-navy bg-white w-full sm:w-auto min-w-[120px]"></select>
-                        
-                        <!-- ปุ่มสร้างและลบห้องเรียน (Admin Only) -->
                         <button onclick="promptAddClass()" class="admin-class-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="เพิ่มห้องเรียนใหม่">
                             <i class="fas fa-folder-plus"></i>
                         </button>
@@ -462,7 +495,7 @@
                         </button>
                     </div>
                 </div>
-                <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
+                <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition admin-only">
                     <i class="fas fa-plus"></i> เพิ่มนักเรียน
                 </button>
             </div>
@@ -485,7 +518,6 @@
         </div>
     </div>
     
-    <!-- ADD/EDIT STUDENT FORM MODAL -->
     <div id="studentFormModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
         <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-school-bg px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
@@ -509,6 +541,8 @@
         
         let state = {
             user: null,
+            terms: [],
+            selectedTerm: '',
             classes: [],
             students: [],
             headers: [],
@@ -524,7 +558,6 @@
         const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
         let fpMain, fpHistory; 
 
-        // Cute Alerts (ปรับแต่งโทนสีให้เข้ากับธีม)
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-gray-100 rounded-full"></div><div class="absolute inset-0 border-4 border-school-navy rounded-full border-t-transparent animate-spin"></div><i class="fas fa-hourglass-half text-xl md:text-2xl text-school-blue"></i></div><h3 class="text-lg md:text-xl font-serif font-bold text-school-navy mb-2">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
             success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce border border-emerald-100"><i class="fas fa-check"></i></div><h3 class="text-lg md:text-xl font-serif font-bold text-school-navy mb-2">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
@@ -544,25 +577,24 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             initDatePickers(); 
             updateHeaderDate(new Date());
-            fetchClasses();
-            checkAuth(); // Check user from NEW login system
+            
+            if (checkAuth()) {
+                await fetchTerms(); // โหลดภาคเรียนก่อนอันดับแรก
+                fetchClasses();
+                fetchSchedule();
+            }
             switchTab('attendance'); 
         });
 
-        // =========================================================================
-        // เชื่อมระบบ Auth ใหม่
-        // =========================================================================
         function checkAuth() {
             const savedUser = localStorage.getItem('school_user_session');
             if (savedUser) {
                 state.user = JSON.parse(savedUser);
-                
                 document.getElementById('sidebarUserName').innerText = state.user.name || 'ไม่ระบุชื่อ';
                 
-                // แปลงรหัส Role เป็นชื่อตำแหน่ง
                 let displayRole = 'บุคลากรทั่วไป';
                 if(state.user.role === '4') displayRole = 'ผู้ดูแลระบบสูงสุด';
                 else if(state.user.role === '3') displayRole = 'แอดมิน';
@@ -570,18 +602,22 @@
                 
                 document.getElementById('sidebarUserRole').innerText = state.user.position || displayRole;
                 
-                // ใช้ profileImage จากระบบใหม่
                 const imgUrl = state.user.profileImage && state.user.profileImage.startsWith('http') 
                     ? state.user.profileImage 
                     : `https://ui-avatars.com/api/?name=${encodeURIComponent(state.user.name || 'U')}&background=1a3a6e&color=c9a84c`;
-                
                 document.getElementById('sidebarUserImg').src = imgUrl;
                 
-                fetchSchedule();
+                // เปิดการมองเห็นเมนูเฉพาะ Admin
+                if(checkAdminPermission()) {
+                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+                }
+                
+                return true;
             } else {
                 cuteAlert.error('ปฏิเสธการเข้าถึง', 'กรุณาเข้าสู่ระบบผ่านหน้าระบบกลางก่อนใช้งาน').then(() => { 
-                    window.location.href = 'login.html'; // กลับไปหน้าล็อกอินกลาง
+                    window.location.href = 'login.html'; 
                 });
+                return false;
             }
         }
 
@@ -590,8 +626,161 @@
             return userRole === '3' || userRole === '4';
         }
 
-        function goToMainWeb() { 
-            window.location.href = 'login.html'; 
+        function goToMainWeb() { window.location.href = 'login.html'; }
+
+        async function fetchTerms() {
+            try {
+                const res = await fetch(`${API_URL}?action=getTerms&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success' && json.data.length > 0) {
+                    state.terms = json.data;
+                    const activeTerm = state.terms.find(t => t.isActive);
+                    state.selectedTerm = activeTerm ? activeTerm.name : state.terms[0].name;
+                    
+                    renderTermSelectors();
+                } else {
+                    document.getElementById('globalTermSelector').innerHTML = '<option value="">ไม่มีข้อมูล</option>';
+                }
+            } catch (e) {
+                console.error("Error fetching terms:", e);
+                document.getElementById('globalTermSelector').innerHTML = '<option value="">โหลดล้มเหลว</option>';
+            }
+        }
+
+        function renderTermSelectors() {
+            const select = document.getElementById('globalTermSelector');
+            select.innerHTML = state.terms.map(t => 
+                `<option value="${t.name}" ${t.name === state.selectedTerm ? 'selected' : ''}>
+                    ${t.name} ${t.isActive ? '(ปัจจุบัน)' : ''}
+                </option>`
+            ).join('');
+            
+            // อัปเดตข้อความใน UI จุดต่างๆ
+            document.getElementById('schDisplayTerm').innerText = state.selectedTerm;
+            document.getElementById('reportDisplayTerm').innerText = state.selectedTerm;
+            document.getElementById('stuManageDisplayTerm').innerText = state.selectedTerm;
+        }
+
+        async function onTermChange() {
+            const val = document.getElementById('globalTermSelector').value;
+            if (val && val !== state.selectedTerm) {
+                state.selectedTerm = val;
+                
+                // อัปเดตข้อความ
+                document.getElementById('schDisplayTerm').innerText = state.selectedTerm;
+                document.getElementById('reportDisplayTerm').innerText = state.selectedTerm;
+                document.getElementById('stuManageDisplayTerm').innerText = state.selectedTerm;
+                
+                // เคลียร์ข้อมูลหน้าจอเดิม
+                resetUIForNewTerm();
+                
+                // โหลดข้อมูลของเทอมใหม่
+                cuteAlert.loading(`กำลังเปลี่ยนเป็นภาคเรียน ${state.selectedTerm}`);
+                await fetchClasses();
+                await fetchSchedule();
+                Swal.close();
+            }
+        }
+
+        function resetUIForNewTerm() {
+            state.currentClass = '';
+            state.currentSubjectPeriod = '';
+            
+            document.getElementById('attSubjectSelector').innerHTML = '<option value="">เลือกวิชา/คาบเรียน...</option>';
+            document.getElementById('attClassDisplay').classList.add('hidden');
+            document.getElementById('btnSaveAttendance').classList.add('hidden');
+            document.getElementById('btnGroupStatus').classList.add('hidden');
+            document.getElementById('btnRefreshStudents').classList.add('hidden');
+            document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-school-bg border border-gray-200 mb-4 shadow-sm"><i class="fas fa-hand-pointer text-2xl text-school-brass"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกวิชาเรียนด้านบน เพื่อแสดงรายชื่อ</p></td></tr>`;
+            document.getElementById('studentCountBadge').innerText = '0 คน';
+            
+            document.getElementById('reportResult').classList.add('hidden');
+        }
+
+        // ============ Modal จัดการภาคเรียน ============
+        function openManageTermModal() {
+            renderManageTermTable();
+            document.getElementById('manageTermModal').classList.add('active');
+        }
+        function closeManageTermModal() { document.getElementById('manageTermModal').classList.remove('active'); }
+
+        function renderManageTermTable() {
+            const tbody = document.getElementById('termTableBody');
+            if(state.terms.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = state.terms.map(t => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="px-4 py-3 font-bold text-school-navy">${t.name}</td>
+                    <td class="px-4 py-3 text-center">
+                        ${t.isActive 
+                            ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">ปัจจุบัน</span>` 
+                            : `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`}
+                    </td>
+                    <td class="px-4 py-3 text-center flex justify-center gap-2">
+                        ${!t.isActive ? `<button onclick="setTermActive('${t.name}')" class="text-xs bg-school-blue hover:bg-[#345ba8] text-white px-2 py-1 rounded shadow-sm" title="ตั้งเป็นปัจจุบัน">Set Active</button>` : `<span class="w-[72px]"></span>`}
+                        <button onclick="deleteTerm('${t.name}')" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm flex items-center justify-center" title="ลบ"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addTerm() {
+            const input = document.getElementById('newTermInput');
+            const termName = input.value.trim();
+            if(!termName) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อภาคเรียน (เช่น 1/2567)'); return; }
+            if(termName.includes('_')) { cuteAlert.error('ชื่อไม่ถูกต้อง', 'ไม่อนุญาตให้ใช้เครื่องหมาย _ (Underscore)'); return; }
+            
+            cuteAlert.loading('กำลังเพิ่มภาคเรียน ⏳');
+            const form = new FormData();
+            form.append('actionType', 'add'); form.append('termName', termName);
+            try {
+                const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    input.value = '';
+                    await fetchTerms();
+                    renderManageTermTable();
+                    cuteAlert.success('สำเร็จ!', json.message);
+                } else cuteAlert.error('ผิดพลาด', json.message);
+            } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+        }
+
+        async function setTermActive(termName) {
+            cuteAlert.loading('กำลังอัปเดตสถานะ ⏳');
+            const form = new FormData();
+            form.append('actionType', 'setActive'); form.append('termName', termName);
+            try {
+                const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    await fetchTerms();
+                    renderManageTermTable();
+                    cuteAlert.success('สำเร็จ!', json.message);
+                } else cuteAlert.error('ผิดพลาด', json.message);
+            } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+        }
+
+        function deleteTerm(termName) {
+            cuteAlert.confirm(`ลบภาคเรียน ${termName}?`, 'ลบเฉพาะชื่อภาคเรียนในระบบ (ข้อมูลชีตจะไม่ถูกลบ สามารถดึงกลับมาได้หากเพิ่มชื่อเดิม)', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบ ⏳');
+                    const form = new FormData();
+                    form.append('actionType', 'delete'); form.append('termName', termName);
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            await fetchTerms();
+                            renderManageTermTable();
+                            cuteAlert.success('ลบสำเร็จ!', json.message);
+                        } else cuteAlert.error('ผิดพลาด', json.message);
+                    } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+                }
+            });
         }
 
         function switchTab(tabId) {
@@ -690,15 +879,6 @@
             const month = THAI_MONTHS[dateObj.getMonth()];
             const year = dateObj.getFullYear() + 543;
             document.getElementById('headerDateText').innerText = `${day} ${month} ${year}`;
-        }
-
-        function formatDate(dateString) {
-            if(!dateString) return "-";
-            try {
-                let dObj = new Date(dateString);
-                if (isNaN(dObj.getTime())) return dateString;
-                return `${dObj.getDate()}/${dObj.getMonth()+1}/${dObj.getFullYear()+543}`;
-            } catch (e) { return dateString; }
         }
 
         function populateSubjectDropdown(selectId, dateStr, classFilter = null) {
@@ -830,15 +1010,32 @@
             }
         }
 
-        // =========================================================================
-        // จัดการตารางสอน (Schedule)
-        // =========================================================================
+        async function fetchClasses() {
+            if(!state.selectedTerm) return;
+            try {
+                const res = await fetch(`${API_URL}?action=getStudentClasses&term=${encodeURIComponent(state.selectedTerm)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    state.classes = json.data;
+                    
+                    let opts = '<option value="">เลือกห้อง...</option>';
+                    opts += '<option value="-">คาบกิจกรรม</option>';
+                    opts += state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+                    document.getElementById('schClass').innerHTML = opts;
+                    
+                    let manageOpts = '<option value="">เลือกห้อง...</option>' + state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
+                    document.getElementById('manageClassSelector').innerHTML = manageOpts;
+                }
+            } catch (e) { console.error(e); }
+        }
+
         async function fetchSchedule() {
+            if(!state.selectedTerm) return;
             try {
                 const attSel = document.getElementById('attSubjectSelector');
                 if(attSel) attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
 
-                const res = await fetch(`${API_URL}?action=getSchedule&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.schedule = json.data;
@@ -850,16 +1047,14 @@
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
             } catch (e) { 
-                console.error('Error fetching schedule:', e); 
-                const attSel = document.getElementById('attSubjectSelector');
-                if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                console.error(e); 
             }
         }
 
         function renderScheduleTable() {
             const tbody = document.getElementById('scheduleTableBody');
             if (state.schedule.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">คุณยังไม่ได้เพิ่มตารางสอน</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">คุณยังไม่ได้เพิ่มตารางสอนในภาคเรียนนี้</td></tr>`;
                 document.getElementById('visualTimetable').innerHTML = '<div class="text-center py-10 text-gray-400 bg-gray-50 rounded-xl mx-2 border border-gray-100"><i class="fas fa-calendar-times text-4xl mb-3 text-gray-300"></i><p>กรุณาเพิ่มวิชาสอนของคุณก่อน เพื่อแสดงตารางสอนที่นี่</p></div>';
                 return;
             }
@@ -906,15 +1101,13 @@
             });
 
             let html = '<div id="timetableExport" class="bg-white p-2 min-w-[900px] rounded-xl" style="font-family: \'Sarabun\', sans-serif;">';
-            html += '<div class="text-center mb-3 text-school-navy font-bold font-serif text-lg border-b pb-2">ตารางสอนส่วนบุคคล - โรงเรียนโนนศิลาสว่างวิทย์</div>';
+            html += `<div class="text-center mb-3 text-school-navy font-bold font-serif text-lg border-b pb-2">ตารางสอนส่วนบุคคล - โรงเรียนโนนศิลาสว่างวิทย์ (ภาคเรียน ${state.selectedTerm})</div>`;
             html += '<table class="w-full text-center border-collapse text-sm">';
             html += '<thead class="bg-school-navy text-white border-b-2 border-school-navyLight">';
             html += '<tr><th class="py-3 px-2 border border-school-navyLight w-24 align-middle">วัน / คาบ</th>';
             
             for(let i=0; i<maxPeriods; i++) {
-                if (i === 3) {
-                    html += `<th class="py-3 px-2 border border-school-navyLight w-20 bg-[#162f59] shadow-inner align-middle leading-tight">พัก<br><span class="text-[10px] font-normal text-blue-200">11.30 - 12.30</span></th>`;
-                }
+                if (i === 3) html += `<th class="py-3 px-2 border border-school-navyLight w-20 bg-[#162f59] shadow-inner align-middle leading-tight">พัก<br><span class="text-[10px] font-normal text-blue-200">11.30 - 12.30</span></th>`;
                 html += `<th class="py-3 px-2 border border-school-navyLight w-28 align-middle leading-tight">คาบ ${i+1}<br><span class="text-[10px] font-normal text-blue-200">${periodTimes[i]}</span></th>`;
             }
             html += '</tr></thead><tbody>';
@@ -974,26 +1167,16 @@
 
         function downloadTimetableImage() {
             const container = document.getElementById('timetableExport');
-            if(!container) {
-                cuteAlert.error('ผิดพลาด', 'ไม่พบข้อมูลตารางสอน');
-                return;
-            }
+            if(!container) return;
             cuteAlert.loading('กำลังประมวลผลรูปภาพ... 📸');
-            
-            html2canvas(container, { 
-                scale: 4, 
-                backgroundColor: '#ffffff',
-                useCORS: true 
-            }).then(canvas => {
+            html2canvas(container, { scale: 4, backgroundColor: '#ffffff', useCORS: true }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `ตารางสอน_${state.user.name.replace(/\s+/g, '_')}.png`;
+                link.download = `ตารางสอน_${state.selectedTerm.replace(/\//g,'-')}_${state.user.name.replace(/\s+/g, '_')}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 Swal.close();
                 cuteAlert.success('สำเร็จ!', 'บันทึกภาพตารางสอนเรียบร้อยแล้ว');
-            }).catch(err => {
-                cuteAlert.error('ผิดพลาด', 'ไม่สามารถสร้างรูปภาพได้ กรุณาลองใหม่');
-            });
+            }).catch(err => cuteAlert.error('ผิดพลาด', 'ไม่สามารถสร้างรูปภาพได้'));
         }
 
         function addScheduleRow() {
@@ -1001,24 +1184,20 @@
             const subj = document.getElementById('schSubject').value.trim();
             const cls = document.getElementById('schClass').value;
 
-            if (!subj || !cls) {
-                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุ วิชาและคาบเรียน พร้อมเลือกห้องเรียนให้ครบถ้วน');
-                return;
-            }
+            if (!subj || !cls) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุ วิชาและคาบเรียน พร้อมเลือกห้องเรียน'); return; }
 
             state.schedule.push({ day: day, subjectPeriod: subj, className: cls });
             document.getElementById('schSubject').value = '';
             renderScheduleTable();
         }
 
-        function removeSchedule(index) {
-            state.schedule.splice(index, 1);
-            renderScheduleTable();
-        }
+        function removeSchedule(index) { state.schedule.splice(index, 1); renderScheduleTable(); }
 
         async function saveScheduleToDB() {
+            if(!state.selectedTerm) return;
             cuteAlert.loading('กำลังบันทึกตารางสอน ⏳');
             const form = new FormData();
+            form.append('term', state.selectedTerm);
             form.append('teacher', state.user.name);
             form.append('scheduleData', JSON.stringify(state.schedule));
 
@@ -1031,34 +1210,15 @@
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
                     populateReportClassDropdown(); 
                 } else cuteAlert.error('ผิดพลาด', json.message);
-            } catch(e) { cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
-        }
-
-        async function fetchClasses() {
-            try {
-                const res = await fetch(`${API_URL}?action=getStudentClasses&_t=${new Date().getTime()}`);
-                const json = await res.json();
-                if (json.status === 'success') {
-                    state.classes = json.data;
-                    
-                    let opts = '<option value="">เลือกห้อง...</option>';
-                    opts += '<option value="-">คาบกิจกรรม</option>';
-                    opts += state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
-                    
-                    document.getElementById('schClass').innerHTML = opts;
-                    
-                    let manageOpts = '<option value="">เลือกห้อง...</option>' + state.classes.map(c => `<option value="${c}">${c}</option>`).join('');
-                    document.getElementById('manageClassSelector').innerHTML = manageOpts;
-                }
-            } catch (e) { console.error(e); }
+            } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
 
         async function loadStudents() {
-            if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-') return;
+            if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-' || !state.selectedTerm) return;
 
             cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
             try {
-                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
                 const json = await res.json();
 
                 if (json.status === 'success') {
@@ -1074,52 +1234,38 @@
                         Swal.close();
                     }
                 } else {
-                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล'}</td></tr>`;
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message}</td></tr>`;
                     document.getElementById('studentCountBadge').innerText = '0 คน';
                     Swal.close();
                 }
-            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อโหลดรายชื่อได้'); }
+            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
         }
 
         async function fetchAttendanceHistory() {
-            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod) return;
-            
+            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) return;
             try {
-                // เปลี่ยนมาใช้ API getAttendanceReport (ดึงทั้งวิชา) เพื่อแก้ปัญหา Google Sheets แปลงวันที่เป็น Date Object แล้วทำให้ Backend ค้นหา String ไม่เจอ
-                const res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
-                state.attendance = state.students.map(row => ({
-                    id: getStudentUniqueId(row), status: null, note: ''
-                }));
+                state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
 
                 if (json.status === 'success' && json.data && json.data.length > 0) {
                     const targetDateStr = state.currentDate;
-                    
-                    // กรองเอาเฉพาะข้อมูลของวันที่เลือกในหน้าเว็บ (ทำใน Frontend)
                     const filteredRecords = json.data.filter(r => {
                         if (!r.date) return false;
                         try {
                             const d = new Date(r.date);
                             if (isNaN(d.getTime())) return String(r.date).trim() === targetDateStr;
-                            
                             const rDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                             return rDateStr === targetDateStr;
-                        } catch(e) {
-                            return String(r.date).trim() === targetDateStr;
-                        }
+                        } catch(e) { return String(r.date).trim() === targetDateStr; }
                     });
 
                     filteredRecords.forEach(historyRow => {
                         let historyId = String(historyRow.id);
-                        if (historyId.includes('|')) {
-                            historyId = historyId.split('|')[1].trim(); 
-                        }
+                        if (historyId.includes('|')) historyId = historyId.split('|')[1].trim(); 
                         const target = state.attendance.find(a => String(a.id) === historyId);
-                        if(target) {
-                            target.status = historyRow.status;
-                            target.note = historyRow.note;
-                        }
+                        if(target) { target.status = historyRow.status; target.note = historyRow.note; }
                     });
                 }
                 renderStudentTable();
@@ -1129,8 +1275,6 @@
         function getStudentUniqueId(row) { 
             const id = String(row[1] || '').trim(); 
             if (id) return id;
-            
-            // กรณีเด็กไม่มีรหัสประจำตัว ให้ใช้ ชื่อ + สกุล เป็น ID หลักแทน
             const name = String(row[2] || '').trim();
             const surname = String(row[3] || '').trim();
             return `${name} ${surname}`;
@@ -1144,15 +1288,11 @@
             state.students.forEach((row, index) => {
                 const number = row[0] || '-';
                 const code = row[1] || '';
-                
                 const nameParts = row.slice(2).filter(Boolean); 
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                
                 const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
-
                 const att = state.attendance[index];
                 const s = att.status;
-                
                 const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
                 const hasNote = noteStr.trim() !== '';
                 const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
@@ -1186,10 +1326,8 @@
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
             document.getElementById('noteTextarea').value = state.attendance[index].note !== undefined && state.attendance[index].note !== null ? String(state.attendance[index].note) : '';
-            
             const nameParts = state.students[index].slice(2).filter(Boolean);
             const stuName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-            
             document.getElementById('noteModalTitle').innerText = `หมายเหตุ: ${stuName}`;
             document.getElementById('noteModal').classList.add('active');
         }
@@ -1201,13 +1339,11 @@
         }
 
         async function saveAttendance() {
-            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod) {
-                cuteAlert.warning('แจ้งเตือน', 'กรุณาเลือกวิชาและคาบเรียนให้ครบถ้วนก่อนบันทึก');
-                return;
+            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) {
+                cuteAlert.warning('แจ้งเตือน', 'กรุณาเลือกวิชาและคาบเรียนให้ครบถ้วนก่อนบันทึก'); return;
             }
             if(state.currentClass === '-') {
-                cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ');
-                return;
+                cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ'); return;
             }
 
             const unchecked = state.attendance.filter(a => a.status === null).length;
@@ -1217,8 +1353,8 @@
             }
 
             cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
-            
             const form = new FormData();
+            form.append('term', state.selectedTerm);
             form.append('className', state.currentClass.trim());
             form.append('date', state.currentDate);
             form.append('subjectPeriod', state.currentSubjectPeriod); 
@@ -1230,7 +1366,7 @@
                 const json = await res.json();
                 if (json.status === 'success') cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
                 else cuteAlert.error('ข้อผิดพลาด', json.message);
-            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'); }
+            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
 
         function goToEditTime() {
@@ -1239,21 +1375,13 @@
             const subj = subjSel.value;
             const cls = subjSel.options[subjSel.selectedIndex]?.getAttribute('data-class');
             
-            if(!dateStr || !subj || !cls) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกวันที่ และ วิชา/คาบเรียน ให้ครบถ้วน');
-                return;
-            }
+            if(!dateStr || !subj || !cls) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกวันที่ และ วิชา/คาบเรียน'); return; }
 
             fpMain.setDate(dateStr, true); 
-            
             switchTab('attendance');
-            
             setTimeout(() => {
                 const attSel = document.getElementById('attSubjectSelector');
-                if (attSel) {
-                     attSel.value = subj;
-                     onSubjectSelect('att'); 
-                }
+                if (attSel) { attSel.value = subj; onSubjectSelect('att'); }
             }, 300);
         }
 
@@ -1267,10 +1395,9 @@
                         <div class="bg-yellow-50 text-gray-800 p-3 rounded-lg border border-yellow-200 shadow-inner whitespace-pre-wrap">${note}</div>
                     </div>
                 `,
-                confirmButtonText: 'ปิดหน้าต่าง',
+                confirmButtonText: 'ปิด',
                 confirmButtonColor: '#1a3a6e',
-                heightAuto: false, 
-                scrollbarPadding: false,
+                heightAuto: false, scrollbarPadding: false,
                 customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 max-w-sm font-sans' }
             });
         }
@@ -1278,62 +1405,43 @@
         async function generateReport() {
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
-
-            if(!cls || !subj) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชาเพื่อดูรายงาน');
-                return;
-            }
+            if(!cls || !subj || !state.selectedTerm) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชา'); return; }
 
             cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
             try {
-                const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
                 const stuJson = await stuRes.json();
                 let rawStudents = [];
                 if(stuJson.status === 'success' && stuJson.data.length > 1) {
                     rawStudents = stuJson.data.slice(1);
                 } else if(stuJson.status !== 'success') {
-                    cuteAlert.error('พบข้อผิดพลาด', stuJson.message || 'ไม่สามารถดึงข้อมูลนักเรียนได้');
-                    return;
+                    cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return;
                 }
 
-                let res, json;
-                try {
-                    res = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    json = await res.json();
-                } catch(err) {
-                    res = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    json = await res.json();
-                }
-                
+                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let json = await res.json();
                 let reportData = (json.status === 'success') ? json.data : [];
 
                 if (reportData.length === 0) {
-                     document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้</div>';
+                     document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
-                     Swal.close();
-                     return;
+                     Swal.close(); return;
                 }
 
                 let uniqueDates = [...new Set(reportData.map(r => r.date))].filter(d => d).sort((a, b) => new Date(a) - new Date(b));
-
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
                     let historyId = String(r.id);
                     if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
-                    
                     if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
                     studentAttendanceMap[historyId][r.date] = { status: r.status, note: r.note };
                 });
 
                 let totalStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
                 let totalRecords = reportData.length; 
-
-                reportData.forEach(r => {
-                    if (totalStats[r.status] !== undefined) totalStats[r.status]++;
-                });
+                reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
 
                 const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
-
                 document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
                 document.getElementById('repLeave').innerText = calcPercent(totalStats.leave);
                 document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
@@ -1345,10 +1453,9 @@
                 const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold', 'late': 'text-orange-500 font-bold', 'sick': 'text-purple-600 font-bold' };
 
                 let tableHtml = `<table class="report-table w-full text-sm text-left border-collapse min-w-max">
-                    <thead class="bg-gray-100 text-school-navy">
-                        <tr>
-                            <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px; padding-left: 4px; padding-right: 4px;">ลำดับ</th>
-                            <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
+                    <thead class="bg-gray-100 text-school-navy"><tr>
+                    <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
+                    <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
                 
                 uniqueDates.forEach(d => {
                     let dObj = new Date(d);
@@ -1356,12 +1463,7 @@
                     tableHtml += `<th class="border text-center min-w-[50px]">${dateStr}</th>`;
                 });
                 
-                tableHtml += `<th class="border text-center bg-gray-200">มา</th>
-                              <th class="border text-center bg-gray-200">ลา</th>
-                              <th class="border text-center bg-gray-200">ขาด</th>
-                              <th class="border text-center bg-gray-200">สาย</th>
-                              <th class="border text-center bg-gray-200">ป่วย</th>
-                              </tr></thead><tbody>`;
+                tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th><th class="border text-center bg-gray-200">สาย</th><th class="border text-center bg-gray-200">ป่วย</th></tr></thead><tbody>`;
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
@@ -1375,99 +1477,58 @@
                     uniqueDates.forEach(d => {
                         const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         const status = record ? record.status : null;
-                        
                         const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
                         const hasNote = noteStr.trim() !== '';
 
                         if(status && rowStats[status] !== undefined) rowStats[status]++;
-                        
                         const symbol = status ? statusSymbol[status] : '-';
                         const colorClass = status ? statusColor[status] : 'text-gray-300';
                         
                         if (hasNote) {
                             const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
-                            
                             let dObj = new Date(d);
                             let displayDate = isNaN(dObj.getTime()) ? d : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-
-                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate}', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">
-                                ${symbol}
-                                <i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i>
-                            </td>`;
-                        } else {
-                            rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
-                        }
+                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate}', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
+                        } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
-                    tableHtml += `<tr class="hover:bg-gray-50 border-b">
-                        <td class="border text-center font-bold text-school-navy" style="padding-left: 4px; padding-right: 4px;">${number}</td>
-                        <td class="border">${fullName}</td>
-                        ${rowCells}
-                        <td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td>
-                        <td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td>
-                        <td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td>
-                        <td class="border text-center font-bold text-orange-700 bg-gray-50">${rowStats.late}</td>
-                        <td class="border text-center font-bold text-purple-700 bg-gray-50">${rowStats.sick}</td>
-                    </tr>`;
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td><td class="border text-center font-bold text-orange-700 bg-gray-50">${rowStats.late}</td><td class="border text-center font-bold text-purple-700 bg-gray-50">${rowStats.sick}</td></tr>`;
                 });
 
                 tableHtml += '</tbody></table>';
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
-
                 document.getElementById('reportResult').classList.remove('hidden');
                 Swal.close();
-
-            } catch(e) { 
-                console.error(e);
-                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); 
-            }
+            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); }
         }
 
         async function downloadExcel() {
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
+            if(!cls || !subj || !state.selectedTerm) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชา'); return; }
 
-            if(!cls || !subj) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชาที่ต้องการดาวน์โหลด .xlsx');
-                return;
-            }
-
-            cuteAlert.loading('กำลังสร้างไฟล์เอกสาร Excel... 📄');
-
+            cuteAlert.loading('กำลังสร้างไฟล์ Excel... 📄');
             try {
-                const stuRes = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
                 const stuJson = await stuRes.json();
-                if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) {
-                    cuteAlert.error('เกิดข้อผิดพลาด', stuJson.message || 'ไม่พบข้อมูลนักเรียน หรือการเชื่อมต่อล้มเหลว');
-                    return;
-                }
+                if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) { cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน'); return; }
                 const rawStudents = stuJson.data.slice(1);
 
-                let attRes, attJson;
-                try {
-                    attRes = await fetch(`${API_URL}?action=getAttendanceReport&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    attJson = await attRes.json();
-                } catch(err) {
-                    attRes = await fetch(`${API_URL}?action=getAttendance&className=${encodeURIComponent(cls.trim())}&date=${state.currentDate}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    attJson = await attRes.json();
-                }
-                
+                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let attJson = await attRes.json();
                 let reportData = attJson.data || [];
 
                 let uniqueDates = [...new Set(reportData.map(r => r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '')))].filter(Boolean);
                 uniqueDates.sort((a, b) => new Date(a) - new Date(b));
 
-                if(uniqueDates.length === 0) {
-                     cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้');
-                     return;
-                }
+                if(uniqueDates.length === 0) { cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้'); return; }
 
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
                 const excelData = [];
-                
                 excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
+                excelData.push(["ภาคเรียน:", state.selectedTerm, "", ""]);
                 excelData.push(["วิชา/คาบ:", subj, "ห้องเรียน:", cls]);
                 excelData.push(["ครูผู้สอน:", state.user.name]); 
                 excelData.push([]); 
@@ -1476,33 +1537,23 @@
                 let headerRow2 = ["", "", "", "", `${uniqueDates.length} ชม.`, "", "", "", "", "", "วันที่"];
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
                 
-                uniqueDates.forEach((d, idx) => {
+                uniqueDates.forEach((d) => {
                     let dObj = new Date(d);
-                    if(isNaN(dObj.getTime())) {
-                        headerRow1.push(d); 
-                        headerRow2.push(""); 
-                        headerRow3.push("");
-                    } else {
-                        const dateWithMonthAndYear = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
-                        headerRow1.push(dateWithMonthAndYear);
-                        headerRow2.push("");
-                        headerRow3.push("");
+                    if(isNaN(dObj.getTime())) { headerRow1.push(d); headerRow2.push(""); headerRow3.push(""); } 
+                    else {
+                        headerRow1.push(`${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`);
+                        headerRow2.push(""); headerRow3.push("");
                     }
                 });
-                headerRow1.push("หมายเหตุ");
-                headerRow2.push("");
-                headerRow3.push("");
+                headerRow1.push("หมายเหตุ"); headerRow2.push(""); headerRow3.push("");
 
-                excelData.push(headerRow1); 
-                excelData.push(headerRow2); 
-                excelData.push(headerRow3); 
+                excelData.push(headerRow1); excelData.push(headerRow2); excelData.push(headerRow3); 
 
                 const studentAttendanceMap = {};
                 reportData.forEach(r => {
                     const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : uniqueDates[0]);
                     let historyId = String(r.id);
                     if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
-
                     if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
                     studentAttendanceMap[historyId][dateKey] = r.status;
                 });
@@ -1515,95 +1566,69 @@
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
-
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
                     let percent = uniqueDates.length > 0 ? Math.round((stats.present / uniqueDates.length) * 100) : 0;
-
                     let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
 
                     uniqueDates.forEach(d => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][d] : null;
                         rowData.push(status ? statusSymbol[status] : ''); 
                     });
-
-                    rowData.push(""); 
-                    excelData.push(rowData);
+                    rowData.push(""); excelData.push(rowData);
                 });
 
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
                 const merges = [
-                    { s: {r:4, c:0}, e: {r:6, c:0} }, 
-                    { s: {r:4, c:1}, e: {r:6, c:1} }, 
-                    { s: {r:4, c:2}, e: {r:6, c:3} }, 
-                    { s: {r:4, c:5}, e: {r:4, c:9} }, 
-                    { s: {r:4, c:11+uniqueDates.length}, e: {r:6, c:11+uniqueDates.length} } 
+                    { s: {r:5, c:0}, e: {r:7, c:0} }, { s: {r:5, c:1}, e: {r:7, c:1} }, 
+                    { s: {r:5, c:2}, e: {r:7, c:3} }, { s: {r:5, c:5}, e: {r:5, c:9} }, 
+                    { s: {r:5, c:11+uniqueDates.length}, e: {r:7, c:11+uniqueDates.length} } 
                 ];
-
-                for(let c = 11; c < 11 + uniqueDates.length; c++) {
-                    merges.push({ s: {r:4, c:c}, e: {r:6, c:c} });
-                }
-
+                for(let c = 11; c < 11 + uniqueDates.length; c++) merges.push({ s: {r:5, c:c}, e: {r:7, c:c} });
                 ws['!merges'] = merges;
 
                 const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
-                uniqueDates.forEach(() => wscols.push({wch: 8})); 
-                wscols.push({wch: 15}); 
-                ws['!cols'] = wscols;
+                uniqueDates.forEach(() => wscols.push({wch: 8})); wscols.push({wch: 15}); ws['!cols'] = wscols;
 
                 XLSX.utils.book_append_sheet(wb, ws, "บันทึกเวลาเรียน");
                 
-                const safeName = `${cls}_${subj}`.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 30);
+                const safeTermForName = state.selectedTerm.replace(/\//g, '-');
+                const safeName = `${safeTermForName}_${cls}_${subj}`.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 40);
                 XLSX.writeFile(wb, `รายงานเวลาเรียน_${safeName}.xlsx`);
-
                 Swal.close();
 
-            } catch (e) { 
-                console.error(e);
-                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้ (กรุณาตรวจสอบ Console)'); 
-            }
+            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้'); }
         }
 
-        // =========================================================================
-        // ADMIN: จัดการข้อมูลนักเรียน (อัปเดตสิทธิ์เชื่อมกับระบบล็อกอิน)
-        // =========================================================================
         function openManageStudentModal() { 
             document.getElementById('manageStudentModal').classList.add('active'); 
-            
             const isAdmin = checkAdminPermission();
             
-            const addBtn = document.querySelector('button[onclick="openEditStudentForm(\'add\')"]');
-            if (addBtn) addBtn.style.display = isAdmin ? 'flex' : 'none'; 
+            document.querySelectorAll('.admin-only, .admin-class-btn').forEach(el => el.style.display = isAdmin ? 'flex' : 'none');
             
-            // ซ่อน/แสดงปุ่มเพิ่มและลบห้องเรียน
-            const adminClassBtns = document.querySelectorAll('.admin-class-btn');
-            adminClassBtns.forEach(btn => btn.style.display = isAdmin ? 'flex' : 'none');
-
             if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
                 document.getElementById('manageClassSelector').value = state.currentClass; 
                 loadManageStudents(); 
             } 
-            disableBodyScroll(); 
+            document.body.style.overflow = 'hidden'; 
         }
 
-        function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); enableBodyScroll(); }
+        function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); document.body.style.overflow = ''; }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
-        function disableBodyScroll() { document.body.style.overflow = 'hidden'; }
-        function enableBodyScroll() { document.body.style.overflow = ''; }
 
         async function loadManageStudents() {
             const className = document.getElementById('manageClassSelector').value;
             const tbody = document.getElementById('manageTableBody');
-            if (!className) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>'; return; }
+            if (!className || !state.selectedTerm) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>'; return; }
 
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10"><div class="loader mx-auto mb-2"></div></td></tr>';
             try {
-                const res = await fetch(`${API_URL}?action=getStudents&className=${encodeURIComponent(className.trim())}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className.trim())}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
                     if (json.data.length > 0) {
@@ -1611,27 +1636,22 @@
                         state.manageData = json.data.slice(1); 
                         renderManageTable();
                     } else {
-                        // ปรับให้ตรงกับ 4 คอลัมน์ที่สร้างใหม่
                         state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; 
                         state.manageData = [];
                         tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-school-blue underline">เพิ่มคนแรกเลย</button></td></tr>`;
                     }
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
-                }
+                } else tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
             } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-red-500">เชื่อมต่อล้มเหลว</td></tr>'; }
         }
 
         function renderManageTable() {
             const tbody = document.getElementById('manageTableBody');
             if(state.manageData.length === 0) return;
-            
             const isAdmin = checkAdminPermission(); 
 
             tbody.innerHTML = state.manageData.map((row, idx) => {
                 const no = row[0] || '-';
                 const stuId = row[1] || '-';
-                
                 const nameParts = row.slice(2).filter(Boolean);
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                 
@@ -1642,23 +1662,12 @@
                     </div>`
                     : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
 
-                return `
-                <tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100">
-                    <td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td>
-                    <td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td>
-                    <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td>
-                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">
-                        ${actionHtml}
-                    </td>
-                </tr>`
+                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100"><td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td><td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td><td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td></tr>`
             }).join('');
         }
 
         function openEditStudentForm(actionType, rowIndex = null) {
-            if (!checkAdminPermission()) {
-                cuteAlert.error('สิทธิ์การเข้าถึงไม่เพียงพอ! 🛑', 'สงวนสิทธิ์การแก้ไขข้อมูลเฉพาะ แอดมิน (Role 3) และ ผู้ดูแลระบบสูงสุด (Role 4) เท่านั้น');
-                return;
-            }
+            if (!checkAdminPermission()) return;
             const className = document.getElementById('manageClassSelector').value;
             if(!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
 
@@ -1683,7 +1692,10 @@
             for (let i = 0; i < state.headers.length; i++) { const el = document.getElementById(`stuInput_${i}`); newRowData.push(el ? el.value : ''); }
 
             const form = new FormData();
-            form.append('className', className.trim()); form.append('actionType', actionType); form.append('studentData', JSON.stringify(newRowData));
+            form.append('term', state.selectedTerm);
+            form.append('className', className.trim()); 
+            form.append('actionType', actionType); 
+            form.append('studentData', JSON.stringify(newRowData));
             if(actionType === 'edit') form.append('rowIndex', rowIndex);
 
             cuteAlert.loading('กำลังจัดการข้อมูลนักเรียน 📝');
@@ -1696,15 +1708,13 @@
         }
 
         function deleteStudent(rowIndex) {
-            if (!checkAdminPermission()) {
-                cuteAlert.error('สิทธิ์การเข้าถึงไม่เพียงพอ! 🛑', 'สงวนสิทธิ์การลบข้อมูลเฉพาะ แอดมิน (Role 3) และ ผู้ดูแลระบบสูงสุด (Role 4) เท่านั้น');
-                return;
-            }
-            cuteAlert.confirm('ลบข้อมูลนักเรียน?', 'หากลบแล้วข้อมูลจะหายไป รวมถึงประวัติการเช็คชื่อเดิมด้วย', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+            if (!checkAdminPermission()) return;
+            cuteAlert.confirm('ลบข้อมูลนักเรียน?', 'หากลบแล้วข้อมูลจะหายไป', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังนำข้อมูลออก ⏳');
                     const className = document.getElementById('manageClassSelector').value;
                     const form = new FormData();
+                    form.append('term', state.selectedTerm);
                     form.append('className', className.trim()); form.append('actionType', 'delete'); form.append('studentData', '[]'); form.append('rowIndex', rowIndex);
                     try {
                         const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
@@ -1715,92 +1725,56 @@
             });
         }
         
-        // =========================================================================
-        // ฟังก์ชันจัดการห้องเรียน (สร้างห้อง / ลบห้อง)
-        // =========================================================================
         function promptAddClass() {
             if (!checkAdminPermission()) return;
             Swal.fire({
-                title: 'เพิ่มห้องเรียนใหม่',
-                input: 'text',
-                inputLabel: 'ชื่อห้องเรียน (เช่น ม.1/1)',
-                inputPlaceholder: 'กรอกชื่อห้องเรียน...',
-                showCancelButton: true,
-                confirmButtonText: 'สร้างห้องเรียน',
-                cancelButtonText: 'ยกเลิก',
-                confirmButtonColor: '#1a3a6e',
+                title: 'เพิ่มห้องเรียนใหม่', input: 'text', inputLabel: 'ชื่อห้องเรียน (เช่น ม.1/1)', inputPlaceholder: 'กรอกชื่อห้องเรียน...',
+                showCancelButton: true, confirmButtonText: 'สร้างห้องเรียน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#1a3a6e',
                 inputValidator: (value) => {
                     if (!value || value.trim() === '') return 'กรุณากรอกชื่อห้องเรียน!';
-                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในระบบแล้ว!';
+                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในภาคเรียนนี้แล้ว!';
                 },
                 customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     const newClass = result.value.trim();
                     cuteAlert.loading('กำลังสร้างห้องเรียนใหม่ ⏳');
-                    
                     const form = new FormData();
+                    form.append('term', state.selectedTerm);
                     form.append('actionType', 'addClass');
                     form.append('className', newClass);
-                    
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
-                        
-                        if (json.status === 'success') {
-                            await fetchClasses(); // โหลดข้อมูลห้องใหม่
-                            document.getElementById('manageClassSelector').value = newClass;
-                            loadManageStudents(); // โหลดตารางที่ว่างเปล่ามาแสดง
-                            cuteAlert.success('สำเร็จ! ✨', `สร้างห้องเรียน ${newClass} เรียบร้อยแล้ว`);
-                        } else {
-                            cuteAlert.error('ข้อผิดพลาด', json.message);
-                        }
-                    } catch (e) {
-                        cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
-                    }
+                        if (json.status === 'success') { await fetchClasses(); document.getElementById('manageClassSelector').value = newClass; loadManageStudents(); cuteAlert.success('สำเร็จ! ✨', `สร้างห้องเรียน ${newClass} เรียบร้อยแล้ว`); }
+                        else cuteAlert.error('ข้อผิดพลาด', json.message);
+                    } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
                 }
             });
         }
 
         function confirmDeleteClass() {
             if (!checkAdminPermission()) return;
-            
             const className = document.getElementById('manageClassSelector').value;
-            if (!className) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการลบก่อน');
-                return;
-            }
+            if (!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการลบก่อน'); return; }
 
-            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, 'การลบห้องเรียนจะทำให้ข้อมูลนักเรียนในห้องนี้หายไปทั้งหมด (ลบชีต)', 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
+            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, `การลบห้องเรียนจะทำให้ข้อมูลนักเรียนในห้องนี้ของภาคเรียน ${state.selectedTerm} หายไปทั้งหมด`, 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบห้องเรียน ⏳');
-                    
                     const form = new FormData();
+                    form.append('term', state.selectedTerm);
                     form.append('actionType', 'deleteClass');
                     form.append('className', className);
-                    
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
-                        
                         if (json.status === 'success') {
-                            await fetchClasses(); // รีเฟรชรายการห้องเรียนใหม่
-                            
-                            // เปลี่ยนไปเลือกห้องแรกสุดที่มี (ถ้ามี)
-                            if (state.classes.length > 0) {
-                                document.getElementById('manageClassSelector').value = state.classes[0];
-                                loadManageStudents();
-                            } else {
-                                document.getElementById('manageTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
-                            }
-                            
+                            await fetchClasses();
+                            if (state.classes.length > 0) { document.getElementById('manageClassSelector').value = state.classes[0]; loadManageStudents(); }
+                            else document.getElementById('manageTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
                             cuteAlert.success('ลบสำเร็จ! ✅', `นำห้องเรียน ${className} ออกจากระบบแล้ว`);
-                        } else {
-                            cuteAlert.error('ข้อผิดพลาด', json.message);
-                        }
-                    } catch (e) {
-                        cuteAlert.error('Error', 'ไม่สามารถลบห้องเรียนได้');
-                    }
+                        } else cuteAlert.error('ข้อผิดพลาด', json.message);
+                    } catch (e) { cuteAlert.error('Error', 'ไม่สามารถลบห้องเรียนได้'); }
                 }
             });
         }
