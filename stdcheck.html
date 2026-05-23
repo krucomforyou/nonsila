@@ -1191,29 +1191,36 @@
                 }
             });
 
-            // Calculate min-width based on columns
-            let estWidth = 100; // start with Day column width roughly
+            // Calculate exact width in pixels based on columns
+            const dayColWidth = 100; // ความกว้างคอลัมน์ "วัน/คาบ"
+            let totalTableWidth = dayColWidth;
+            
             config.periods.forEach(p => {
-                if(p.isBreak) {
-                    estWidth += (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : (config.colWidth - 20);
+                if(p.isBreak && p.customWidth && p.customWidth > 0) {
+                    totalTableWidth += parseInt(p.customWidth);
+                } else if (p.isBreak) {
+                    totalTableWidth += 60; // ค่าเริ่มต้นถ้าไม่ได้ใส่
                 } else {
-                    estWidth += config.colWidth;
+                    totalTableWidth += parseInt(config.colWidth);
                 }
             });
             
-            let html = `<div id="timetableExport" class="bg-white p-2 rounded-xl" style="font-family: 'Sarabun', sans-serif; min-width: ${estWidth}px; width: max-content;">`;
-            html += `<div class="text-center mb-1 text-school-navy font-bold font-serif text-lg">ตารางสอนส่วนบุคคล - โรงเรียนโนนศิลาสว่างวิทย์</div>`;
-            html += `<div class="text-center mb-3 text-school-blue font-bold font-serif text-md border-b pb-2">ครูผู้สอน ${state.user.name} ภาคเรียน ${state.selectedTerm}</div>`;
-            html += '<table class="w-full text-center border-collapse text-sm">';
+            // สร้าง Wrapper ที่บังคับความกว้างให้ตรงเป๊ะๆ
+            let html = `<div id="timetableExport" class="bg-white p-4 rounded-xl" style="font-family: 'Sarabun', sans-serif; width: ${totalTableWidth + 32}px; max-width: none; margin: 0 auto;">`;
+            html += `<div class="text-center mb-1 text-school-navy font-bold font-serif text-xl">ตารางสอนส่วนบุคคล - โรงเรียนโนนศิลาสว่างวิทย์</div>`;
+            html += `<div class="text-center mb-4 text-school-blue font-bold font-serif text-md border-b pb-2">ครูผู้สอน ${state.user.name} ภาคเรียน ${state.selectedTerm}</div>`;
+            
+            // ลบ class w-full ทิ้ง เพื่อให้ขนาดเป็นไปตาม style=width 
+            html += `<table class="text-center border-collapse text-sm mx-auto" style="width: ${totalTableWidth}px; table-layout: fixed;">`;
             html += '<thead class="bg-school-navy text-white border-b-2 border-school-navyLight">';
-            html += '<tr><th class="py-3 px-2 border border-school-navyLight w-24 align-middle">วัน / คาบ</th>';
+            html += `<<tr><th class="py-3 px-2 border border-school-navyLight align-middle" style="width: ${dayColWidth}px;">วัน / คาบ</th>`;
             
             config.periods.forEach(p => {
                 if(p.isBreak) {
-                    let w = (p.customWidth && p.customWidth > 0) ? p.customWidth : (config.colWidth - 20);
-                    html += `<th class="py-3 px-2 border border-school-navyLight bg-[#162f59] shadow-inner align-middle leading-tight" style="width: ${w}px">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
+                    let w = (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : 60;
+                    html += `<th class="py-3 px-1 border border-school-navyLight bg-[#162f59] shadow-inner align-middle leading-tight" style="width: ${w}px;">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
                 } else {
-                    html += `<th class="py-3 px-2 border border-school-navyLight align-middle leading-tight" style="width: ${config.colWidth}px">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
+                    html += `<th class="py-3 px-2 border border-school-navyLight align-middle leading-tight" style="width: ${config.colWidth}px;">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
                 }
             });
             html += '</tr></thead><tbody>';
@@ -1226,21 +1233,23 @@
                 "ศุกร์": { bg: "bg-blue-50", text: "text-school-blue", hov: "hover:bg-blue-100", b: "border-blue-200" }
             };
 
-            days.forEach(day => {
+            days.forEach((day, dayIndex) => {
                 const conf = dayConfig[day];
-                html += `<tr><td class="py-2 px-2 border ${conf.b} font-bold ${conf.bg} ${conf.text} shadow-[inset_0_0_8px_rgba(0,0,0,0.02)]">วัน${day}</td>`;
+                html += `<tr><td class="py-2 px-2 border ${conf.b} font-bold ${conf.bg} ${conf.text} shadow-[inset_0_0_8px_rgba(0,0,0,0.02)]" style="height: ${config.rowHeight}px;">วัน${day}</td>`;
                 
                 let nonBreakCounter = 0;
                 for(let i=0; i<config.periods.length; i++) {
                     const p = config.periods[i];
                     
                     if (p.isBreak) {
-                        if (day === "จันทร์") {
-                            html += `<td rowspan="5" class="py-4 px-2 border border-gray-200 bg-gray-50 text-center align-middle" style="height: ${config.rowHeight * 5}px;">
-                                <div class="flex items-center justify-center w-full h-full min-h-[200px]">
+                        // สร้าง colspan เฉพาะแถวแรก (วันจันทร์) ให้คลุมทุกวัน
+                        if (dayIndex === 0) {
+                            let breakWidth = (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : 60;
+                            html += `<td rowspan="5" class="py-4 px-1 border border-gray-200 bg-gray-50 text-center align-middle" style="width: ${breakWidth}px; height: ${config.rowHeight * 5}px;">
+                                <div class="flex items-center justify-center w-full h-full">
                                     <div style="transform: rotate(-90deg); white-space: nowrap;">
                                         <span class="text-school-navy font-bold text-lg font-serif">${p.name}</span>
-                                        <span class="text-gray-500 font-normal text-sm ml-2">${p.time}</span>
+                                        <span class="text-gray-500 font-normal text-xs ml-2">${p.time}</span>
                                     </div>
                                 </div>
                             </td>`;
@@ -1258,14 +1267,14 @@
                                 classPill = `<div class="text-[11px] font-medium text-white bg-school-blue rounded px-2 py-0.5 mt-1 inline-block shadow-sm">${item.className}</div>`;
                             }
 
-                            html += `<td class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle" style="height: ${config.rowHeight}px;">
+                            html += `<td class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle" style="width: ${config.colWidth}px; height: ${config.rowHeight}px; overflow: hidden;">
                                 <div class="flex flex-col items-center justify-center w-full h-full py-1">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${cleanSubj}</div>
                                     ${classPill}
                                 </div>
                             </td>`;
                         } else {
-                            html += `<td class="py-2 px-2 border border-gray-100 text-gray-300 bg-gray-50/50 font-light" style="height: ${config.rowHeight}px;">-</td>`;
+                            html += `<td class="py-2 px-2 border border-gray-100 text-gray-300 bg-gray-50/50 font-light" style="width: ${config.colWidth}px; height: ${config.rowHeight}px;">-</td>`;
                         }
                     }
                 }
