@@ -1346,6 +1346,120 @@
             renderScheduleTable(); 
         }
 
+        // วาดตารางภาพแบบ Dynamic ตามการตั้งค่า
+        function renderVisualTimetable() {
+            const container = document.getElementById('visualTimetable');
+            const days = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
+            const config = state.timetableConfig;
+            const nonBreakPeriods = config.periods.filter(p => !p.isBreak);
+
+            let grid = {};
+            days.forEach(d => grid[d] = Array(nonBreakPeriods.length).fill(null));
+
+            // Map data to grid
+            state.schedule.forEach(s => {
+                const match = s.subjectPeriod.match(/คาบ.*?(\d+)/i);
+                if (match) {
+                    let periodNum = parseInt(match[1]);
+                    let gridIdx = periodNum - 1; 
+                    if (grid[s.day] && gridIdx >= 0 && gridIdx < nonBreakPeriods.length) {
+                        grid[s.day][gridIdx] = s;
+                    } else if (grid[s.day]) {
+                        // fallback find empty
+                        const emptyIdx = grid[s.day].findIndex(x => x === null);
+                        if(emptyIdx !== -1) grid[s.day][emptyIdx] = s;
+                    }
+                } else if (grid[s.day]) {
+                    const emptyIdx = grid[s.day].findIndex(x => x === null);
+                    if(emptyIdx !== -1) grid[s.day][emptyIdx] = s;
+                }
+            });
+
+            // Calculate min-width based on columns
+            let estWidth = 100; // start with Day column width roughly
+            config.periods.forEach(p => {
+                if(p.isBreak) {
+                    estWidth += (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : (config.colWidth - 20);
+                } else {
+                    estWidth += config.colWidth;
+                }
+            });
+            
+            let html = `<div id="timetableExport" class="bg-white p-2 rounded-xl" style="font-family: 'Sarabun', sans-serif; min-width: ${estWidth}px; width: max-content;">`;
+            html += `<div class="text-center mb-1 text-school-navy font-bold font-serif text-lg">ตารางสอนส่วนบุคคล - โรงเรียนโนนศิลาสว่างวิทย์</div>`;
+            html += `<div class="text-center mb-3 text-school-blue font-bold font-serif text-md border-b pb-2">ครูผู้สอน ${state.user.name} ภาคเรียน ${state.selectedTerm}</div>`;
+            html += '<table class="w-full text-center border-collapse text-sm">';
+            html += '<thead class="bg-school-navy text-white border-b-2 border-school-navyLight">';
+            html += '<tr><th class="py-3 px-2 border border-school-navyLight w-24 align-middle">วัน / คาบ</th>';
+            
+            config.periods.forEach(p => {
+                if(p.isBreak) {
+                    let w = (p.customWidth && p.customWidth > 0) ? p.customWidth : (config.colWidth - 20);
+                    html += `<th class="py-3 px-2 border border-school-navyLight bg-[#162f59] shadow-inner align-middle leading-tight" style="width: ${w}px">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
+                } else {
+                    html += `<th class="py-3 px-2 border border-school-navyLight align-middle leading-tight" style="width: ${config.colWidth}px">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
+                }
+            });
+            html += '</tr></thead><tbody>';
+
+            const dayConfig = { 
+                "จันทร์": { bg: "bg-yellow-50", text: "text-yellow-800", hov: "hover:bg-yellow-100", b: "border-yellow-200" },
+                "อังคาร": { bg: "bg-pink-50", text: "text-pink-800", hov: "hover:bg-pink-100", b: "border-pink-200" },
+                "พุธ": { bg: "bg-green-50", text: "text-green-800", hov: "hover:bg-green-100", b: "border-green-200" },
+                "พฤหัสบดี": { bg: "bg-orange-50", text: "text-orange-800", hov: "hover:bg-orange-100", b: "border-orange-200" },
+                "ศุกร์": { bg: "bg-blue-50", text: "text-school-blue", hov: "hover:bg-blue-100", b: "border-blue-200" }
+            };
+
+            days.forEach(day => {
+                const conf = dayConfig[day];
+                html += `<tr><td class="py-2 px-2 border ${conf.b} font-bold ${conf.bg} ${conf.text} shadow-[inset_0_0_8px_rgba(0,0,0,0.02)]">วัน${day}</td>`;
+                
+                let nonBreakCounter = 0;
+                for(let i=0; i<config.periods.length; i++) {
+                    const p = config.periods[i];
+                    
+                    if (p.isBreak) {
+                        if (day === "จันทร์") {
+                            html += `<td rowspan="5" class="py-4 px-2 border border-gray-200 bg-gray-50 text-center align-middle" style="height: ${config.rowHeight * 5}px;">
+                                <div class="flex items-center justify-center w-full h-full min-h-[200px]">
+                                    <div style="transform: rotate(-90deg); white-space: nowrap;">
+                                        <span class="text-school-navy font-bold text-lg font-serif">${p.name}</span>
+                                        <span class="text-gray-500 font-normal text-sm ml-2">${p.time}</span>
+                                    </div>
+                                </div>
+                            </td>`;
+                        }
+                    } else {
+                        const item = grid[day][nonBreakCounter];
+                        nonBreakCounter++;
+                        
+                        if (item) {
+                            let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                            if(!cleanSubj) cleanSubj = item.subjectPeriod;
+                            
+                            let classPill = '';
+                            if (item.className !== '-') {
+                                classPill = `<div class="text-[11px] font-medium text-white bg-school-blue rounded px-2 py-0.5 mt-1 inline-block shadow-sm">${item.className}</div>`;
+                            }
+
+                            html += `<td class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle" style="height: ${config.rowHeight}px;">
+                                <div class="flex flex-col items-center justify-center w-full h-full py-1">
+                                    <div class="font-bold text-gray-800 text-sm leading-tight">${cleanSubj}</div>
+                                    ${classPill}
+                                </div>
+                            </td>`;
+                        } else {
+                            html += `<td class="py-2 px-2 border border-gray-100 text-gray-300 bg-gray-50/50 font-light" style="height: ${config.rowHeight}px;">-</td>`;
+                        }
+                    }
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
         async function saveScheduleToDB() {
             if(!state.selectedTerm) return;
             cuteAlert.loading('กำลังบันทึกตารางสอน ⏳');
