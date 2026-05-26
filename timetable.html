@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ระบบจัดตารางสอน</title>
     
     <!-- Google Fonts: Itim -->
@@ -19,12 +19,19 @@
     <!-- SweetAlert2 for cute alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- Mobile Drag and Drop Polyfill for Touch Screens -->
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <!-- optional standard css -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+
     <style>
         body {
             font-family: 'Itim', cursive;
             background-color: #fff9e6;
             background-image: radial-gradient(#ffd1dc 2px, transparent 2px);
             background-size: 30px 30px;
+            /* Prevent pull-to-refresh on mobile while dragging */
+            overscroll-behavior-y: none;
         }
 
         /* Day Colors */
@@ -37,6 +44,8 @@
         /* Drag and Drop Styles */
         .draggable {
             cursor: grab;
+            /* Fix for touch drag */
+            touch-action: none; 
         }
         .draggable:active {
             cursor: grabbing;
@@ -78,15 +87,36 @@
             writing-mode: vertical-rl;
             text-orientation: mixed;
             transform: rotate(180deg);
-            letter-spacing: 5px;
+            letter-spacing: 2px; /* Adjusted letter spacing */
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        
+        /* Specific adjustments for lunch container */
+        .lunch-container {
+             /* Added padding to prevent text touching borders */
+             padding-top: 1.5rem; 
+             padding-bottom: 1.5rem;
+        }
+
+        /* Polyfill overlay visual tweak */
+        .dnd-poly-drag-image {
+            opacity: 0.8 !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
         }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden text-gray-800">
+<body class="flex h-screen overflow-hidden text-gray-800 relative w-full">
+
+    <!-- Mobile Backdrop -->
+    <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity"></div>
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-xl z-10 flex flex-col border-r-4 border-pink-200">
-        <div class="p-5 text-center border-b-2 border-dashed border-pink-200">
+    <aside id="sidebar" class="w-64 bg-white shadow-xl z-50 flex flex-col border-r-4 border-pink-200 absolute inset-y-0 left-0 transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 h-full">
+        <div class="p-5 text-center border-b-2 border-dashed border-pink-200 relative">
+            <!-- Close button for mobile -->
+            <button onclick="toggleSidebar()" class="absolute top-4 right-4 text-gray-400 hover:text-pink-500 md:hidden">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
             <div class="w-16 h-16 mx-auto bg-pink-100 rounded-full flex items-center justify-center border-4 border-white shadow-md mb-2">
                 <i class="fa-solid fa-school text-3xl text-pink-400"></i>
             </div>
@@ -94,7 +124,6 @@
             <p class="text-xs text-gray-400">ระบบจัดการและจัดตารางสอน</p>
         </div>
 
-        <!-- Navigation Menu -->
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
             <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">ตารางสอน</div>
             <button onclick="switchTab('timetable-tab')" id="nav-timetable" class="w-full flex items-center gap-3 px-4 py-2.5 bg-pink-100 text-pink-600 rounded-xl font-bold transition-all shadow-sm">
@@ -125,40 +154,52 @@
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-hidden flex flex-col relative">
+    <main class="flex-1 overflow-hidden flex flex-col relative w-full h-full">
         
-        <!-- ================= TAB 1: ตารางสอนหลัก ================= -->
-        <section id="timetable-tab" class="flex-1 flex flex-col p-6 h-full overflow-hidden">
+        <!-- Mobile Header Bar -->
+        <div class="md:hidden bg-white p-3 flex items-center justify-between border-b-4 border-pink-200 shadow-sm z-30">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-500 border-2 border-white shadow-sm">
+                    <i class="fa-solid fa-school text-lg"></i>
+                </div>
+                <span class="font-bold text-pink-500 text-lg">Timetable Pro</span>
+            </div>
+            <button onclick="toggleSidebar()" class="text-pink-500 hover:bg-pink-50 p-2 rounded-lg transition-colors text-2xl flex items-center justify-center">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+
+        <section id="timetable-tab" class="flex-1 flex flex-col p-3 md:p-6 h-full overflow-hidden">
             <!-- Header & Controls -->
-            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-yellow-200">
-                <div class="flex flex-wrap items-center gap-3">
-                    <label class="font-bold text-lg text-gray-700">เลือกคุณครูผู้สอน:</label>
-                    <select id="teacher-select" onchange="loadTeacherData()" class="px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:ring-0 outline-none font-itim text-lg min-w-[200px]">
+            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-yellow-200 shrink-0">
+                <div class="flex flex-col md:flex-row w-full md:w-auto items-center gap-3">
+                    <label class="font-bold text-lg text-gray-700 hidden md:block">เลือกคุณครูผู้สอน:</label>
+                    <select id="teacher-select" onchange="loadTeacherData()" class="w-full md:w-auto px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:ring-0 outline-none font-itim text-lg md:min-w-[200px]">
                         <!-- Options filled by JS -->
                     </select>
                     <span id="total-hours-badge" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner">
                         สอน 0 ชั่วโมง/สัปดาห์
                     </span>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="autoSchedule()" class="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                <div class="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+                    <button onclick="autoSchedule()" class="flex-1 md:flex-none px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex justify-center items-center gap-2 text-sm md:text-base">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> จัดอัตโนมัติ
                     </button>
-                    <button onclick="clearSchedule()" class="px-4 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <button onclick="clearSchedule()" class="flex-1 md:flex-none px-4 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex justify-center items-center gap-2 text-sm md:text-base">
                         <i class="fa-solid fa-trash-can"></i> ล้างตาราง
                     </button>
-                    <button onclick="printSchedule()" class="px-4 py-2 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <button onclick="printSchedule()" class="hidden md:flex px-4 py-2 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all items-center gap-2">
                         <i class="fa-solid fa-print"></i> พิมพ์
                     </button>
                 </div>
             </div>
 
             <!-- Workspace: Table + Palette -->
-            <div class="flex flex-1 gap-6 overflow-hidden">
+            <div class="flex flex-1 gap-4 md:gap-6 overflow-hidden flex-col md:flex-row pb-2">
                 <!-- Timetable Grid -->
-                <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-yellow-300 p-6 overflow-auto" id="printable-area">
+                <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-yellow-300 p-3 md:p-6 overflow-auto" id="printable-area">
                     <!-- Table Header Decoration -->
-                    <div class="text-center mb-6 relative">
+                    <div class="text-center mb-6 relative hidden md:block">
                         <img src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix" alt="cute" class="w-14 h-14 absolute -top-2 left-4 bg-white rounded-full p-1 shadow-md">
                         <img src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=Aneka" alt="cute" class="w-14 h-14 absolute -top-2 right-4 bg-white rounded-full p-1 shadow-md">
                         <h2 class="inline-block bg-[#8B5A2B] text-white px-8 py-2 rounded-full text-2xl font-bold shadow-md border-4 border-[#CD853F]">
@@ -166,8 +207,13 @@
                         </h2>
                         <h3 id="table-teacher-name" class="text-xl mt-2 text-gray-700 font-bold">คุณครู...</h3>
                     </div>
+                    
+                    <div class="md:hidden text-center mb-4">
+                        <h2 class="inline-block bg-[#8B5A2B] text-white px-6 py-1.5 rounded-full text-lg font-bold shadow-sm border-2 border-[#CD853F]">ตารางสอน</h2>
+                        <h3 id="table-teacher-name-mobile" class="text-base mt-1 text-gray-700 font-bold">คุณครู...</h3>
+                    </div>
 
-                    <table class="w-full border-separate border-spacing-2 text-center" id="schedule-table">
+                    <table class="w-max min-w-full border-separate border-spacing-1 md:border-spacing-2 text-center" id="schedule-table">
                         <thead id="schedule-thead">
                             <!-- Generated by JS -->
                         </thead>
@@ -178,50 +224,51 @@
                 </div>
 
                 <!-- Subject Palette (Drag Source) -->
-                <div class="w-64 bg-white rounded-3xl shadow-xl p-5 border-4 border-dashed border-pink-300 flex flex-col shrink-0">
-                    <h3 class="text-center bg-pink-100 text-pink-600 rounded-full py-2 font-bold mb-4 shadow-sm border-2 border-pink-200">
+                <div class="w-full md:w-64 bg-white rounded-3xl shadow-xl p-4 md:p-5 border-4 border-dashed border-pink-300 flex flex-col shrink-0 h-48 md:h-auto">
+                    <h3 class="text-center bg-pink-100 text-pink-600 rounded-full py-1.5 md:py-2 font-bold mb-2 md:mb-4 shadow-sm border-2 border-pink-200 text-sm md:text-base">
                         <i class="fa-solid fa-puzzle-piece"></i> รายวิชา (ลากไปวาง)
                     </h3>
-                    <div class="text-xs text-center text-gray-400 mb-2">จำนวนคาบที่เหลือให้จัด</div>
-                    <div id="subject-palette" class="flex-1 overflow-y-auto space-y-3 pr-2">
+                    <div class="text-[10px] md:text-xs text-center text-gray-400 mb-2">จำนวนคาบที่เหลือให้จัด (แตะค้างแล้วลาก)</div>
+                    <div id="subject-palette" class="flex-1 overflow-y-auto space-y-2 md:space-y-3 pr-2 flex md:flex-col flex-row gap-2 md:gap-0 flex-wrap md:flex-nowrap content-start">
                         <!-- Subjects to drag filled by JS -->
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- ================= TAB 2: จัดการคุณครู ================= -->
-        <section id="teachers-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+        <!-- Settings Tabs -->
+        <!-- (Adjusted padding and responsive widths for settings pages) -->
+        <section id="teachers-tab" class="hidden flex-1 p-3 md:p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
-                <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-200">
-                    <div class="flex items-center gap-3 border-b border-dashed border-blue-100 pb-4 mb-6">
-                        <div class="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-500 text-2xl">
+                <div class="bg-white p-4 md:p-6 rounded-3xl shadow-lg border-2 border-blue-200">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-3 border-b border-dashed border-blue-100 pb-4 mb-6">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-500 text-xl md:text-2xl shrink-0">
                             <i class="fa-solid fa-chalkboard-user"></i>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold text-blue-500">จัดการข้อมูลคุณครู</h2>
-                            <p class="text-xs text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อคุณครูผู้สอนในโรงเรียน</p>
+                            <h2 class="text-xl md:text-2xl font-bold text-blue-500">จัดการข้อมูลคุณครู</h2>
+                            <p class="text-xs md:text-sm text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อคุณครูผู้สอนในโรงเรียน</p>
                         </div>
                     </div>
                     
-                    <div class="flex gap-2 mb-6">
-                        <input type="text" id="new-teacher-name" placeholder="ชื่อ-นามสกุล ครู (เช่น คุณครูอริสา พึ่งน้ำ)" class="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim text-lg">
-                        <button onclick="addTeacher()" class="px-6 py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2">
+                    <div class="flex flex-col md:flex-row gap-2 mb-6">
+                        <input type="text" id="new-teacher-name" placeholder="ชื่อ-นามสกุล ครู (เช่น คุณครูอริสา พึ่งน้ำ)" class="w-full md:flex-1 px-4 py-2.5 md:py-3 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim text-base md:text-lg">
+                        <button onclick="addTeacher()" class="w-full md:w-auto px-6 py-2.5 md:py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl shadow transition font-bold text-base md:text-lg flex items-center justify-center gap-2">
                             <i class="fa-solid fa-plus"></i> เพิ่มชื่อครู
                         </button>
                     </div>
 
-                    <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
-                        <table class="w-full text-left border-collapse">
+                    <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                        <table class="w-full text-left border-collapse min-w-[500px]">
                             <thead>
-                                <tr class="bg-blue-50 text-blue-700">
-                                    <th class="p-4 w-20 text-center font-bold">ID</th>
-                                    <th class="p-4 font-bold">ชื่อ-นามสกุลคุณครู</th>
-                                    <th class="p-4 text-center w-28 font-bold">แก้ไข</th>
-                                    <th class="p-4 text-center w-28 font-bold">ลบ</th>
+                                <tr class="bg-blue-50 text-blue-700 text-sm md:text-base">
+                                    <th class="p-3 md:p-4 w-16 md:w-20 text-center font-bold">ID</th>
+                                    <th class="p-3 md:p-4 font-bold">ชื่อ-นามสกุลคุณครู</th>
+                                    <th class="p-3 md:p-4 text-center w-20 md:w-28 font-bold">แก้ไข</th>
+                                    <th class="p-3 md:p-4 text-center w-20 md:w-28 font-bold">ลบ</th>
                                 </tr>
                             </thead>
-                            <tbody id="teacher-list-tbody" class="divide-y divide-gray-100 bg-white">
+                            <tbody id="teacher-list-tbody" class="divide-y divide-gray-100 bg-white text-sm md:text-base">
                                 <!-- Filled by JS -->
                             </tbody>
                         </table>
@@ -230,38 +277,37 @@
             </div>
         </section>
 
-        <!-- ================= TAB 3: จัดการห้องเรียน ================= -->
-        <section id="classrooms-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+        <section id="classrooms-tab" class="hidden flex-1 p-3 md:p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
-                <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-teal-200">
-                    <div class="flex items-center gap-3 border-b border-dashed border-teal-100 pb-4 mb-6">
-                        <div class="w-12 h-12 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-500 text-2xl">
+                <div class="bg-white p-4 md:p-6 rounded-3xl shadow-lg border-2 border-teal-200">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-3 border-b border-dashed border-teal-100 pb-4 mb-6">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-500 text-xl md:text-2xl shrink-0">
                             <i class="fa-solid fa-chalkboard"></i>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold text-teal-500">จัดการข้อมูลห้องเรียน</h2>
-                            <p class="text-xs text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อห้องเรียน (เช่น ป.1, ป.2/1, ม.3/2) เพื่อนำไปผูกกับรายวิชา</p>
+                            <h2 class="text-xl md:text-2xl font-bold text-teal-500">จัดการข้อมูลห้องเรียน</h2>
+                            <p class="text-xs md:text-sm text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อห้องเรียน (เช่น ป.1, ป.2/1) เพื่อนำไปผูกกับรายวิชา</p>
                         </div>
                     </div>
                     
-                    <div class="flex gap-2 mb-6">
-                        <input type="text" id="new-classroom-name" placeholder="ชื่อชั้นเรียน/ห้องเรียน (เช่น ป.4/1)" class="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-lg">
-                        <button onclick="addClassroom()" class="px-6 py-3 bg-teal-400 hover:bg-teal-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2">
+                    <div class="flex flex-col md:flex-row gap-2 mb-6">
+                        <input type="text" id="new-classroom-name" placeholder="ชื่อชั้นเรียน/ห้องเรียน (เช่น ป.4/1)" class="w-full md:flex-1 px-4 py-2.5 md:py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-base md:text-lg">
+                        <button onclick="addClassroom()" class="w-full md:w-auto px-6 py-2.5 md:py-3 bg-teal-400 hover:bg-teal-500 text-white rounded-xl shadow transition font-bold text-base md:text-lg flex items-center justify-center gap-2">
                             <i class="fa-solid fa-plus"></i> เพิ่มห้องเรียน
                         </button>
                     </div>
 
-                    <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
-                        <table class="w-full text-left border-collapse">
+                    <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                        <table class="w-full text-left border-collapse min-w-[500px]">
                             <thead>
-                                <tr class="bg-teal-50 text-teal-700">
-                                    <th class="p-4 w-20 text-center font-bold">ID</th>
-                                    <th class="p-4 font-bold">ชื่อห้องเรียน</th>
-                                    <th class="p-4 text-center w-28 font-bold">แก้ไข</th>
-                                    <th class="p-4 text-center w-28 font-bold">ลบ</th>
+                                <tr class="bg-teal-50 text-teal-700 text-sm md:text-base">
+                                    <th class="p-3 md:p-4 w-16 md:w-20 text-center font-bold">ID</th>
+                                    <th class="p-3 md:p-4 font-bold">ชื่อห้องเรียน</th>
+                                    <th class="p-3 md:p-4 text-center w-20 md:w-28 font-bold">แก้ไข</th>
+                                    <th class="p-3 md:p-4 text-center w-20 md:w-28 font-bold">ลบ</th>
                                 </tr>
                             </thead>
-                            <tbody id="classroom-list-tbody" class="divide-y divide-gray-100 bg-white">
+                            <tbody id="classroom-list-tbody" class="divide-y divide-gray-100 bg-white text-sm md:text-base">
                                 <!-- Filled by JS -->
                             </tbody>
                         </table>
@@ -270,63 +316,62 @@
             </div>
         </section>
 
-        <!-- ================= TAB 4: จัดการรายวิชา ================= -->
-        <section id="subjects-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+        <section id="subjects-tab" class="hidden flex-1 p-3 md:p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
-                <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-green-200">
-                    <div class="flex items-center gap-3 border-b border-dashed border-green-100 pb-4 mb-6">
-                        <div class="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-500 text-2xl">
+                <div class="bg-white p-4 md:p-6 rounded-3xl shadow-lg border-2 border-green-200">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-3 border-b border-dashed border-green-100 pb-4 mb-6">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-500 text-xl md:text-2xl shrink-0">
                             <i class="fa-solid fa-book"></i>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold text-green-500">จัดการข้อมูลรายวิชา</h2>
-                            <p class="text-xs text-gray-400">สร้างรายวิชา กำหนดโควตาคาบสอน และผูกห้องเรียนเพื่อป้องกันตารางชนกัน</p>
+                            <h2 class="text-xl md:text-2xl font-bold text-green-500">จัดการข้อมูลรายวิชา</h2>
+                            <p class="text-xs md:text-sm text-gray-400">สร้างรายวิชา กำหนดโควตาคาบสอน และผูกห้องเรียนเพื่อป้องกันตารางชนกัน</p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-green-50 p-5 rounded-2xl border border-green-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6 bg-green-50 p-4 md:p-5 rounded-2xl border border-green-100">
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">ครูผู้รับผิดชอบรายวิชา</label>
-                            <select id="subject-teacher-select" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg"></select>
+                            <select id="subject-teacher-select" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-base md:text-lg"></select>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อวิชา (เช่น คณิตฯ)</label>
-                            <input type="text" id="new-subject-name" placeholder="เช่น วิทยาศาสตร์" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg">
+                            <input type="text" id="new-subject-name" placeholder="เช่น วิทยาศาสตร์" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-base md:text-lg">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">รหัสวิชา (เช่น ว 16101)</label>
-                            <input type="text" id="new-subject-code" placeholder="เช่น ว 16101" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg">
+                            <input type="text" id="new-subject-code" placeholder="เช่น ว 16101" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-base md:text-lg">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">ระดับชั้น / ห้องเรียน</label>
-                            <select id="new-subject-classroom" class="classroom-select w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg">
+                            <select id="new-subject-classroom" class="classroom-select w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-base md:text-lg">
                                 <!-- Filled by JS based on Classrooms Tab -->
                             </select>
                         </div>
-                        <div class="flex gap-4 md:col-span-2">
-                            <div class="flex-1">
+                        <div class="flex flex-col md:flex-row gap-3 md:gap-4 md:col-span-2">
+                            <div class="w-full md:flex-1">
                                 <label class="block text-sm font-bold text-gray-600 mb-1">จำนวนคาบเรียน/สัปดาห์</label>
-                                <input type="number" id="new-subject-hours" min="1" max="10" value="1" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-center text-lg">
+                                <input type="number" id="new-subject-hours" min="1" max="10" value="1" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-center text-base md:text-lg">
                             </div>
-                            <div class="flex items-end">
-                                <button onclick="addSubject()" class="h-[48px] px-6 bg-green-400 hover:bg-green-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2 whitespace-nowrap">
+                            <div class="w-full md:w-auto flex items-end">
+                                <button onclick="addSubject()" class="w-full md:w-auto h-[48px] px-6 bg-green-400 hover:bg-green-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center justify-center gap-2 whitespace-nowrap">
                                     <i class="fa-solid fa-plus"></i> เพิ่มรายวิชา
                                 </button>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
-                        <table class="w-full text-left border-collapse text-sm">
+                    <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                        <table class="w-full text-left border-collapse text-xs md:text-sm min-w-[700px]">
                             <thead>
                                 <tr class="bg-green-50 text-green-700">
-                                    <th class="p-4 font-bold">ครูผู้สอน</th>
-                                    <th class="p-4 font-bold">ชื่อวิชา</th>
-                                    <th class="p-4 font-bold">รหัสวิชา</th>
-                                    <th class="p-4 font-bold text-center">ห้องเรียน</th>
-                                    <th class="p-4 text-center font-bold">คาบ/สัปดาห์</th>
-                                    <th class="p-4 text-center font-bold w-24">แก้ไข</th>
-                                    <th class="p-4 text-center font-bold w-24">ลบ</th>
+                                    <th class="p-3 md:p-4 font-bold">ครูผู้สอน</th>
+                                    <th class="p-3 md:p-4 font-bold">ชื่อวิชา</th>
+                                    <th class="p-3 md:p-4 font-bold">รหัสวิชา</th>
+                                    <th class="p-3 md:p-4 font-bold text-center">ห้องเรียน</th>
+                                    <th class="p-3 md:p-4 text-center font-bold">คาบ/สัปดาห์</th>
+                                    <th class="p-3 md:p-4 text-center font-bold w-16 md:w-24">แก้ไข</th>
+                                    <th class="p-3 md:p-4 text-center font-bold w-16 md:w-24">ลบ</th>
                                 </tr>
                             </thead>
                             <tbody id="subject-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -338,35 +383,34 @@
             </div>
         </section>
 
-        <!-- ================= TAB 5: คาบเรียน / เวลา ================= -->
-        <section id="periods-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+        <section id="periods-tab" class="hidden flex-1 p-3 md:p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
-                <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-orange-200">
-                    <div class="flex items-center justify-between border-b border-dashed border-orange-100 pb-4 mb-6">
+                <div class="bg-white p-4 md:p-6 rounded-3xl shadow-lg border-2 border-orange-200">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-dashed border-orange-100 pb-4 mb-6 gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 text-2xl">
+                            <div class="w-10 h-10 md:w-12 md:h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 text-xl md:text-2xl shrink-0">
                                 <i class="fa-solid fa-clock"></i>
                             </div>
                             <div>
-                                <h2 class="text-2xl font-bold text-orange-500">จัดการคาบเรียน / เวลา</h2>
-                                <p class="text-xs text-gray-400">กำหนด คาบเรียน เวลาพัก ปรับโครงสร้างคาบ และจัดเรียงลำดับใหม่</p>
+                                <h2 class="text-xl md:text-2xl font-bold text-orange-500">จัดการคาบเรียน / เวลา</h2>
+                                <p class="text-xs md:text-sm text-gray-400">กำหนด คาบเรียน เวลาพัก ปรับโครงสร้างคาบ</p>
                             </div>
                         </div>
-                        <button onclick="addPeriod()" class="px-5 py-2.5 bg-orange-400 hover:bg-orange-500 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md">
+                        <button onclick="addPeriod()" class="w-full md:w-auto px-5 py-2.5 bg-orange-400 hover:bg-orange-500 text-white rounded-xl shadow transition font-bold flex items-center justify-center gap-2 text-md">
                             <i class="fa-solid fa-plus"></i> เพิ่มคาบ/พักเบรค
                         </button>
                     </div>
 
-                    <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
-                        <table class="w-full text-left border-collapse text-sm">
+                    <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                        <table class="w-full text-left border-collapse text-xs md:text-sm min-w-[600px]">
                             <thead>
                                 <tr class="bg-orange-50 text-orange-700">
-                                    <th class="p-4 w-20 text-center font-bold">จัดเรียง</th>
-                                    <th class="p-4 w-24 font-bold">ประเภท</th>
-                                    <th class="p-4 font-bold">ชื่อคาบ</th>
-                                    <th class="p-4 font-bold">เวลา</th>
-                                    <th class="p-4 text-center w-24 font-bold">แก้ไข</th>
-                                    <th class="p-4 text-center w-24 font-bold">ลบ</th>
+                                    <th class="p-3 md:p-4 w-16 md:w-20 text-center font-bold">จัดเรียง</th>
+                                    <th class="p-3 md:p-4 w-20 md:w-24 font-bold">ประเภท</th>
+                                    <th class="p-3 md:p-4 font-bold">ชื่อคาบ</th>
+                                    <th class="p-3 md:p-4 font-bold">เวลา</th>
+                                    <th class="p-3 md:p-4 text-center w-16 md:w-24 font-bold">แก้ไข</th>
+                                    <th class="p-3 md:p-4 text-center w-16 md:w-24 font-bold">ลบ</th>
                                 </tr>
                             </thead>
                             <tbody id="period-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -378,56 +422,57 @@
             </div>
         </section>
 
-        <!-- ================= TAB 6: กิจกรรม / ล็อคคาบ ================= -->
-        <section id="activities-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+        <section id="activities-tab" class="hidden flex-1 p-3 md:p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
-                <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-purple-200">
-                    <div class="flex items-center gap-3 border-b border-dashed border-purple-100 pb-4 mb-6">
-                        <div class="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-500 text-2xl">
+                <div class="bg-white p-4 md:p-6 rounded-3xl shadow-lg border-2 border-purple-200">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-3 border-b border-dashed border-purple-100 pb-4 mb-6">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-500 text-xl md:text-2xl shrink-0">
                             <i class="fa-solid fa-lock"></i>
                         </div>
                         <div>
-                            <h2 class="text-2xl font-bold text-purple-500">จัดการวิชากิจกรรม / ล็อคคาบ</h2>
-                            <p class="text-xs text-gray-400">ล็อคคาบกิจกรรมของโรงเรียน (เช่น ชุมนุม, ลูกเสือ, PLC, เสริมทักษะ) เพื่อไม่ให้วิชาอื่นมาทับซ้อน</p>
+                            <h2 class="text-xl md:text-2xl font-bold text-purple-500">จัดการวิชากิจกรรม / ล็อคคาบ</h2>
+                            <p class="text-xs md:text-sm text-gray-400">ล็อคคาบกิจกรรมของโรงเรียน (เช่น ชุมนุม, ลูกเสือ, PLC)</p>
                         </div>
                     </div>
 
-                    <div class="flex flex-col md:flex-row gap-4 mb-6 bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-600 mb-1">วันในสัปดาห์</label>
-                            <select id="new-activity-day" class="w-full md:w-36 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
-                                <option value="mon">จันทร์</option>
-                                <option value="tue">อังคาร</option>
-                                <option value="wed">พุธ</option>
-                                <option value="thu">พฤหัสบดี</option>
-                                <option value="fri">ศุกร์</option>
-                            </select>
+                    <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 bg-purple-50 p-4 md:p-5 rounded-2xl border border-purple-100">
+                        <div class="flex gap-3 w-full md:w-auto">
+                            <div class="flex-1 md:flex-none">
+                                <label class="block text-sm font-bold text-gray-600 mb-1">วัน</label>
+                                <select id="new-activity-day" class="w-full md:w-32 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-base md:text-lg">
+                                    <option value="mon">จันทร์</option>
+                                    <option value="tue">อังคาร</option>
+                                    <option value="wed">พุธ</option>
+                                    <option value="thu">พฤหัสบดี</option>
+                                    <option value="fri">ศุกร์</option>
+                                </select>
+                            </div>
+                            <div class="flex-1 md:flex-none">
+                                <label class="block text-sm font-bold text-gray-600 mb-1">เลือกคาบเวลา</label>
+                                <select id="new-activity-period" class="w-full md:w-48 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-base md:text-lg">
+                                    <!-- Filled by JS -->
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-600 mb-1">เลือกคาบเวลา</label>
-                            <select id="new-activity-period" class="w-full md:w-56 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
-                                <!-- Filled by JS -->
-                            </select>
-                        </div>
-                        <div class="flex-1">
+                        <div class="w-full md:flex-1">
                             <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อกิจกรรม</label>
-                            <input type="text" id="new-activity-name" placeholder="เช่น ลูกเสือ-เนตรนารี, ชุมนุม" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
+                            <input type="text" id="new-activity-name" placeholder="เช่น ลูกเสือ-เนตรนารี, ชุมนุม" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-base md:text-lg">
                         </div>
-                        <div class="flex items-end w-full md:w-auto">
-                            <button onclick="addActivity()" class="w-full md:w-auto h-[48px] px-6 bg-purple-400 hover:bg-purple-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2 whitespace-nowrap">
-                                <i class="fa-solid fa-plus"></i> เพิ่มกิจกรรมที่ล็อค
+                        <div class="flex items-end w-full md:w-auto mt-2 md:mt-0">
+                            <button onclick="addActivity()" class="w-full md:w-auto h-[48px] px-6 bg-purple-400 hover:bg-purple-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center justify-center gap-2 whitespace-nowrap">
+                                <i class="fa-solid fa-plus"></i> เพิ่มกิจกรรม
                             </button>
                         </div>
                     </div>
 
-                    <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
-                        <table class="w-full text-left border-collapse text-sm">
+                    <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                        <table class="w-full text-left border-collapse text-xs md:text-sm min-w-[600px]">
                             <thead>
                                 <tr class="bg-purple-50 text-purple-700">
-                                    <th class="p-4 font-bold">วันและคาบเวลา</th>
-                                    <th class="p-4 font-bold">ชื่อกิจกรรมประจำคาบที่ล็อคไว้</th>
-                                    <th class="p-4 text-center w-24 font-bold">แก้ไข</th>
-                                    <th class="p-4 text-center w-24 font-bold">ลบ</th>
+                                    <th class="p-3 md:p-4 font-bold">วันและคาบเวลา</th>
+                                    <th class="p-3 md:p-4 font-bold">ชื่อกิจกรรมประจำคาบที่ล็อคไว้</th>
+                                    <th class="p-3 md:p-4 text-center w-16 md:w-24 font-bold">แก้ไข</th>
+                                    <th class="p-3 md:p-4 text-center w-16 md:w-24 font-bold">ลบ</th>
                                 </tr>
                             </thead>
                             <tbody id="activity-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -442,6 +487,36 @@
     </main>
 
     <script>
+        // ================= POLYFILL FOR MOBILE DRAG & DROP =================
+        // Initialize the mobile drag and drop polyfill
+        MobileDragDrop.polyfill({
+            // Set delay before drag starts (ms). 300ms is standard for touch-and-hold.
+            holdToDrag: 250, 
+            dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
+        });
+        
+        // Prevent default touch moves during drag
+        window.addEventListener('touchmove', function() {}, {passive: false});
+
+        // ================= SIDEBAR TOGGLE LOGIC =================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        function closeSidebarOnMobile() {
+            if (window.innerWidth < 768) { // md breakpoint
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar();
+                }
+            }
+        }
+
+
         // ================= STATE MANAGEMENT =================
         const DAYS = [
             { id: 'mon', name: 'จันทร์', colorClass: 'bg-mon' },
@@ -452,22 +527,22 @@
         ];
 
         let periodsConfig = [
-            { id: '1', name: 'คาบที่ 1', time: '08.30 - 09.30', type: 'class' },
-            { id: '2', name: 'คาบที่ 2', time: '09.30 - 10.30', type: 'class' },
-            { id: '3', name: 'คาบที่ 3', time: '10.30 - 11.30', type: 'class' },
+            { id: '1', name: 'คาบ 1', time: '08.30 - 09.30', type: 'class' },
+            { id: '2', name: 'คาบ 2', time: '09.30 - 10.30', type: 'class' },
+            { id: '3', name: 'คาบ 3', time: '10.30 - 11.30', type: 'class' },
             { id: 'lunch_1', name: 'พักกลางวัน', time: '11.30 - 12.30', type: 'lunch' },
-            { id: '4', name: 'คาบที่ 4', time: '12.30 - 13.30', type: 'class' },
-            { id: '5', name: 'คาบที่ 5', time: '13.30 - 14.30', type: 'class' },
-            { id: '6', name: 'คาบที่ 6', time: '14.30 - 15.30', type: 'class' }
+            { id: '4', name: 'คาบ 4', time: '12.30 - 13.30', type: 'class' },
+            { id: '5', name: 'คาบ 5', time: '13.30 - 14.30', type: 'class' },
+            { id: '6', name: 'คาบ 6', time: '14.30 - 15.30', type: 'class' }
         ];
 
         let LOCKED_PERIODS = {
             'mon_6': { name: 'แนะแนว', isLocked: true },
-            'tue_6': { name: 'ลูกเสือ-เนตรนารี', isLocked: true },
-            'wed_1': { name: 'กิจกรรมกลุ่มสี', isLocked: true },
+            'tue_6': { name: 'ลูกเสือ', isLocked: true },
+            'wed_1': { name: 'กิจกรรม', isLocked: true },
             'thu_6': { name: 'ชุมนุม', isLocked: true },
-            'fri_1': { name: 'ไทยเสริม<br><span class="text-xs">ท 16201</span>', isLocked: true },
-            'fri_2': { name: 'อังกฤษเสริม<br><span class="text-xs">อ 16201</span>', isLocked: true },
+            'fri_1': { name: 'ไทยเสริม<br><span class="text-[10px]">ท 16201</span>', isLocked: true },
+            'fri_2': { name: 'อังกฤษ<br><span class="text-[10px]">อ 16201</span>', isLocked: true },
             'fri_6': { name: 'PLC', isLocked: true }
         };
 
@@ -494,7 +569,7 @@
             
             // Teacher 2
             { id: 201, teacherId: 2, name: 'ภาษาไทย', code: 'ท 15101', classroomId: 2, hours: 4 }, // ป.5/1
-            { id: 202, teacherId: 2, name: 'ภาษาอังกฤษ', code: 'อ 16101', classroomId: 4, hours: 3 } // ป.6
+            { id: 202, teacherId: 2, name: 'อังกฤษ', code: 'อ 16101', classroomId: 4, hours: 3 } // ป.6
         ];
 
         // scheduleGrid Format: { teacherId_day_period: subjectObj }
@@ -546,6 +621,9 @@
             if (activeBtn) {
                 activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-pink-100 text-pink-600 rounded-xl font-bold transition-all shadow-sm";
             }
+
+            // Close sidebar on mobile after navigating
+            closeSidebarOnMobile();
         }
 
         // ================= CLASSROOMS MANAGEMENT =================
@@ -572,15 +650,15 @@
             classrooms.forEach(c => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-teal-50/50 bg-white">
-                        <td class="p-4 text-center text-gray-500 font-bold">#${c.id}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${c.name}</td>
-                        <td class="p-4 text-center">
-                            <button onclick="editClassroom(${c.id})" class="text-teal-500 hover:text-teal-700 transition p-2.5 rounded-full hover:bg-teal-50" title="แก้ไข">
+                        <td class="p-3 md:p-4 text-center text-gray-500 font-bold">#${c.id}</td>
+                        <td class="p-3 md:p-4 font-bold text-gray-800 text-base">${c.name}</td>
+                        <td class="p-3 md:p-4 text-center">
+                            <button onclick="editClassroom(${c.id})" class="text-teal-500 hover:text-teal-700 transition p-2 md:p-2.5 rounded-full hover:bg-teal-50" title="แก้ไข">
                                 <i class="fa-solid fa-pen-to-square text-lg"></i>
                             </button>
                         </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
+                        <td class="p-3 md:p-4 text-center">
+                            <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 transition p-2 md:p-2.5 rounded-full hover:bg-red-50" title="ลบ">
                                 <i class="fa-solid fa-trash text-lg"></i>
                             </button>
                         </td>
@@ -644,23 +722,17 @@
         // ================= PERIOD MANAGEMENT =================
         function renderTableHeaders() {
             const thead = document.getElementById('schedule-thead');
-            let html = '<tr class="text-sm">';
-            html += `<th class="w-24 pb-2"><div class="bg-yellow-100 p-2 rounded-xl border-2 border-yellow-300 shadow-sm">วัน/เวลา</div></th>`;
+            let html = '<tr class="text-[10px] md:text-sm">';
+            html += `<th class="w-16 md:w-24 min-w-[70px] md:min-w-[100px] pb-1 md:pb-2"><div class="bg-yellow-100 p-1.5 md:p-2 rounded-lg md:rounded-xl border-2 border-yellow-300 shadow-sm">วัน/เวลา</div></th>`;
             
             periodsConfig.forEach(p => {
                 if (p.type === 'lunch') {
-                    const times = p.time.split('-');
-                    const t1 = times[0] ? times[0].trim() : '';
-                    const t2 = times[1] ? times[1].trim() : '';
-                    html += `<th class="w-16 pb-2">
-                                <div class="bg-yellow-100 p-2 rounded-xl border-2 border-yellow-300 shadow-sm flex flex-col leading-tight text-xs">
-                                    <span>${t1}</span><span>-</span><span>${t2}</span>
-                                </div>
-                             </th>`;
+                    // เอาเวลาพักกลางวันตรงหัวตารางออก (เหลือเพียงช่องว่างเพื่อรักษาความกว้างคอลัมน์)
+                    html += `<th class="w-12 md:w-20 min-w-[50px] md:min-w-[80px] pb-1 md:pb-2"></th>`;
                 } else {
-                    html += `<th class="w-32 pb-2">
-                                <div class="bg-yellow-100 p-2 rounded-xl border-2 border-yellow-300 shadow-sm flex flex-col leading-tight">
-                                    <span class="text-xs text-gray-500">${p.name}</span>
+                    html += `<th class="w-20 md:w-32 min-w-[80px] md:min-w-[140px] pb-1 md:pb-2">
+                                <div class="bg-yellow-100 p-1 md:p-2 rounded-lg md:rounded-xl border-2 border-yellow-300 shadow-sm flex flex-col leading-tight">
+                                    <span class="text-[9px] md:text-xs text-gray-500">${p.name}</span>
                                     <span>${p.time}</span>
                                 </div>
                              </th>`;
@@ -685,26 +757,26 @@
                 const isFirst = index === 0;
                 const isLast = index === periodsConfig.length - 1;
                 const typeBadge = p.type === 'lunch' 
-                    ? '<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold text-xs">พัก</span>' 
-                    : '<span class="bg-green-100 text-green-600 px-2.5 py-1 rounded-lg font-bold text-xs">เรียน</span>';
+                    ? '<span class="bg-blue-100 text-blue-600 px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg font-bold text-xs">พัก</span>' 
+                    : '<span class="bg-green-100 text-green-600 px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg font-bold text-xs">เรียน</span>';
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-orange-50/50">
-                        <td class="p-3 text-center">
-                            <div class="flex flex-col items-center gap-1">
-                                <button onclick="movePeriod(${index}, -1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isFirst ? 'disabled' : ''}><i class="fa-solid fa-chevron-up"></i></button>
-                                <button onclick="movePeriod(${index}, 1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isLast ? 'disabled' : ''}><i class="fa-solid fa-chevron-down"></i></button>
+                        <td class="p-2 md:p-3 text-center">
+                            <div class="flex flex-row md:flex-col items-center justify-center gap-2 md:gap-1">
+                                <button onclick="movePeriod(${index}, -1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isFirst ? 'disabled' : ''}><i class="fa-solid fa-chevron-up md:inline hidden"></i><i class="fa-solid fa-chevron-left md:hidden inline"></i></button>
+                                <button onclick="movePeriod(${index}, 1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isLast ? 'disabled' : ''}><i class="fa-solid fa-chevron-down md:inline hidden"></i><i class="fa-solid fa-chevron-right md:hidden inline"></i></button>
                             </div>
                         </td>
-                        <td class="p-3">${typeBadge}</td>
-                        <td class="p-3 font-bold text-gray-800">${p.name}</td>
-                        <td class="p-3 text-gray-600">${p.time}</td>
-                        <td class="p-3 text-center">
+                        <td class="p-2 md:p-3">${typeBadge}</td>
+                        <td class="p-2 md:p-3 font-bold text-gray-800">${p.name}</td>
+                        <td class="p-2 md:p-3 text-gray-600 text-xs md:text-sm">${p.time}</td>
+                        <td class="p-2 md:p-3 text-center">
                             <button onclick="editPeriod('${p.id}')" class="text-blue-400 hover:text-blue-600 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
                         </td>
-                        <td class="p-3 text-center">
+                        <td class="p-2 md:p-3 text-center">
                             <button onclick="deletePeriod('${p.id}')" class="text-red-400 hover:text-red-600 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
@@ -838,7 +910,6 @@
             });
         }
 
-
         // ================= DATA MANAGEMENT =================
         function initTeacherDropdowns() {
             const mainSelect = document.getElementById('teacher-select');
@@ -855,6 +926,11 @@
             if(teachers.length > 0) {
                 mainSelect.value = currentTeacherId;
             }
+            
+            // Sync mobile label
+            const tName = teachers.find(t => t.id === currentTeacherId)?.name || '...';
+            const mobileLabel = document.getElementById('table-teacher-name-mobile');
+            if (mobileLabel) mobileLabel.innerText = tName;
         }
 
         function addTeacher() {
@@ -1099,14 +1175,14 @@
             teachers.forEach(t => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-blue-50/50 bg-white">
-                        <td class="p-4 text-center text-gray-500 font-bold">#${t.id}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-center text-gray-500 font-bold">#${t.id}</td>
+                        <td class="p-3 md:p-4 font-bold text-gray-800 text-base">${t.name}</td>
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2.5 rounded-full hover:bg-blue-50" title="แก้ไข">
                                 <i class="fa-solid fa-pen-to-square text-lg"></i>
                             </button>
                         </td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
                                 <i class="fa-solid fa-trash text-lg"></i>
                             </button>
@@ -1125,17 +1201,17 @@
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-green-50/50 bg-white">
-                        <td class="p-4 text-gray-600 font-medium">${teacherName}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${s.name}</td>
-                        <td class="p-4 text-sm text-gray-500 font-mono">${s.code}</td>
-                        <td class="p-4 text-center font-bold text-pink-500">${roomName}</td>
-                        <td class="p-4 text-center font-bold text-green-600 text-lg">${s.hours} คาบ</td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-gray-600 font-medium">${teacherName}</td>
+                        <td class="p-3 md:p-4 font-bold text-gray-800 text-sm md:text-base">${s.name}</td>
+                        <td class="p-3 md:p-4 text-xs md:text-sm text-gray-500 font-mono">${s.code}</td>
+                        <td class="p-3 md:p-4 text-center font-bold text-pink-500">${roomName}</td>
+                        <td class="p-3 md:p-4 text-center font-bold text-green-600 text-base md:text-lg">${s.hours} คาบ</td>
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="editSubject(${s.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50">
                                 <i class="fa-solid fa-pen-to-square text-lg"></i>
                             </button>
                         </td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="deleteSubject(${s.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
                                 <i class="fa-solid fa-trash text-lg"></i>
                             </button>
@@ -1158,18 +1234,18 @@
                 const actName = LOCKED_PERIODS[key].name;
 
                 const pObj = periodsConfig.find(p => p.id === periodId);
-                const pName = pObj ? pObj.name : `คาบที่ ${periodId}`;
+                const pName = pObj ? pObj.name : `คาบ ${periodId}`;
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-purple-50/50 bg-white">
-                        <td class="p-4 text-gray-600 font-medium">วัน${dayStr} - ${pName}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${actName}</td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-gray-600 font-medium text-sm md:text-base">วัน${dayStr} - ${pName}</td>
+                        <td class="p-3 md:p-4 font-bold text-gray-800 text-sm md:text-base">${actName}</td>
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="editActivity('${key}')" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
                                 <i class="fa-solid fa-pen-to-square text-lg"></i>
                             </button>
                         </td>
-                        <td class="p-4 text-center">
+                        <td class="p-3 md:p-4 text-center">
                             <button onclick="deleteActivity('${key}')" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
                                 <i class="fa-solid fa-trash text-lg"></i>
                             </button>
@@ -1260,6 +1336,9 @@
             
             const tName = teachers.find(t => t.id === currentTeacherId).name;
             document.getElementById('table-teacher-name').innerText = tName;
+            
+            const mobileLabel = document.getElementById('table-teacher-name-mobile');
+            if (mobileLabel) mobileLabel.innerText = tName;
 
             updatePalette();
             renderGrid();
@@ -1292,15 +1371,16 @@
                 let roomName = getClassroomName(sub.classroomId);
 
                 if (remaining > 0) {
+                    // Changed padding and sizing for mobile palette item
                     palette.innerHTML += `
                         <div draggable="true" 
                              ondragstart="drag(event, ${sub.id})" 
-                             class="draggable bg-white border-2 border-pink-200 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
+                             class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 md:p-3 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group w-full md:w-auto">
                             <div>
-                                <div class="font-bold text-gray-800">${sub.name} <span class="text-sm text-teal-600">[${roomName}]</span></div>
-                                <div class="text-xs text-gray-500">${sub.code}</div>
+                                <div class="font-bold text-gray-800 text-sm md:text-base">${sub.name} <span class="text-[10px] md:text-sm text-teal-600">[${roomName}]</span></div>
+                                <div class="text-[10px] md:text-xs text-gray-500">${sub.code}</div>
                             </div>
-                            <div class="bg-pink-100 text-pink-600 w-8 h-8 rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                            <div class="bg-pink-100 text-pink-600 w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform text-xs md:text-base">
                                 ${remaining}
                             </div>
                         </div>
@@ -1309,12 +1389,12 @@
             });
 
             const mySchedulesCount = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_')).length;
-            document.getElementById('total-hours-badge').innerText = `จัดไปแล้ว ${mySchedulesCount} คาบ/สัปดาห์`;
+            document.getElementById('total-hours-badge').innerText = `จัดไปแล้ว ${mySchedulesCount} คาบ`;
 
             if (palette.innerHTML === '' && teacherSubjects.length > 0) {
-                palette.innerHTML = `<div class="text-center text-green-500 font-bold p-4 bg-green-50 rounded-xl border border-green-200"><i class="fa-solid fa-check-circle"></i> จัดครบแล้ว!</div>`;
+                palette.innerHTML = `<div class="text-center w-full text-green-500 font-bold p-3 md:p-4 bg-green-50 rounded-xl border border-green-200 text-sm md:text-base"><i class="fa-solid fa-check-circle"></i> จัดครบแล้ว!</div>`;
             } else if (teacherSubjects.length === 0) {
-                palette.innerHTML = `<div class="text-center text-gray-400 p-4 text-sm">ยังไม่มีวิชาสำหรับครูท่านนี้<br>ไปที่แท็บ "จัดการรายวิชา"</div>`;
+                palette.innerHTML = `<div class="text-center w-full text-gray-400 p-3 md:p-4 text-xs md:text-sm">ยังไม่มีวิชาสำหรับครูท่านนี้<br>ไปที่แท็บ "จัดการรายวิชา"</div>`;
             }
         }
 
@@ -1326,8 +1406,10 @@
                 let tr = document.createElement('tr');
                 
                 let tdDay = document.createElement('td');
-                tdDay.className = `p-2 ${day.colorClass} rounded-2xl border-2 border-white shadow-sm font-bold text-lg`;
-                tdDay.innerText = day.name;
+                tdDay.className = `p-1 md:p-2 ${day.colorClass} rounded-xl md:rounded-2xl border-2 border-white shadow-sm font-bold text-sm md:text-lg min-w-[50px]`;
+                tdDay.innerText = day.name.substring(0,2); // ย่อชื่อวันบนมือถือถ้าแคบ
+                // Restore full name on desktop using responsive classes is hard here, so we use full text but allow flex adjustments
+                tdDay.innerHTML = `<span class="hidden md:inline">${day.name}</span><span class="md:hidden">${day.name.substring(0,3)}</span>`;
                 tr.appendChild(tdDay);
 
                 periodsConfig.forEach(p => {
@@ -1335,19 +1417,22 @@
                         if (day.id === 'mon') { 
                             let tdLunch = document.createElement('td');
                             tdLunch.rowSpan = 5;
-                            tdLunch.className = 'p-2 w-16';
+                            tdLunch.className = 'p-1 md:p-2 w-12 md:w-20 min-w-[50px] md:min-w-[80px]'; 
                             tdLunch.innerHTML = `
-                                <div class="bg-[#f0f4f8] h-full rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
+                                <div class="bg-[#f0f4f8] h-full rounded-xl md:rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center shadow-inner relative overflow-hidden lunch-container">
                                     <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #f0f4f8 25%, #f0f4f8 75%, #ccc 75%, #ccc); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
-                                    <i class="fa-solid fa-utensils text-2xl text-gray-400 mb-4 z-10"></i>
-                                    <span class="vertical-text text-xl font-bold text-gray-600 tracking-widest z-10">${p.name}</span>
+                                    <i class="fa-solid fa-utensils text-lg md:text-2xl text-gray-400 mb-2 md:mb-4 z-10"></i>
+                                    <span class="vertical-text text-sm md:text-xl font-bold text-gray-600 z-10 flex flex-row items-center gap-1 md:gap-2">
+                                        <span>${p.name}</span>
+                                        <span class="text-[10px] md:text-sm font-normal text-gray-500">(${p.time})</span>
+                                    </span>
                                 </div>
                             `;
                             tr.appendChild(tdLunch);
                         }
                     } else {
                         let td = document.createElement('td');
-                        td.className = 'p-1';
+                        td.className = 'p-0.5 md:p-1';
                         
                         let cellKey = `${day.id}_${p.id}`;
                         let storageKey = `${currentTeacherId}_${cellKey}`;
@@ -1356,19 +1441,19 @@
                         let innerDiv = document.createElement('div');
                         
                         if (isLocked) {
-                            innerDiv.className = 'locked-cell h-16 rounded-xl flex flex-col justify-center items-center shadow-inner border border-gray-200 font-bold text-sm relative overflow-hidden';
+                            innerDiv.className = 'locked-cell h-14 md:h-16 rounded-lg md:rounded-xl flex flex-col justify-center items-center shadow-inner border border-gray-200 font-bold text-[10px] md:text-sm relative overflow-hidden p-1';
                             innerDiv.innerHTML = LOCKED_PERIODS[cellKey].name;
                             
-                            if(LOCKED_PERIODS[cellKey].name.includes('ลูกเสือ')) innerDiv.innerHTML += '<i class="fa-solid fa-campground absolute opacity-10 text-3xl right-1 bottom-1"></i>';
-                            if(LOCKED_PERIODS[cellKey].name.includes('ชุมนุม')) innerDiv.innerHTML += '<i class="fa-solid fa-users absolute opacity-10 text-3xl right-1 bottom-1"></i>';
-                            if(LOCKED_PERIODS[cellKey].name.includes('แนะแนว')) innerDiv.innerHTML += '<i class="fa-solid fa-compass absolute opacity-10 text-3xl right-1 bottom-1"></i>';
+                            if(LOCKED_PERIODS[cellKey].name.includes('ลูกเสือ')) innerDiv.innerHTML += '<i class="fa-solid fa-campground absolute opacity-10 text-xl md:text-3xl right-1 bottom-1"></i>';
+                            if(LOCKED_PERIODS[cellKey].name.includes('ชุมนุม')) innerDiv.innerHTML += '<i class="fa-solid fa-users absolute opacity-10 text-xl md:text-3xl right-1 bottom-1"></i>';
+                            if(LOCKED_PERIODS[cellKey].name.includes('แนะแนว')) innerDiv.innerHTML += '<i class="fa-solid fa-compass absolute opacity-10 text-xl md:text-3xl right-1 bottom-1"></i>';
 
                         } else {
                             let content = scheduleGrid[storageKey];
                             
                             innerDiv.className = content 
-                                ? 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-md border-2 border-solid border-gray-300 relative group cursor-grab hover:border-pink-300'
-                                : 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200 cursor-pointer hover:border-pink-300 relative group';
+                                ? 'dropzone bg-white h-14 md:h-16 rounded-lg md:rounded-xl flex flex-col justify-center items-center shadow-md border-2 border-solid border-gray-300 relative group cursor-grab hover:border-pink-300'
+                                : 'dropzone bg-white h-14 md:h-16 rounded-lg md:rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200 cursor-pointer hover:border-pink-300 relative group';
                             
                             innerDiv.id = `cell-${cellKey}`;
                             innerDiv.setAttribute('ondragover', 'allowDrop(event)');
@@ -1381,14 +1466,14 @@
                                 innerDiv.setAttribute('draggable', 'true');
                                 innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id})`);
                                 innerDiv.innerHTML = `
-                                    <span class="font-bold text-gray-800 leading-tight">${content.name}</span>
-                                    <span class="text-[11px] text-gray-500 leading-none">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
-                                    <button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md">
+                                    <span class="font-bold text-gray-800 leading-tight text-[10px] md:text-sm">${content.name}</span>
+                                    <span class="text-[8px] md:text-[11px] text-gray-500 leading-none">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[8px] md:text-[10px] font-bold">${roomName}</span></span>
+                                    <button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-1.5 -right-1.5 md:-top-2 md:-right-2 bg-red-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 text-[10px] md:text-xs md:hidden group-hover:flex flex items-center justify-center shadow-md">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
                                 `;
                             } else {
-                                innerDiv.innerHTML = '<span class="text-gray-300 text-xs"><i class="fa-solid fa-plus"></i></span>';
+                                innerDiv.innerHTML = '<span class="text-gray-300 text-[10px] md:text-xs"><i class="fa-solid fa-plus"></i></span>';
                             }
                         }
                         td.appendChild(innerDiv);
