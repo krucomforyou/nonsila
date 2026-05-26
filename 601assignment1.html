@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>กิจกรรมฝึกทักษะที่ 1 จับคู่รำวงมาตรฐาน</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -274,10 +275,6 @@
                 <button onclick="submitData()" id="submitBtn" class="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-3 px-10 rounded-full shadow-lg transform transition hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300">
                     ส่งคำตอบ
                 </button>
-                <div id="loadingMsg" class="hidden mt-4 text-green-600 font-medium animate-pulse">กำลังบันทึกข้อมูล...</div>
-                <div id="successMsg" class="hidden mt-4 text-green-600 font-bold bg-green-100 p-3 rounded-lg inline-block border border-green-300">
-                    บันทึกข้อมูลสำเร็จ! เยี่ยมมากครับ 🎉
-                </div>
             </div>
 
         </div>
@@ -351,7 +348,12 @@
             const studentNo = document.getElementById('studentNo').value.trim();
 
             if (!fullName || !studentClass || !studentNo) {
-                alert("กรุณากรอกข้อมูลนักเรียนให้ครบถ้วนก่อนส่งคำตอบครับ");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณากรอกข้อมูลนักเรียนให้ครบถ้วนก่อนส่งคำตอบครับ',
+                    confirmButtonColor: '#10b981'
+                });
                 return;
             }
 
@@ -367,70 +369,96 @@
             }
 
             if (!isComplete) {
-                alert("กรุณาเลือกคำตอบสรุปผลการจับคู่ให้ครบทุกทีมครับ");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ตอบไม่ครบถ้วน',
+                    text: 'กรุณาเลือกคำตอบสรุปผลการจับคู่ให้ครบทุกทีมครับ',
+                    confirmButtonColor: '#10b981'
+                });
                 return;
             }
+
+            // --- ตรวจคำตอบและคำนวณคะแนน ---
+            const correctAnswers = {
+                team1_m: "พงษ์", team1_f: "ป้อน",   // เพริศแพรว
+                team2_m: "เพียว", team2_f: "ฝน",    // พริ้งพราย
+                team3_m: "ปอง", team3_f: "ปลา",     // พรรณราย
+                team4_m: "เดช", team4_f: "นก",      // ประกายแสง
+                team5_m: "ชัย", team5_f: "แก้ว"      // แวววาว
+            };
+
+            let score = 0;
+            for (let key in correctAnswers) {
+                if (answers[key] === correctAnswers[key]) {
+                    score++;
+                }
+            }
+            // -----------------------------
 
             // Prepare Payload
             const payload = {
                 fullName: fullName,
                 studentClass: studentClass,
                 studentNo: studentNo,
-                answers: answers
+                answers: answers,
+                score: score // แนบคะแนนไปพร้อมกับข้อมูล
             };
 
             // UI Feedback
             const submitBtn = document.getElementById('submitBtn');
-            const loadingMsg = document.getElementById('loadingMsg');
-            const successMsg = document.getElementById('successMsg');
             
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            loadingMsg.classList.remove('hidden');
-            successMsg.classList.add('hidden');
+
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                html: 'กรุณารอสักครู่',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
             /*
                ----------------------------------------------------------------------
-               ⚠️ สำคัญ: ใส่ URL ของ Google Apps Script Web App ของคุณที่นี่
+               ⚠️ URL ของ Google Apps Script Web App
                ----------------------------------------------------------------------
             */
             const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNuCkbtjiyDxg0Mlcuxee8Hp7RuzS_5G_p4fkNe4B03Iz_TTJ9lHsRkbzQ7C-7LrI0/exec"; 
             
             try {
-                // หากยังไม่ได้ใส่ URL ให้จำลองการส่งข้อมูล (Simulation)
-                if(GOOGLE_SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL") {
-                    console.log("Simulating submission... Data payload:", payload);
-                    await new Promise(r => setTimeout(r, 1500)); // จำลองการโหลด 1.5 วินาที
-                    showSuccess();
-                    console.warn("นี่คือการจำลองการส่งข้อมูล หากต้องการให้บันทึกลง Google Sheets จริง กรุณาใส่ Web App URL ในโค้ดบรรทัด 319");
-                    return;
-                }
-
                 // ส่งข้อมูลจริง
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify(payload),
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' } 
-                    // Apps script text output requires text/plain or form-urlencoded sometimes from fetch due to CORS
                 });
 
                 const result = await response.json();
                 if (result.status === "success") {
-                    showSuccess();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'ส่งคำตอบสำเร็จ!',
+                        html: `<b>${fullName}</b><br>ทำคะแนนได้: <span style="color:#10b981; font-size:24px; font-weight:bold;">${score} / 10</span> คะแนน`,
+                        confirmButtonColor: '#10b981'
+                    }).then(() => {
+                        // ล้างข้อมูลหลังบันทึกเสร็จ
+                        // window.location.reload(); 
+                    });
                 } else {
                     throw new Error("เกิดข้อผิดพลาดในการบันทึก");
                 }
             } catch (error) {
                 console.error(error);
-                alert("ขออภัย ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: 'ขออภัย ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+                    confirmButtonColor: '#10b981'
+                });
+            } finally {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                loadingMsg.classList.add('hidden');
-            }
-
-            function showSuccess() {
-                loadingMsg.classList.add('hidden');
-                successMsg.classList.remove('hidden');
             }
         }
     </script>
