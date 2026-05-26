@@ -185,11 +185,17 @@
             border-bottom: 1px solid #0a0a0a;
             box-shadow: inset 1px 1px #dfdfdf, inset -1px -1px #808080;
         }
+
+        /* Responsive Big Clock text */
+        .big-clock-text {
+            font-size: clamp(4rem, 15vw, 15rem);
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
 
-    <div class="win98-window w-[600px] h-[500px] shadow-2xl relative">
+    <div class="win98-window w-[650px] h-[520px] shadow-2xl relative">
         <!-- Title Bar -->
         <div class="win98-title-bar">
             <div class="flex items-center gap-2">
@@ -216,25 +222,31 @@
                     <div class="cursor-pointer hover:bg-[#000080] hover:text-white px-4 py-1" onclick="document.getElementById('importFile').click()"><u>I</u>mport Data...</div>
                 </div>
             </div>
+            <div class="cursor-pointer hover:bg-[#000080] hover:text-white px-1" onclick="showBigClock()"><u>V</u>iew Big Clock</div>
             <div class="cursor-pointer hover:bg-[#000080] hover:text-white px-1" onclick="showAbout()"><u>H</u>elp</div>
         </div>
         <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
 
         <!-- Current Time Display -->
-        <div class="px-4 py-2 flex justify-between items-center bg-[#c0c0c0]">
+        <div class="px-4 py-2 flex justify-between items-center bg-[#c0c0c0] border-b border-[#dfdfdf]">
             <div class="flex flex-col">
                 <span class="text-gray-600">เวลาปัจจุบัน (Current Time):</span>
                 <span id="current-time-display" class="font-bold text-2xl tracking-widest text-blue-900 drop-shadow-sm">00:00:00</span>
             </div>
-            <div>
-                <label>Time Zone:</label>
-                <select id="timezone-select" class="win98-input ml-2" onchange="updateTimezone()">
-                    <option value="Asia/Bangkok">Asia/Bangkok (ไทย +07:00)</option>
-                    <option value="UTC">UTC (+00:00)</option>
-                    <option value="Asia/Tokyo">Asia/Tokyo (+09:00)</option>
-                    <option value="America/New_York">America/New_York (EST)</option>
-                    <option value="Europe/London">Europe/London (GMT)</option>
-                </select>
+            <div class="flex items-center gap-3">
+                <button class="win98-btn h-10 px-4 font-bold text-blue-900" onclick="showBigClock()">
+                    <span class="text-lg mr-1">👁️</span> แสดงเวลาแบบเต็มจอ
+                </button>
+                <div class="flex flex-col">
+                    <label class="text-xs text-gray-600 mb-1">Time Zone:</label>
+                    <select id="timezone-select" class="win98-input text-xs" onchange="updateTimezone()">
+                        <option value="Asia/Bangkok">Asia/Bangkok (ไทย +07:00)</option>
+                        <option value="UTC">UTC (+00:00)</option>
+                        <option value="Asia/Tokyo">Asia/Tokyo (+09:00)</option>
+                        <option value="America/New_York">America/New_York (EST)</option>
+                        <option value="Europe/London">Europe/London (GMT)</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -250,7 +262,7 @@
                     <div class="flex gap-2 mb-3">
                         <input type="time" id="new-alarm-time" class="win98-input">
                         <input type="text" id="new-alarm-name" placeholder="ชื่อคาบเรียน (เช่น พักเที่ยง)" class="win98-input flex-1">
-                        <button class="win98-btn" onclick="addAlarm()">เพิ่มคาบ (Add)</button>
+                        <button class="win98-btn font-bold" onclick="addAlarm()">เพิ่มคาบ (Add)</button>
                     </div>
                     
                     <div class="win98-panel flex-1 p-1 overflow-y-auto">
@@ -280,7 +292,7 @@
                             <option value="buzzer">Buzzer (กริ่งยาว)</option>
                             <option value="custom">-- ใช้เสียงจากไฟล์ภายนอก --</option>
                         </select>
-                        <button class="win98-btn" onclick="testSound()">ทดสอบ (Test)</button>
+                        <button class="win98-btn font-bold" onclick="testSound()">ทดสอบ (Test)</button>
                     </div>
 
                     <div class="win98-hr"></div>
@@ -307,7 +319,23 @@
         </div>
     </div>
 
-    <!-- Custom Windows 98 Modal (Replaces browser alert) -->
+    <!-- BIG CLOCK MODAL (Z-40 so it's behind the alarm modal if triggered) -->
+    <div id="big-clock-modal" class="fixed inset-0 bg-[#008080] hidden flex-col items-center justify-center z-40 p-4">
+        <div class="win98-window w-full h-full max-w-5xl max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="win98-title-bar">
+                <span>Big Clock Viewer - School Bell Timer</span>
+                <button class="win98-btn px-1 py-0 h-5 w-5 font-bold" onclick="hideBigClock()">X</button>
+            </div>
+            <div class="flex-1 bg-[#c0c0c0] flex items-center justify-center flex-col cursor-pointer" onclick="hideBigClock()">
+                <div id="big-time-display" class="font-bold tracking-widest text-blue-900 drop-shadow-md big-clock-text">00:00:00</div>
+                <div class="mt-8 px-4 py-2 border border-gray-500 rounded bg-white/50 text-gray-800 font-bold">
+                    คลิกที่ใดก็ได้เพื่อกลับไปหน้าหลัก
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Windows 98 Modal (Replaces browser alert) Z-50 always on top -->
     <div id="win98-modal" class="fixed inset-0 bg-transparent hidden items-center justify-center z-50">
         <!-- Prevent clicks outside -->
         <div class="absolute inset-0 bg-transparent" onclick="stopAlarm()"></div>
@@ -349,7 +377,7 @@
                     </svg>
                     <div class="flex-1">
                         <h3 class="font-bold text-md mb-1">School Bell Timer</h3>
-                        <p class="text-sm text-gray-800 mb-2">Version 1.0</p>
+                        <p class="text-sm text-gray-800 mb-2">Version 1.1</p>
                         <div class="win98-hr my-2"></div>
                         <p class="text-sm"><strong>ผู้พัฒนา:</strong></p>
                         <p class="text-sm">นายภาณุวัชร โพนไสว</p>
@@ -396,7 +424,14 @@
             const options = { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
             const timeStringFull = new Intl.DateTimeFormat('en-GB', options).format(now);
             
+            // Update Main Clock
             document.getElementById('current-time-display').innerText = timeStringFull;
+            
+            // Update Big Clock
+            const bigClock = document.getElementById('big-time-display');
+            if (bigClock) {
+                bigClock.innerText = timeStringFull;
+            }
 
             // Check Alarms
             const timeStringMin = timeStringFull.substring(0, 5); // HH:MM
@@ -407,6 +442,18 @@
             timezone = document.getElementById('timezone-select').value;
             saveData();
             tickClock();
+        }
+
+        // Big Clock Functions
+        function showBigClock() {
+            document.getElementById('big-clock-modal').classList.remove('hidden');
+            document.getElementById('big-clock-modal').classList.add('flex');
+            tickClock(); // update immediately
+        }
+
+        function hideBigClock() {
+            document.getElementById('big-clock-modal').classList.add('hidden');
+            document.getElementById('big-clock-modal').classList.remove('flex');
         }
 
         // Alarms Logic
