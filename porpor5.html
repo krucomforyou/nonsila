@@ -87,10 +87,10 @@
 
         <div class="p-4 border-t border-white/20 bg-black/20">
             <div class="flex items-center gap-3">
-                <img id="sidebarUserImg" src="https://placehold.co/40" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
+                <img id="sidebarUserImg" src="https://ui-avatars.com/api/?name=Guest&background=e2e8f0&color=64748b" class="w-10 h-10 rounded-full border-2 border-nswButtonGreen object-cover">
                 <div class="flex-1 overflow-hidden">
-                    <div id="sidebarUserName" class="text-sm font-bold truncate">ผู้ใช้งาน</div>
-                    <div id="sidebarUserRole" class="text-xs text-green-200 truncate">ตำแหน่ง</div>
+                    <div id="sidebarUserName" class="text-sm font-bold truncate">บุคคลทั่วไป</div>
+                    <div id="sidebarUserRole" class="text-xs text-green-200 truncate">ผู้เยี่ยมชม</div>
                 </div>
             </div>
             <div class="flex flex-col gap-2 mt-4">
@@ -100,11 +100,16 @@
                 <button onclick="goToSystem()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-globe"></i> กลับหน้าเว็บโรงเรียน
                 </button>
+                <!-- ปุ่มเข้าสู่ระบบ สำหรับครู/แอดมิน -->
+                <button id="loginBtn" onclick="showLoginPopup()" class="w-full bg-nswButtonGreen hover:bg-nswButtonHover text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-in-alt"></i> เข้าสู่ระบบ (สำหรับครู)
+                </button>
+                <!-- ปุ่มออกจากระบบ (จะซ่อนไว้ถ้ายังไม่ล็อกอิน) -->
                 <button id="logoutBtn" onclick="logout()" class="hidden w-full bg-red-600 hover:bg-red-500 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
                 </button>
                 <div class="text-[10px] text-green-400 text-center mt-2 font-medium opacity-80">
-                    Version 1.0.3 (อัปเดต 19/03/2569)
+                    Version 1.0.2 (อัปเดต 15/03/2569)
                 </div>
             </div>
         </div>
@@ -125,7 +130,6 @@
                 <div class="relative flex items-center bg-gray-100 hover:bg-gray-200 focus-within:bg-white rounded-full px-3 py-1.5 md:py-2 border border-transparent transition-all duration-300 group shadow-sm">
                     <i class="fas fa-search text-gray-500 group-focus-within:text-nswButtonGreen"></i>
                     <input type="text" id="searchInput" oninput="handleSearch()" placeholder="ค้นหาวิชา (เช่น ป.1)" class="bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm ml-2 w-28 sm:w-40 md:w-56 transition-all pr-6">
-                    <!-- ปุ่ม X สำหรับเคลียร์ช่องค้นหา -->
                     <button id="clearSearchBtn" onclick="clearSearch()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 hidden focus:outline-none transition-colors" title="ล้างการค้นหา">
                         <i class="fas fa-times-circle"></i>
                     </button>
@@ -139,7 +143,7 @@
         <div class="flex-1 p-6 md:p-12 w-full max-w-7xl mx-auto flex flex-col">
             
             <div class="flex justify-between items-end mb-6">
-                <h3 id="currentCategoryTitle" class="text-xl font-bold text-gray-800 border-l-4 border-nswButtonGreen pl-3">กรุณาเลือกกลุ่มสาระด้านซ้ายมือ</h3>
+                <h3 id="currentCategoryTitle" class="text-xl font-bold text-gray-800 border-l-4 border-nswButtonGreen pl-3">กำลังโหลดข้อมูล...</h3>
             </div>
 
             <div id="linksGrid" class="mb-16">
@@ -302,11 +306,11 @@
         
         let linkData = [];
         let categories = [];
-        let logData = []; // เก็บข้อมูล Logs
+        let logData = []; 
         let currentActiveCategory = '';
         let sortableInstances = []; 
 
-        // === เพิ่มระบบจัดการ Session เหมือนเว็บหลัก ===
+        // === ระบบจัดการ Session ===
         let idleTimer;
         const DEFAULT_IDLE_MINUTES = 60;
 
@@ -323,7 +327,7 @@
         function resetIdleTimer() {
             clearTimeout(idleTimer);
             const savedUser = localStorage.getItem('nswUser');
-            if (!savedUser) return;
+            if (!savedUser) return; // ไม่ตั้งเวลาสำหรับบุคคลทั่วไป
             
             localStorage.setItem('nswLastActive', Date.now().toString());
             let minutes = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
@@ -353,7 +357,6 @@
             });
         }
 
-        // ดักจับ Event ขยับเมาส์เพื่อรีเซ็ตเวลา
         ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => 
             document.addEventListener(evt, resetIdleTimer, true)
         );
@@ -372,7 +375,6 @@
                 }
             });
         }
-        // ============================================
 
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-green-100 rounded-full"></div><div class="absolute inset-0 border-4 border-nswButtonGreen rounded-full border-t-transparent animate-spin"></div><i class="fas fa-link text-xl text-nswButtonGreen"></i></div><h3 class="text-xl font-bold text-gray-800 mb-2 font-sarabun">กำลังทำงาน...</h3><p class="text-sm text-gray-500 font-sarabun">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-3xl shadow-2xl w-11/12 md:w-auto' }}); },
@@ -415,7 +417,6 @@
             }
         }
 
-        // --- ระบบล็อกอินตรงที่หน้าเว็บ ---
         function showLoginPopup() {
             Swal.fire({
                 scrollbarPadding: false,
@@ -431,7 +432,7 @@
                             <div class="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-30"></div>
                         </div>
                         <h2 class="text-xl font-bold text-nswDarkGreen mb-1">เข้าสู่ระบบ ปพ.5</h2>
-                        <p class="text-xs text-green-600 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งาน</p>
+                        <p class="text-xs text-green-600 mb-6 font-medium">กรุณายืนยันตัวตนเพื่อเข้าใช้งานโหมดจัดการ</p>
 
                         <div class="space-y-3 text-left px-2">
                             <div class="relative">
@@ -451,7 +452,7 @@
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'เข้าสู่ระบบ <i class="fas fa-arrow-right ml-1"></i>',
-                cancelButtonText: '<i class="fas fa-home mr-1"></i> กลับเว็บโรงเรียน',
+                cancelButtonText: 'ปิด',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 buttonsStyling: false,
@@ -483,8 +484,6 @@
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     await handleDirectLogin(result.value.user, result.value.pass);
-                } else if (result.dismiss === Swal.DismissReason.cancel) {
-                    goToSystem();
                 }
             });
         }
@@ -493,7 +492,6 @@
             cuteAlert.loading('กำลังตรวจสอบข้อมูล... 🔐');
             
             try {
-                // กลับมาใช้ API ของเว็บหลักโรงเรียน เพื่อดึงข้อมูล User ได้ครบถ้วนสมบูรณ์ (รูปโปรไฟล์, สิทธิ์)
                 const LOGIN_API_URL = 'https://script.google.com/macros/s/AKfycbxIcgvezV9cr9jpyxBxt_SOx4DjNoYH22KpZ7RR5-k23f4rhWKdw00XZLug9NZu0K_0Xg/exec';
                 const res = await fetch(`${LOGIN_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { 
                     method: 'POST' 
@@ -501,12 +499,10 @@
                 const json = await res.json();
 
                 if (json.status === 'success') {
-                    // เซฟข้อมูล และบันทึกเวลาล่าสุดเพื่อใช้กับระบบ Idle Timeout
                     localStorage.setItem('nswUser', JSON.stringify(json.user));
                     localStorage.setItem('nswLastActive', Date.now().toString());
 
-                    // บันทึก Log ทันทีที่เข้าสู่ระบบสำเร็จ แล้วรอให้ส่งสำเร็จก่อนโหลดหน้าใหม่
-                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าหน้าแรก ปพ.5 ออนไลน์');
+                    await sendLogActivity('เข้าสู่ระบบ', 'เข้าใช้งานระบบจัดการ ปพ.5');
                     sessionStorage.setItem('session_logged_in', 'true');
 
                     Swal.fire({
@@ -544,19 +540,22 @@
         let lastLogKey = '';
 
         async function sendLogActivity(actionType, details) {
-            const savedUser = localStorage.getItem('nswUser');
-            if (!savedUser) return;
+            const savedUserStr = localStorage.getItem('nswUser');
             
+            // ตั้งค่าเริ่มต้นสำหรับผู้เยี่ยมชมทั่วไป
+            let user = { name: 'บุคคลทั่วไป', role: 'ผู้เยี่ยมชม' };
+            if (savedUserStr) {
+                user = JSON.parse(savedUserStr);
+            }
+
             // ป้องกันการส่ง Log ซ้ำซ้อนภายใน 2 วินาทีสำหรับเหตุการณ์เดิม (Debounce)
             const now = Date.now();
             const currentLogKey = actionType + '|' + details;
             if (now - lastLogTime < 2000 && lastLogKey === currentLogKey) {
-                return; // ข้ามการทำงานถ้าเป็นเหตุการณ์เดิมในเวลาใกล้เคียง
+                return; 
             }
             lastLogTime = now;
             lastLogKey = currentLogKey;
-
-            const user = JSON.parse(savedUser);
 
             const form = new FormData();
             form.append('name', user.name);
@@ -564,7 +563,6 @@
             form.append('actionType', actionType);
             form.append('details', details);
 
-            // ส่งข้อมูลเงียบๆ ไม่ต้องโชว์แจ้งเตือน
             try {
                 await fetch(`${API_URL}?action=saveLog`, { method: 'POST', body: form });
             } catch(err) {
@@ -576,7 +574,7 @@
             const savedUser = localStorage.getItem('nswUser');
             
             if (savedUser) {
-                // เช็ค Session Timeout ก่อน
+                // เช็ค Session Timeout
                 const lastActive = localStorage.getItem('nswLastActive');
                 const savedTimeout = parseInt(localStorage.getItem('nswIdleTimeout')) || DEFAULT_IDLE_MINUTES;
                 if (lastActive) {
@@ -585,20 +583,18 @@
                     if (diffMins >= savedTimeout) {
                         localStorage.removeItem('nswUser');
                         localStorage.removeItem('nswLastActive');
-                        showLoginPopup();
+                        checkUserRole(false); // เรียกตัวเองซ้ำแบบไม่ล็อกอิน
                         return;
                     }
                 }
 
                 const user = JSON.parse(savedUser);
-                user.role = normalizeFrontendRole(user.role); // แปลง Role ให้มี Emoji และรูปแบบที่ถูกต้อง
+                user.role = normalizeFrontendRole(user.role); 
                 
                 document.getElementById('sidebarUserName').innerText = user.name || 'ไม่ระบุชื่อ';
-                // แสดง Position ถ้ามี หากไม่มีให้แสดง Role
                 document.getElementById('sidebarUserRole').innerText = user.position || user.role || 'บุคลากร';
                 document.getElementById('sidebarUserImg').src = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=144637&color=ffffff`;
 
-                // ตรวจสอบสิทธิ์ สำหรับเปิดปุ่ม Admin 
                 const allowedRoles = ['Admin', 'จอมเวทย์อาวุโส', 'ผู้ดูแล', 'นักรบมังกร', 'Dragon', 'High Mage'];
                 const hasAdminAccess = allowedRoles.some(role => user.role.includes(role));
 
@@ -608,31 +604,29 @@
                     document.getElementById('adminManageBtn').classList.add('hidden'); 
                 }
 
-                // แสดงปุ่มออกจากระบบเมื่อเข้าสู่ระบบเรียบร้อยแล้ว
-                const logoutBtn = document.getElementById('logoutBtn');
-                if (logoutBtn) logoutBtn.classList.remove('hidden');
+                document.getElementById('logoutBtn').classList.remove('hidden');
+                document.getElementById('loginBtn').classList.add('hidden');
 
-                // ส่ง Log เมื่อเข้ามาใช้งานระบบใน Session นี้ (ส่งแค่ครั้งเดียวต่อการโหลด)
                 if (!sessionStorage.getItem('session_logged_in')) {
                     sessionStorage.setItem('session_logged_in', 'true');
-                    sendLogActivity('เข้าสู่ระบบ', 'เข้าหน้าแรก ปพ.5 ออนไลน์');
+                    sendLogActivity('เข้าสู่ระบบ', 'เข้าหน้าจัดการ ปพ.5 ออนไลน์');
                 }
                 
-                resetIdleTimer(); // เริ่มจับเวลา Idle ใหม่อีกครั้ง
-                
-                // ถ้ายืนยันตัวตนผ่าน โหลดลิงก์มาแสดง (ทำเฉพาะตอนโหลดหน้าเว็บครั้งแรก)
-                // เพื่อไม่ให้รีเซ็ตการค้นหาเวลาสลับแท็บไปมา
-                if (isInitialLoad) {
-                    fetchLinks();
-                }
-
+                resetIdleTimer();
             } else {
-                // ซ่อนปุ่มออกจากระบบหากยังไม่ได้เข้าสู่ระบบ
-                const logoutBtn = document.getElementById('logoutBtn');
-                if (logoutBtn) logoutBtn.classList.add('hidden');
+                // สำหรับบุคคลทั่วไป (Guest Mode)
+                document.getElementById('sidebarUserName').innerText = 'บุคคลทั่วไป';
+                document.getElementById('sidebarUserRole').innerText = 'ผู้เยี่ยมชม';
+                document.getElementById('sidebarUserImg').src = 'https://ui-avatars.com/api/?name=Guest&background=e2e8f0&color=64748b';
 
-                // แสดงป็อปอัพล็อกอินแทนการเด้งกลับหน้าหลัก
-                showLoginPopup();
+                document.getElementById('adminManageBtn').classList.add('hidden');
+                document.getElementById('logoutBtn').classList.add('hidden');
+                document.getElementById('loginBtn').classList.remove('hidden');
+            }
+
+            // โหลดลิงก์เสมอ ไม่ว่าจะล็อกอินหรือไม่
+            if (isInitialLoad) {
+                fetchLinks();
             }
         }
 
@@ -649,7 +643,7 @@
                     if(categories.length > 0) {
                         selectCategory(currentActiveCategory || (categories.includes('หน้าแรก') ? 'หน้าแรก' : categories[0]));
                     } else {
-                        document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ<br>กรุณาเพิ่มในเมนู Admin</div>`;
+                        document.getElementById('categoryNav').innerHTML = `<div class="p-6 text-gray-500 text-center text-xs">ยังไม่มีข้อมูลกลุ่มสาระ<br>กรุณาให้แอดมินเพิ่มข้อมูล</div>`;
                         document.getElementById('linksGrid').innerHTML = '';
                     }
                 } else {
@@ -699,7 +693,6 @@
             if (query !== '') {
                 clearSearchBtn.classList.remove('hidden');
                 
-                // ระบบบันทึก Log การค้นหา (หน่วงเวลาพิมพ์เสร็จ 1.5 วิ ค่อยส่ง เพื่อไม่ให้สแปม Log)
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     sendLogActivity('ค้นหาวิชา', `คำค้นหา: "${query}"`);
@@ -797,7 +790,6 @@
                 let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 w-full">`;
                 html += `<div class="flex flex-col gap-4">`;
                 sortedItems.forEach(item => {
-                    // เพิ่มการดักจับการคลิกขวา (oncontextmenu) และคลิกเมาส์กลาง (onauxclick) เพื่อส่ง Log
                     const logEvents = `onclick="sendLogActivity('คลิกเปิดลิงก์', '${item.title}')" oncontextmenu="sendLogActivity('คลิกขวาที่ลิงก์', '${item.title}')" onauxclick="if(event.button === 1) sendLogActivity('คลิกเมาส์กลางเปิดลิงก์', '${item.title}')"`;
                     html += `<a href="${item.url}" target="_blank" ${logEvents} class="bg-nswButtonGreen hover:bg-nswButtonHover text-white text-center py-4 px-6 shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex items-center justify-center font-medium text-[15px] border border-nswButtonGreen/50">${item.title}</a>`;
                 });
@@ -947,7 +939,7 @@
             } else if (tab === 'logs') {
                 tabLogs.className = activeClass;
                 secLogs.classList.remove('hidden'); secLogs.classList.add('flex');
-                fetchLogData(); // โหลด Logs ทันทีเมื่อกดแท็บนี้
+                fetchLogData();
             }
         }
 
@@ -957,7 +949,6 @@
         async function fetchLogData() {
             document.getElementById('adminLogsTable').innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-400"><div class="loader mx-auto mb-2 border-t-blue-500"></div>กำลังโหลดประวัติ...</td></tr>`;
             try {
-                // เพิ่ม { method: 'POST' } เพื่อให้ตรงกับฝั่ง doPost ของ Backend
                 const res = await fetch(`${API_URL}?action=getLogs`, { method: 'POST' });
                 const json = await res.json();
                 
@@ -982,18 +973,15 @@
             let html = '';
             dataToRender.forEach(log => {
                 
-                // แปลงรูปแบบวันที่ให้อ่านง่ายขึ้น (dd/MM/yyyy HH:mm:ss)
                 let formattedTime = log.timestamp;
                 try {
                     const d = new Date(log.timestamp);
-                    // ถ้าแปลงเป็น Date ได้ และรูปแบบเดิมไม่ใช่แบบสั้นอยู่แล้ว
                     if (!isNaN(d.getTime()) && !/^\d{2}\/\d{2}\/\d{4}/.test(log.timestamp)) {
                         const pad = (n) => n.toString().padStart(2, '0');
                         formattedTime = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
                     }
                 } catch(e) {}
 
-                // เพิ่มไอคอนให้แสดงตามตำแหน่ง (ป้องกันการแสดงผลซ้ำหากมีอีโมจิอยู่แล้ว)
                 let roleWithIcon = log.role || '-';
                 if ((roleWithIcon.includes('จอมเวทย์อาวุโส') || roleWithIcon.includes('จอมเวทอาวุโส')) && !roleWithIcon.includes('🧙‍♂️')) roleWithIcon = `🧙‍♂️ ${log.role}`;
                 else if (roleWithIcon.includes('นักรบมังกร') && !roleWithIcon.includes('🐲')) roleWithIcon = `🐲 ${log.role}`;
@@ -1002,7 +990,6 @@
                 else if (roleWithIcon.includes('ฝึกหัด') && !roleWithIcon.includes('🎒')) roleWithIcon = `🎒 ${log.role}`;
                 else if ((roleWithIcon.includes('Admin') || roleWithIcon.includes('แอดมิน')) && !roleWithIcon.includes('🛡️')) roleWithIcon = `🛡️ ${log.role}`;
 
-                // กำหนดสีของประเภท Action ให้ดูง่ายขึ้น
                 let actionBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">${log.action}</span>`;
                 if(log.action.includes('เข้าสู่ระบบ')) actionBadge = `<span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-sign-in-alt mr-1"></i>${log.action}</span>`;
                 else if(log.action.includes('ค้นหา')) actionBadge = `<span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded text-xs font-bold"><i class="fas fa-search mr-1"></i>${log.action}</span>`;
@@ -1037,11 +1024,6 @@
             );
             renderLogTable(filteredLogs);
         }
-
-        // ==========================================
-        // END LOGS SECTION
-        // ==========================================
-
 
         function populateCategoryDropdown() {
             const select = document.getElementById('adminCategorySelect');
@@ -1164,7 +1146,6 @@
             form.append('title', title);
             form.append('url', url);
             
-            // ดึงข้อมูลผู้ใช้เพื่อส่งไปบันทึก Log ในระบบหลังบ้าน
             const savedUser = JSON.parse(localStorage.getItem('nswUser') || '{}');
             form.append('requestUser', savedUser.name || 'ไม่ระบุชื่อ');
             form.append('requestRole', savedUser.role || 'ไม่ระบุตำแหน่ง');
@@ -1197,7 +1178,6 @@
                     const form = new FormData();
                     form.append('id', id);
                     
-                    // ดึงข้อมูลผู้ใช้เพื่อส่งไปบันทึก Log ในระบบหลังบ้าน
                     const savedUser = JSON.parse(localStorage.getItem('nswUser') || '{}');
                     form.append('requestUser', savedUser.name || 'ไม่ระบุชื่อ');
                     form.append('requestRole', savedUser.role || 'ไม่ระบุตำแหน่ง');
@@ -1332,7 +1312,6 @@
             const form = new FormData();
             form.append('data', JSON.stringify(updates));
             
-            // ดึงข้อมูลผู้ใช้เพื่อส่งไปบันทึก Log ในระบบหลังบ้าน
             const savedUser = JSON.parse(localStorage.getItem('nswUser') || '{}');
             form.append('requestUser', savedUser.name || 'ไม่ระบุชื่อ');
             form.append('requestRole', savedUser.role || 'ไม่ระบุตำแหน่ง');
