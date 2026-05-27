@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คลังเครื่องมือช่วยสอนแสนสนุก - Classroom Interactive Tools</title>
+    
+    <!-- Google Fonts: Itim -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Itim', 'cursive', 'sans-serif'],
+                        itim: ['Itim', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- SweetAlert2 for beautiful alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        body, input, select, textarea, button {
+            font-family: 'Itim', cursive !important;
+        }
+
+        body {
+            background-color: #fff9e6;
+            background-image: radial-gradient(#ffd1dc 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        .swal2-container * {
+            font-family: 'Itim', cursive !important;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #fbcfe8; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f472b6; 
+        }
+
+        /* Cute Animations */
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s infinite;
+        }
+
+        /* Wheel Spin Transition */
+        #wheel-canvas {
+            transition: transform 5s cubic-bezier(0.1, 0.8, 0.1, 1);
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen overflow-hidden text-gray-800">
+
+    <!-- LEFT SIDEBAR: Student Management & Randomizer -->
+    <aside class="w-full md:w-96 shrink-0 bg-white shadow-xl z-10 flex flex-col border-r-4 border-pink-200 h-1/2 md:h-full overflow-hidden">
+        <!-- Sidebar Header -->
+        <div class="p-4 text-center border-b-2 border-dashed border-pink-200 bg-pink-50 relative">
+            <div class="w-12 h-12 mx-auto bg-pink-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm mb-1">
+                <i class="fa-solid fa-graduation-cap text-2xl text-pink-400"></i>
+            </div>
+            <h1 class="text-lg font-bold text-pink-500 tracking-wide">สุ่มเลขที่ & วงล้อนำโชค</h1>
+            <p class="text-xs text-gray-400">เพิ่มรายชื่อนักเรียนและกดสุ่มผู้โชคดี</p>
+        </div>
+
+        <!-- Student List Settings / Input Tab Selection -->
+        <div class="p-3 bg-gray-50 flex gap-1 border-b border-gray-100">
+            <button onclick="toggleStudentTab('wheel')" id="btn-tab-wheel" class="flex-1 py-1.5 bg-pink-400 text-white rounded-lg text-sm font-bold shadow-sm transition-all">
+                <i class="fa-solid fa-circle-notch animate-spin-slow"></i> วงล้อนำโชค
+            </button>
+            <button onclick="toggleStudentTab('list')" id="btn-tab-list" class="flex-1 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition-all">
+                <i class="fa-solid fa-users-gear"></i> จัดการชื่อนักเรียน (<span id="student-count-badge">0</span>)
+            </button>
+        </div>
+
+        <!-- Sidebar Content Areas -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col justify-between">
+            
+            <!-- Tab 1: Wheel View -->
+            <div id="student-wheel-area" class="flex flex-col items-center justify-center flex-1 gap-4">
+                <div class="relative w-64 h-64 md:w-72 md:h-72 flex items-center justify-center">
+                    <!-- Target Pin Pointer -->
+                    <div class="absolute -top-1 z-30 text-red-500 text-3xl drop-shadow-md">
+                        <i class="fa-solid fa-caret-down"></i>
+                    </div>
+                    <!-- Canvas Wheel -->
+                    <canvas id="wheel-canvas" width="400" height="400" class="w-full h-full rounded-full shadow-lg border-4 border-white bg-gray-100"></canvas>
+                    <!-- Inner Golden Button / Indicator -->
+                    <div onclick="spinWheel()" class="absolute w-12 h-12 bg-white hover:bg-yellow-100 border-4 border-pink-400 rounded-full shadow-md z-20 flex items-center justify-center cursor-pointer select-none transform transition hover:scale-110 active:scale-95">
+                        <span class="text-pink-500 font-bold text-xs">หมุน!</span>
+                    </div>
+                </div>
+
+                <!-- Checkbox for No Repeat -->
+                <div class="flex items-center justify-between w-full px-2 max-w-[280px]">
+                    <label class="flex items-center gap-2 text-sm font-bold text-gray-600 cursor-pointer select-none hover:text-pink-600 transition-colors">
+                        <input type="checkbox" id="chk-no-repeat" onchange="handleNoRepeatChange()" class="w-4 h-4 text-pink-500 rounded border-gray-300 focus:ring-pink-400 cursor-pointer">
+                        สุ่มไม่ซ้ำคนเดิม
+                    </label>
+                    <span id="remaining-count-badge" class="text-[11px] bg-pink-100 text-pink-600 px-2.5 py-0.5 rounded-full hidden border border-pink-200 shadow-sm font-bold"></span>
+                </div>
+
+                <div class="w-full flex gap-2">
+                    <button onclick="spinWheel()" class="flex-1 py-2.5 bg-gradient-to-r from-pink-400 to-pink-500 text-white text-md font-bold rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                        <i class="fa-solid fa-bounce fa-circle-notch"></i> หมุนวงล้อสุ่ม
+                    </button>
+                    <button onclick="triggerQuickRandom()" class="px-4 py-2.5 bg-gradient-to-r from-blue-400 to-indigo-400 text-white text-md font-bold rounded-xl shadow-md hover:shadow-lg transition-all" title="สุ่มแบบเร็วทันที">
+                        <i class="fa-solid fa-bolt"></i> สุ่มเร็ว
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab 2: Manage List View -->
+            <div id="student-list-area" class="hidden flex-col flex-1 gap-3">
+                <div class="flex flex-col gap-1.5">
+                    <label class="font-bold text-gray-700 text-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-import text-pink-400"></i> ใส่รายชื่อนักเรียน (บรรทัดละ 1 ชื่อ หรือ 1 เลขที่)
+                    </label>
+                    <textarea id="student-names-input" rows="6" placeholder="ตัวอย่าง:&#10;เลขที่ 1 สมชาย&#10;เลขที่ 2 สมหญิง&#10;เลขที่ 3 วิชัย" class="w-full p-2.5 rounded-xl border-2 border-pink-200 focus:border-pink-400 outline-none font-itim text-sm text-gray-700 resize-none"></textarea>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="saveStudentNames()" class="flex-1 py-2 bg-pink-400 hover:bg-pink-500 text-white font-bold rounded-lg text-sm shadow-md transition-all">
+                        <i class="fa-solid fa-floppy-disk"></i> อัปเดตรายชื่อ
+                    </button>
+                    <button onclick="clearStudentNames()" class="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-600 font-bold rounded-lg text-sm transition-all" title="ล้างทั้งหมด">
+                        <i class="fa-solid fa-trash-can"></i> ล้างข้อมูล
+                    </button>
+                </div>
+
+                <!-- Live Preview of List -->
+                <div class="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-2 bg-gray-50 overflow-y-auto max-h-[150px]">
+                    <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">รายชื่อทั้งหมดในระบบ:</div>
+                    <ul id="preview-list-container" class="space-y-1 text-xs text-gray-600 px-1">
+                        <!-- Student preview items go here -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Developer footer at bottom of sidebar -->
+            <div class="pt-3 border-t border-dashed border-pink-100 text-center text-xs text-gray-400 flex items-center justify-between">
+                <span><i class="fa-solid fa-heart text-red-400"></i> By Gemini & คุณครู</span>
+                <span id="current-lucky-status" class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">พร้อมสุ่มแล้ว!</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- RIGHT MAIN CONTENT: Activity Tabs & Mini Games -->
+    <main class="flex-1 overflow-hidden flex flex-col relative h-1/2 md:h-full">
+        
+        <!-- Header & Nav Tabs -->
+        <header class="bg-white shadow-md p-4 flex flex-col lg:flex-row items-center justify-between border-b-4 border-yellow-200 shrink-0 gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center border-2 border-yellow-300 shadow-inner">
+                    <i class="fa-solid fa-wand-magic-sparkles text-yellow-500 text-xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-yellow-600">คลังกิจกรรมห้องเรียนแสนสนุก 🎉</h2>
+                    <p class="text-xs text-gray-400">เลือกโหมดเกมด้านล่างเพื่อเริ่มกิจกรรมการสอน</p>
+                </div>
+            </div>
+
+            <!-- Activity Tabs Selection -->
+            <div class="flex flex-wrap gap-2">
+                <button onclick="switchActivityTab('multiplication')" id="tab-btn-multiplication" class="px-4 py-2 bg-yellow-400 text-white rounded-xl shadow-md font-bold transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> สุ่มสูตรคูณ
+                </button>
+                <button onclick="switchActivityTab('months')" id="tab-btn-months" class="px-4 py-2 bg-white hover:bg-blue-50 text-blue-500 rounded-xl font-bold transition-all border border-blue-200 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days"></i> สุ่มเดือน
+                </button>
+                <button onclick="switchActivityTab('vocab')" id="tab-btn-vocab" class="px-4 py-2 bg-white hover:bg-green-50 text-green-500 rounded-xl font-bold transition-all border border-green-200 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> สุ่มคำศัพท์
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Activity Canvas Panel -->
+        <div class="flex-1 p-6 overflow-y-auto">
+
+            <!-- 1. ACTIVITY: MULTIPLICATION (สุ่มสูตรคูณ) -->
+            <section id="activity-multiplication" class="block space-y-6 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-3xl shadow-xl border-4 border-dashed border-yellow-300 relative">
+                    <!-- Cute Sticker Decoration -->
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9ee.svg" alt="Abacus" class="w-12 h-12 absolute -top-6 -left-2 rotate-12 drop-shadow-md hover:scale-125 transition">
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9e0.svg" alt="Brain" class="w-12 h-12 absolute -top-6 -right-2 -rotate-12 drop-shadow-md hover:scale-125 transition">
+
+                    <h3 class="text-2xl font-bold text-yellow-600 text-center mb-4 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calculator text-yellow-400"></i> สุ่มโจทย์สูตรคูณแสนท้าทาย
+                    </h3>
+
+                    <!-- Settings Range Selector -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-yellow-700 mb-1">สูตรคูณแม่เริ่มต้น</label>
+                            <select id="mult-min-table" class="w-full px-4 py-2 rounded-xl border-2 border-yellow-200 focus:border-yellow-400 outline-none bg-white font-bold text-lg">
+                                <option value="2" selected>แม่ 2</option>
+                                <option value="3">แม่ 3</option>
+                                <option value="4">แม่ 4</option>
+                                <option value="5">แม่ 5</option>
+                                <option value="6">แม่ 6</option>
+                                <option value="7">แม่ 7</option>
+                                <option value="8">แม่ 8</option>
+                                <option value="9">แม่ 9</option>
+                                <option value="10">แม่ 10</option>
+                                <option value="11">แม่ 11</option>
+                                <option value="12">แม่ 12</option>
+                                <option value="13">แม่ 13</option>
+                                <option value="14">แม่ 14</option>
+                                <option value="15">แม่ 15</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-yellow-700 mb-1">สูตรคูณแม่สิ้นสุด</label>
+                            <select id="mult-max-table" class="w-full px-4 py-2 rounded-xl border-2 border-yellow-200 focus:border-yellow-400 outline-none bg-white font-bold text-lg">
+                                <option value="2">แม่ 2</option>
+                                <option value="3">แม่ 3</option>
+                                <option value="4">แม่ 4</option>
+                                <option value="5">แม่ 5</option>
+                                <option value="6">แม่ 6</option>
+                                <option value="7">แม่ 7</option>
+                                <option value="8">แม่ 8</option>
+                                <option value="9">แม่ 9</option>
+                                <option value="10">แม่ 10</option>
+                                <option value="11">แม่ 11</option>
+                                <option value="12" selected>แม่ 12</option>
+                                <option value="13">แม่ 13</option>
+                                <option value="14">แม่ 14</option>
+                                <option value="15">แม่ 15</option>
+                                <option value="20">แม่ 20</option>
+                                <option value="25">แม่ 25</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Multiplication Game Arena -->
+                    <div class="flex flex-col items-center justify-center py-6 gap-6">
+                        
+                        <!-- Question Card -->
+                        <div id="mult-card" class="w-full max-w-md bg-gradient-to-br from-yellow-100 to-amber-100 border-4 border-yellow-400 rounded-3xl p-8 shadow-lg text-center relative overflow-hidden min-h-[220px] flex flex-col justify-center items-center">
+                            <!-- Background Decor -->
+                            <i class="fa-solid fa-square-root-variable absolute -right-6 -bottom-6 text-7xl text-yellow-300/30"></i>
+                            <i class="fa-solid fa-plus absolute -left-4 -top-4 text-6xl text-yellow-300/30"></i>
+                            
+                            <div class="text-[14px] text-yellow-800 font-bold bg-yellow-200/60 px-3 py-1 rounded-full mb-3" id="mult-subtitle">
+                                สุ่มแม่สูตรคูณคละห้องเรียน
+                            </div>
+                            
+                            <!-- Large Question Display -->
+                            <div id="mult-question-text" class="text-6xl md:text-7xl font-extrabold text-yellow-900 tracking-wider">
+                                ? × ?
+                            </div>
+
+                            <!-- Secret answer (Hidden by default) -->
+                            <div id="mult-answer-reveal" class="hidden mt-4 text-4xl font-extrabold text-green-600 bg-green-100/80 border-2 border-dashed border-green-300 px-6 py-2 rounded-2xl animate-pulse">
+                                = 00
+                            </div>
+                        </div>
+
+                        <!-- Buttons & Interactive Actions -->
+                        <div class="w-full max-w-md flex flex-col gap-3">
+                            <button onclick="generateMultiplicationQuestion()" class="w-full py-4 bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-white font-bold text-xl rounded-2xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-shuffle"></i> สุ่มโจทย์ถัดไป
+                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="revealMultAnswer()" class="flex-1 py-3 bg-blue-400 hover:bg-blue-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-eye"></i> เฉลยคำตอบ
+                                </button>
+                                <button onclick="handleCorrectScore()" class="px-5 py-3 bg-green-400 hover:bg-green-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1" title="ตอบถูก เก่งมาก!">
+                                    <i class="fa-solid fa-thumbs-up"></i> ตอบถูก (<span id="mult-score">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. ACTIVITY: ENGLISH MONTHS (สุ่มเดือนภาษาอังกฤษ) -->
+            <section id="activity-months" class="hidden space-y-6 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-3xl shadow-xl border-4 border-dashed border-blue-300 relative">
+                    <!-- Cute Decoration -->
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f4c5.svg" alt="Calendar" class="w-12 h-12 absolute -top-6 -left-2 rotate-12 drop-shadow-md hover:scale-125 transition">
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f30e.svg" alt="Earth" class="w-12 h-12 absolute -top-6 -right-2 -rotate-12 drop-shadow-md hover:scale-125 transition">
+
+                    <h3 class="text-2xl font-bold text-blue-600 text-center mb-2 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-blue-400"></i> สุ่มเรียนรู้เดือนภาษาอังกฤษ
+                    </h3>
+                    <p class="text-xs text-gray-400 text-center mb-4">ดึงข้อมูลคำศัพท์แบบเรียลไทม์จาก Google Sheet ที่ระบุอย่างแม่นยำ</p>
+
+                    <!-- Google Sheet Info Panel -->
+                    <div class="bg-blue-50/60 p-3.5 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <span class="font-bold text-blue-800">แท็บเชื่อมต่อ:</span>
+                            <span class="bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-md">Months (เดือน)</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleAddForm('form-add-month')" class="px-3.5 py-1.5 bg-pink-400 hover:bg-pink-500 text-white font-bold rounded-lg text-xs shadow-sm transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i> เพิ่มคำศัพท์ใหม่
+                            </button>
+                            <button onclick="fetchSheetMonthsData()" class="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xs shadow-sm transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrows-rotate"></i> ดึงข้อมูล
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Slide-Down Form: Add New Month -->
+                    <div id="form-add-month" class="hidden bg-pink-50/50 p-5 rounded-2xl border-2 border-dashed border-pink-200 mb-6 transition-all duration-300">
+                        <h4 class="text-lg font-bold text-pink-600 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-edit"></i> แบบฟอร์มเพิ่มคำศัพท์เดือนภาษาอังกฤษลงชีท
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำศัพท์อังกฤษ (English)</label>
+                                <input type="text" id="add-month-eng" placeholder="เช่น January, October" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำอ่านไทย (Phonetic)</label>
+                                <input type="text" id="add-month-phon" placeholder="เช่น แจน-ยู-แอ-รี" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำแปลไทย (Thai)</label>
+                                <input type="text" id="add-month-thai" placeholder="เช่น มกราคม, ตุลาคม" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="toggleAddForm('form-add-month')" class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-bold rounded-lg transition-all">ยกเลิก</button>
+                            <button onclick="submitNewMonth()" class="px-4 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-lg shadow transition-all">บันทึกลง Google Sheet</button>
+                        </div>
+                    </div>
+
+                    <!-- Months Game Arena -->
+                    <div class="flex flex-col items-center justify-center py-4 gap-6">
+                        
+                        <!-- Month Flash Card -->
+                        <div id="month-card" class="w-full max-w-md bg-gradient-to-br from-blue-100 to-sky-100 border-4 border-blue-400 rounded-3xl p-8 shadow-lg text-center relative overflow-hidden min-h-[220px] flex flex-col justify-center items-center">
+                            <!-- Background Decor -->
+                            <i class="fa-solid fa-cloud-sun absolute -right-6 -bottom-6 text-7xl text-blue-300/30"></i>
+                            
+                            <div class="text-[14px] text-blue-800 font-bold bg-blue-200/60 px-3 py-1 rounded-full mb-3 flex items-center gap-1">
+                                <i class="fa-solid fa-volume-high text-blue-600 cursor-pointer" onclick="speakCurrentText('month-eng-display', event)" title="คลิกเพื่อออกเสียง"></i>
+                                Month Vocabulary Card
+                            </div>
+                            
+                            <!-- Large Month Text English -->
+                            <div id="month-eng-display" class="text-5xl font-extrabold text-blue-950 tracking-wide mb-2 hover:scale-105 transition cursor-pointer" onclick="speakCurrentText('month-eng-display')" title="คลิกเพื่อออกเสียงคำนี้">
+                                LOADING...
+                            </div>
+
+                            <!-- Phonetic / Helper Pronunciation if available -->
+                            <div id="month-phon-display" class="text-sm text-blue-600/80 font-bold mb-4">
+                                [...]
+                            </div>
+
+                            <!-- Translated Thai Meaning -->
+                            <div id="month-thai-display" class="hidden text-3xl font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-6 py-2 rounded-2xl">
+                                แปลว่าอะไรนะ?
+                            </div>
+                        </div>
+
+                        <!-- Speech Engine Note -->
+                        <p class="text-[11px] text-gray-400 -mt-2"><i class="fa-solid fa-info-circle"></i> เคล็ดลับ: กดที่ชื่อเดือนภาษาอังกฤษ หรือปุ่มลำโพง เพื่อฟังการออกเสียงเนทีฟได้เลยครับ!</p>
+
+                        <!-- Buttons & Interactive Actions -->
+                        <div class="w-full max-w-md flex flex-col gap-3">
+                            <button onclick="spinNextMonth()" class="w-full py-4 bg-gradient-to-r from-blue-400 via-sky-400 to-indigo-400 text-white font-bold text-xl rounded-2xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-shuffle"></i> สุ่มคำศัพท์เดือนถัดไป
+                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="revealMonthAnswer()" class="flex-1 py-3 bg-pink-400 hover:bg-pink-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-eye"></i> แปลเป็นภาษาไทย
+                                </button>
+                                <button onclick="speakCurrentText('month-eng-display')" class="px-5 py-3 bg-teal-400 hover:bg-teal-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-volume-high"></i> ออกเสียงอังกฤษ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. ACTIVITY: ENGLISH VOCABULARY (สุ่มคำศัพท์ภาษาอังกฤษ) -->
+            <section id="activity-vocab" class="hidden space-y-6 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-3xl shadow-xl border-4 border-dashed border-green-300 relative">
+                    <!-- Cute Decoration -->
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f392.svg" alt="Bag" class="w-12 h-12 absolute -top-6 -left-2 rotate-12 drop-shadow-md hover:scale-125 transition">
+                    <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f34e.svg" alt="Apple" class="w-12 h-12 absolute -top-6 -right-2 -rotate-12 drop-shadow-md hover:scale-125 transition">
+
+                    <h3 class="text-2xl font-bold text-green-600 text-center mb-2 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-book-open text-green-400"></i> สุ่มคลังคำศัพท์ภาษาอังกฤษทั่วไป
+                    </h3>
+                    <p class="text-xs text-gray-400 text-center mb-4">เชื่อมต่อ Google Sheet สำหรับคำศัพท์หลักร้อยถึงหลักพันคำตามบทเรียน</p>
+
+                    <!-- Google Sheet Info Panel -->
+                    <div class="bg-green-50/60 p-3.5 rounded-2xl border border-green-100 flex flex-col md:flex-row items-center justify-between gap-3 text-sm mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <span class="font-bold text-green-800">แท็บเชื่อมต่อ:</span>
+                            <span class="bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-md">Vocabulary (คำศัพท์)</span>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <select id="vocab-category-select" onchange="filterVocabByCategory()" class="px-2 py-1.5 rounded-xl border border-green-300 font-semibold text-xs text-green-800 bg-white outline-none">
+                                <option value="all">แสดงทุกหมวดหมู่</option>
+                            </select>
+                            <button onclick="toggleAddForm('form-add-vocab')" class="px-3.5 py-1.5 bg-pink-400 hover:bg-pink-500 text-white font-bold rounded-lg text-xs shadow-sm transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i> เพิ่มคำศัพท์ใหม่
+                            </button>
+                            <button onclick="fetchSheetVocabData()" class="px-3.5 py-1.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg text-xs shadow-sm transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrows-rotate"></i> ดึงข้อมูล
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Slide-Down Form: Add New Vocabulary -->
+                    <div id="form-add-vocab" class="hidden bg-pink-50/50 p-5 rounded-2xl border-2 border-dashed border-pink-200 mb-6 transition-all duration-300">
+                        <h4 class="text-lg font-bold text-pink-600 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-edit"></i> แบบฟอร์มเพิ่มคำศัพท์ทั่วไปลงคลังชีท
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำศัพท์อังกฤษ (English)</label>
+                                <input type="text" id="add-vocab-eng" placeholder="เช่น Apple, Elephant" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำอ่านไทย (Phonetic)</label>
+                                <input type="text" id="add-vocab-phon" placeholder="เช่น แอป-เปิ้ล, เอล-ละ-เฟินท์" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">คำแปลไทย (Thai)</label>
+                                <input type="text" id="add-vocab-thai" placeholder="เช่น แอปเปิ้ล, ช้าง" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">หมวดหมู่ (Category)</label>
+                                <input type="text" id="add-vocab-cat" placeholder="เช่น Fruits, Animals" class="w-full px-3 py-2 rounded-xl border border-pink-200 focus:border-pink-400 outline-none text-sm bg-white font-bold">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="toggleAddForm('form-add-vocab')" class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-bold rounded-lg transition-all">ยกเลิก</button>
+                            <button onclick="submitNewVocabulary()" class="px-4 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-lg shadow transition-all">บันทึกลง Google Sheet</button>
+                        </div>
+                    </div>
+
+                    <!-- Vocab Game Arena -->
+                    <div class="flex flex-col items-center justify-center py-4 gap-6">
+                        
+                        <!-- Vocab Flash Card -->
+                        <div id="vocab-card" class="w-full max-w-md bg-gradient-to-br from-green-100 to-emerald-100 border-4 border-green-400 rounded-3xl p-8 shadow-lg text-center relative overflow-hidden min-h-[220px] flex flex-col justify-center items-center">
+                            <!-- Background Decor -->
+                            <i class="fa-solid fa-graduation-cap absolute -right-6 -bottom-6 text-7xl text-green-300/30"></i>
+                            
+                            <div class="text-[12px] text-green-800 font-bold bg-green-200/60 px-3 py-1 rounded-full mb-3 flex items-center gap-1.5">
+                                <i class="fa-solid fa-volume-high text-green-600 cursor-pointer" onclick="speakCurrentText('vocab-eng-display', event)" title="ออกเสียงคำศัพท์"></i>
+                                <span id="vocab-cat-display">Category: -</span>
+                            </div>
+                            
+                            <!-- Large Word Display -->
+                            <div id="vocab-eng-display" class="text-5xl font-extrabold text-green-950 tracking-wide mb-2 hover:scale-105 transition cursor-pointer" onclick="speakCurrentText('vocab-eng-display')" title="คลิกเพื่อออกเสียงคำนี้">
+                                LOADING...
+                            </div>
+
+                            <!-- Phonetic Pronunciation -->
+                            <div id="vocab-phon-display" class="text-sm text-green-600/80 font-bold mb-4">
+                                [...]
+                            </div>
+
+                            <!-- Translated Thai Meaning -->
+                            <div id="vocab-thai-display" class="hidden text-3xl font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-6 py-2 rounded-2xl">
+                                แปลว่าอะไรนะ?
+                            </div>
+                        </div>
+
+                        <!-- Speech Info Tip -->
+                        <p class="text-[11px] text-gray-400 -mt-2"><i class="fa-solid fa-info-circle"></i> เคล็ดลับ: คุณสามารถเลือกฟิลเตอร์เพื่อสุ่มเฉพาะหมวดหมู่ที่คุณครูกำลังสอนได้ครับ!</p>
+
+                        <!-- Buttons & Interactive Actions -->
+                        <div class="w-full max-w-md flex flex-col gap-3">
+                            <button onclick="spinNextVocab()" class="w-full py-4 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 text-white font-bold text-xl rounded-2xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-shuffle"></i> สุ่มคำศัพท์ถัดไป
+                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="revealVocabAnswer()" class="flex-1 py-3 bg-pink-400 hover:bg-pink-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-eye"></i> แปลเป็นภาษาไทย
+                                </button>
+                                <button onclick="speakCurrentText('vocab-eng-display')" class="px-5 py-3 bg-blue-400 hover:bg-blue-500 text-white font-bold text-md rounded-xl shadow transition-all flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-volume-high"></i> ออกเสียงอังกฤษ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- JS LOGIC AREA -->
+    <script>
+        // ================= CONFIG & CONSTANTS =================
+        // ลิงก์ API Web App ของคุณครูที่ Deploy มาจาก Apps Script บน Canvas
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwgbnvEfdjwk4NFjvGXcKwZ5NiVTDy8eMfVxBWE-71XR1n84vGpXq4v7MQ7zl533scb/exec';
+        
+        // Backup Default Data in case Google Sheet connection is blocked or offline
+        const DEFAULT_MONTHS = [
+            { english: 'January', phonetic: 'แจน-ยู-แอ-รี', thai: 'มกราคม' },
+            { english: 'February', phonetic: 'เฟบ-รู-แอ-รี', thai: 'กุมภาพันธ์' },
+            { english: 'March', phonetic: 'มาร์ช', thai: 'มีนาคม' },
+            { english: 'April', phonetic: 'เอ-พริล', thai: 'เมษายน' },
+            { english: 'May', phonetic: 'เมย์', thai: 'พฤษภาคม' },
+            { english: 'June', phonetic: 'จูน', thai: 'มิถุนายน' },
+            { english: 'July', phonetic: 'จู-ลาย', thai: 'กรกฎาคม' },
+            { english: 'August', phonetic: 'ออ-กัสท์', thai: 'สิงหาคม' },
+            { english: 'September', phonetic: 'เซป-เทม-เบอร์', thai: 'กันยายน' },
+            { english: 'October', phonetic: 'ออค-โท-เบอร์', thai: 'ตุลาคม' },
+            { english: 'November', phonetic: 'โน-เวม-เบอร์', thai: 'พฤศจิกายน' },
+            { english: 'December', phonetic: 'ดี-เซม-เบอร์', thai: 'ธันวาคม' }
+        ];
+
+        const DEFAULT_VOCAB = [
+            { english: 'Apple', phonetic: 'แอป-เปิ้ล', thai: 'แอปเปิ้ล', category: 'Fruits' },
+            { english: 'Banana', phonetic: 'บะ-แนน-นะ', thai: 'กล้วย', category: 'Fruits' },
+            { english: 'Cat', phonetic: 'แคท', thai: 'แมว', category: 'Animals' },
+            { english: 'Dog', phonetic: 'ด็อก', thai: 'สุนัข', category: 'Animals' },
+            { english: 'Elephant', phonetic: 'เอล-ละ-เฟินท์', thai: 'ช้าง', category: 'Animals' },
+            { english: 'School', phonetic: 'สคูล', thai: 'โรงเรียน', category: 'Places' },
+            { english: 'Teacher', phonetic: 'ทีช-เชอร์', thai: 'คุณครู', category: 'People' },
+            { english: 'Student', phonetic: 'สตู-เดินท์', thai: 'นักเรียน', category: 'People' },
+            { english: 'Book', phonetic: 'บุค', thai: 'หนังสือ', category: 'Objects' },
+            { english: 'Pencil', phonetic: 'เพน-ซิล', thai: 'ดินสอ', category: 'Objects' }
+        ];
+
+        // Default list of students
+        const DEFAULT_STUDENTS = [
+            "เลขที่ 1 สมชาย",
+            "เลขที่ 2 สมหญิง",
+            "เลขที่ 3 วิชัย",
+            "เลขที่ 4 อรอนงค์",
+            "เลขที่ 5 ปิยะเดช"
+        ];
+
+        // ================= APPLICATION STATE =================
+        let students = [];
+        let monthsData = [];
+        let vocabData = [];
+        let filteredVocabData = [];
+        
+        // Active display states
+        let currentMult = { factor1: 0, factor2: 0, result: 0 };
+        let currentMonthObj = {};
+        let currentVocabObj = {};
+        let multScore = 0;
+
+        // Prevention & No-Repeat states
+        let pickedStudents = new Set();
+        let lastMult = { f1: null, f2: null };
+        let lastMonthText = null;
+        let lastVocabText = null;
+
+        // Wheel visual variables
+        let isSpinning = false;
+        let startAngle = 0;
+        let spinTime = 0;
+        let spinTimeTotal = 0;
+        let arc = 0;
+        let ctx;
+
+        // Global Toast notification helper
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000,
+            timerProgressBar: true
+        });
+
+        // ================= LIFECYCLE INITIALIZATION =================
+        window.onload = function() {
+            // Load local storage students, or defaults
+            loadStudentsData();
+            
+            // Set up canvas context
+            const canvas = document.getElementById('wheel-canvas');
+            if(canvas) ctx = canvas.getContext('2d');
+            
+            // Draw default blank or loaded wheel
+            drawWheel();
+
+            // Populate Months & Vocab datasets จาก Apps Script API
+            fetchSheetMonthsData();
+            fetchSheetVocabData();
+
+            // Setup default multiplication question on load
+            generateMultiplicationQuestion();
+        };
+
+        // ================= CUSTOM SIDEBAR NAVIGATION TABS =================
+        function toggleStudentTab(tab) {
+            const wheelBtn = document.getElementById('btn-tab-wheel');
+            const listBtn = document.getElementById('btn-tab-list');
+            const wheelArea = document.getElementById('student-wheel-area');
+            const listArea = document.getElementById('student-list-area');
+
+            if (tab === 'wheel') {
+                wheelBtn.className = "flex-1 py-1.5 bg-pink-400 text-white rounded-lg text-sm font-bold shadow-sm transition-all";
+                listBtn.className = "flex-1 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition-all";
+                wheelArea.classList.remove('hidden');
+                wheelArea.classList.add('flex');
+                listArea.classList.add('hidden');
+                drawWheel();
+            } else {
+                wheelBtn.className = "flex-1 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition-all";
+                listBtn.className = "flex-1 py-1.5 bg-pink-400 text-white rounded-lg text-sm font-bold shadow-sm transition-all";
+                wheelArea.classList.add('hidden');
+                wheelArea.classList.remove('flex');
+                listArea.classList.remove('hidden');
+                listArea.classList.add('flex');
+            }
+            playPopSound();
+        }
+
+        function switchActivityTab(tabName) {
+            const tabs = ['multiplication', 'months', 'vocab'];
+            tabs.forEach(t => {
+                const sec = document.getElementById(`activity-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (sec) sec.classList.add('hidden');
+                
+                if (btn) {
+                    btn.className = `px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 rounded-xl font-bold transition-all border border-gray-200 flex items-center gap-2`;
+                }
+            });
+
+            const activeSec = document.getElementById(`activity-${tabName}`);
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            if (activeSec) activeSec.classList.remove('hidden');
+            
+            if (activeBtn) {
+                if (tabName === 'multiplication') {
+                    activeBtn.className = "px-4 py-2 bg-yellow-400 text-white rounded-xl shadow-md font-bold transition-all flex items-center gap-2";
+                } else if (tabName === 'months') {
+                    activeBtn.className = "px-4 py-2 bg-blue-500 text-white rounded-xl shadow-md font-bold transition-all flex items-center gap-2";
+                } else if (tabName === 'vocab') {
+                    activeBtn.className = "px-4 py-2 bg-green-500 text-white rounded-xl shadow-md font-bold transition-all flex items-center gap-2";
+                }
+            }
+            playPopSound();
+        }
+
+        // ================= LOCAL STORAGE & STUDENTS LIST LOGIC =================
+        function loadStudentsData() {
+            const raw = localStorage.getItem('class_students');
+            if (raw) {
+                try {
+                    students = JSON.parse(raw);
+                } catch(e) {
+                    students = [...DEFAULT_STUDENTS];
+                }
+            } else {
+                students = [...DEFAULT_STUDENTS];
+                localStorage.setItem('class_students', JSON.stringify(students));
+            }
+            
+            // Sync with textarea and counter
+            const txtarea = document.getElementById('student-names-input');
+            if(txtarea) txtarea.value = students.join('\n');
+            updateStudentUI();
+        }
+
+        function saveStudentNames() {
+            const txtarea = document.getElementById('student-names-input');
+            const lines = txtarea.value.split('\n').map(l => l.trim()).filter(l => l !== "");
+            
+            if(lines.length === 0) {
+                Swal.fire({
+                    title: 'คำเตือน',
+                    text: 'กรุณากรอกรายชื่อนักเรียนอย่างน้อย 1 คนด้วยครับ',
+                    icon: 'warning',
+                    confirmButtonColor: '#ec4899'
+                });
+                return;
+            }
+
+            students = lines;
+            localStorage.setItem('class_students', JSON.stringify(students));
+            updateStudentUI();
+            drawWheel();
+
+            Toast.fire({
+                icon: 'success',
+                title: 'บันทึกรายชื่อนักเรียนสำเร็จ'
+            });
+            playPopSound();
+            toggleStudentTab('wheel');
+        }
+
+        function clearStudentNames() {
+            Swal.fire({
+                title: 'ยืนยันการล้างรายชื่อ?',
+                text: "รายชื่อนักเรียนและเลขที่ทั้งหมดในเครื่องจะถูกลบออก",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'ล้างข้อมูลเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    students = [];
+                    localStorage.removeItem('class_students');
+                    const txtarea = document.getElementById('student-names-input');
+                    if(txtarea) txtarea.value = '';
+                    updateStudentUI();
+                    drawWheel();
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'ล้างรายชื่อนักเรียนแล้ว'
+                    });
+                }
+            });
+        }
+
+        function updateStudentUI() {
+            const countBadge = document.getElementById('student-count-badge');
+            if(countBadge) countBadge.innerText = students.length;
+
+            const listContainer = document.getElementById('preview-list-container');
+            if(listContainer) {
+                listContainer.innerHTML = '';
+                students.forEach((name, idx) => {
+                    listContainer.innerHTML += `
+                        <li class="flex items-center justify-between bg-white border border-pink-100 rounded-md p-1 px-2">
+                            <span>No. ${idx + 1} - ${name}</span>
+                            <span class="text-green-500 font-bold"><i class="fa-solid fa-circle-check text-[10px]"></i> Active</span>
+                        </li>
+                    `;
+                });
+            }
+            
+            // เคลียร์ประวัติการสุ่มทุกครั้งที่รายชื่อมีการอัปเดต
+            pickedStudents.clear();
+            updateRemainingUI();
+        }
+
+        function handleNoRepeatChange() {
+            pickedStudents.clear();
+            updateRemainingUI();
+        }
+
+        function updateRemainingUI() {
+            const chk = document.getElementById('chk-no-repeat');
+            const badge = document.getElementById('remaining-count-badge');
+            if (chk && chk.checked) {
+                badge.classList.remove('hidden');
+                badge.innerText = `เหลือ: ${students.length - pickedStudents.size} คน`;
+            } else if (badge) {
+                badge.classList.add('hidden');
+            }
+        }
+
+
+        // ================= WHEEL SPINNING ENGINE (HTML5 CANVAS) =================
+        function byte2Hex(n) {
+            const nybHexString = "0123456789ABCDEF";
+            return String(nybHexString.substr((n >> 4) & 0x0F,1)) + nybHexString.substr(n & 0x0F,1);
+        }
+
+        function RGB2Color(r,g,b) {
+            return '#' + byte2Hex(r) + byte2Hex(g) + byte2Hex(b);
+        }
+
+        function getColor(item, maxitem) {
+            const phase = 0;
+            const center = 210;
+            const width = 45;
+            const frequency = Math.PI*2/maxitem;
+            
+            const red   = Math.sin(frequency*item+2+phase) * width + center;
+            const green = Math.sin(frequency*item+0+phase) * width + center;
+            const blue  = Math.sin(frequency*item+4+phase) * width + center;
+            
+            return RGB2Color(red,green,blue);
+        }
+
+        function drawWheel() {
+            if(!ctx) return;
+            const canvas = document.getElementById('wheel-canvas');
+            const width = canvas.width;
+            const height = canvas.height;
+            const r = width / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if(students.length === 0) {
+                ctx.fillStyle = '#f3f4f6';
+                ctx.beginPath();
+                ctx.arc(r, r, r - 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#d1d5db';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.fillStyle = '#9ca3af';
+                ctx.font = "bold 24px Itim";
+                ctx.textAlign = "center";
+                ctx.fillText("ยังไม่มีรายชื่อนักเรียน", r, r + 5);
+                return;
+            }
+
+            arc = Math.PI / (students.length / 2);
+            
+            students.forEach((name, idx) => {
+                const angle = startAngle + idx * arc;
+                ctx.fillStyle = getColor(idx, students.length);
+
+                ctx.beginPath();
+                ctx.arc(r, r, r - 10, angle, angle + arc, false);
+                ctx.lineTo(r, r);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.fillStyle = '#5c2d1e'; 
+                ctx.font = students.length > 20 ? "bold 13px Itim" : "bold 16px Itim";
+                
+                // หมุนตัวอักษรให้อ่านง่ายแนวตั้ง 90 องศา (แนวรัศมีพุ่งออกจากจุดศูนย์กลาง)
+                ctx.translate(r, r);
+                ctx.rotate(angle + arc / 2);
+                
+                let displayName = name;
+                if(displayName.length > 15) displayName = displayName.substring(0, 14) + '..';
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillText(displayName, r - 30, 0);
+                ctx.restore();
+            });
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+            if (students.length === 0) {
+                Swal.fire('เอ๊ะ!', 'กรุณาใส่รายชื่อนักเรียนที่ฝั่งขวาเมนูตัวจัดการก่อนนะครับ', 'info');
+                return;
+            }
+
+            isSpinning = true;
+            document.getElementById('current-lucky-status').innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> สุ่มอยู่...`;
+            
+            // --- ลอจิกการสุ่มแบบใหม่ (หาตัวผู้ชนะก่อนเพื่อรองรับระบบสุ่มไม่ซ้ำ) ---
+            let available = students;
+            const chkNoRepeat = document.getElementById('chk-no-repeat');
+            
+            if (chkNoRepeat && chkNoRepeat.checked) {
+                available = students.filter(s => !pickedStudents.has(s));
+                if (available.length === 0) {
+                    pickedStudents.clear();
+                    available = students; // รีเซ็ตกลับมาเต็ม
+                    Toast.fire({ icon: 'info', title: 'รอบใหม่! เริ่มสุ่มรายชื่อทุกคนอีกครั้ง' });
+                }
+            }
+
+            // เลือกเป้าหมายล่วงหน้า
+            const targetWinner = available[Math.floor(Math.random() * available.length)];
+            const winnerIndex = students.indexOf(targetWinner);
+            
+            if (chkNoRepeat && chkNoRepeat.checked) {
+                pickedStudents.add(targetWinner);
+                updateRemainingUI();
+            }
+
+            // --- คำนวณองศาเพื่อหมุนให้วงล้อไปหยุดที่ targetWinner พอดี ---
+            const N = students.length;
+            const arcDeg = 360 / N;
+            
+            // สุ่มองศาให้อยู่ในพื้นที่ของช่องเป้าหมาย (บวกลบ 35% ของขนาดช่อง เพื่อไม่ให้เข็มชี้ตรงกลางเป๊ะทุกครั้ง)
+            const randomOffset = (Math.random() * 0.7 - 0.35) * arcDeg;
+            const midAngleDeg = (winnerIndex + 0.5) * arcDeg + randomOffset;
+            
+            // คำนวณองศาที่ต้องหมุนเพิ่มเพื่อให้จุดเป้าหมายวิ่งไปอยู่ที่ตำแหน่ง 270 องศา (เข็มชี้ลงด้านบนสุด)
+            const baseTargetR = (270 - midAngleDeg + 360) % 360;
+            
+            const canvas = document.getElementById('wheel-canvas');
+            const currentRotationAngle = parseFloat(canvas.dataset.currentRotation || '0');
+            const currentRotationMod = currentRotationAngle % 360;
+            
+            let diff = baseTargetR - currentRotationMod;
+            if (diff < 0) diff += 360;
+            
+            // หมุนหลอกตา 5-7 รอบ แล้วบวกด้วยเศษที่ต้องหมุนจริงเพื่อไปหยุดช่องเป้าหมาย
+            const fullSpins = 5 + Math.floor(Math.random() * 3);
+            const spinAmount = (360 * fullSpins) + diff;
+            const spinDuration = 3000 + (fullSpins * 200);
+            
+            const nextRotationAngle = currentRotationAngle + spinAmount;
+
+            canvas.style.transition = `transform ${spinDuration}ms cubic-bezier(0.1, 0.8, 0.2, 1)`;
+            canvas.style.transform = `rotate(${nextRotationAngle}deg)`;
+            canvas.dataset.currentRotation = nextRotationAngle;
+
+            let audioInterval = setInterval(() => {
+                playTickSound();
+            }, 120);
+
+            setTimeout(() => {
+                clearInterval(audioInterval);
+                isSpinning = false;
+                
+                announceLuckyWinner(targetWinner);
+                document.getElementById('current-lucky-status').innerHTML = `<i class="fa-solid fa-check"></i> พบผู้โชคดี!`;
+            }, spinDuration);
+        }
+
+        function announceLuckyWinner(name) {
+            playLuckySound();
+            Swal.fire({
+                title: '🎉 ขอแสดงความยินดีด้วยครับ! 🎉',
+                html: `<div class="font-itim text-2xl text-pink-600 mt-2">ผู้โชคดีรับคำตอบข้อนี้คือ:<br><strong class="text-4xl text-indigo-700 block mt-3 animate-pulse-slow">✨ ${name} ✨</strong></div>`,
+                imageUrl: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f389.svg',
+                imageWidth: 80,
+                imageHeight: 80,
+                confirmButtonColor: '#ec4899',
+                confirmButtonText: 'รับรางวัลความเก่ง 🌟',
+                customClass: {
+                    popup: 'rounded-3xl border-4 border-yellow-300'
+                }
+            });
+        }
+
+        function triggerQuickRandom() {
+            if(students.length === 0) {
+                return Swal.fire('ข้อมูลว่างเปล่า', 'กรุณาใส่ชื่อนักเรียนเพื่อสุ่มก่อนครับ', 'warning');
+            }
+            playPopSound();
+            
+            let available = students;
+            const chkNoRepeat = document.getElementById('chk-no-repeat');
+            
+            if (chkNoRepeat && chkNoRepeat.checked) {
+                available = students.filter(s => !pickedStudents.has(s));
+                if (available.length === 0) {
+                    pickedStudents.clear();
+                    available = students;
+                    Toast.fire({ icon: 'info', title: 'รอบใหม่! เริ่มสุ่มรายชื่อทุกคนอีกครั้ง' });
+                }
+            }
+
+            const targetWinner = available[Math.floor(Math.random() * available.length)];
+            
+            if (chkNoRepeat && chkNoRepeat.checked) {
+                pickedStudents.add(targetWinner);
+                updateRemainingUI();
+            }
+            
+            announceLuckyWinner(targetWinner);
+        }
+
+
+        // ================= SHEET DATA FETCH & SUBMIT ENGINE =================
+        function toggleAddForm(formId) {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.classList.toggle('hidden');
+                playPopSound();
+            }
+        }
+
+        // --- Tab 2: MONTHS SHEET ---
+        function fetchSheetMonthsData() {
+            const fetchUrl = `${API_URL}?sheet=Months`;
+
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(resObj => {
+                    if (resObj && resObj.status === "success" && resObj.data && resObj.data.length > 0) {
+                        monthsData = resObj.data.map(item => {
+                            return {
+                                english: item.english || item.word || item.month || item.col_0 || '',
+                                phonetic: item.phonetic || item.pronunciation || item.col_1 || '',
+                                thai: item.thai || item.translation || item.meaning || item.col_2 || ''
+                            };
+                        }).filter(item => item.english && item.english !== 'english' && item.english !== 'Month');
+                        
+                        console.log("Successfully loaded months from Apps Script:", monthsData);
+                        Toast.fire({ icon: 'success', title: 'ดึงข้อมูลเดือนจาก Google Sheet สำเร็จ!' });
+                    } else {
+                        useDefaultMonthsData("ข้อมูลที่ดึงมาว่างเปล่าหรือไม่สมบูรณ์");
+                    }
+                    spinNextMonth();
+                })
+                .catch(err => {
+                    console.warn("Unable to connect Apps Script Web App for Months, using default list.", err);
+                    useDefaultMonthsData(err);
+                    spinNextMonth();
+                });
+        }
+
+        function useDefaultMonthsData(reason) {
+            monthsData = [...DEFAULT_MONTHS];
+            console.log("Using default fallback Month database. Reason: ", reason);
+        }
+
+        function spinNextMonth() {
+            if(monthsData.length === 0) return;
+            playPopSound();
+            
+            let randIdx;
+            let loopGuard = 0;
+            
+            // สุ่มไปเรื่อยๆ จนกว่าจะได้เดือนที่ไม่ซ้ำกับรอบที่แล้ว
+            do {
+                randIdx = Math.floor(Math.random() * monthsData.length);
+                loopGuard++;
+            } while (monthsData.length > 1 && loopGuard < 20 && monthsData[randIdx].english === lastMonthText);
+            
+            currentMonthObj = monthsData[randIdx];
+            lastMonthText = currentMonthObj.english;
+
+            // อัปเดตข้อมูลการแสดงผล
+            document.getElementById('month-eng-display').innerText = currentMonthObj.english;
+            document.getElementById('month-phon-display').innerText = currentMonthObj.phonetic ? `[ ${currentMonthObj.phonetic} ]` : '';
+            
+            // ซ่อนคำแปลไว้ก่อนเริ่มสุ่มรอบใหม่
+            const transBox = document.getElementById('month-thai-display');
+            transBox.classList.add('hidden');
+            transBox.innerText = currentMonthObj.thai;
+        }
+
+        function revealMonthAnswer() {
+            const transBox = document.getElementById('month-thai-display');
+            transBox.classList.remove('hidden');
+            playLuckySound();
+        }
+
+        // ฟังก์ชันส่งคำศัพท์เดือนใหม่ขึ้น Google Sheet (POST)
+        function submitNewMonth() {
+            const english = document.getElementById('add-month-eng').value.trim();
+            const phonetic = document.getElementById('add-month-phon').value.trim();
+            const thai = document.getElementById('add-month-thai').value.trim();
+
+            if (!english || !thai) {
+                Swal.fire('กรอกข้อมูลไม่ครบ', 'กรุณากรอกคำศัพท์อังกฤษและคำแปลไทยให้ครบถ้วนด้วยนะครับ', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'กำลังส่งข้อมูล...',
+                text: 'กำลังบันทึกคำศัพท์ลง Google Sheet กรุณารอสักครู่ครับ...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const payload = {
+                sheet: "Months",
+                data: {
+                    english: english,
+                    phonetic: phonetic,
+                    thai: thai
+                }
+            };
+
+            // ใช้ 'text/plain' เพื่อเลี่ยง Preflight CORS ของเบราว์เซอร์ โดยไม่ต้องใช้ no-cors
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                }
+            })
+            .then(res => res.json())
+            .then(resObj => {
+                Swal.close();
+                if(resObj.status === "success") {
+                    Swal.fire({
+                        title: 'บันทึกสำเร็จ!',
+                        text: 'ระบบได้ส่งข้อมูลคำศัพท์เดือนใหม่ลง Google Sheet เรียบร้อยแล้วครับ 🎉',
+                        icon: 'success',
+                        confirmButtonColor: '#ec4899'
+                    });
+                    
+                    document.getElementById('add-month-eng').value = '';
+                    document.getElementById('add-month-phon').value = '';
+                    document.getElementById('add-month-thai').value = '';
+                    document.getElementById('form-add-month').classList.add('hidden');
+                    
+                    setTimeout(fetchSheetMonthsData, 1000);
+                } else {
+                    Swal.fire('เกิดข้อผิดพลาด', resObj.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('ระบบเชื่อมต่อขัดข้อง', 'โปรดตรวจสอบ URL ของ Apps Script อีกครั้ง: ' + err, 'error');
+            });
+        }
+
+
+        // --- Tab 3: VOCABULARY SHEET ---
+        function fetchSheetVocabData() {
+            const fetchUrl = `${API_URL}?sheet=Vocabulary`;
+
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(resObj => {
+                    if (resObj && resObj.status === "success" && resObj.data && resObj.data.length > 0) {
+                        vocabData = resObj.data.map(item => {
+                            return {
+                                english: item.english || item.word || item.col_0 || '',
+                                phonetic: item.phonetic || item.pronunciation || item.col_1 || '',
+                                thai: item.thai || item.translation || item.meaning || item.col_2 || '',
+                                category: item.category || item.group || item.col_3 || 'General'
+                            };
+                        }).filter(item => item.english && item.english !== 'english' && item.english !== 'Word');
+                        
+                        console.log("Successfully loaded vocabulary from Apps Script:", vocabData);
+                        Toast.fire({ icon: 'success', title: 'ดึงข้อมูลคำศัพท์จาก Google Sheet สำเร็จ!' });
+                    } else {
+                        useDefaultVocabData("ข้อมูลที่ดึงมาว่างเปล่าหรือไม่ถูกต้อง");
+                    }
+                    buildCategorySelector();
+                    spinNextVocab();
+                })
+                .catch(err => {
+                    console.warn("Unable to connect Web App for Vocabulary, using fallback backup lists.", err);
+                    useDefaultVocabData(err);
+                    buildCategorySelector();
+                    spinNextVocab();
+                });
+        }
+
+        function useDefaultVocabData(reason) {
+            vocabData = [...DEFAULT_VOCAB];
+            console.log("Using default fallback Vocabulary database.");
+        }
+
+        function buildCategorySelector() {
+            const selector = document.getElementById('vocab-category-select');
+            if(!selector) return;
+
+            const categories = ['all', ...new Set(vocabData.map(v => v.category).filter(c => c && c.trim() !== ''))];
+            
+            selector.innerHTML = '';
+            categories.forEach(cat => {
+                const label = cat === 'all' ? 'แสดงทุกหมวดหมู่' : cat;
+                selector.innerHTML += `<option value="${cat}">${label}</option>`;
+            });
+            filterVocabByCategory();
+        }
+
+        function filterVocabByCategory() {
+            const selector = document.getElementById('vocab-category-select');
+            const chosenCat = selector ? selector.value : 'all';
+
+            if (chosenCat === 'all') {
+                filteredVocabData = [...vocabData];
+            } else {
+                filteredVocabData = vocabData.filter(v => v.category === chosenCat);
+            }
+        }
+
+        function spinNextVocab() {
+            if(filteredVocabData.length === 0) {
+                Swal.fire('เอ๊ะ!', 'ไม่มีคำศัพท์ที่ตรงกับหมวดหมู่ที่คุณเลือกครับ', 'info');
+                return;
+            }
+            playPopSound();
+
+            let randIdx;
+            let loopGuard = 0;
+            
+            // สุ่มไปเรื่อยๆ จนกว่าจะได้คำศัพท์ที่ไม่ซ้ำกับรอบที่แล้ว
+            do {
+                randIdx = Math.floor(Math.random() * filteredVocabData.length);
+                loopGuard++;
+            } while (filteredVocabData.length > 1 && loopGuard < 20 && filteredVocabData[randIdx].english === lastVocabText);
+            
+            currentVocabObj = filteredVocabData[randIdx];
+            lastVocabText = currentVocabObj.english;
+
+            // แสดงคำศัพท์และรายละเอียด
+            document.getElementById('vocab-eng-display').innerText = currentVocabObj.english;
+            document.getElementById('vocab-phon-display').innerText = currentVocabObj.phonetic ? `[ ${currentVocabObj.phonetic} ]` : '';
+            document.getElementById('vocab-cat-display').innerText = `Category: ${currentVocabObj.category || 'ทั่วไป'}`;
+
+            // ซ่อนคำแปล
+            const transBox = document.getElementById('vocab-thai-display');
+            transBox.classList.add('hidden');
+            transBox.innerText = currentVocabObj.thai;
+        }
+
+        function revealVocabAnswer() {
+            const transBox = document.getElementById('vocab-thai-display');
+            transBox.classList.remove('hidden');
+            playLuckySound();
+        }
+
+        // ฟังก์ชันส่งคำศัพท์ทั่วไปใหม่ขึ้น Google Sheet (POST)
+        function submitNewVocabulary() {
+            const english = document.getElementById('add-vocab-eng').value.trim();
+            const phonetic = document.getElementById('add-vocab-phon').value.trim();
+            const thai = document.getElementById('add-vocab-thai').value.trim();
+            const category = document.getElementById('add-vocab-cat').value.trim() || "General";
+
+            if (!english || !thai) {
+                Swal.fire('กรอกข้อมูลไม่ครบ', 'กรุณากรอกคำศัพท์อังกฤษและคำแปลไทยให้ครบถ้วนด้วยนะครับ', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'กำลังส่งข้อมูล...',
+                text: 'กำลังบันทึกคำศัพท์ลง Google Sheet กรุณารอสักครู่ครับ...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const payload = {
+                sheet: "Vocabulary",
+                data: {
+                    english: english,
+                    phonetic: phonetic,
+                    thai: thai,
+                    category: category
+                }
+            };
+
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                }
+            })
+            .then(res => res.json())
+            .then(resObj => {
+                Swal.close();
+                if(resObj.status === "success") {
+                    Swal.fire({
+                        title: 'บันทึกสำเร็จ!',
+                        text: 'บันทึกคำศัพท์ใหม่ลง Google Sheet เรียบร้อยแล้วครับ 🎉',
+                        icon: 'success',
+                        confirmButtonColor: '#ec4899'
+                    });
+                    
+                    document.getElementById('add-vocab-eng').value = '';
+                    document.getElementById('add-vocab-phon').value = '';
+                    document.getElementById('add-vocab-thai').value = '';
+                    document.getElementById('add-vocab-cat').value = '';
+                    document.getElementById('form-add-vocab').classList.add('hidden');
+                    
+                    setTimeout(fetchSheetVocabData, 1000);
+                } else {
+                    Swal.fire('เกิดข้อผิดพลาด', resObj.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+                }
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire('ระบบเชื่อมต่อขัดข้อง', 'โปรดตรวจสอบ URL ของ Apps Script อีกครั้ง: ' + err, 'error');
+            });
+        }
+
+
+        // ================= MATH MULTIPLICATION LOGIC =================
+        function generateMultiplicationQuestion() {
+            const minSel = document.getElementById('mult-min-table');
+            const maxSel = document.getElementById('mult-max-table');
+            
+            const minTable = parseInt(minSel.value);
+            const maxTable = parseInt(maxSel.value);
+
+            if (minTable > maxTable) {
+                Swal.fire({
+                    title: 'ข้อผิดพลาด',
+                    text: 'สูตรคูณแม่เริ่มต้นต้องไม่มากกว่าแม่สิ้นสุดนะครับ',
+                    icon: 'error',
+                    confirmButtonColor: '#fbbf24'
+                });
+                return;
+            }
+
+            // สุ่มหาตัวตั้งและตัวคูณ โดยมีระบบป้องกันโจทย์ซ้ำเดิมติดต่อกัน
+            let factor1, factor2;
+            let loopGuard = 0;
+            
+            do {
+                factor1 = Math.floor(Math.random() * (maxTable - minTable + 1)) + minTable;
+                factor2 = Math.floor(Math.random() * 11) + 2; // ตัวคูณตั้งแต่แม่ 2 ถึง 12
+                loopGuard++;
+            } while (loopGuard < 20 && factor1 === lastMult.f1 && factor2 === lastMult.f2);
+
+            lastMult = { f1: factor1, f2: factor2 };
+
+            currentMult = {
+                factor1: factor1,
+                factor2: factor2,
+                result: factor1 * factor2
+            };
+
+            // อัปเดตข้อมูลการแสดงผล
+            document.getElementById('mult-subtitle').innerText = `หมวดคำถาม: สูตรคูณแม่ ${factor1}`;
+            document.getElementById('mult-question-text').innerText = `${factor1} × ${factor2}`;
+            
+            const revealContainer = document.getElementById('mult-answer-reveal');
+            revealContainer.classList.add('hidden');
+            revealContainer.innerText = `= ${currentMult.result}`;
+            
+            playPopSound();
+        }
+
+        function revealMultAnswer() {
+            const revealContainer = document.getElementById('mult-answer-reveal');
+            revealContainer.classList.remove('hidden');
+            playLuckySound();
+        }
+
+        function handleCorrectScore() {
+            multScore++;
+            document.getElementById('mult-score').innerText = multScore;
+            
+            Toast.fire({
+                icon: 'success',
+                title: 'บวกคะแนนความถูกต้องสะสมแล้ว +1!'
+            });
+            playWinSound();
+        }
+
+
+        // ================= INTERACTIVE SOUNDS (HTML5 WEB AUDIO API) =================
+        function playPopSound() {
+            try {
+                const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, ctxAudio.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(700, ctxAudio.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.15, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.1);
+                
+                osc.start(ctxAudio.currentTime);
+                osc.stop(ctxAudio.currentTime + 0.1);
+            } catch(e) {}
+        }
+
+        function playTickSound() {
+            try {
+                const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, ctxAudio.currentTime);
+                
+                gain.gain.setValueAtTime(0.05, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.05);
+                
+                osc.start(ctxAudio.currentTime);
+                osc.stop(ctxAudio.currentTime + 0.05);
+            } catch(e) {}
+        }
+
+        function playLuckySound() {
+            try {
+                const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, ctxAudio.currentTime);
+                osc.frequency.setValueAtTime(659, ctxAudio.currentTime + 0.1);
+                osc.frequency.setValueAtTime(783, ctxAudio.currentTime + 0.2);
+                
+                gain.gain.setValueAtTime(0.2, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.35);
+                
+                osc.start(ctxAudio.currentTime);
+                osc.stop(ctxAudio.currentTime + 0.35);
+            } catch(e) {}
+        }
+
+        function playWinSound() {
+            try {
+                const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctxAudio.createOscillator();
+                const gain = ctxAudio.createGain();
+                osc.connect(gain);
+                gain.connect(ctxAudio.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(659, ctxAudio.currentTime);
+                osc.frequency.setValueAtTime(880, ctxAudio.currentTime + 0.1);
+                osc.frequency.setValueAtTime(1046, ctxAudio.currentTime + 0.2);
+                
+                gain.gain.setValueAtTime(0.25, ctxAudio.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.4);
+                
+                osc.start(ctxAudio.currentTime);
+                osc.stop(ctxAudio.currentTime + 0.4);
+            } catch(e) {}
+        }
+
+
+        // ================= ENGLISH SPEECH (TEXT TO SPEECH API) =================
+        function speakCurrentText(elementId, event) {
+            if(event) event.stopPropagation(); // หลีกเลี่ยงการคลิกไปโดนกล่องคำแปล
+            
+            const textToSpeak = document.getElementById(elementId).innerText;
+            if (!textToSpeak || textToSpeak.includes('LOADING')) return;
+
+            if ('speechSynthesis' in window) {
+                // หยุดเสียงที่พูดค้างไว้ก่อนหน้า
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.lang = 'en-US';
+                
+                const voices = window.speechSynthesis.getVoices();
+                const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural')));
+                if(preferredVoice) utterance.voice = preferredVoice;
+
+                utterance.rate = 0.85; // ปรับช้าลงนิดหน่อยเพื่อให้เด็กๆ ฟังง่ายขึ้น
+                utterance.pitch = 1.05;
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn("Speech Synthesis NOT supported in this browser.");
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {};
+        }
+
+    </script>
+</body>
+</html>
