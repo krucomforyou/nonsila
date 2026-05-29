@@ -182,6 +182,11 @@
         #app-container { display: none; } /* ซ่อนแอปไว้ก่อนล็อกอิน */
         #print-all-container { display: none; } /* ซ่อนส่วนพิมพ์ทั้งหมด */
 
+        /* คลาสสำหรับการย่อตัวหนังสืออัตโนมัติแบบป้องกันการพัง */
+        .subject-name-text {
+            transition: font-size 0.2s ease-out;
+        }
+
         @media print {
             @page {
                 /* ปิดการล็อค size เพื่อให้เมนู Scale ของเบราว์เซอร์กลับมาทำงาน */
@@ -615,8 +620,7 @@
                                     <tr class="bg-blue-50 text-blue-700">
                                         <th class="p-4 w-20 text-center font-bold">ลำดับ</th>
                                         <th class="p-4 font-bold">ชื่อ-นามสกุลคุณครู</th>
-                                        <th class="p-4 text-center w-28 font-bold">แก้ไข</th>
-                                        <th class="p-4 text-center w-28 font-bold">ลบ</th>
+                                        <th class="p-4 text-center w-32 font-bold">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="teacher-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -658,8 +662,7 @@
                                         <th class="p-4 w-20 text-center font-bold">ลำดับ</th>
                                         <th class="p-4 font-bold">ชื่อเต็มห้องเรียน</th>
                                         <th class="p-4 font-bold w-32">ชื่อย่อ</th>
-                                        <th class="p-4 text-center w-28 font-bold">แก้ไข</th>
-                                        <th class="p-4 text-center w-28 font-bold">ลบ</th>
+                                        <th class="p-4 text-center w-32 font-bold">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="classroom-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -744,8 +747,7 @@
                                         <th class="p-4 font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('code')">รหัสวิชา <i id="sort-icon-code" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
                                         <th class="p-4 font-bold text-center cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('rooms')">ห้องเรียนที่สอน <i id="sort-icon-rooms" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
                                         <th class="p-4 text-center font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('hours')">คาบ/สัปดาห์ <i id="sort-icon-hours" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
-                                        <th class="p-4 text-center font-bold w-24">แก้ไข</th>
-                                        <th class="p-4 text-center font-bold w-24">ลบ</th>
+                                        <th class="p-4 text-center font-bold w-32">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="subject-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -787,8 +789,7 @@
                                         <th class="p-4 w-24 font-bold">ประเภท</th>
                                         <th class="p-4 font-bold">ชื่อคาบ</th>
                                         <th class="p-4 font-bold">เวลา</th>
-                                        <th class="p-4 text-center w-24 font-bold">แก้ไข</th>
-                                        <th class="p-4 text-center w-24 font-bold">ลบ</th>
+                                        <th class="p-4 text-center w-32 font-bold">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="period-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -848,8 +849,7 @@
                                     <tr class="bg-purple-50 text-purple-700">
                                         <th class="p-4 font-bold">วันและคาบเวลา</th>
                                         <th class="p-4 font-bold">ชื่อกิจกรรมประจำคาบที่ล็อคไว้</th>
-                                        <th class="p-4 text-center w-24 font-bold">แก้ไข</th>
-                                        <th class="p-4 text-center w-24 font-bold">ลบ</th>
+                                        <th class="p-4 text-center w-32 font-bold">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="activity-list-tbody" class="divide-y divide-gray-100 bg-white">
@@ -892,6 +892,59 @@
         let dragSource = { type: null, subjectId: null, classroomId: null, subjectObj: null, sourceCellKey: null };
         let historyStack = [];
         let historyIndex = -1;
+
+        // ================= AUTO RESIZE TEXT =================
+        // ฟังก์ชันนี้จะถูกเรียกเพื่อให้ชื่อวิชาย่อขนาดตัวเองลงให้พอดีกับกรอบ
+        function autoResizeText() {
+            const elements = document.querySelectorAll('.subject-name-text');
+            elements.forEach(el => {
+                // รีเซ็ตค่าเพื่อเตรียมคำนวณใหม่
+                el.style.fontSize = ''; 
+                el.style.whiteSpace = 'nowrap';
+                el.style.wordBreak = 'normal';
+                el.style.lineHeight = 'normal';
+                
+                // เปลี่ยนเป็น inline-block ชั่วคราวเพื่อวัดขนาดความกว้างจริงของข้อความ
+                el.style.width = 'auto';
+                el.style.display = 'inline-block';
+                
+                const parent = el.parentElement;
+                const paddingOffset = 6; // ลดพื้นที่ขอบลงเล็กน้อยเพื่อให้มีพื้นที่แสดงผลมากขึ้น
+                const maxWidth = parent.clientWidth - paddingOffset;
+                
+                if (maxWidth <= 0) {
+                    el.style.width = '100%';
+                    el.style.display = 'block';
+                    return; 
+                }
+
+                let currentFontSizeStyle = window.getComputedStyle(el, null).getPropertyValue('font-size');
+                let fontSize = parseFloat(currentFontSizeStyle) || 16; 
+                
+                // 💡 แก้ไข: เพิ่มขนาดฟอนต์ขั้นต่ำจาก 10px เป็น 13px เพื่อป้องกันไม่ให้ตัวหนังสือเล็กเกินไปจนอ่านไม่ออก
+                const minFontSize = 13; 
+                
+                // ย่อขนาดฟอนต์ลงทีละ 0.5px จนกว่าจะพอดี หรือจนกว่าจะถึงขนาดขั้นต่ำ (13px)
+                while (el.scrollWidth > maxWidth && fontSize > minFontSize) {
+                    fontSize -= 0.5;
+                    el.style.fontSize = fontSize + 'px';
+                }
+                
+                // 💡 ถ้าลดขนาดฟอนต์จนถึงขั้นต่ำแล้ว (13px) ความกว้างยังคงเกินอยู่ ให้เปลี่ยนไปใช้วิธีขึ้นบรรทัดใหม่แทนการบีบฟอนต์
+                if (el.scrollWidth > maxWidth) {
+                    el.style.whiteSpace = 'normal';
+                    el.style.wordBreak = 'break-word';
+                    el.style.lineHeight = '1.15'; // จัดบรรทัดให้ชิดขึ้น
+                }
+                
+                // คืนค่า display ให้กลับเป็น block กว้าง 100% เพื่อให้แสดงผลจัดกึ่งกลางสวยงามเหมือนเดิม
+                el.style.width = '100%';
+                el.style.display = 'block';
+            });
+        }
+        
+        // ผูก Event ให้ทำงานเวลามีการย่อ/ขยายหน้าต่างเบราว์เซอร์ด้วย
+        window.addEventListener('resize', () => setTimeout(autoResizeText, 50));
 
         // ================= INITIALIZATION & CLOUD FETCH =================
         window.onload = () => {
@@ -1192,6 +1245,9 @@
                 loadStudentTimetable();
             } else if (tabId === 'master-timetable-tab') {
                 renderMasterGrid();
+            } else if (tabId === 'timetable-tab') {
+                // เรียกให้ตัวหนังสือย่อขนาดเมื่อเปลี่ยนกลับมาดูหน้าหลัก
+                setTimeout(autoResizeText, 10);
             }
         }
 
@@ -1285,14 +1341,14 @@
                         <td class="p-4 font-bold text-gray-800 text-base">${c.fullName}</td>
                         <td class="p-4 font-bold text-teal-600 text-base">${c.shortName}</td>
                         <td class="p-4 text-center">
-                            <button onclick="editClassroom(${c.id})" class="text-teal-500 hover:text-teal-700 transition p-2.5 rounded-full hover:bg-teal-50" title="แก้ไข">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </button>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
-                                <i class="fa-solid fa-trash text-lg"></i>
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="editClassroom(${c.id})" class="text-teal-500 hover:text-teal-700 transition p-2 rounded-full hover:bg-teal-50" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                                </button>
+                                <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
+                                    <i class="fa-solid fa-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1416,14 +1472,14 @@
                         <td class="p-3 font-bold text-gray-800">${p.name}</td>
                         <td class="p-3 text-gray-600">${p.time}</td>
                         <td class="p-3 text-center">
-                            <button onclick="editPeriod('${p.id}')" class="text-blue-400 hover:text-blue-600 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                        </td>
-                        <td class="p-3 text-center">
-                            <button onclick="deletePeriod('${p.id}')" class="text-red-400 hover:text-red-600 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="editPeriod('${p.id}')" class="text-blue-400 hover:text-blue-600 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                                </button>
+                                <button onclick="deletePeriod('${p.id}')" class="text-red-400 hover:text-red-600 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
+                                    <i class="fa-solid fa-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1647,15 +1703,15 @@
                         <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
                         <td class="p-4 text-center">
-                            <!-- ส่วนการแก้ไขและลบ ยังคงอ้างอิง t.id ตามเดิมให้ระบบเบื้องหลังทำงานได้ -->
-                            <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2.5 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </button>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
-                                <i class="fa-solid fa-trash text-lg"></i>
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <!-- ส่วนการแก้ไขและลบ ยังคงอ้างอิง t.id ตามเดิมให้ระบบเบื้องหลังทำงานได้ -->
+                                <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                                </button>
+                                <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
+                                    <i class="fa-solid fa-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1715,6 +1771,11 @@
             const subject = subjects.find(s => s.id == id);
             if (!subject) return;
 
+            const teacherOptionsHTML = teachers.map(t => {
+                const isSelected = subject.teacherId == t.id ? 'selected' : '';
+                return `<option value="${t.id}" ${isSelected}>${t.name}</option>`;
+            }).join('');
+
             const classCheckboxesHTML = classrooms.map(c => {
                 const isChecked = subject.classroomIds.includes(c.id) ? 'checked' : '';
                 return `
@@ -1729,7 +1790,17 @@
                 title: 'แก้ไขรายวิชา',
                 html: `
                     <div class="text-left font-itim px-1">
-                        <label class="block text-sm mt-2 text-gray-600">ชื่อวิชา:</label>
+                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer mb-2">
+                                <input type="checkbox" id="swal-input-enable-teacher" class="w-4 h-4 text-blue-500 rounded border-gray-300 focus:ring-blue-400 accent-blue-500">
+                                <span class="text-sm font-bold text-blue-700">ต้องการเปลี่ยนครูผู้สอน (คำเตือน: อาจกระทบตารางเดิม)</span>
+                            </label>
+                            <select id="swal-input-teacher" class="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim opacity-50 bg-gray-100 cursor-not-allowed" disabled>
+                                ${teacherOptionsHTML}
+                            </select>
+                        </div>
+                        
+                        <label class="block text-sm mt-3 text-gray-600">ชื่อวิชา:</label>
                         <input id="swal-input-name" class="w-full px-4 py-2 mt-1 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim" placeholder="ชื่อวิชา" value="${subject.name}">
                         
                         <label class="block text-sm mt-3 text-gray-600">รหัสวิชา:</label>
@@ -1753,11 +1824,28 @@
                 showCancelButton: true,
                 confirmButtonText: 'บันทึก',
                 cancelButtonText: 'ยกเลิก',
+                didOpen: () => {
+                    // Script สำหรับเปิด-ปิดการใช้งาน Dropdown ครู
+                    const enableCb = document.getElementById('swal-input-enable-teacher');
+                    const teacherSelect = document.getElementById('swal-input-teacher');
+                    enableCb.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            teacherSelect.disabled = false;
+                            teacherSelect.classList.remove('opacity-50', 'bg-gray-100', 'cursor-not-allowed');
+                        } else {
+                            teacherSelect.disabled = true;
+                            teacherSelect.classList.add('opacity-50', 'bg-gray-100', 'cursor-not-allowed');
+                            // คืนค่ากลับไปเป็นครูคนเดิมเสมอถ้าไม่ติ๊ก
+                            teacherSelect.value = subject.teacherId; 
+                        }
+                    });
+                },
                 preConfirm: () => {
                     const checkedCb = document.querySelectorAll('.swal-edit-class-cb:checked');
                     const selectedIds = Array.from(checkedCb).map(cb => parseInt(cb.value));
 
                     return {
+                        teacherId: parseInt(document.getElementById('swal-input-teacher').value),
                         name: document.getElementById('swal-input-name').value.trim(),
                         code: document.getElementById('swal-input-code').value.trim(),
                         classroomIds: selectedIds,
@@ -1772,17 +1860,41 @@
                     return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบและเลือกห้องอย่างน้อย 1 ห้อง' });
                 }
                 
+                const oldTeacherId = subject.teacherId;
+                subject.teacherId = formValues.teacherId;
                 subject.name = formValues.name;
                 subject.code = formValues.code;
                 subject.classroomIds = formValues.classroomIds;
                 subject.hours = formValues.hours;
                 subject.isHeavy = formValues.isHeavy; 
 
-                Object.keys(scheduleGrid).forEach(key => {
-                    if (scheduleGrid[key].id == id) {
-                        if (!subject.classroomIds.includes(scheduleGrid[key].classroomId)) {
+                let teacherChanged = oldTeacherId !== subject.teacherId;
+                let keysToProcess = Object.keys(scheduleGrid).filter(k => scheduleGrid[k].id == id);
+
+                keysToProcess.forEach(key => {
+                    // ถ้ายกเลิกห้องเรียนนี้ ให้ลบออกจากตาราง
+                    if (!subject.classroomIds.includes(scheduleGrid[key].classroomId)) {
+                        delete scheduleGrid[key];
+                    } else {
+                        if (teacherChanged) {
+                            // เปลี่ยนครูผู้สอน -> ย้ายคาบสอนไปให้ครูคนใหม่
+                            let parts = key.split('_'); // [teacherId, day, period]
+                            let newKey = `${subject.teacherId}_${parts[1]}_${parts[2]}`;
+                            
+                            // ถ้าย้ายไปแล้วครูคนใหม่ยังว่างในคาบนั้น ให้ใส่ลงไป
+                            if (!scheduleGrid[newKey]) {
+                                scheduleGrid[newKey] = {
+                                    id: subject.id,
+                                    classroomId: scheduleGrid[key].classroomId,
+                                    name: subject.name,
+                                    code: subject.code,
+                                    hours: subject.hours
+                                };
+                            }
+                            // ลบคาบของครูคนเก่าทิ้งเสมอ
                             delete scheduleGrid[key];
                         } else {
+                            // อัปเดตข้อมูลปกติ
                             scheduleGrid[key].name = subject.name;
                             scheduleGrid[key].code = subject.code;
                             scheduleGrid[key].hours = subject.hours;
@@ -1792,7 +1904,13 @@
 
                 renderSubjectList();
                 loadTeacherData();
-                Toast.fire({ icon: 'success', title: 'แก้ไขวิชาสำเร็จ' });
+                renderMasterGrid(); // รีเฟรชตารางรวมด้วยเผื่อมีห้องอื่นๆ กระทบ
+                
+                if (teacherChanged) {
+                    Toast.fire({ icon: 'success', title: 'แก้ไขและเปลี่ยนครูสำเร็จ' });
+                } else {
+                    Toast.fire({ icon: 'success', title: 'แก้ไขวิชาสำเร็จ' });
+                }
             }
         }
 
@@ -1862,14 +1980,14 @@
                         <td class="p-4 text-center font-bold text-pink-500 max-w-[200px] truncate" title="${roomNames}">${roomNames}</td>
                         <td class="p-4 text-center font-bold text-green-600 text-lg">${s.hours} <span class="text-xs font-normal">ค/ห</span></td>
                         <td class="p-4 text-center">
-                            <button onclick="editSubject(${s.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </button>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteSubject(${s.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
-                                <i class="fa-solid fa-trash text-lg"></i>
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="editSubject(${s.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                                </button>
+                                <button onclick="deleteSubject(${s.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
+                                    <i class="fa-solid fa-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -2023,14 +2141,14 @@
                         <td class="p-4 text-gray-600 font-medium">วัน${dayStr} - ${pName}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">${actName}</td>
                         <td class="p-4 text-center">
-                            <button onclick="editActivity('${key}')" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </button>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteActivity('${key}')" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                <i class="fa-solid fa-trash text-lg"></i>
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="editActivity('${key}')" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                                </button>
+                                <button onclick="deleteActivity('${key}')" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
+                                    <i class="fa-solid fa-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -2229,7 +2347,7 @@
                         
                         if (isLocked) {
                             innerDiv.className = 'locked-cell h-16 rounded-xl flex flex-col justify-center items-center shadow-inner border border-gray-200 font-bold text-sm relative overflow-hidden';
-                            innerDiv.innerHTML = LOCKED_PERIODS[cellKey].name;
+                            innerDiv.innerHTML = `<span class="subject-name-text block w-full px-1 text-center">${LOCKED_PERIODS[cellKey].name}</span>`;
                             
                             if(LOCKED_PERIODS[cellKey].name.includes('ลูกเสือ')) innerDiv.innerHTML += '<i class="fa-solid fa-campground absolute opacity-10 text-3xl right-1 bottom-1"></i>';
                             if(LOCKED_PERIODS[cellKey].name.includes('ชุมนุม')) innerDiv.innerHTML += '<i class="fa-solid fa-users absolute opacity-10 text-3xl right-1 bottom-1"></i>';
@@ -2253,8 +2371,8 @@
                                 innerDiv.setAttribute('draggable', 'true');
                                 innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
                                 innerDiv.innerHTML = `
-                                    <span class="font-bold text-gray-800 leading-tight">${content.name}</span>
-                                    <span class="text-[11px] text-gray-500 leading-none">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
+                                    <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${content.name}</span>
+                                    <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
                                     <button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
@@ -2269,6 +2387,9 @@
                 });
                 tbody.appendChild(tr);
             });
+
+            // เรียกให้ตัวหนังสือย่อขนาด
+            setTimeout(autoResizeText, 10);
         }
 
         function allowDrop(ev) { ev.preventDefault(); }
@@ -2773,7 +2894,7 @@
                         
                         if (isLocked) {
                             innerDiv.className = 'locked-cell h-16 rounded-xl flex flex-col justify-center items-center shadow-inner border border-gray-200 font-bold text-sm relative overflow-hidden';
-                            innerDiv.innerHTML = LOCKED_PERIODS[cellKey].name;
+                            innerDiv.innerHTML = `<span class="subject-name-text block w-full px-1 text-center">${LOCKED_PERIODS[cellKey].name}</span>`;
                             
                             if(LOCKED_PERIODS[cellKey].name.includes('ลูกเสือ')) innerDiv.innerHTML += '<i class="fa-solid fa-campground absolute opacity-10 text-3xl right-1 bottom-1"></i>';
                             if(LOCKED_PERIODS[cellKey].name.includes('ชุมนุม')) innerDiv.innerHTML += '<i class="fa-solid fa-users absolute opacity-10 text-3xl right-1 bottom-1"></i>';
@@ -2797,8 +2918,8 @@
                                 innerDiv.className = 'bg-indigo-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-solid border-indigo-200 relative';
                                 let shortTeacherName = teacherName.replace('คุณครู', 'ครู');
                                 innerDiv.innerHTML = `
-                                    <span class="font-bold text-gray-800 leading-tight">${foundContent.name}</span>
-                                    <span class="text-[11px] text-gray-500 leading-none">${foundContent.code}</span>
+                                    <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${foundContent.name}</span>
+                                    <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${foundContent.code}</span>
                                     <span class="bg-indigo-200 text-indigo-700 px-1 mt-0.5 rounded text-[10px] font-bold w-11/12 truncate text-center" title="${teacherName}">${shortTeacherName}</span>
                                 `;
                             } else {
@@ -2819,6 +2940,9 @@
             if(studentTotalEl) {
                 studentTotalEl.innerHTML = `<i class="fa-regular fa-clock"></i> ${totalTeachingHours} คาบ/สัปดาห์`;
             }
+            
+            // เรียกให้ตัวหนังสือย่อขนาด
+            setTimeout(autoResizeText, 10);
         }
 
         function renderMasterGrid() {
@@ -2880,7 +3004,7 @@
                              cellContent = `-`;
                         } else if (isLocked) {
                              tdClass += " bg-gray-100";
-                             cellContent = `<span class="text-[11px] text-gray-500">${isLocked.name}</span>`;
+                             cellContent = `<span class="subject-name-text block w-full text-[11px] text-gray-500 text-center">${isLocked.name}</span>`;
                         } else {
                             let foundContent = null;
                             Object.keys(scheduleGrid).forEach(key => {
@@ -2891,7 +3015,7 @@
 
                             if (foundContent) {
                                 tdClass += " bg-indigo-50";
-                                cellContent = `<span class="font-bold text-[12px] text-gray-800 leading-tight w-full truncate block" title="${foundContent.name}">${foundContent.name}</span>`;
+                                cellContent = `<span class="subject-name-text block font-bold text-[13px] text-gray-800 leading-tight w-full px-1 text-center" title="${foundContent.name}">${foundContent.name}</span>`;
                             }
                         }
                         tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
@@ -2906,13 +3030,13 @@
                              cellContent = `-`;
                         } else if (isLocked) {
                              tdClass += " bg-gray-100";
-                             cellContent = `<span class="text-[11px] text-gray-500">${isLocked.name}</span>`;
+                             cellContent = `<span class="subject-name-text block w-full text-[11px] text-gray-500 text-center">${isLocked.name}</span>`;
                         } else {
                             let content = scheduleGrid[storageKey];
                             if (content) {
                                 let roomName = getClassroomName(content.classroomId);
-                                tdClass += " bg-pink-50";
-                                cellContent = `<span class="font-bold text-[12px] text-gray-800 leading-tight w-full truncate block" title="${content.name} ${roomName}">${content.name} <span class="font-normal text-pink-600 text-[10px]">(${roomName})</span></span>`;
+                                tdClass += " bg-pink-50 flex flex-col items-center justify-center";
+                                cellContent = `<span class="subject-name-text block font-bold text-[13px] text-gray-800 leading-tight w-full px-1 text-center" title="${content.name} ${roomName}">${content.name}</span><span class="font-normal text-pink-600 text-[10px] text-center">(${roomName})</span>`;
                             }
                         }
                         tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
@@ -2923,6 +3047,9 @@
             });
 
             tbody.innerHTML = tbodyHtml;
+            
+            // เรียกให้ตัวหนังสือย่อขนาด
+            setTimeout(autoResizeText, 10);
         }
 
         function clearSchedule() {
@@ -3065,9 +3192,10 @@
                 
                 // 5. สั่งพิมพ์หน้าจอ (หน่วงเวลานิดนึงให้เบราว์เซอร์เตรียม DOM ให้เสร็จ)
                 setTimeout(() => {
-                    window.print();
-                    // การคืนค่ากลับหน้าจอปกติ จะจัดการผ่าน Event 'afterprint' 
-                    // ซึ่งถูกผูกไว้ที่ window.onload ด้านบนแล้ว
+                    autoResizeText(); // จัดการลดขนาดตัวอักษรของ clone ก่อนปริ้นท์
+                    setTimeout(() => {
+                        window.print();
+                    }, 200);
                 }, 200);
 
             }, 200);
