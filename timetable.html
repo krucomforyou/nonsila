@@ -1868,11 +1868,10 @@
             renderGrid();
         }
 
-        function getScheduledCount(subjectId) {
+        function getScheduledCount(subjectId, classroomId) {
             let count = 0;
             Object.keys(scheduleGrid).forEach(key => {
-                // เช็คแค่รหัสวิชา ไม่ต้องแยกห้องแล้ว
-                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId) {
+                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId && scheduleGrid[key].classroomId == classroomId) {
                     count++;
                 }
             });
@@ -1888,30 +1887,30 @@
             let totalRequire = 0;
 
             teacherSubjects.forEach(sub => {
-                let scheduled = getScheduledCount(sub.id);
-                let remaining = sub.hours - scheduled;
-                totalAssigned += scheduled;
-                totalRequire += sub.hours;
-                
-                // นำชื่อห้องทุกห้องมาต่อกัน
-                let roomNames = sub.classroomIds.map(id => getClassroomName(id)).join(', ');
+                sub.classroomIds.forEach(roomId => {
+                    let scheduled = getScheduledCount(sub.id, roomId);
+                    let remaining = sub.hours - scheduled;
+                    totalAssigned += scheduled;
+                    totalRequire += sub.hours;
+                    
+                    let roomName = getClassroomName(roomId);
 
-                if (remaining > 0) {
-                    // สังเกตว่า ondragstart ส่งแค่ sub.id ไม่ต้องส่ง roomId แยกแล้ว
-                    palette.innerHTML += `
-                        <div draggable="true" 
-                            ondragstart="drag(event, ${sub.id})" 
-                            class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
-                            <div class="overflow-hidden">
-                                <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomNames}]</span></div>
-                                <div class="text-[11px] text-gray-500">${sub.code}</div>
+                    if (remaining > 0) {
+                        palette.innerHTML += `
+                            <div draggable="true" 
+                                ondragstart="drag(event, ${sub.id}, ${roomId})" 
+                                class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
+                                <div class="overflow-hidden">
+                                    <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomName}]</span></div>
+                                    <div class="text-[11px] text-gray-500">${sub.code}</div>
+                                </div>
+                                <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                    ${remaining}
+                                </div>
                             </div>
-                            <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
-                                ${remaining}
-                            </div>
-                        </div>
-                    `;
-                }
+                        `;
+                    }
+                });
             });
 
             const mySchedulesCount = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_')).length;
@@ -1933,17 +1932,6 @@
             } else if (teacherSubjects.length === 0) {
                 palette.innerHTML = `<div class="text-center text-gray-400 p-4 text-sm">ยังไม่มีวิชาสำหรับครูท่านนี้<br>ไปที่แท็บ "จัดการรายวิชา"</div>`;
             }
-        }
-
-        // Helper สำหรับจัดการข้อมูลห้องเรียนกรณีสอนรวม
-        function getRoomIdsArray(classroomIdData) {
-            let schedRooms = [];
-            try { schedRooms = JSON.parse(classroomIdData); } catch(e) { schedRooms = [classroomIdData]; }
-            return schedRooms;
-        }
-
-        function getRoomNamesFromStorage(classroomIdData) {
-            return getRoomIdsArray(classroomIdData).map(id => getClassroomName(id)).join(', ');
         }
 
         function renderGrid() {
