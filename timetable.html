@@ -78,6 +78,19 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4) !important;
         }
+        
+        .swal2-deny {
+            background: linear-gradient(to right, #f472b6, #ec4899) !important; 
+            border-radius: 1rem !important; 
+            padding: 0.6rem 1.5rem !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 6px -1px rgba(236, 72, 153, 0.3) !important;
+            transition: all 0.3s ease !important;
+        }
+        .swal2-deny:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px -1px rgba(236, 72, 153, 0.4) !important;
+        }
 
         .swal2-cancel {
             background: #9ca3af !important; 
@@ -167,6 +180,7 @@
         }
 
         #app-container { display: none; } /* ซ่อนแอปไว้ก่อนล็อกอิน */
+        #print-all-container { display: none; } /* ซ่อนส่วนพิมพ์ทั้งหมด */
 
         @media print {
             @page {
@@ -181,6 +195,25 @@
                 display: none !important;
             }
             
+            /* กรณีพิมพ์ทั้งหมด ให้ซ่อนหน้าจอแอปหลัก และแสดง container พิเศษ */
+            body.printing-all #app-container, body.printing-all #login-overlay, body.printing-all #loading-overlay {
+                display: none !important;
+            }
+            body.printing-all {
+                background-image: none !important;
+                background-color: white !important;
+            }
+            body.printing-all #print-all-container {
+                display: block !important;
+                width: 100% !important;
+            }
+            
+            /* จัดการตัวแบ่งหน้าสำหรับการพิมพ์หลายแผ่น */
+            .page-break-print {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+            
             /* ปลดล็อค Flexbox และความสูงทั้งหมด เพื่อให้กระดาษเรียงหน้าได้ปกติ */
             html, body, main, section, #workspace-container, .master-table-wrapper {
                 display: block !important;
@@ -192,13 +225,18 @@
                 overflow: visible !important;
                 position: static !important;
             }
-            #printable-area, #student-printable-area, #master-printable-area {
+            
+            #printable-area, #student-printable-area, #master-printable-area, .print-clone {
                 display: block !important;
                 border: none !important;
                 box-shadow: none !important;
                 padding: 0 !important;
+                margin: 0 auto !important;
                 width: 100% !important;
                 overflow: visible !important;
+                position: relative !important;
+                height: auto !important;
+                min-height: auto !important;
             }
             
             /* ให้ตารางยืดหดตามคอนเทนต์และสเกลได้ */
@@ -223,26 +261,27 @@
             }
 
             /* --- บังคับตารางครูและนักเรียนให้อยู่ใน 1 หน้าพอดี --- */
-            #schedule-table, #student-schedule-table {
+            #schedule-table, #student-schedule-table, .print-clone table {
                 table-layout: fixed !important; /* บังคับคอลัมน์กว้างเท่ากัน และไม่ให้กว้างล้นกระดาษ */
                 width: 100% !important;
             }
             
             #schedule-table th, #schedule-table td,
-            #student-schedule-table th, #student-schedule-table td {
+            #student-schedule-table th, #student-schedule-table td,
+            .print-clone th, .print-clone td {
                 min-width: 0 !important; /* ปลดล็อคความกว้างขั้นต่ำที่ทำให้ตารางล้น */
                 white-space: normal !important; /* ยอมให้ข้อความขึ้นบรรทัดใหม่ได้ */
                 word-break: break-word !important; /* ถ้าคำยาวไปให้ตัดคำได้ */
             }
             
             /* ลดความสูงของเซลล์ตารางลงเล็กน้อย เพื่อไม่ให้ตารางยาวล้นลงหน้า 2 */
-            #schedule-table .h-16, #student-schedule-table .h-16 {
+            #schedule-table .h-16, #student-schedule-table .h-16, .print-clone .h-16 {
                 height: auto !important;
                 min-height: 50px !important;
                 padding: 2px !important;
             }
 
-            #printable-area, #student-printable-area {
+            #printable-area, #student-printable-area, .print-clone {
                 page-break-inside: avoid !important; /* ป้องกันไม่ให้ตารางถูกตัดแบ่งครึ่งหน้า */
             }
         }
@@ -823,6 +862,9 @@
 
         </main>
     </div>
+    
+    <!-- พื้นที่สำหรับเก็บโค้ด HTML ตารางเพื่อสั่งพิมพ์ทั้งหมด -->
+    <div id="print-all-container"></div>
 
     <script>
         // ================= SCRIPT URL (แทนที่ด้วย Web App URL ของคุณ) =================
@@ -886,6 +928,13 @@
                 }
             }
         };
+        
+        // เก็บกวาดหลังจากการพิมพ์เสร็จสิ้น (เผื่อไว้กรณีใช้ฟังก์ชันพิมพ์ทั้งหมด)
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('printing-all');
+            const container = document.getElementById('print-all-container');
+            if (container) container.innerHTML = '';
+        });
 
         async function fetchSchoolsForLogin() {
             document.getElementById('loading-overlay').style.display = 'flex';
@@ -1583,6 +1632,36 @@
             }
         }
 
+        function renderTeacherList() {
+            const tbody = document.getElementById('teacher-list-tbody');
+            tbody.innerHTML = '';
+            
+            // เรียงลำดับชื่อคุณครูตามตัวอักษรภาษาไทย
+            let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+
+            // วนลูปสร้างแถวตาราง โดยดึงค่า index เพื่อนำมาทำเลขลำดับ
+            sortedTeachers.forEach((t, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-blue-50/50 bg-white">
+                        <!-- เปลี่ยนจาก t.id เป็น index + 1 (ให้เริ่มจากลำดับที่ 1) -->
+                        <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
+                        <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
+                        <td class="p-4 text-center">
+                            <!-- ส่วนการแก้ไขและลบ ยังคงอ้างอิง t.id ตามเดิมให้ระบบเบื้องหลังทำงานได้ -->
+                            <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2.5 rounded-full hover:bg-blue-50" title="แก้ไข">
+                                <i class="fa-solid fa-pen-to-square text-lg"></i>
+                            </button>
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
+                                <i class="fa-solid fa-trash text-lg"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
         function addSubject() {
             const teacherId = parseInt(document.getElementById('subject-teacher-select').value);
             const name = document.getElementById('new-subject-name').value.trim();
@@ -1717,126 +1796,6 @@
             }
         }
 
-        function addActivity() {
-            const day = document.getElementById('new-activity-day').value;
-            const period = document.getElementById('new-activity-period').value;
-            const name = document.getElementById('new-activity-name').value.trim();
-            const cellKey = `${day}_${period}`;
-
-            if (!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
-
-            LOCKED_PERIODS[cellKey] = { name: name, isLocked: true };
-            
-            Object.keys(scheduleGrid).forEach(key => {
-                if(key.endsWith(`_${cellKey}`)) delete scheduleGrid[key];
-            });
-
-            document.getElementById('new-activity-name').value = '';
-            renderActivityList();
-            renderGrid();
-            updatePalette();
-            Toast.fire({ icon: 'success', title: 'เพิ่มกิจกรรมสำเร็จ' });
-        }
-
-        function deleteActivity(cellKey) {
-            delete LOCKED_PERIODS[cellKey];
-            renderActivityList();
-            renderGrid();
-            updatePalette();
-            Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
-        }
-
-        async function editActivity(oldKey) {
-            const activity = LOCKED_PERIODS[oldKey];
-            if (!activity) return;
-
-            const [oldDay, oldPeriod] = oldKey.split('_');
-            const classPeriods = periodsConfig.filter(p => p.type === 'class');
-            const periodOptions = classPeriods.map(p => `<option value="${p.id}" ${oldPeriod == p.id ? 'selected' : ''}>${p.name} (${p.time})</option>`).join('');
-
-            const { value: formValues } = await Swal.fire({
-                title: 'แก้ไขกิจกรรม',
-                html:
-                    '<label class="block text-left text-sm mt-2 text-gray-600">วัน:</label>' +
-                    '<select id="swal-edit-act-day" class="swal2-input font-itim mt-1">' +
-                    '<option value="mon" ' + (oldDay === 'mon' ? 'selected' : '') + '>จันทร์</option>' +
-                    '<option value="tue" ' + (oldDay === 'tue' ? 'selected' : '') + '>อังคาร</option>' +
-                    '<option value="wed" ' + (oldDay === 'wed' ? 'selected' : '') + '>พุธ</option>' +
-                    '<option value="thu" ' + (oldDay === 'thu' ? 'selected' : '') + '>พฤหัสบดี</option>' +
-                    '<option value="fri" ' + (oldDay === 'fri' ? 'selected' : '') + '>ศุกร์</option>' +
-                    '</select>' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">คาบที่:</label>' +
-                    '<select id="swal-edit-act-period" class="swal2-input font-itim mt-1">' +
-                    periodOptions +
-                    '</select>' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">ชื่อกิจกรรม:</label>' +
-                    '<input id="swal-edit-act-name" class="swal2-input font-itim mt-1" placeholder="ชื่อกิจกรรม" value="' + activity.name.replace(/"/g, '&quot;') + '">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                preConfirm: () => {
-                    return {
-                        day: document.getElementById('swal-edit-act-day').value,
-                        period: document.getElementById('swal-edit-act-period').value,
-                        name: document.getElementById('swal-edit-act-name').value.trim()
-                    }
-                }
-            });
-
-            if (formValues) {
-                if (!formValues.name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
-                
-                const newKey = `${formValues.day}_${formValues.period}`;
-                
-                if (newKey !== oldKey && LOCKED_PERIODS[newKey]) {
-                    return Swal.fire('ไม่สามารถย้ายได้', 'ช่องเวลาใหม่มีกิจกรรมอื่นล็อคอยู่แล้ว', 'error');
-                }
-
-                delete LOCKED_PERIODS[oldKey];
-                LOCKED_PERIODS[newKey] = { name: formValues.name, isLocked: true };
-                
-                Object.keys(scheduleGrid).forEach(key => {
-                    if(key.endsWith(`_${newKey}`)) delete scheduleGrid[key];
-                });
-
-                renderActivityList();
-                renderGrid();
-                updatePalette();
-                Toast.fire({ icon: 'success', title: 'แก้ไขกิจกรรมสำเร็จ' });
-            }
-        }
-
-        function renderTeacherList() {
-            const tbody = document.getElementById('teacher-list-tbody');
-            tbody.innerHTML = '';
-            
-            // เรียงลำดับชื่อคุณครูตามตัวอักษรภาษาไทย
-            let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
-
-            // วนลูปสร้างแถวตาราง โดยดึงค่า index เพื่อนำมาทำเลขลำดับ
-            sortedTeachers.forEach((t, index) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-blue-50/50 bg-white">
-                        <!-- เปลี่ยนจาก t.id เป็น index + 1 (ให้เริ่มจากลำดับที่ 1) -->
-                        <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
-                        <td class="p-4 text-center">
-                            <!-- ส่วนการแก้ไขและลบ ยังคงอ้างอิง t.id ตามเดิมให้ระบบเบื้องหลังทำงานได้ -->
-                            <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2.5 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                <i class="fa-solid fa-pen-to-square text-lg"></i>
-                            </button>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2.5 rounded-full hover:bg-red-50" title="ลบ">
-                                <i class="fa-solid fa-trash text-lg"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
         function sortSubjectTable(column) {
             if (subjectSort.column === column) {
                 subjectSort.direction = subjectSort.direction === 'asc' ? 'desc' : 'asc';
@@ -1936,6 +1895,96 @@
                 } else {
                     rows[i].style.display = "none"; 
                 }
+            }
+        }
+
+        function addActivity() {
+            const day = document.getElementById('new-activity-day').value;
+            const period = document.getElementById('new-activity-period').value;
+            const name = document.getElementById('new-activity-name').value.trim();
+            const cellKey = `${day}_${period}`;
+
+            if (!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
+
+            LOCKED_PERIODS[cellKey] = { name: name, isLocked: true };
+            
+            Object.keys(scheduleGrid).forEach(key => {
+                if(key.endsWith(`_${cellKey}`)) delete scheduleGrid[key];
+            });
+
+            document.getElementById('new-activity-name').value = '';
+            renderActivityList();
+            renderGrid();
+            updatePalette();
+            Toast.fire({ icon: 'success', title: 'เพิ่มกิจกรรมสำเร็จ' });
+        }
+
+        function deleteActivity(cellKey) {
+            delete LOCKED_PERIODS[cellKey];
+            renderActivityList();
+            renderGrid();
+            updatePalette();
+            Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
+        }
+
+        async function editActivity(oldKey) {
+            const activity = LOCKED_PERIODS[oldKey];
+            if (!activity) return;
+
+            const [oldDay, oldPeriod] = oldKey.split('_');
+            const classPeriods = periodsConfig.filter(p => p.type === 'class');
+            const periodOptions = classPeriods.map(p => `<option value="${p.id}" ${oldPeriod == p.id ? 'selected' : ''}>${p.name} (${p.time})</option>`).join('');
+
+            const { value: formValues } = await Swal.fire({
+                title: 'แก้ไขกิจกรรม',
+                html:
+                    '<label class="block text-left text-sm mt-2 text-gray-600">วัน:</label>' +
+                    '<select id="swal-edit-act-day" class="swal2-input font-itim mt-1">' +
+                    '<option value="mon" ' + (oldDay === 'mon' ? 'selected' : '') + '>จันทร์</option>' +
+                    '<option value="tue" ' + (oldDay === 'tue' ? 'selected' : '') + '>อังคาร</option>' +
+                    '<option value="wed" ' + (oldDay === 'wed' ? 'selected' : '') + '>พุธ</option>' +
+                    '<option value="thu" ' + (oldDay === 'thu' ? 'selected' : '') + '>พฤหัสบดี</option>' +
+                    '<option value="fri" ' + (oldDay === 'fri' ? 'selected' : '') + '>ศุกร์</option>' +
+                    '</select>' +
+                    '<label class="block text-left text-sm mt-4 text-gray-600">คาบที่:</label>' +
+                    '<select id="swal-edit-act-period" class="swal2-input font-itim mt-1">' +
+                    periodOptions +
+                    '</select>' +
+                    '<label class="block text-left text-sm mt-4 text-gray-600">ชื่อกิจกรรม:</label>' +
+                    '<input id="swal-edit-act-name" class="swal2-input font-itim mt-1" placeholder="ชื่อกิจกรรม" value="' + activity.name.replace(/"/g, '&quot;') + '">',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                cancelButtonText: 'ยกเลิก',
+                preConfirm: () => {
+                    return {
+                        day: document.getElementById('swal-edit-act-day').value,
+                        period: document.getElementById('swal-edit-act-period').value,
+                        name: document.getElementById('swal-edit-act-name').value.trim()
+                    }
+                }
+            });
+
+            if (formValues) {
+                if (!formValues.name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
+                
+                const newKey = `${formValues.day}_${formValues.period}`;
+                
+                if (newKey !== oldKey && LOCKED_PERIODS[newKey]) {
+                    return Swal.fire('ไม่สามารถย้ายได้', 'ช่องเวลาใหม่มีกิจกรรมอื่นล็อคอยู่แล้ว', 'error');
+                }
+
+                delete LOCKED_PERIODS[oldKey];
+                LOCKED_PERIODS[newKey] = { name: formValues.name, isLocked: true };
+                
+                Object.keys(scheduleGrid).forEach(key => {
+                    if(key.endsWith(`_${newKey}`)) delete scheduleGrid[key];
+                });
+
+                renderActivityList();
+                renderGrid();
+                updatePalette();
+                Toast.fire({ icon: 'success', title: 'แก้ไขกิจกรรมสำเร็จ' });
             }
         }
 
@@ -2772,7 +2821,6 @@
             }
         }
 
-        // ================= MASTER TIMETABLE LOGIC =================
         function renderMasterGrid() {
             const filterDay = document.getElementById('master-day-filter') ? document.getElementById('master-day-filter').value : 'all';
             const thead = document.getElementById('master-schedule-thead');
@@ -2902,7 +2950,127 @@
         }
 
         function printSchedule() {
-            window.print();
+            const isTeacherTab = !document.getElementById('timetable-tab').classList.contains('hidden');
+            const isStudentTab = !document.getElementById('student-timetable-tab').classList.contains('hidden');
+            const isMasterTab = !document.getElementById('master-timetable-tab').classList.contains('hidden');
+
+            if (isMasterTab) {
+                // ตารางรวมมีมุมมองเดียว พิมพ์ตามปกติได้เลย
+                window.print();
+                return;
+            }
+
+            let titleText = isTeacherTab ? 'พิมพ์ตารางสอนคุณครู' : 'พิมพ์ตารางเรียนห้องเรียน';
+            let printAllText = isTeacherTab ? 'พิมพ์คุณครูทุกคน' : 'พิมพ์ทุกห้องเรียน';
+
+            Swal.fire({
+                title: titleText,
+                text: "กรุณาเลือกรูปแบบการพิมพ์",
+                icon: 'question',
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6', // สีฟ้า
+                denyButtonColor: '#ec4899', // สีชมพู
+                confirmButtonText: '<i class="fa-solid fa-file"></i> พิมพ์หน้าปัจจุบัน',
+                denyButtonText: `<i class="fa-solid fa-copy"></i> ${printAllText}`,
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // เลือกพิมพ์หน้าปัจจุบัน
+                    window.print();
+                } else if (result.isDenied) {
+                    // เลือกพิมพ์ทั้งหมด
+                    executePrintAll(isTeacherTab ? 'teacher' : 'student');
+                }
+            });
+        }
+
+        async function executePrintAll(type) {
+            // แสดง Loading เพื่อไม่ให้ผู้ใช้ตกใจระหว่างระบบจำลองหน้าเว็บ
+            Swal.fire({
+                title: 'กำลังเตรียมเอกสาร...',
+                html: 'กรุณารอสักครู่ ระบบกำลังดึงตารางทั้งหมดมาเรียงต่อกัน',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // ใช้ setTimeout เพื่อให้ UI ทันอัปเดตโชว์ Loading
+            setTimeout(() => {
+                const container = document.getElementById('print-all-container');
+                container.innerHTML = ''; // ล้างของเก่า
+
+                if (type === 'teacher') {
+                    // 1. จำค่าครูที่กำลังดูอยู่ปัจจุบัน
+                    const select = document.getElementById('teacher-select');
+                    const originalValue = select.value;
+
+                    // 2. เรียงลำดับชื่อครู และวนลูปสร้างตาราง
+                    let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+                    
+                    sortedTeachers.forEach((t, index) => {
+                        select.value = t.id;
+                        loadTeacherData(); // ให้ระบบวาดตารางของครูคนนี้บนหน้าจอ
+                        
+                        let originalArea = document.getElementById('printable-area');
+                        let clone = originalArea.cloneNode(true); // ก๊อปปี้ตารางมา
+                        
+                        clone.id = `print-clone-teacher-${t.id}`;
+                        clone.classList.add('print-clone');
+                        // เติมตัวแบ่งหน้า (Page Break) ยกเว้นคนสุดท้าย
+                        if (index < sortedTeachers.length - 1) {
+                            clone.classList.add('page-break-print');
+                        }
+                        
+                        container.appendChild(clone);
+                    });
+
+                    // 3. คืนค่าครูคนเดิมกลับมาโชว์ที่หน้าจอหลัก
+                    select.value = originalValue;
+                    loadTeacherData();
+
+                } else if (type === 'student') {
+                    // 1. จำค่าห้องเรียนที่กำลังดูอยู่ปัจจุบัน
+                    const select = document.getElementById('student-classroom-select');
+                    const originalValue = select.value;
+
+                    // 2. เรียงลำดับห้องเรียน และวนลูปสร้างตาราง
+                    let sortedClassrooms = [...classrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
+                    
+                    sortedClassrooms.forEach((c, index) => {
+                        select.value = c.id;
+                        loadStudentTimetable(); // ให้ระบบวาดตารางของห้องนี้บนหน้าจอ
+                        
+                        let originalArea = document.getElementById('student-printable-area');
+                        let clone = originalArea.cloneNode(true);
+                        
+                        clone.id = `print-clone-student-${c.id}`;
+                        clone.classList.add('print-clone');
+                        if (index < sortedClassrooms.length - 1) {
+                            clone.classList.add('page-break-print');
+                        }
+                        
+                        container.appendChild(clone);
+                    });
+
+                    // 3. คืนค่าห้องเรียนเดิม
+                    select.value = originalValue;
+                    loadStudentTimetable();
+                }
+
+                // 4. สั่งให้ CSS สลับไปโชว์ Container ที่ก๊อปปี้ไว้เตรียมพิมพ์
+                document.body.classList.add('printing-all');
+                Swal.close(); // ปิดหน้าต่าง Loading
+                
+                // 5. สั่งพิมพ์หน้าจอ (หน่วงเวลานิดนึงให้เบราว์เซอร์เตรียม DOM ให้เสร็จ)
+                setTimeout(() => {
+                    window.print();
+                    // การคืนค่ากลับหน้าจอปกติ จะจัดการผ่าน Event 'afterprint' 
+                    // ซึ่งถูกผูกไว้ที่ window.onload ด้านบนแล้ว
+                }, 200);
+
+            }, 200);
         }
 
         const Toast = Swal.mixin({
