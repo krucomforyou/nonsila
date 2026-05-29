@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจัดตารางสอน By ครูปอย♥</title>
+    <title>ระบบจัดการตารางสอนออนไลน์</title>
     <link rel="icon" type="image/png" href="https://img2.pic.in.th/timetable-01.png">
     
     <!-- Google Fonts: Itim -->
@@ -1795,7 +1795,9 @@
                     
                     if (d === day && pr === period && scheduledTeacherId !== teacherId) {
                         const scheduledSubject = scheduleGrid[key];
-                        if (scheduledSubject.classroomId == targetClassroomId) {
+                        let schedRooms = getRoomIdsArray(scheduledSubject.classroomId);
+
+                        if (schedRooms.includes(targetClassroomId)) {
                             const teacherObj = teachers.find(t => t.id == scheduledTeacherId);
                             conflictInfo = {
                                 teacherName: teacherObj ? teacherObj.name : 'คุณครูท่านอื่น',
@@ -1868,10 +1870,11 @@
             renderGrid();
         }
 
-        function getScheduledCount(subjectId, classroomId) {
+        function getScheduledCount(subjectId) {
             let count = 0;
             Object.keys(scheduleGrid).forEach(key => {
-                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId && scheduleGrid[key].classroomId == classroomId) {
+                // เช็คแค่รหัสวิชา ไม่ต้องแยกห้องแล้ว
+                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId) {
                     count++;
                 }
             });
@@ -1887,30 +1890,30 @@
             let totalRequire = 0;
 
             teacherSubjects.forEach(sub => {
-                sub.classroomIds.forEach(roomId => {
-                    let scheduled = getScheduledCount(sub.id, roomId);
-                    let remaining = sub.hours - scheduled;
-                    totalAssigned += scheduled;
-                    totalRequire += sub.hours;
-                    
-                    let roomName = getClassroomName(roomId);
+                let scheduled = getScheduledCount(sub.id);
+                let remaining = sub.hours - scheduled;
+                totalAssigned += scheduled;
+                totalRequire += sub.hours;
+                
+                // นำชื่อห้องทุกห้องมาต่อกัน
+                let roomNames = sub.classroomIds.map(id => getClassroomName(id)).join(', ');
 
-                    if (remaining > 0) {
-                        palette.innerHTML += `
-                            <div draggable="true" 
-                                ondragstart="drag(event, ${sub.id}, ${roomId})" 
-                                class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
-                                <div class="overflow-hidden">
-                                    <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomName}]</span></div>
-                                    <div class="text-[11px] text-gray-500">${sub.code}</div>
-                                </div>
-                                <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
-                                    ${remaining}
-                                </div>
+                if (remaining > 0) {
+                    // สังเกตว่า ondragstart ส่งแค่ sub.id ไม่ต้องส่ง roomId แยกแล้ว
+                    palette.innerHTML += `
+                        <div draggable="true" 
+                            ondragstart="drag(event, ${sub.id})" 
+                            class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
+                            <div class="overflow-hidden">
+                                <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomNames}]</span></div>
+                                <div class="text-[11px] text-gray-500">${sub.code}</div>
                             </div>
-                        `;
-                    }
-                });
+                            <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                ${remaining}
+                            </div>
+                        </div>
+                    `;
+                }
             });
 
             const mySchedulesCount = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_')).length;
@@ -1932,6 +1935,17 @@
             } else if (teacherSubjects.length === 0) {
                 palette.innerHTML = `<div class="text-center text-gray-400 p-4 text-sm">ยังไม่มีวิชาสำหรับครูท่านนี้<br>ไปที่แท็บ "จัดการรายวิชา"</div>`;
             }
+        }
+
+        // Helper สำหรับจัดการข้อมูลห้องเรียนกรณีสอนรวม
+        function getRoomIdsArray(classroomIdData) {
+            let schedRooms = [];
+            try { schedRooms = JSON.parse(classroomIdData); } catch(e) { schedRooms = [classroomIdData]; }
+            return schedRooms;
+        }
+
+        function getRoomNamesFromStorage(classroomIdData) {
+            return getRoomIdsArray(classroomIdData).map(id => getClassroomName(id)).join(', ');
         }
 
         function renderGrid() {
@@ -1996,9 +2010,9 @@
                             innerDiv.setAttribute('ondrop', `drop(event, '${cellKey}')`);
 
                             if (content) {
-                                let roomName = getClassroomName(content.classroomId);
+                                let roomName = getRoomNamesFromStorage(content.classroomId); // ใช้ Helper ใหม่
                                 innerDiv.setAttribute('draggable', 'true');
-                                innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
+                                innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id})`); // ลบ classroomId ทิ้ง
                                 innerDiv.innerHTML = `
                                     <span class="font-bold text-gray-800 leading-tight">${content.name}</span>
                                     <span class="text-[11px] text-gray-500 leading-none">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
@@ -2022,24 +2036,24 @@
         function dragEnter(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
         function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
-        function drag(ev, subjectId, classroomId) {
+        function drag(ev, subjectId) {
             const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'palette',
                 subjectId: subjectId,
-                classroomId: classroomId,
-                subjectObj: { ...baseSub, classroomId: classroomId },
+                classroomIds: baseSub.classroomIds,
+                subjectObj: { ...baseSub },
                 sourceCellKey: null
             };
         }
 
-        function dragFromGrid(ev, cellKey, subjectId, classroomId) {
+        function dragFromGrid(ev, cellKey, subjectId) {
             const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'grid',
                 subjectId: subjectId,
-                classroomId: classroomId,
-                subjectObj: { ...baseSub, classroomId: classroomId },
+                classroomIds: baseSub.classroomIds,
+                subjectObj: { ...baseSub },
                 sourceCellKey: cellKey
             };
         }
@@ -2047,56 +2061,28 @@
         function drop(ev, targetCellKey) {
             ev.preventDefault();
             ev.currentTarget.classList.remove('drag-over');
-            
             if (!dragSource.subjectObj) return;
 
             const [targetDay, targetPeriod] = targetCellKey.split('_');
             const targetSubject = dragSource.subjectObj;
 
-            const conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, targetSubject.classroomId);
+            // เช็ค Conflict ทุกห้องเรียนที่เรียนรวมกัน
+            let conflict = null;
+            let conflictRoomId = null;
+            for (let roomId of dragSource.classroomIds) {
+                conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, roomId);
+                if (conflict) {
+                    conflictRoomId = roomId;
+                    break;
+                }
+            }
 
             if (conflict) {
-                const roomName = getClassroomName(targetSubject.classroomId);
-                const recs = getRecommendations(currentTeacherId, targetSubject.classroomId);
-                
-                let recsHTML = recs.length > 0 
-                    ? recs.map(r => `
-                        <button onclick="placeFromRecommendation('${r.cellKey}')" class="w-full text-left bg-white hover:bg-green-100 border-2 border-green-200 hover:border-green-400 text-green-700 px-4 py-2.5 rounded-xl mb-2 shadow-sm transition-all flex items-center gap-3 cursor-pointer font-bold outline-none">
-                            <i class="fa-solid fa-arrow-right-to-bracket text-xl text-green-500"></i> 
-                            <div>
-                                <div class="text-[13px] text-green-600">ย้ายไปจัดที่นี่:</div>
-                                <div>วัน${r.dayName} - ${r.periodName} <span class="font-normal text-xs text-gray-500">(${r.time} น.)</span></div>
-                            </div>
-                        </button>
-                      `).join('')
-                    : '<div class="text-gray-500 text-center py-4 font-bold border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">ไม่มีคาบว่างแนะนำเลยในขณะนี้ 🥲</div>';
-
+                const roomName = getClassroomName(conflictRoomId);
                 Swal.fire({
                     title: '⚠️ ห้องเรียนชนกัน!',
-                    html: `
-                        <div class="text-left text-sm font-itim space-y-3">
-                            <p class="text-red-500 font-bold text-base">ห้องเรียน ${roomName} มีเรียนซ้อนในคาบเรียนนี้:</p>
-                            <div class="bg-red-50 p-3 rounded-xl border border-red-200 shadow-inner">
-                                <p>• วิชาที่คุณพยายามจัด: <strong class="text-red-600">${targetSubject.name} (${targetSubject.code})</strong></p>
-                                <p>• ชนกับ: <strong class="text-red-600">${conflict.subjectName} (${conflict.subjectCode})</strong> ของ <strong>${conflict.teacherName}</strong></p>
-                            </div>
-                            <p class="font-bold text-green-600 mt-5 text-base"><i class="fa-solid fa-lightbulb text-yellow-400"></i> แนะนำช่องว่าง (คลิกเพื่อจัดลงตารางได้เลย):</p>
-                            <div class="bg-green-50/50 p-2 rounded-xl border border-green-100">
-                                ${recsHTML}
-                            </div>
-                        </div>
-                    `,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#ec4899',
-                    cancelButtonColor: '#9ca3af',
-                    confirmButtonText: 'ดึงดันจัดลงช่องนี้อยู่ดี',
-                    cancelButtonText: 'ยกเลิก',
-                    customClass: { popup: 'rounded-3xl border-4 border-pink-200' }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        executePlacement(targetCellKey);
-                    }
+                    html: `ห้องเรียน ${roomName} มีเรียนวิชา <strong>${conflict.subjectName}</strong> ของ <strong>${conflict.teacherName}</strong> อยู่แล้วในคาบนี้ครับ`,
+                    icon: 'error'
                 });
             } else {
                 executePlacement(targetCellKey);
@@ -2108,14 +2094,12 @@
             const targetSubject = dragSource.subjectObj;
 
             if (dragSource.type === 'palette') {
-                let scheduled = getScheduledCount(targetSubject.id, targetSubject.classroomId);
-                if (scheduled >= targetSubject.hours) {
-                    Toast.fire({ icon: 'error', title: 'วิชานี้จัดครบชั่วโมงแล้ว' });
-                    return;
-                }
+                let scheduled = getScheduledCount(targetSubject.id);
+                if (scheduled >= targetSubject.hours) return Toast.fire({ icon: 'error', title: 'วิชานี้จัดครบชั่วโมงแล้ว' });
+                
                 scheduleGrid[targetStorageKey] = { 
                     id: targetSubject.id, 
-                    classroomId: targetSubject.classroomId,
+                    classroomId: JSON.stringify(dragSource.classroomIds), // เซฟเก็บเป็น Array String
                     name: targetSubject.name,
                     code: targetSubject.code,
                     hours: targetSubject.hours
@@ -2128,20 +2112,22 @@
                 const existingSubjectAtTarget = scheduleGrid[targetStorageKey];
 
                 if (existingSubjectAtTarget) {
-                    const swapConflict = checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], existingSubjectAtTarget.classroomId);
-                    
+                    let existingRooms = getRoomIdsArray(existingSubjectAtTarget.classroomId);
+                    let swapConflict = false;
+                    let conflictRoomName = "";
+                    for (let roomId of existingRooms) {
+                        if (checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], roomId)) {
+                            swapConflict = true;
+                            conflictRoomName = getClassroomName(roomId);
+                            break;
+                        }
+                    }
                     if (swapConflict) {
-                        const roomName = getClassroomName(existingSubjectAtTarget.classroomId);
-                        Swal.fire({
-                            title: '⚠️ ไม่สามารถสลับคาบได้โดยตรง',
-                            text: `การสลับจะทำให้วิชา ${existingSubjectAtTarget.name} ของห้อง ${roomName} ไปชนกับคุณครูท่านอื่นที่คาบต้นทาง`,
-                            icon: 'error'
-                        });
-                        return;
+                        return Swal.fire('⚠️ สลับคาบไม่ได้', `วิชาของห้อง ${conflictRoomName} จะไปชนกับครูท่านอื่นที่คาบต้นทาง`, 'error');
                     }
                     scheduleGrid[targetStorageKey] = { 
                         id: targetSubject.id, 
-                        classroomId: targetSubject.classroomId,
+                        classroomId: JSON.stringify(dragSource.classroomIds),
                         name: targetSubject.name,
                         code: targetSubject.code,
                         hours: targetSubject.hours
@@ -2150,7 +2136,7 @@
                 } else {
                     scheduleGrid[targetStorageKey] = { 
                         id: targetSubject.id, 
-                        classroomId: targetSubject.classroomId,
+                        classroomId: JSON.stringify(dragSource.classroomIds),
                         name: targetSubject.name,
                         code: targetSubject.code,
                         hours: targetSubject.hours
@@ -2160,7 +2146,7 @@
                 popSound();
             }
 
-            dragSource = { type: null, subjectId: null, classroomId: null, subjectObj: null, sourceCellKey: null };
+            dragSource = { type: null, subjectId: null, classroomIds: null, subjectObj: null, sourceCellKey: null };
             renderGrid();
             updatePalette();
             renderMasterGrid(); 
@@ -2530,7 +2516,8 @@
                             let teacherName = "";
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`)) {
-                                    if (scheduleGrid[key].classroomId == classroomId) {
+                                    let schedRooms = getRoomIdsArray(scheduleGrid[key].classroomId);
+                                    if (schedRooms.includes(classroomId)) {
                                         foundContent = scheduleGrid[key];
                                         const teacherId = parseInt(key.split('_')[0]);
                                         const tObj = teachers.find(t => t.id == teacherId);
@@ -2632,8 +2619,11 @@
                         } else {
                             let foundContent = null;
                             Object.keys(scheduleGrid).forEach(key => {
-                                if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomId == cr.id) {
-                                    foundContent = scheduleGrid[key];
+                                if (key.endsWith(`_${cellKey}`)) {
+                                    let schedRooms = getRoomIdsArray(scheduleGrid[key].classroomId);
+                                    if (schedRooms.includes(cr.id)) {
+                                        foundContent = scheduleGrid[key];
+                                    }
                                 }
                             });
 
@@ -2658,7 +2648,7 @@
                         } else {
                             let content = scheduleGrid[storageKey];
                             if (content) {
-                                let roomName = getClassroomName(content.classroomId);
+                                let roomName = getRoomNamesFromStorage(content.classroomId);
                                 tdClass += " bg-pink-50";
                                 cellContent = `<span class="font-bold text-[12px] text-gray-800 leading-tight w-full truncate block" title="${content.name} ${roomName}">${content.name} <span class="font-normal text-pink-600 text-[10px]">(${roomName})</span></span>`;
                             }
