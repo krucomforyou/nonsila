@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจัดตารางสอน</title>
+    <title>ระบบจัดตารางสอน - เชื่อมต่อ Google Sheets</title>
     
     <!-- Google Fonts: Itim -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,6 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- การตั้งค่า Tailwind CSS ให้ใช้ฟอนต์ Itim เป็นค่าเริ่มต้น -->
     <script>
         tailwind.config = {
             theme: {
@@ -44,8 +43,50 @@
             background-size: 30px 30px;
         }
 
-        .swal2-container * {
+        .swal2-container *:not(i) {
             font-family: 'Itim', cursive !important;
+        }
+
+        /* ตกแต่งกรอบหน้าต่าง Popup ให้น่ารัก */
+        .swal2-popup {
+            border-radius: 1.5rem !important; 
+            border: 4px dashed #fbcfe8 !important; 
+            background-color: #fffafc !important; 
+            box-shadow: 0 10px 25px -5px rgba(244, 114, 182, 0.3) !important; 
+        }
+        
+        .swal2-title { color: #ec4899 !important; }
+
+        .swal2-confirm {
+            background: linear-gradient(to right, #60a5fa, #3b82f6) !important; 
+            border-radius: 1rem !important; 
+            padding: 0.6rem 1.5rem !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3) !important;
+            transition: all 0.3s ease !important;
+        }
+        .swal2-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4) !important;
+        }
+
+        .swal2-cancel {
+            background: #9ca3af !important; 
+            border-radius: 1rem !important;
+            padding: 0.6rem 1.5rem !important;
+            font-weight: bold !important;
+            transition: all 0.3s ease !important;
+        }
+        .swal2-cancel:hover { background: #6b7280 !important; transform: translateY(-2px); }
+
+        .swal2-input, .swal2-select {
+            border-radius: 1rem !important;
+            border: 2px solid #e5e7eb !important;
+            box-shadow: none !important;
+        }
+        .swal2-input:focus, .swal2-select:focus {
+            border-color: #f472b6 !important; 
+            background-color: #fdf2f8 !important;
         }
 
         .bg-mon { background-color: #fef08a; } 
@@ -54,15 +95,9 @@
         .bg-thu { background-color: #fed7aa; } 
         .bg-fri { background-color: #bae6fd; } 
 
-        .draggable {
-            cursor: grab;
-        }
-        .draggable:active {
-            cursor: grabbing;
-        }
-        .dropzone {
-            transition: all 0.2s;
-        }
+        .draggable { cursor: grab; }
+        .draggable:active { cursor: grabbing; }
+        .dropzone { transition: all 0.2s; }
         .dropzone.drag-over {
             background-color: #e2e8f0;
             border: 2px dashed #475569;
@@ -75,21 +110,10 @@
             color: #4b5563;
         }
 
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1; 
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; 
-        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         .vertical-text {
             writing-mode: vertical-rl;
@@ -99,49 +123,143 @@
             white-space: nowrap;
         }
         
-        .lunch-container {
-             padding-top: 1.5rem; 
-             padding-bottom: 1.5rem;
+        .lunch-container { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+
+        /* Classes สำหรับ Sticky Column ในตารางรวมแบบใหม่ */
+        .master-table-wrapper th, .master-table-wrapper td {
+            border: 1px solid #cbd5e1; /* สีเส้นขอบตาราง */
+        }
+        
+        .master-sticky-left-1 { position: sticky; left: 0; z-index: 10; }
+        .master-sticky-left-2 { position: sticky; left: 80px; z-index: 10; } /* 80px คือความกว้างของคอลัมน์แรก */
+        .master-sticky-top { position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .master-sticky-corner-1 { position: sticky; top: 0; left: 0; z-index: 30; }
+        .master-sticky-corner-2 { position: sticky; top: 0; left: 80px; z-index: 30; }
+
+        /* Overlay ตอนโหลดข้อมูล */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         @media print {
-            .hide-on-print {
+            @page {
+                /* ปิดการล็อค size เพื่อให้เมนู Scale ของเบราว์เซอร์กลับมาทำงาน */
+                margin: 10mm; 
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .hide-on-print, #sidebar, .hide-text-on-print, section.hidden {
                 display: none !important;
             }
-            #sidebar {
-                display: none !important;
+            
+            /* ปลดล็อค Flexbox และความสูงทั้งหมด เพื่อให้กระดาษเรียงหน้าได้ปกติ */
+            html, body, main, section, #workspace-container, .master-table-wrapper {
+                display: block !important;
+                background-image: none !important;
+                background-color: white !important;
+                height: auto !important;
+                min-height: auto !important;
+                width: auto !important;
+                overflow: visible !important;
+                position: static !important;
             }
-            body {
-                background-image: none;
-                background-color: white;
-            }
-            #printable-area, #student-printable-area {
+            #printable-area, #student-printable-area, #master-printable-area {
+                display: block !important;
                 border: none !important;
                 box-shadow: none !important;
                 padding: 0 !important;
+                width: 100% !important;
+                overflow: visible !important;
+            }
+            
+            /* ให้ตารางยืดหดตามคอนเทนต์และสเกลได้ */
+            .w-max { 
+                width: 100% !important; 
+            }
+            table {
+                width: 100% !important;
+                max-width: 100% !important;
+                table-layout: auto !important; 
+                margin: 0 auto !important; 
+            }
+            th, td {
+                width: auto !important;
+                white-space: nowrap !important; /* ป้องกันไม่ให้ข้อความตกลงมาทับกัน */
+            }
+            
+            /* ยกเลิกการแช่แข็งคอลัมน์ (Sticky) ตอนพิมพ์ เพราะจะทำให้ตารางซ้อนกัน */
+            .master-sticky-left-1, .master-sticky-left-2, .master-sticky-top, .master-sticky-corner-1, .master-sticky-corner-2 {
+                position: static !important;
+                box-shadow: none !important;
+            }
+
+            /* --- บังคับตารางครูและนักเรียนให้อยู่ใน 1 หน้าพอดี --- */
+            #schedule-table, #student-schedule-table {
+                table-layout: fixed !important; /* บังคับคอลัมน์กว้างเท่ากัน และไม่ให้กว้างล้นกระดาษ */
+                width: 100% !important;
+            }
+            
+            #schedule-table th, #schedule-table td,
+            #student-schedule-table th, #student-schedule-table td {
+                min-width: 0 !important; /* ปลดล็อคความกว้างขั้นต่ำที่ทำให้ตารางล้น */
+                white-space: normal !important; /* ยอมให้ข้อความขึ้นบรรทัดใหม่ได้ */
+                word-break: break-word !important; /* ถ้าคำยาวไปให้ตัดคำได้ */
+            }
+            
+            /* ลดความสูงของเซลล์ตารางลงเล็กน้อย เพื่อไม่ให้ตารางยาวล้นลงหน้า 2 */
+            #schedule-table .h-16, #student-schedule-table .h-16 {
+                height: auto !important;
+                min-height: 50px !important;
+                padding: 2px !important;
+            }
+
+            #printable-area, #student-printable-area {
+                page-break-inside: avoid !important; /* ป้องกันไม่ให้ตารางถูกตัดแบ่งครึ่งหน้า */
             }
         }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-gray-800">
 
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="text-pink-500 text-6xl mb-4 animate-bounce"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+        <h2 class="text-2xl font-bold text-gray-700">กำลังเชื่อมต่อฐานข้อมูล...</h2>
+        <p class="text-gray-500">กรุณารอสักครู่ (Google Sheets)</p>
+    </div>
+
     <!-- Sidebar -->
-    <aside id="sidebar" class="w-64 shrink-0 bg-white shadow-xl z-10 flex flex-col border-r-4 border-pink-200 transition-all duration-300 ease-in-out">
+    <aside id="sidebar" class="w-64 shrink-0 bg-white shadow-xl z-10 flex flex-col border-r-4 border-pink-200 transition-all duration-300 ease-in-out hide-on-print">
         <div class="p-5 text-center border-b-2 border-dashed border-pink-200 relative">
             <div class="w-16 h-16 mx-auto bg-pink-100 rounded-full flex items-center justify-center border-4 border-white shadow-md mb-2">
                 <i class="fa-solid fa-school text-3xl text-pink-400"></i>
             </div>
             <h1 class="text-xl font-bold text-pink-500 tracking-wide">Timetable Pro</h1>
-            <p class="text-xs text-gray-400">ระบบจัดการและจัดตารางสอน</p>
+            <p class="text-xs text-gray-400">ระบบจัดการตารางสอนออนไลน์</p>
         </div>
 
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">ตารางสอน</div>
+            <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">หน้าหลักตาราง</div>
+            
             <button onclick="switchTab('timetable-tab')" id="nav-timetable" class="w-full flex items-center gap-3 px-4 py-2.5 bg-pink-100 text-pink-600 rounded-xl font-bold transition-all shadow-sm">
-                <i class="fa-solid fa-calendar-days text-lg"></i> ตารางสอนหลัก
+                <i class="fa-solid fa-calendar-days text-lg text-pink-400"></i> จัดตารางสอนหลัก
             </button>
+
             <button onclick="switchTab('student-timetable-tab')" id="nav-student-timetable" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-pink-50 text-gray-600 rounded-xl font-bold transition-all">
-                <i class="fa-solid fa-users text-lg text-indigo-400"></i> ตารางเรียนของนักเรียน
+                <i class="fa-solid fa-users text-lg text-indigo-400"></i> ตารางเรียนห้องเรียน
+            </button>
+
+            <button onclick="switchTab('master-timetable-tab')" id="nav-master-timetable" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-pink-50 text-gray-600 rounded-xl font-bold transition-all">
+                <i class="fa-solid fa-table-cells-large text-lg text-yellow-500"></i> ตารางรวมทุกชั้น/ทุกคน
             </button>
             
             <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 pt-4 mb-1">ตั้งค่าและข้อมูล</div>
@@ -161,18 +279,63 @@
                 <i class="fa-solid fa-lock text-lg text-purple-400"></i> กิจกรรม / ล็อคคาบ
             </button>
         </nav>
-
-        <div class="p-4 border-t-2 border-dashed border-pink-200 text-center text-xs text-gray-400">
-            <i class="fa-solid fa-heart text-red-400"></i> By Gemini
-        </div>
     </aside>
 
     <!-- Main Content Area -->
     <main class="flex-1 overflow-hidden flex flex-col relative bg-transparent">
         
+        <!-- ================= MASTER TIMETABLE TAB ================= -->
+        <section id="master-timetable-tab" class="hidden flex-1 flex flex-col p-6 h-full overflow-hidden">
+            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-yellow-200 hide-on-print">
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="toggleSidebar()" class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    
+                    <label class="font-bold text-lg text-gray-700 ml-2">มุมมอง:</label>
+                    <select id="master-day-filter" onchange="renderMasterGrid()" class="px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-yellow-400 focus:ring-0 outline-none font-itim text-lg min-w-[200px]">
+                        <option value="all">แสดงทั้งสัปดาห์</option>
+                        <option value="mon">เฉพาะวันจันทร์</option>
+                        <option value="tue">เฉพาะวันอังคาร</option>
+                        <option value="wed">เฉพาะวันพุธ</option>
+                        <option value="thu">เฉพาะวันพฤหัสบดี</option>
+                        <option value="fri">เฉพาะวันศุกร์</option>
+                    </select>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="printSchedule()" class="px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-print"></i> พิมพ์ตารางรวม
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-1 gap-4 overflow-hidden">
+                <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-yellow-300 overflow-auto relative master-table-wrapper" id="master-printable-area">
+                    <div class="w-max min-w-full mx-auto py-6 pr-6 pl-4">
+                        <div class="text-center relative pt-4 pb-4 flex items-center justify-center w-full">
+                            <div class="inline-block relative">
+                                <h2 class="relative bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 text-white px-10 py-3 rounded-full text-3xl font-bold shadow-lg border-4 border-white z-10 tracking-wider hide-on-print">
+                                    <i class="fa-solid fa-table-cells-large text-yellow-100 text-xl mr-2"></i>
+                                    ตารางเรียนแบบรวมทุกชั้นและทุกคน
+                                    <i class="fa-solid fa-table-cells-large text-yellow-100 text-xl ml-2"></i>
+                                </h2>
+                            </div>
+                        </div>
+
+                        <!-- ตารางรวม (Master Table) -->
+                        <table class="w-max min-w-full border-collapse text-center text-sm" id="master-schedule-table">
+                            <thead id="master-schedule-thead"></thead>
+                            <tbody id="master-grid-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TEACHER TIMETABLE TAB ================= -->
         <section id="timetable-tab" class="flex-1 flex flex-col p-6 h-full overflow-hidden">
             <!-- Header & Controls -->
-            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-yellow-200 hide-on-print">
+            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-pink-200 hide-on-print">
                 <div class="flex flex-wrap items-center gap-3">
                     <button onclick="toggleSidebar()" class="px-4 py-2 bg-pink-100 hover:bg-pink-200 text-pink-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
                         <i class="fa-solid fa-bars"></i>
@@ -181,16 +344,27 @@
                     <label class="font-bold text-lg text-gray-700 ml-2">เลือกคุณครูผู้สอน:</label>
                     <select id="teacher-select" onchange="loadTeacherData()" class="px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:ring-0 outline-none font-itim text-lg min-w-[200px]">
                     </select>
-                    <span id="total-hours-badge" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner flex items-center gap-1">
-                    </span>
+                    <span id="total-hours-badge" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner flex items-center gap-1"></span>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    <button onclick="undo()" id="btn-undo" disabled class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-rotate-left"></i> ย้อนกลับ
+                    </button>
+                    <button onclick="redo()" id="btn-redo" disabled class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-rotate-right"></i> ทำซ้ำ
+                    </button>
+                    
                     <button onclick="showAutoScheduleOptions()" class="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> จัดอัตโนมัติ
                     </button>
                     <button onclick="clearSchedule()" class="px-4 py-2 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
                         <i class="fa-solid fa-trash-can"></i> ล้างตาราง
                     </button>
+                    
+                    <button onclick="saveScheduleToCloud()" id="btn-save-cloud" class="px-4 py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกขึ้นระบบ
+                    </button>
+                    
                     <button onclick="printSchedule()" class="px-4 py-2 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
                         <i class="fa-solid fa-print"></i> พิมพ์
                     </button>
@@ -200,14 +374,13 @@
             <!-- Workspace: Table + Palette -->
             <div id="workspace-container" class="flex flex-1 gap-4 overflow-hidden">
                 <!-- Timetable Grid -->
-                <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-yellow-300 p-6 overflow-auto relative" id="printable-area">
+                <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-pink-300 p-6 overflow-auto relative" id="printable-area">
                     <div class="w-max min-w-full mx-auto">
-                        <!-- Table Header Decoration -->
                         <div class="text-center relative pt-6 pb-2 flex items-center justify-center w-full">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f431.svg" alt="cute cat" class="w-16 h-16 absolute left-[5%] -top-2 -rotate-12 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f98a.svg" alt="cute fox" class="w-12 h-12 absolute left-[25%] top-4 rotate-12 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f43c.svg" alt="cute panda" class="w-16 h-16 absolute right-[28%] -top-1 rotate-6 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f981.svg" alt="cute lion" class="w-14 h-14 absolute right-[10%] top-3 -rotate-12 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f431.svg" alt="cute cat" class="w-16 h-16 absolute left-[5%] top-14 -rotate-12 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f98a.svg" alt="cute fox" class="w-12 h-12 absolute left-[25%] top-8 rotate-12 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f43c.svg" alt="cute panda" class="w-16 h-16 absolute right-[32%] top-14 rotate-6 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f981.svg" alt="cute lion" class="w-14 h-14 absolute right-[18%] top-10 -rotate-12 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
 
                             <div class="inline-block relative">
                                 <h2 class="relative bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 text-white px-10 py-3 rounded-full text-3xl font-bold shadow-lg border-4 border-white z-10 tracking-wider">
@@ -217,7 +390,7 @@
                                 </h2>
                             </div>
                             
-                            <div id="table-total-hours" class="absolute right-0 top-6 bg-pink-50 border border-pink-200 text-pink-600 px-4 py-1.5 rounded-full text-md font-bold shadow-sm whitespace-nowrap z-10">
+                            <div id="table-total-hours" class="absolute right-0 top-6 bg-pink-50 border border-pink-200 text-pink-600 px-4 py-1.5 rounded-full text-md font-bold shadow-sm whitespace-nowrap z-30">
                             </div>
                         </div>
 
@@ -226,18 +399,16 @@
                         </div>
 
                         <table class="w-max min-w-full border-separate border-spacing-2 text-center" id="schedule-table">
-                            <thead id="schedule-thead">
-                            </thead>
-                            <tbody id="grid-body">
-                            </tbody>
+                            <thead id="schedule-thead"></thead>
+                            <tbody id="grid-body"></tbody>
                         </table>
                     </div>
                 </div>
 
                 <!-- Subject Palette Wrapper -->
                 <div class="relative flex items-center h-full hide-on-print shrink-0 transition-all duration-300">
-                    <button onclick="togglePalette()" class="absolute -left-6 z-20 w-6 h-16 bg-white border-y-2 border-l-2 border-pink-300 rounded-l-xl flex items-center justify-center text-pink-500 hover:bg-pink-50 hover:text-pink-600 transition-all shadow-[-2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer outline-none">
-                        <i class="fa-solid fa-chevron-right text-sm" id="toggle-icon"></i>
+                    <button onclick="togglePalette()" class="absolute -left-4 z-20 w-4 h-12 bg-white border-y-2 border-l-2 border-dashed border-pink-300 rounded-l-lg flex items-center justify-center text-pink-500 hover:bg-pink-50 hover:text-pink-600 transition-all shadow-[-2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer outline-none">
+                        <i class="fa-solid fa-chevron-right text-xs" id="toggle-icon"></i>
                     </button>
                     
                     <div id="subject-palette-container" class="w-48 bg-white rounded-2xl shadow-xl p-3 border-2 border-dashed border-pink-300 flex flex-col h-full shrink-0 transition-all duration-300">
@@ -245,13 +416,13 @@
                             <i class="fa-solid fa-puzzle-piece"></i> รายวิชา
                         </h3>
                         <div class="text-[11px] text-center text-gray-400 mb-2">คาบที่เหลือ</div>
-                        <div id="subject-palette" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                        </div>
+                        <div id="subject-palette" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- ================= STUDENT TIMETABLE TAB ================= -->
         <section id="student-timetable-tab" class="hidden flex-1 flex flex-col p-6 h-full overflow-hidden">
             <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-indigo-200 hide-on-print">
                 <div class="flex flex-wrap items-center gap-3">
@@ -274,10 +445,10 @@
                 <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-indigo-300 p-6 overflow-auto relative" id="student-printable-area">
                     <div class="w-max min-w-full mx-auto">
                         <div class="text-center relative pt-6 pb-2 flex items-center justify-center w-full">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f984.svg" alt="cute unicorn" class="w-16 h-16 absolute left-[5%] -top-1 -rotate-12 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f430.svg" alt="cute rabbit" class="w-14 h-14 absolute left-[28%] top-5 rotate-12 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg" alt="cute chick" class="w-12 h-12 absolute right-[30%] -top-2 -rotate-6 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f436.svg" alt="cute dog" class="w-14 h-14 absolute right-[12%] top-4 rotate-6 drop-shadow-md hide-on-print z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f984.svg" alt="cute unicorn" class="w-16 h-16 absolute left-[5%] top-14 -rotate-12 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f430.svg" alt="cute rabbit" class="w-14 h-14 absolute left-[28%] top-8 rotate-12 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f425.svg" alt="cute chick" class="w-12 h-12 absolute right-[32%] top-14 -rotate-6 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
+                            <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f436.svg" alt="cute dog" class="w-14 h-14 absolute right-[18%] top-10 rotate-6 drop-shadow-md z-20 hover:scale-125 transition-transform duration-300 cursor-pointer">
 
                             <div class="inline-block relative">
                                 <h2 class="relative bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 text-white px-10 py-3 rounded-full text-3xl font-bold shadow-lg border-4 border-white z-10 tracking-wider">
@@ -287,7 +458,7 @@
                                 </h2>
                             </div>
                             
-                            <div id="student-table-total-hours" class="absolute right-0 top-6 bg-indigo-50 border border-indigo-200 text-indigo-600 px-4 py-1.5 rounded-full text-md font-bold shadow-sm whitespace-nowrap z-10">
+                            <div id="student-table-total-hours" class="absolute right-0 top-6 bg-indigo-50 border border-indigo-200 text-indigo-600 px-4 py-1.5 rounded-full text-md font-bold shadow-sm whitespace-nowrap z-30">
                             </div>
                         </div>
 
@@ -296,16 +467,15 @@
                         </div>
 
                         <table class="w-max min-w-full border-separate border-spacing-2 text-center" id="student-schedule-table">
-                            <thead id="student-schedule-thead">
-                            </thead>
-                            <tbody id="student-grid-body">
-                            </tbody>
+                            <thead id="student-schedule-thead"></thead>
+                            <tbody id="student-grid-body"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- ================= SETTINGS TABS (Teachers, Classrooms, Subjects, Periods, Activities) ================= -->
         <section id="teachers-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
             <div class="max-w-4xl mx-auto">
                 <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-200">
@@ -369,7 +539,7 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-teal-50 text-teal-700">
-                                    <th class="p-4 w-20 text-center font-bold">ID</th>
+                                    <th class="p-4 w-20 text-center font-bold">ลำดับ</th>
                                     <th class="p-4 font-bold">ชื่อเต็มห้องเรียน</th>
                                     <th class="p-4 font-bold w-32">ชื่อย่อ</th>
                                     <th class="p-4 text-center w-28 font-bold">แก้ไข</th>
@@ -393,7 +563,7 @@
                         </div>
                         <div>
                             <h2 class="text-2xl font-bold text-green-500">จัดการข้อมูลรายวิชา</h2>
-                            <p class="text-xs text-gray-400">สร้างรายวิชา กำหนดโควตาคาบสอน และผูกห้องเรียนเพื่อป้องกันตารางชนกัน</p>
+                            <p class="text-xs text-gray-400">สร้างรายวิชา กำหนดโควตาคาบสอน และผูกห้องเรียน (เลือกได้หลายห้องพร้อมกัน)</p>
                         </div>
                     </div>
 
@@ -410,21 +580,32 @@
                             <label class="block text-sm font-bold text-gray-600 mb-1">รหัสวิชา (เช่น ว 16101)</label>
                             <input type="text" id="new-subject-code" placeholder="เช่น ว 16101" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg">
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-600 mb-1">ระดับชั้น / ห้องเรียน</label>
-                            <select id="new-subject-classroom" class="classroom-select w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-lg">
-                            </select>
-                        </div>
-                        <div class="flex gap-4 md:col-span-2">
-                            <div class="flex-1">
-                                <label class="block text-sm font-bold text-gray-600 mb-1">จำนวนคาบเรียน/สัปดาห์</label>
-                                <input type="number" id="new-subject-hours" min="1" max="10" value="1" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-center text-lg">
+                        
+                        <div class="relative" id="classroom-multiselect-container">
+                            <label class="block text-sm font-bold text-gray-600 mb-1">ระดับชั้น / ห้องเรียน <span class="text-green-500 font-normal text-xs">(เลือกได้หลายห้อง)</span></label>
+                            <div class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white cursor-pointer flex justify-between items-center transition-colors hover:border-green-300" onclick="document.getElementById('classroom-dropdown').classList.toggle('hidden')">
+                                <span id="selected-classrooms-text" class="truncate text-gray-400 text-lg">เลือกห้องเรียน...</span>
+                                <i class="fa-solid fa-chevron-down text-gray-400"></i>
                             </div>
-                            <div class="flex items-end">
+                            <div id="classroom-dropdown" class="hidden absolute z-20 w-full mt-1 bg-white border-2 border-green-200 rounded-xl shadow-xl max-h-56 overflow-y-auto p-2">
+                                <!-- Checkboxes จะถูกเพิ่มผ่าน JavaScript -->
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <div class="flex gap-4 items-end">
+                                <div class="flex-1">
+                                    <label class="block text-sm font-bold text-gray-600 mb-1">จำนวนคาบเรียน/สัปดาห์ (ต่อ 1 ห้อง)</label>
+                                    <input type="number" id="new-subject-hours" min="1" max="10" value="1" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 outline-none font-itim text-center text-lg">
+                                </div>
                                 <button onclick="addSubject()" class="h-[48px] px-6 bg-green-400 hover:bg-green-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2 whitespace-nowrap">
                                     <i class="fa-solid fa-plus"></i> เพิ่มรายวิชา
                                 </button>
                             </div>
+                            <label class="flex items-center gap-2 cursor-pointer mt-1">
+                                <input type="checkbox" id="new-subject-isHeavy" class="w-5 h-5 text-red-500 rounded border-gray-300 focus:ring-red-400 accent-red-500">
+                                <span class="text-sm font-bold text-red-500">วิชาเรียนหนัก</span>
+                            </label>
                         </div>
                     </div>
                     
@@ -439,11 +620,11 @@
                         <table class="w-full text-left border-collapse text-sm">
                             <thead>
                                 <tr class="bg-green-50 text-green-700">
-                                    <th class="p-4 font-bold">ครูผู้สอน</th>
-                                    <th class="p-4 font-bold">ชื่อวิชา</th>
-                                    <th class="p-4 font-bold">รหัสวิชา</th>
-                                    <th class="p-4 font-bold text-center">ห้องเรียน</th>
-                                    <th class="p-4 text-center font-bold">คาบ/สัปดาห์</th>
+                                    <th class="p-4 font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('teacher')">ครูผู้สอน <i id="sort-icon-teacher" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
+                                    <th class="p-4 font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('name')">ชื่อวิชา <i id="sort-icon-name" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
+                                    <th class="p-4 font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('code')">รหัสวิชา <i id="sort-icon-code" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
+                                    <th class="p-4 font-bold text-center cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('rooms')">ห้องเรียนที่สอน <i id="sort-icon-rooms" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
+                                    <th class="p-4 text-center font-bold cursor-pointer hover:bg-green-100 transition select-none" onclick="sortSubjectTable('hours')">คาบ/สัปดาห์ <i id="sort-icon-hours" class="fa-solid fa-sort ml-1 text-gray-300"></i></th>
                                     <th class="p-4 text-center font-bold w-24">แก้ไข</th>
                                     <th class="p-4 text-center font-bold w-24">ลบ</th>
                                 </tr>
@@ -555,6 +736,9 @@
     </main>
 
     <script>
+        // ================= SCRIPT URL (แทนที่ด้วย Web App URL ของคุณ) =================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGX-4jmHaXsyVrv8vKZNsloRjoHpGyWOZc2AtdrMLYVjsVqnzGk1TSk8XuQIz68_fiMA/exec';
+
         // ================= STATE MANAGEMENT =================
         const DAYS = [
             { id: 'mon', name: 'จันทร์', colorClass: 'bg-mon' },
@@ -564,54 +748,151 @@
             { id: 'fri', name: 'ศุกร์', colorClass: 'bg-fri' }
         ];
 
-        let periodsConfig = [
-            { id: '1', name: 'คาบที่ 1', time: '08.30 - 09.30', type: 'class' },
-            { id: '2', name: 'คาบที่ 2', time: '09.30 - 10.30', type: 'class' },
-            { id: '3', name: 'คาบที่ 3', time: '10.30 - 11.30', type: 'class' },
-            { id: 'lunch_1', name: 'พักกลางวัน', time: '11.30 - 12.30', type: 'lunch' },
-            { id: '4', name: 'คาบที่ 4', time: '12.30 - 13.30', type: 'class' },
-            { id: '5', name: 'คาบที่ 5', time: '13.30 - 14.30', type: 'class' },
-            { id: '6', name: 'คาบที่ 6', time: '14.30 - 15.30', type: 'class' }
-        ];
-
-        let LOCKED_PERIODS = {
-            'mon_6': { name: 'แนะแนว', isLocked: true },
-            'tue_6': { name: 'ลูกเสือ-เนตรนารี', isLocked: true },
-            'wed_1': { name: 'กิจกรรมกลุ่มสี', isLocked: true },
-            'thu_6': { name: 'ชุมนุม', isLocked: true },
-            'fri_1': { name: 'ไทยเสริม<br><span class="text-xs">ท 16201</span>', isLocked: true },
-            'fri_2': { name: 'อังกฤษเสริม<br><span class="text-xs">อ 16201</span>', isLocked: true },
-            'fri_6': { name: 'PLC', isLocked: true }
-        };
-
-        let classrooms = [
-            { id: 1, shortName: 'ป.4', fullName: 'ประถมศึกษาปีที่ 4' },
-            { id: 2, shortName: 'ป.5/1', fullName: 'ประถมศึกษาปีที่ 5/1' },
-            { id: 3, shortName: 'ป.5/2', fullName: 'ประถมศึกษาปีที่ 5/2' },
-            { id: 4, shortName: 'ป.6', fullName: 'ประถมศึกษาปีที่ 6' }
-        ];
-
-        let teachers = [
-            { id: 1, name: 'คุณครูอริสา พึ่งน้ำ' },
-            { id: 2, name: 'คุณครูภาณุวัชร โพนไสว' }
-        ];
-
-        let subjects = [
-            { id: 101, teacherId: 1, name: 'คณิตฯ', code: 'ค 15101', classroomId: 2, hours: 3 },
-            { id: 102, teacherId: 1, name: 'คณิตฯ', code: 'ค 15102', classroomId: 3, hours: 3 },
-            { id: 103, teacherId: 1, name: 'คณิตฯ', code: 'ค 14101', classroomId: 1, hours: 5 },
-            { id: 104, teacherId: 1, name: 'วิทย์', code: 'ว 16101', classroomId: 4, hours: 4 },
-            { id: 201, teacherId: 2, name: 'ภาษาไทย', code: 'ท 15101', classroomId: 2, hours: 4 },
-            { id: 202, teacherId: 2, name: 'ภาษาอังกฤษ', code: 'อ 16101', classroomId: 4, hours: 3 }
-        ];
-
-        let scheduleGrid = {
-            '2_mon_1': { id: 201, teacherId: 2, name: 'ภาษาไทย', code: 'ท 15101', classroomId: 2, hours: 4 },
-            '2_tue_2': { id: 202, teacherId: 2, name: 'ภาษาอังกฤษ', code: 'อ 16101', classroomId: 4, hours: 3 }
-        };
+        // ล้างข้อมูลจำลองออกทั้งหมด เริ่มต้นด้วย Array ว่าง
+        let periodsConfig = [];
+        let LOCKED_PERIODS = {};
+        let classrooms = [];
+        let teachers = [];
+        let subjects = [];
+        let subjectSort = { column: 'teacher', direction: 'asc' };
+        let scheduleGrid = {};
         
-        let currentTeacherId = 1;
-        let dragSource = { type: null, subjectId: null, sourceCellKey: null };
+        let currentTeacherId = null;
+        let dragSource = { type: null, subjectId: null, classroomId: null, subjectObj: null, sourceCellKey: null };
+        let historyStack = [];
+        let historyIndex = -1;
+
+        // ================= INITIALIZATION & CLOUD FETCH =================
+        window.onload = () => {
+            document.addEventListener('click', function(event) {
+                const container = document.getElementById('classroom-multiselect-container');
+                const dropdown = document.getElementById('classroom-dropdown');
+                if (container && dropdown && !container.contains(event.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            // ตรวจสอบก่อนว่าใส่ URL มาหรือยัง
+            if (SCRIPT_URL === 'ใส่_WEB_APP_URL_ที่ได้จาก_Google_Apps_Script_ที่นี่' || !SCRIPT_URL) {
+                document.getElementById('loading-overlay').innerHTML = `
+                    <div class="text-red-500 text-6xl mb-4"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <h2 class="text-2xl font-bold text-gray-700">ยังไม่ได้ตั้งค่า Web App URL</h2>
+                    <p class="text-gray-500 mt-2 text-center max-w-lg">กรุณานำ Web App URL ที่ได้จากการ Deploy Google Apps Script มาใส่ในตัวแปร <b>SCRIPT_URL</b> ในโค้ดบรรทัดที่ 490 ก่อนครับ</p>
+                `;
+            } else {
+                fetchDataFromCloud();
+            }
+        };
+
+        async function fetchDataFromCloud() {
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'load' })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // กำหนดค่าจาก Cloud ให้ตัวแปรในระบบ
+                    teachers = result.data.teachers || [];
+                    classrooms = result.data.classrooms || [];
+                    subjects = result.data.subjects || [];
+                    LOCKED_PERIODS = result.data.LOCKED_PERIODS || {};
+                    scheduleGrid = result.data.scheduleGrid || {};
+                    periodsConfig = result.data.periodsConfig || [];
+
+                    // ถ้าตารางคาบเรียนว่าง (เปิดใช้ครั้งแรก) ให้ตั้งค่าเริ่มต้น
+                    if (periodsConfig.length === 0) {
+                        periodsConfig = [
+                            { id: '1', name: 'คาบที่ 1', time: '08.30 - 09.30', type: 'class' },
+                            { id: '2', name: 'คาบที่ 2', time: '09.30 - 10.30', type: 'class' },
+                            { id: '3', name: 'คาบที่ 3', time: '10.30 - 11.30', type: 'class' },
+                            { id: 'lunch_1', name: 'พักกลางวัน', time: '11.30 - 12.30', type: 'lunch' },
+                            { id: '4', name: 'คาบที่ 4', time: '12.30 - 13.30', type: 'class' }
+                        ];
+                    }
+
+                    if (teachers.length > 0) {
+                        currentTeacherId = teachers[0].id;
+                    }
+
+                    // สร้าง UI ทั้งหมดใหม่
+                    initializeUI();
+                    
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    saveToHistory(); 
+                } else {
+                    throw new Error(result.error || 'โหลดข้อมูลล้มเหลว');
+                }
+            } catch (error) {
+                document.getElementById('loading-overlay').innerHTML = `
+                    <div class="text-red-500 text-6xl mb-4"><i class="fa-solid fa-circle-xmark"></i></div>
+                    <h2 class="text-2xl font-bold text-gray-700">การเชื่อมต่อผิดพลาด</h2>
+                    <p class="text-gray-500 mt-2">${error.message}</p>
+                    <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-pink-500 text-white rounded-lg">ลองใหม่</button>
+                `;
+            }
+        }
+
+        async function saveScheduleToCloud() {
+            const btn = document.getElementById('btn-save-cloud');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            btn.disabled = true;
+
+            const payload = {
+                teachers: teachers,
+                classrooms: classrooms,
+                periodsConfig: periodsConfig,
+                subjects: subjects,
+                LOCKED_PERIODS: LOCKED_PERIODS,
+                scheduleGrid: scheduleGrid
+            };
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'save', payload: payload })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    Toast.fire({ icon: 'success', title: 'บันทึกข้อมูลขึ้นระบบ (Cloud) สำเร็จแล้ว!' });
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            }
+        }
+
+        function initializeUI() {
+            initTeacherDropdowns();
+            initClassroomDropdowns();
+            renderClassroomList();
+            renderTableHeaders();
+            renderPeriodList();
+            renderTeacherList();
+            renderSubjectList();
+            renderActivityList();
+            
+            if (teachers.length > 0) {
+                loadTeacherData();
+            } else {
+                updatePalette();
+                renderGrid();
+            }
+            
+            renderMasterGrid();
+            switchTab('timetable-tab');
+        }
 
         function getClassroomName(id) {
             const cr = classrooms.find(c => c.id === parseInt(id));
@@ -623,23 +904,9 @@
             return cr ? cr.fullName : 'ไม่ระบุ';
         }
 
-        // ================= INITIALIZATION =================
-        window.onload = () => {
-            initTeacherDropdowns();
-            initClassroomDropdowns();
-            renderClassroomList();
-            renderTableHeaders();
-            renderPeriodList();
-            renderTeacherList();
-            renderSubjectList();
-            renderActivityList();
-            renderGrid();
-            loadTeacherData();
-        };
-
         // ================= UI TOGGLES & NAVIGATION =================
         function switchTab(tabId) {
-            const tabs = ['timetable-tab', 'student-timetable-tab', 'teachers-tab', 'classrooms-tab', 'subjects-tab', 'periods-tab', 'activities-tab'];
+            const tabs = ['master-timetable-tab', 'timetable-tab', 'student-timetable-tab', 'teachers-tab', 'classrooms-tab', 'subjects-tab', 'periods-tab', 'activities-tab'];
             tabs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -655,15 +922,21 @@
             
             const activeBtn = document.getElementById(`nav-${tabId.replace('-tab', '')}`);
             if (activeBtn) {
-                if (tabId === 'student-timetable-tab') {
+                if (tabId === 'master-timetable-tab') {
+                    activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-yellow-100 text-yellow-700 rounded-xl font-bold transition-all shadow-sm";
+                } else if (tabId === 'student-timetable-tab') {
                     activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-indigo-100 text-indigo-600 rounded-xl font-bold transition-all shadow-sm";
-                } else {
+                } else if (tabId === 'timetable-tab') {
                     activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-pink-100 text-pink-600 rounded-xl font-bold transition-all shadow-sm";
+                } else {
+                    activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-gray-100 text-gray-800 rounded-xl font-bold transition-all shadow-sm";
                 }
             }
 
             if (tabId === 'student-timetable-tab') {
                 loadStudentTimetable();
+            } else if (tabId === 'master-timetable-tab') {
+                renderMasterGrid();
             }
         }
 
@@ -693,9 +966,8 @@
             }
         }
 
-        // ================= CLASSROOMS MANAGEMENT =================
         function initClassroomDropdowns() {
-            const selects = document.querySelectorAll('.classroom-select');
+            const selects = document.querySelectorAll('select.classroom-select');
             selects.forEach(select => {
                 let currentVal = select.value;
                 select.innerHTML = '';
@@ -709,15 +981,52 @@
                     select.value = classrooms[0].id;
                 }
             });
+
+            const dropdown = document.getElementById('classroom-dropdown');
+            if(dropdown) {
+                dropdown.innerHTML = '';
+                classrooms.forEach(c => {
+                    dropdown.innerHTML += `
+                        <label class="flex items-center gap-3 p-2.5 hover:bg-green-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-green-100">
+                            <input type="checkbox" value="${c.id}" class="subject-classroom-checkbox w-5 h-5 text-green-500 rounded border-gray-300 focus:ring-green-400 accent-green-500 cursor-pointer" onchange="updateSelectedClassroomsText()">
+                            <span class="text-gray-700 font-medium">${c.fullName} <span class="text-sm text-gray-400">(${c.shortName})</span></span>
+                        </label>
+                    `;
+                });
+                updateSelectedClassroomsText();
+            }
+        }
+
+        function updateSelectedClassroomsText() {
+            const checkboxes = document.querySelectorAll('.subject-classroom-checkbox:checked');
+            const textSpan = document.getElementById('selected-classrooms-text');
+            if (!textSpan) return;
+            
+            if (checkboxes.length === 0) {
+                textSpan.innerText = 'เลือกห้องเรียน...';
+                textSpan.classList.add('text-gray-400');
+                textSpan.classList.remove('text-gray-800');
+            } else {
+                const selectedNames = Array.from(checkboxes).map(cb => {
+                    const cr = classrooms.find(c => c.id == cb.value);
+                    return cr ? cr.shortName : '';
+                }).join(', ');
+                textSpan.innerText = selectedNames;
+                textSpan.classList.remove('text-gray-400');
+                textSpan.classList.add('text-gray-800');
+            }
         }
 
         function renderClassroomList() {
             const tbody = document.getElementById('classroom-list-tbody');
             tbody.innerHTML = '';
-            classrooms.forEach(c => {
+            
+            let sortedClassrooms = [...classrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
+
+            sortedClassrooms.forEach((c, index) => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-teal-50/50 bg-white">
-                        <td class="p-4 text-center text-gray-500 font-bold">#${c.id}</td>
+                        <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">${c.fullName}</td>
                         <td class="p-4 font-bold text-teal-600 text-base">${c.shortName}</td>
                         <td class="p-4 text-center">
@@ -750,7 +1059,7 @@
             shortInput.value = '';
             
             renderClassroomList();
-            Toast.fire({ icon: 'success', title: 'เพิ่มห้องเรียนสำเร็จ' });
+            Toast.fire({ icon: 'success', title: 'เพิ่มห้องเรียนสำเร็จ (กดบันทึกเพื่ออัปเดตขึ้นระบบ)' });
         }
 
         async function editClassroom(id) {
@@ -791,9 +1100,9 @@
         }
 
         function deleteClassroom(id) {
-            const inUse = subjects.some(s => s.classroomId === id);
+            const inUse = subjects.some(s => s.classroomIds.includes(id));
             if(inUse) {
-                return Swal.fire('ไม่สามารถลบได้', 'มีรายวิชาที่ผูกกับห้องเรียนนี้อยู่ กรุณาลบวิชาที่เกี่ยวข้องออกก่อน', 'error');
+                return Swal.fire('ไม่สามารถลบได้', 'มีรายวิชาที่ผูกกับห้องเรียนนี้อยู่ กรุณาลบวิชาที่เกี่ยวข้องออกก่อน หรือแก้ไขรายวิชาโดยเอาห้องเรียนนี้ออก', 'error');
             }
 
             classrooms = classrooms.filter(c => c.id !== id);
@@ -801,7 +1110,6 @@
             Toast.fire({ icon: 'success', title: 'ลบห้องเรียนสำเร็จ' });
         }
 
-        // ================= PERIOD MANAGEMENT =================
         function renderTableHeaders() {
             const thead = document.getElementById('schedule-thead');
             let html = '<tr class="text-sm">';
@@ -880,7 +1188,7 @@
         }
 
         async function editPeriod(id) {
-            const period = periodsConfig.find(p => p.id === id);
+            const period = periodsConfig.find(p => p.id == id);
             if (!period) return;
 
             const { value: formValues } = await Swal.fire({
@@ -973,7 +1281,7 @@
                 confirmButtonText: 'ใช่, ลบเลย!'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    periodsConfig = periodsConfig.filter(p => p.id !== id);
+                    periodsConfig = periodsConfig.filter(p => p.id != id);
                     
                     Object.keys(scheduleGrid).forEach(key => {
                         if (key.endsWith(`_${id}`)) delete scheduleGrid[key];
@@ -991,7 +1299,6 @@
             });
         }
 
-        // ================= DATA MANAGEMENT =================
         function initTeacherDropdowns() {
             const mainSelect = document.getElementById('teacher-select');
             const manageSelect = document.getElementById('subject-teacher-select');
@@ -1004,8 +1311,11 @@
                 manageSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
             });
 
-            if(teachers.length > 0) {
+            if(teachers.length > 0 && currentTeacherId) {
                 mainSelect.value = currentTeacherId;
+            } else if (teachers.length > 0) {
+                mainSelect.value = teachers[0].id;
+                currentTeacherId = teachers[0].id;
             }
         }
 
@@ -1014,7 +1324,7 @@
             const name = input.value.trim();
             if(!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อครู' });
 
-            const newId = teachers.length > 0 ? Math.max(...teachers.map(t => t.id)) + 1 : 1;
+            const newId = teachers.length > 0 ? Math.max(...teachers.map(t => parseInt(t.id))) + 1 : 1;
             teachers.push({ id: newId, name });
             input.value = '';
             
@@ -1027,13 +1337,13 @@
             if(teachers.length === 1) {
                 return Swal.fire('ไม่สามารถลบได้', 'ต้องมีครูอย่างน้อย 1 คน', 'warning');
             }
-            teachers = teachers.filter(t => t.id !== id);
-            subjects = subjects.filter(s => s.teacherId !== id); 
+            teachers = teachers.filter(t => t.id != id);
+            subjects = subjects.filter(s => s.teacherId != id); 
             Object.keys(scheduleGrid).forEach(key => {
                 if(key.startsWith(id + '_')) delete scheduleGrid[key];
             });
 
-            if(currentTeacherId === id) currentTeacherId = teachers[0].id;
+            if(currentTeacherId == id) currentTeacherId = teachers[0].id;
             
             initTeacherDropdowns();
             renderTeacherList();
@@ -1042,7 +1352,7 @@
         }
 
         async function editTeacher(id) {
-            const teacher = teachers.find(t => t.id === id);
+            const teacher = teachers.find(t => t.id == id);
             if (!teacher) return;
             
             const { value: newName } = await Swal.fire({
@@ -1062,7 +1372,7 @@
                 initTeacherDropdowns();
                 renderTeacherList();
                 renderSubjectList(); 
-                if (currentTeacherId === id) loadTeacherData(); 
+                if (currentTeacherId == id) loadTeacherData(); 
                 Toast.fire({ icon: 'success', title: 'แก้ไขชื่อครูสำเร็จ' });
             }
         }
@@ -1071,76 +1381,127 @@
             const teacherId = parseInt(document.getElementById('subject-teacher-select').value);
             const name = document.getElementById('new-subject-name').value.trim();
             const code = document.getElementById('new-subject-code').value.trim();
-            const classroomId = parseInt(document.getElementById('new-subject-classroom').value);
             const hours = parseInt(document.getElementById('new-subject-hours').value);
+            const isHeavy = document.getElementById('new-subject-isHeavy').checked;
 
-            if(!name || !code || isNaN(classroomId)) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบและเลือกห้องเรียน' });
+            const checkedBoxes = document.querySelectorAll('.subject-classroom-checkbox:checked');
+            const selectedClassroomIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
 
-            const newId = subjects.length > 0 ? Math.max(...subjects.map(s => s.id)) + 1 : 100;
-            subjects.push({ id: newId, teacherId, name, code, classroomId, hours });
+            if(!name || !code || selectedClassroomIds.length === 0) {
+                return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบและเลือกห้องเรียนอย่างน้อย 1 ห้อง' });
+            }
+
+            const newId = subjects.length > 0 ? Math.max(...subjects.map(s => parseInt(s.id))) + 1 : 100;
+            subjects.push({ 
+                id: newId, 
+                teacherId, 
+                name, 
+                code, 
+                classroomIds: selectedClassroomIds, 
+                hours,
+                isHeavy: isHeavy 
+            });
             
             document.getElementById('new-subject-name').value = '';
             document.getElementById('new-subject-code').value = '';
             document.getElementById('new-subject-hours').value = 1;
+            document.getElementById('new-subject-isHeavy').checked = false; 
+            
+            document.querySelectorAll('.subject-classroom-checkbox').forEach(cb => cb.checked = false);
+            updateSelectedClassroomsText();
+            document.getElementById('classroom-dropdown').classList.add('hidden');
 
             renderSubjectList();
-            if(currentTeacherId === teacherId) loadTeacherData();
-            Toast.fire({ icon: 'success', title: 'เพิ่มวิชาสำเร็จ' });
+            if(currentTeacherId == teacherId) loadTeacherData();
+            
+            Toast.fire({ icon: 'success', title: 'เพิ่มรายวิชาสำเร็จ' });
         }
 
         function deleteSubject(id) {
-            subjects = subjects.filter(s => s.id !== id);
+            subjects = subjects.filter(s => s.id != id);
             Object.keys(scheduleGrid).forEach(key => {
-                if(scheduleGrid[key].id === id) delete scheduleGrid[key];
+                if(scheduleGrid[key].id == id) delete scheduleGrid[key];
             });
             renderSubjectList();
             loadTeacherData();
         }
 
         async function editSubject(id) {
-            const subject = subjects.find(s => s.id === id);
+            const subject = subjects.find(s => s.id == id);
             if (!subject) return;
 
-            const classOptions = classrooms.map(c => `<option value="${c.id}" ${subject.classroomId === c.id ? 'selected' : ''}>${c.fullName} (${c.shortName})</option>`).join('');
+            const classCheckboxesHTML = classrooms.map(c => {
+                const isChecked = subject.classroomIds.includes(c.id) ? 'checked' : '';
+                return `
+                    <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer border border-gray-100 mb-1">
+                        <input type="checkbox" value="${c.id}" class="swal-edit-class-cb w-4 h-4 text-blue-600 rounded focus:ring-blue-500" ${isChecked}>
+                        <span class="text-gray-700 text-sm">${c.fullName} (${c.shortName})</span>
+                    </label>
+                `;
+            }).join('');
 
             const { value: formValues } = await Swal.fire({
                 title: 'แก้ไขรายวิชา',
-                html:
-                    `<input id="swal-input-name" class="swal2-input font-itim" placeholder="ชื่อวิชา" value="${subject.name}">` +
-                    `<input id="swal-input-code" class="swal2-input font-itim" placeholder="รหัสวิชา" value="${subject.code}">` +
-                    `<select id="swal-input-classroom" class="swal2-input font-itim mt-2 w-[265px]">
-                        ${classOptions}
-                     </select>` +
-                    `<input id="swal-input-hours" type="number" min="1" max="10" class="swal2-input font-itim" placeholder="จำนวนคาบ" value="${subject.hours}">`,
+                html: `
+                    <div class="text-left font-itim px-1">
+                        <label class="block text-sm mt-2 text-gray-600">ชื่อวิชา:</label>
+                        <input id="swal-input-name" class="w-full px-4 py-2 mt-1 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim" placeholder="ชื่อวิชา" value="${subject.name}">
+                        
+                        <label class="block text-sm mt-3 text-gray-600">รหัสวิชา:</label>
+                        <input id="swal-input-code" class="w-full px-4 py-2 mt-1 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim" placeholder="รหัสวิชา" value="${subject.code}">
+                        
+                        <label class="block text-sm mt-3 text-gray-600 mb-1">ระดับชั้น / ห้องเรียน:</label>
+                        <div class="border-2 border-gray-200 rounded-xl p-2 max-h-40 overflow-y-auto bg-white">
+                            ${classCheckboxesHTML}
+                        </div>
+
+                        <label class="block text-sm mt-3 text-gray-600">จำนวนคาบ/สัปดาห์ (ต่อห้อง):</label>
+                        <input id="swal-input-hours" type="number" min="1" max="10" class="w-full px-4 py-2 mt-1 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim" placeholder="จำนวนคาบ" value="${subject.hours}">
+
+                        <label class="flex items-center gap-2 mt-4 cursor-pointer">
+                            <input type="checkbox" id="swal-input-isHeavy" class="w-5 h-5 text-red-500 rounded border-gray-300 focus:ring-red-400 accent-red-500" ${subject.isHeavy ? 'checked' : ''}>
+                            <span class="text-sm font-bold text-red-500">วิชาเรียนหนัก</span>
+                        </label>
+                    </div>
+                `,
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: 'บันทึก',
                 cancelButtonText: 'ยกเลิก',
                 preConfirm: () => {
+                    const checkedCb = document.querySelectorAll('.swal-edit-class-cb:checked');
+                    const selectedIds = Array.from(checkedCb).map(cb => parseInt(cb.value));
+
                     return {
                         name: document.getElementById('swal-input-name').value.trim(),
                         code: document.getElementById('swal-input-code').value.trim(),
-                        classroomId: parseInt(document.getElementById('swal-input-classroom').value),
-                        hours: parseInt(document.getElementById('swal-input-hours').value)
+                        classroomIds: selectedIds,
+                        hours: parseInt(document.getElementById('swal-input-hours').value),
+                        isHeavy: document.getElementById('swal-input-isHeavy').checked 
                     }
                 }
             });
 
             if (formValues) {
-                if (!formValues.name || !formValues.code || !formValues.hours) {
-                    return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบ' });
+                if (!formValues.name || !formValues.code || !formValues.hours || formValues.classroomIds.length === 0) {
+                    return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบและเลือกห้องอย่างน้อย 1 ห้อง' });
                 }
                 
                 subject.name = formValues.name;
                 subject.code = formValues.code;
-                subject.classroomId = formValues.classroomId;
+                subject.classroomIds = formValues.classroomIds;
                 subject.hours = formValues.hours;
+                subject.isHeavy = formValues.isHeavy; 
 
                 Object.keys(scheduleGrid).forEach(key => {
-                    if(scheduleGrid[key].id === id) {
-                        scheduleGrid[key].name = subject.name;
-                        scheduleGrid[key].code = subject.code;
-                        scheduleGrid[key].classroomId = subject.classroomId;
+                    if (scheduleGrid[key].id == id) {
+                        if (!subject.classroomIds.includes(scheduleGrid[key].classroomId)) {
+                            delete scheduleGrid[key];
+                        } else {
+                            scheduleGrid[key].name = subject.name;
+                            scheduleGrid[key].code = subject.code;
+                            scheduleGrid[key].hours = subject.hours;
+                        }
                     }
                 });
 
@@ -1185,7 +1546,7 @@
 
             const [oldDay, oldPeriod] = oldKey.split('_');
             const classPeriods = periodsConfig.filter(p => p.type === 'class');
-            const periodOptions = classPeriods.map(p => `<option value="${p.id}" ${oldPeriod === p.id ? 'selected' : ''}>${p.name} (${p.time})</option>`).join('');
+            const periodOptions = classPeriods.map(p => `<option value="${p.id}" ${oldPeriod == p.id ? 'selected' : ''}>${p.name} (${p.time})</option>`).join('');
 
             const { value: formValues } = await Swal.fire({
                 title: 'แก้ไขกิจกรรม',
@@ -1263,20 +1624,71 @@
             });
         }
 
+        function sortSubjectTable(column) {
+            if (subjectSort.column === column) {
+                subjectSort.direction = subjectSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                subjectSort.column = column;
+                subjectSort.direction = 'asc';
+            }
+            renderSubjectList(); 
+        }
+
+        function updateSubjectSortIcons() {
+            const columns = ['teacher', 'name', 'code', 'rooms', 'hours'];
+            columns.forEach(col => {
+                const icon = document.getElementById(`sort-icon-${col}`);
+                if (icon) {
+                    icon.className = 'ml-1 fa-solid';
+                    if (subjectSort.column === col) {
+                        icon.classList.add(subjectSort.direction === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+                        icon.classList.add('text-green-600');
+                    } else {
+                        icon.classList.add('fa-sort', 'text-gray-300');
+                    }
+                }
+            });
+        }
+        
         function renderSubjectList() {
             const tbody = document.getElementById('subject-list-tbody');
             tbody.innerHTML = '';
-            subjects.forEach(s => {
-                const teacherName = teachers.find(t => t.id === s.teacherId)?.name || 'ไม่ระบุ';
-                const roomName = getClassroomName(s.classroomId);
+            
+            let sortedSubjects = [...subjects]; 
+            sortedSubjects.sort((a, b) => {
+                const getTeacherName = (id) => teachers.find(t => t.id == id)?.name || '';
+                const getRooms = (ids) => ids.map(id => getClassroomName(id)).join(', ');
+
+                let valA, valB;
+                switch (subjectSort.column) {
+                    case 'teacher': valA = getTeacherName(a.teacherId); valB = getTeacherName(b.teacherId); break;
+                    case 'name': valA = a.name; valB = b.name; break;
+                    case 'code': valA = a.code; valB = b.code; break;
+                    case 'rooms': valA = getRooms(a.classroomIds); valB = getRooms(b.classroomIds); break;
+                    case 'hours': valA = a.hours; valB = b.hours; break;
+                    default: valA = getTeacherName(a.teacherId); valB = getTeacherName(b.teacherId);
+                }
+
+                if (typeof valA === 'string' && typeof valB === 'string') {
+                    return subjectSort.direction === 'asc' ? valA.localeCompare(valB, 'th') : valB.localeCompare(valA, 'th');
+                }
+                return subjectSort.direction === 'asc' ? valA - valB : valB - valA;
+            });
+
+            sortedSubjects.forEach(s => {
+                const teacherName = teachers.find(t => t.id == s.teacherId)?.name || 'ไม่ระบุ';
+                const roomNames = s.classroomIds.map(id => getClassroomName(id)).join(', ') || 'ไม่ระบุ';
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-green-50/50 bg-white">
                         <td class="p-4 text-gray-600 font-medium">${teacherName}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${s.name}</td>
+                        <td class="p-4 font-bold text-gray-800 text-base">
+                            ${s.name}
+                            ${s.isHeavy ? '<span class="ml-2 bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200">วิชาหนัก</span>' : ''}
+                        </td>
                         <td class="p-4 text-sm text-gray-500">${s.code}</td>
-                        <td class="p-4 text-center font-bold text-pink-500">${roomName}</td>
-                        <td class="p-4 text-center font-bold text-green-600 text-lg">${s.hours} คาบ</td>
+                        <td class="p-4 text-center font-bold text-pink-500 max-w-[200px] truncate" title="${roomNames}">${roomNames}</td>
+                        <td class="p-4 text-center font-bold text-green-600 text-lg">${s.hours} <span class="text-xs font-normal">ค/ห</span></td>
                         <td class="p-4 text-center">
                             <button onclick="editSubject(${s.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50">
                                 <i class="fa-solid fa-pen-to-square text-lg"></i>
@@ -1294,6 +1706,8 @@
             if (document.getElementById('subject-search-input')) {
                 filterSubjects();
             }
+            
+            updateSubjectSortIcons(); 
         }
 
         function filterSubjects() {
@@ -1322,7 +1736,7 @@
                 const dayStr = dayNames[parts[0]];
                 const periodId = parts[1];
                 const actName = LOCKED_PERIODS[key].name;
-                const pObj = periodsConfig.find(p => p.id === periodId);
+                const pObj = periodsConfig.find(p => p.id == periodId);
                 const pName = pObj ? pObj.name : `คาบที่ ${periodId}`;
 
                 tbody.innerHTML += `
@@ -1344,8 +1758,7 @@
             });
         }
 
-        // ================= CONFLICT CHECK & RECOMMENDATION LOGIC =================
-        function checkConflict(teacherId, day, period, targetSubject) {
+        function checkConflict(teacherId, day, period, targetClassroomId) {
             let conflictInfo = null;
             Object.keys(scheduleGrid).forEach(key => {
                 const parts = key.split('_');
@@ -1356,8 +1769,8 @@
                     
                     if (d === day && pr === period && scheduledTeacherId !== teacherId) {
                         const scheduledSubject = scheduleGrid[key];
-                        if (scheduledSubject.classroomId === targetSubject.classroomId) {
-                            const teacherObj = teachers.find(t => t.id === scheduledTeacherId);
+                        if (scheduledSubject.classroomId == targetClassroomId) {
+                            const teacherObj = teachers.find(t => t.id == scheduledTeacherId);
                             conflictInfo = {
                                 teacherName: teacherObj ? teacherObj.name : 'คุณครูท่านอื่น',
                                 subjectName: scheduledSubject.name,
@@ -1380,7 +1793,7 @@
                     if (LOCKED_PERIODS[cellKey]) return;
                     
                     let teacherKey = `${teacherId}_${cellKey}`;
-                    if (scheduleGrid[teacherKey]) return;
+                    if (scheduleGrid[teacherKey]) return; 
                     
                     let roomBusy = false;
                     Object.keys(scheduleGrid).forEach(key => {
@@ -1388,9 +1801,9 @@
                         if (parts.length >= 3) {
                             const d = parts[1];
                             const pr = parts[2];
-                            if (d === day.id && pr === p.id) {
-                                if (scheduleGrid[key].classroomId === classroomId) {
-                                    roomBusy = true;
+                            if (d === day.id && pr == p.id) {
+                                if (scheduleGrid[key].classroomId == classroomId) {
+                                    roomBusy = true; 
                                 }
                             }
                         }
@@ -1414,22 +1827,25 @@
             executePlacement(targetCellKey);
         }
 
-        // ================= TIMETABLE VIEW & LOGIC =================
         function loadTeacherData() {
             const select = document.getElementById('teacher-select');
+            if(!select.value) return;
+            
             currentTeacherId = parseInt(select.value);
             
-            const tName = teachers.find(t => t.id === currentTeacherId).name;
-            document.getElementById('table-teacher-name').innerText = tName;
+            const tObj = teachers.find(t => t.id == currentTeacherId);
+            if(tObj) {
+                document.getElementById('table-teacher-name').innerText = tObj.name;
+            }
 
             updatePalette();
             renderGrid();
         }
 
-        function getScheduledCount(subjectId) {
+        function getScheduledCount(subjectId, classroomId) {
             let count = 0;
             Object.keys(scheduleGrid).forEach(key => {
-                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id === subjectId) {
+                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId && scheduleGrid[key].classroomId == classroomId) {
                     count++;
                 }
             });
@@ -1440,33 +1856,35 @@
             const palette = document.getElementById('subject-palette');
             palette.innerHTML = '';
             
-            let teacherSubjects = subjects.filter(s => s.teacherId === currentTeacherId);
+            let teacherSubjects = subjects.filter(s => s.teacherId == currentTeacherId);
             let totalAssigned = 0;
             let totalRequire = 0;
 
             teacherSubjects.forEach(sub => {
-                let scheduled = getScheduledCount(sub.id);
-                let remaining = sub.hours - scheduled;
-                totalAssigned += scheduled;
-                totalRequire += sub.hours;
-                
-                let roomName = getClassroomName(sub.classroomId);
+                sub.classroomIds.forEach(roomId => {
+                    let scheduled = getScheduledCount(sub.id, roomId);
+                    let remaining = sub.hours - scheduled;
+                    totalAssigned += scheduled;
+                    totalRequire += sub.hours;
+                    
+                    let roomName = getClassroomName(roomId);
 
-                if (remaining > 0) {
-                    palette.innerHTML += `
-                        <div draggable="true" 
-                             ondragstart="drag(event, ${sub.id})" 
-                             class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
-                            <div class="overflow-hidden">
-                                <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomName}]</span></div>
-                                <div class="text-[11px] text-gray-500">${sub.code}</div>
+                    if (remaining > 0) {
+                        palette.innerHTML += `
+                            <div draggable="true" 
+                                ondragstart="drag(event, ${sub.id}, ${roomId})" 
+                                class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
+                                <div class="overflow-hidden">
+                                    <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <span class="text-[10px] text-teal-600">[${roomName}]</span></div>
+                                    <div class="text-[11px] text-gray-500">${sub.code}</div>
+                                </div>
+                                <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                    ${remaining}
+                                </div>
                             </div>
-                            <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
-                                ${remaining}
-                            </div>
-                        </div>
-                    `;
-                }
+                        `;
+                    }
+                });
             });
 
             const mySchedulesCount = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_')).length;
@@ -1554,7 +1972,7 @@
                             if (content) {
                                 let roomName = getClassroomName(content.classroomId);
                                 innerDiv.setAttribute('draggable', 'true');
-                                innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id})`);
+                                innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
                                 innerDiv.innerHTML = `
                                     <span class="font-bold text-gray-800 leading-tight">${content.name}</span>
                                     <span class="text-[11px] text-gray-500 leading-none">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
@@ -1563,7 +1981,7 @@
                                     </button>
                                 `;
                             } else {
-                                innerDiv.innerHTML = '<span class="text-gray-300 text-xs"><i class="fa-solid fa-plus"></i></span>';
+                                innerDiv.innerHTML = '<span class="text-gray-300 text-xs hide-text-on-print"><i class="fa-solid fa-plus"></i></span>';
                             }
                         }
                         td.appendChild(innerDiv);
@@ -1574,36 +1992,28 @@
             });
         }
 
-        // ================= DRAG AND DROP / SWAP LOGIC =================
-        function allowDrop(ev) {
-            ev.preventDefault();
-        }
+        function allowDrop(ev) { ev.preventDefault(); }
+        function dragEnter(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+        function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
-        function dragEnter(ev) {
-            ev.preventDefault();
-            ev.currentTarget.classList.add('drag-over');
-        }
-
-        function dragLeave(ev) {
-            ev.currentTarget.classList.remove('drag-over');
-        }
-
-        function drag(ev, subjectId) {
-            const sub = subjects.find(s => s.id === subjectId);
+        function drag(ev, subjectId, classroomId) {
+            const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'palette',
                 subjectId: subjectId,
-                subjectObj: sub,
+                classroomId: classroomId,
+                subjectObj: { ...baseSub, classroomId: classroomId },
                 sourceCellKey: null
             };
         }
 
-        function dragFromGrid(ev, cellKey, subjectId) {
-            const sub = subjects.find(s => s.id === subjectId);
+        function dragFromGrid(ev, cellKey, subjectId, classroomId) {
+            const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'grid',
                 subjectId: subjectId,
-                subjectObj: sub,
+                classroomId: classroomId,
+                subjectObj: { ...baseSub, classroomId: classroomId },
                 sourceCellKey: cellKey
             };
         }
@@ -1617,7 +2027,7 @@
             const [targetDay, targetPeriod] = targetCellKey.split('_');
             const targetSubject = dragSource.subjectObj;
 
-            const conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, targetSubject);
+            const conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, targetSubject.classroomId);
 
             if (conflict) {
                 const roomName = getClassroomName(targetSubject.classroomId);
@@ -1656,9 +2066,7 @@
                     cancelButtonColor: '#9ca3af',
                     confirmButtonText: 'ดึงดันจัดลงช่องนี้อยู่ดี',
                     cancelButtonText: 'ยกเลิก',
-                    customClass: {
-                        popup: 'rounded-3xl border-4 border-pink-200'
-                    }
+                    customClass: { popup: 'rounded-3xl border-4 border-pink-200' }
                 }).then((result) => {
                     if (result.isConfirmed) {
                         executePlacement(targetCellKey);
@@ -1674,12 +2082,18 @@
             const targetSubject = dragSource.subjectObj;
 
             if (dragSource.type === 'palette') {
-                let scheduled = getScheduledCount(targetSubject.id);
+                let scheduled = getScheduledCount(targetSubject.id, targetSubject.classroomId);
                 if (scheduled >= targetSubject.hours) {
                     Toast.fire({ icon: 'error', title: 'วิชานี้จัดครบชั่วโมงแล้ว' });
                     return;
                 }
-                scheduleGrid[targetStorageKey] = { ...targetSubject };
+                scheduleGrid[targetStorageKey] = { 
+                    id: targetSubject.id, 
+                    classroomId: targetSubject.classroomId,
+                    name: targetSubject.name,
+                    code: targetSubject.code,
+                    hours: targetSubject.hours
+                };
                 popSound();
             } 
             else if (dragSource.type === 'grid') {
@@ -1688,7 +2102,7 @@
                 const existingSubjectAtTarget = scheduleGrid[targetStorageKey];
 
                 if (existingSubjectAtTarget) {
-                    const swapConflict = checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], existingSubjectAtTarget);
+                    const swapConflict = checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], existingSubjectAtTarget.classroomId);
                     
                     if (swapConflict) {
                         const roomName = getClassroomName(existingSubjectAtTarget.classroomId);
@@ -1699,18 +2113,32 @@
                         });
                         return;
                     }
-                    scheduleGrid[targetStorageKey] = { ...targetSubject };
+                    scheduleGrid[targetStorageKey] = { 
+                        id: targetSubject.id, 
+                        classroomId: targetSubject.classroomId,
+                        name: targetSubject.name,
+                        code: targetSubject.code,
+                        hours: targetSubject.hours
+                    };
                     scheduleGrid[sourceStorageKey] = { ...existingSubjectAtTarget };
                 } else {
-                    scheduleGrid[targetStorageKey] = { ...targetSubject };
+                    scheduleGrid[targetStorageKey] = { 
+                        id: targetSubject.id, 
+                        classroomId: targetSubject.classroomId,
+                        name: targetSubject.name,
+                        code: targetSubject.code,
+                        hours: targetSubject.hours
+                    };
                     delete scheduleGrid[sourceStorageKey];
                 }
                 popSound();
             }
 
-            dragSource = { type: null, subjectId: null, sourceCellKey: null };
+            dragSource = { type: null, subjectId: null, classroomId: null, subjectObj: null, sourceCellKey: null };
             renderGrid();
             updatePalette();
+            renderMasterGrid(); 
+            saveToHistory();
         }
 
         function removeSubjectFromCell(cellKey, event) {
@@ -1719,10 +2147,14 @@
             delete scheduleGrid[storageKey];
             renderGrid();
             updatePalette();
+            renderMasterGrid(); 
+            saveToHistory();
         }
 
-        // ================= AUTO SCHEDULE WITH OPTIONS =================
         async function showAutoScheduleOptions() {
+            if (teachers.length === 0 || subjects.length === 0) {
+                return Toast.fire({ icon: 'warning', title: 'กรุณาเพิ่มครูและรายวิชาก่อนจัดอัตโนมัติ' });
+            }
             const { value: options } = await Swal.fire({
                 title: 'ตั้งค่าการจัดตารางอัตโนมัติ',
                 html: `
@@ -1749,6 +2181,10 @@
                                     <span>พยายามกระจายวิชาเดียวกันไม่ให้อยู่ในวันเดียวกัน</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="cond_heavy_morning" checked class="w-5 h-5 text-pink-500 rounded accent-pink-500">
+                                    <span>พยายามจัดวิชาเรียนหนักให้อยู่ในช่วงเช้า</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" id="cond_limit_day" class="w-5 h-5 text-pink-500 rounded accent-pink-500">
                                     <span>จำกัดคาบสอนสูงสุดต่อวัน (คาบ):</span>
                                     <input type="number" id="cond_max_per_day" value="4" min="1" max="8" class="w-16 px-2 py-1 border-2 border-gray-300 rounded-lg text-center outline-none focus:border-pink-400 font-bold" disabled>
@@ -1769,13 +2205,12 @@
                 confirmButtonText: '<i class="fa-solid fa-wand-magic-sparkles"></i> เริ่มจัดตาราง',
                 cancelButtonText: 'ยกเลิก',
                 confirmButtonColor: '#3b82f6',
-                customClass: {
-                    popup: 'rounded-3xl border-4 border-blue-200'
-                },
+                customClass: { popup: 'rounded-3xl border-4 border-blue-200' },
                 preConfirm: () => {
                     return {
                         mode: document.querySelector('input[name="auto_mode"]:checked').value,
                         spread: document.getElementById('cond_spread').checked,
+                        heavyMorning: document.getElementById('cond_heavy_morning').checked, 
                         limitDay: document.getElementById('cond_limit_day').checked,
                         maxPerDay: parseInt(document.getElementById('cond_max_per_day').value)
                     }
@@ -1795,7 +2230,6 @@
                 teachersToSchedule = teachers.map(t => t.id);
             }
 
-            // ล้างตารางสำหรับครูที่จะจัดใหม่
             teachersToSchedule.forEach(tId => {
                 Object.keys(scheduleGrid).forEach(key => {
                     if(key.startsWith(tId + '_')) delete scheduleGrid[key];
@@ -1805,29 +2239,36 @@
             const classPeriods = periodsConfig.filter(p => p.type === 'class');
             let hasError = false;
 
-            // เรียงครูที่ชั่วโมงสอนเยอะที่สุดก่อน จะได้โอกาสลงช่องง่ายกว่า
             let teacherLoad = teachersToSchedule.map(tId => {
                 return {
                     id: tId,
-                    totalHours: subjects.filter(s => s.teacherId === tId).reduce((sum, s) => sum + s.hours, 0)
+                    totalHours: subjects.filter(s => s.teacherId == tId).reduce((sum, s) => sum + (s.hours * s.classroomIds.length), 0)
                 };
             }).sort((a, b) => b.totalHours - a.totalHours);
 
             for (let tLoad of teacherLoad) {
                 let tId = tLoad.id;
-                let teacherSubjects = subjects.filter(s => s.teacherId === tId);
+                let teacherSubjects = subjects.filter(s => s.teacherId == tId);
                 
                 if (teacherSubjects.length === 0) continue;
 
                 let subjectsToPlace = [];
-                // เรียงวิชาที่คาบเยอะสุดก่อน
                 teacherSubjects.sort((a,b) => b.hours - a.hours).forEach(sub => {
-                    for(let i=0; i<sub.hours; i++) {
-                        subjectsToPlace.push(sub);
-                    }
+                    sub.classroomIds.forEach(roomId => {
+                        for(let i=0; i<sub.hours; i++) {
+                            subjectsToPlace.push({
+                            id: sub.id,
+                            teacherId: sub.teacherId,
+                            name: sub.name,
+                            code: sub.code,
+                            classroomId: roomId,
+                            hours: sub.hours,
+                            isHeavy: sub.isHeavy 
+                        });
+                        }
+                    });
                 });
 
-                // สร้าง Array ช่องว่างทั้งหมด
                 let availableSlots = [];
                 DAYS.forEach(day => {
                     classPeriods.forEach(p => {
@@ -1851,46 +2292,64 @@
                             let k = `${tId}_${dayId}_${p.id}`;
                             if(scheduleGrid[k]) {
                                 count++;
-                                if (scheduleGrid[k].id === sub.id) hasSameSubject = true;
+                                if (scheduleGrid[k].id == sub.id && scheduleGrid[k].classroomId == sub.classroomId) hasSameSubject = true;
                             }
                         });
                         return { id: dayId, count: count, hasSameSubject: hasSameSubject, slots: slotsByDay[dayId] };
                     });
                     
-                    // จัดเรียงวันตามเงื่อนไข
                     daysArr.sort((a,b) => {
                         if (options.spread) {
                             if (a.hasSameSubject !== b.hasSameSubject) {
-                                return a.hasSameSubject ? 1 : -1; // หาวันที่ยังไม่มีวิชานี้ก่อน
+                                return a.hasSameSubject ? 1 : -1; 
                             }
                         }
-                        if (a.count !== b.count) return a.count - b.count; // หาวันที่สอนน้อยคาบก่อน
-                        return Math.random() - 0.5; // สุ่ม
+                        if (a.count !== b.count) return a.count - b.count; 
+                        return Math.random() - 0.5; 
                     });
 
                     for (let d of daysArr) {
-                        // เช็คเงื่อนไขจำกัดคาบสอนต่อวัน
-                        if (options.limitDay && d.count >= options.maxPerDay) {
-                            continue;
-                        }
+                        if (options.limitDay && d.count >= options.maxPerDay) continue;
 
                         if (d.slots.length > 0) {
-                            let bestSlotIndex = -1;
-                            // หาช่องที่ไม่ conflict สำหรับครูคนนี้
+                            let morningSlots = [];
+                            let afternoonSlots = [];
+
                             for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
                                 const slot = d.slots[sIdx];
-                                // เช็คว่าช่องนี้ครูว่างมั้ย
-                                if (scheduleGrid[`${tId}_${slot.key}`]) continue;
-                                // เช็ค conflict ห้องเรียน
-                                if(!checkConflict(tId, slot.day, slot.period, sub)) {
-                                    bestSlotIndex = sIdx;
-                                    break;
+                                if (!scheduleGrid[`${tId}_${slot.key}`]) {
+                                    if(!checkConflict(tId, slot.day, slot.period, sub.classroomId)) {
+                                        const periodIndex = periodsConfig.findIndex(p => p.id == slot.period);
+                                        const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
+                                        
+                                        if (lunchIndex !== -1 && periodIndex < lunchIndex) {
+                                            morningSlots.push(sIdx);
+                                        } else {
+                                            afternoonSlots.push(sIdx);
+                                        }
+                                    }
                                 }
                             }
 
-                            if(bestSlotIndex !== -1) {
+                            let validSlots = [];
+                            if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
+                                validSlots = morningSlots;
+                            } else {
+                                validSlots = morningSlots.concat(afternoonSlots);
+                            }
+
+                            if(validSlots.length > 0) {
+                                let randomIndex = Math.floor(Math.random() * validSlots.length);
+                                let bestSlotIndex = validSlots[randomIndex];
+                                
                                 let selectedSlot = d.slots[bestSlotIndex];
-                                scheduleGrid[`${tId}_${selectedSlot.key}`] = { ...sub };
+                                scheduleGrid[`${tId}_${selectedSlot.key}`] = { 
+                                    id: sub.id, 
+                                    classroomId: sub.classroomId,
+                                    name: sub.name,
+                                    code: sub.code,
+                                    hours: sub.hours
+                                };
                                 placed = true;
                                 break;
                             }
@@ -1898,32 +2357,56 @@
                     }
 
                     if (!placed) {
-                        // กรณีที่จัดแบบมีเงื่อนไขเป๊ะๆ ไม่ได้ ให้ผ่อนปรนกฎ (ละเลย Spread และ LimitDay)
                         let fallbackDays = Object.keys(slotsByDay).map(dayId => {
                             return { id: dayId, slots: slotsByDay[dayId] };
                         }).sort(() => Math.random() - 0.5);
 
                         for (let d of fallbackDays) {
-                            let bestSlotIndex = -1;
+                            let morningSlots = [];
+                            let afternoonSlots = [];
+
                             for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
                                 const slot = d.slots[sIdx];
                                 if (!scheduleGrid[`${tId}_${slot.key}`]) {
-                                    if(!checkConflict(tId, slot.day, slot.period, sub)) {
-                                        bestSlotIndex = sIdx;
-                                        break;
+                                    if(!checkConflict(tId, slot.day, slot.period, sub.classroomId)) {
+                                        const periodIndex = periodsConfig.findIndex(p => p.id == slot.period);
+                                        const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
+                                        
+                                        if (lunchIndex !== -1 && periodIndex < lunchIndex) {
+                                            morningSlots.push(sIdx);
+                                        } else {
+                                            afternoonSlots.push(sIdx);
+                                        }
                                     }
                                 }
                             }
-                            if(bestSlotIndex !== -1) {
+
+                            let validSlots = [];
+                            if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
+                                validSlots = morningSlots;
+                            } else {
+                                validSlots = morningSlots.concat(afternoonSlots);
+                            }
+
+                            if(validSlots.length > 0) {
+                                let randomIndex = Math.floor(Math.random() * validSlots.length);
+                                let bestSlotIndex = validSlots[randomIndex];
+                                
                                 let selectedSlot = d.slots[bestSlotIndex];
-                                scheduleGrid[`${tId}_${selectedSlot.key}`] = { ...sub };
+                                scheduleGrid[`${tId}_${selectedSlot.key}`] = {
+                                    id: sub.id, 
+                                    classroomId: sub.classroomId,
+                                    name: sub.name,
+                                    code: sub.code,
+                                    hours: sub.hours
+                                };
                                 placed = true;
                                 break;
                             }
                         }
 
                         if (!placed) {
-                            hasError = true; // ไม่มีช่องลงเลยจริงๆ (ตารางชนหรือเต็ม)
+                            hasError = true; 
                         }
                     }
                 }
@@ -1931,6 +2414,7 @@
 
             renderGrid();
             updatePalette();
+            renderMasterGrid(); 
             
             if (hasError) {
                 Swal.fire({
@@ -1942,17 +2426,19 @@
             } else {
                 Swal.fire({
                     title: 'จัดตารางสำเร็จ!',
-                    text: 'ระบบจัดตารางให้อัตโนมัติตามเงื่อนไขเรียบร้อยแล้วครับ',
+                    text: 'ระบบจัดตารางให้อัตโนมัติตามเงื่อนไขเรียบร้อยแล้วครับ (อย่าลืมกดบันทึกขึ้นระบบ)',
                     icon: 'success',
                     confirmButtonColor: '#ec4899'
                 });
             }
+            saveToHistory();
+
             popSound();
         }
 
-        // ================= STUDENT TIMETABLE LOGIC =================
         function loadStudentTimetable() {
             const select = document.getElementById('student-classroom-select');
+            if(!select.value) return;
             const crId = parseInt(select.value);
             if (isNaN(crId)) return;
 
@@ -2018,10 +2504,10 @@
                             let teacherName = "";
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`)) {
-                                    if (scheduleGrid[key].classroomId === classroomId) {
+                                    if (scheduleGrid[key].classroomId == classroomId) {
                                         foundContent = scheduleGrid[key];
                                         const teacherId = parseInt(key.split('_')[0]);
-                                        const tObj = teachers.find(t => t.id === teacherId);
+                                        const tObj = teachers.find(t => t.id == teacherId);
                                         teacherName = tObj ? tObj.name : "ไม่ระบุ";
                                     }
                                 }
@@ -2038,7 +2524,7 @@
                                 `;
                             } else {
                                 innerDiv.className = 'bg-gray-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200';
-                                innerDiv.innerHTML = '<span class="text-gray-300 text-xs">ว่าง</span>';
+                                innerDiv.innerHTML = '<span class="text-gray-300 text-xs hide-text-on-print">ว่าง</span>';
                             }
                         }
                         td.appendChild(innerDiv);
@@ -2056,10 +2542,115 @@
             }
         }
 
+        // ================= MASTER TIMETABLE LOGIC =================
+        function renderMasterGrid() {
+            const filterDay = document.getElementById('master-day-filter') ? document.getElementById('master-day-filter').value : 'all';
+            const thead = document.getElementById('master-schedule-thead');
+            const tbody = document.getElementById('master-grid-body');
+            
+            if(!thead || !tbody) return;
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            const daysToRender = filterDay === 'all' ? DAYS : DAYS.filter(d => d.id === filterDay);
+            const periodsCount = periodsConfig.length;
+
+            let sortedClassrooms = [...classrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
+
+            let theadHtml = `
+                <tr class="bg-gray-200 text-gray-800">
+                    <th class="p-2 border border-gray-400 master-sticky-corner-1 bg-gray-300 min-w-[80px]">วัน/เวลา</th>
+                    <th class="p-2 border border-gray-400 master-sticky-corner-2 bg-gray-300 min-w-[60px]">คาบที่</th>
+            `;
+
+            sortedClassrooms.forEach(cr => {
+                theadHtml += `<th class="p-2 border border-gray-400 master-sticky-top bg-indigo-100 text-indigo-900 min-w-[100px] w-[120px] shadow-sm">${cr.shortName}</th>`;
+            });
+
+            teachers.forEach(t => {
+                let displayName = t.name.replace('คุณครู', '').trim();
+                theadHtml += `<th class="p-2 border border-gray-400 master-sticky-top bg-pink-100 text-pink-900 min-w-[100px] w-[120px] truncate shadow-sm" title="${t.name}">${displayName}</th>`;
+            });
+            theadHtml += `</tr>`;
+            thead.innerHTML = theadHtml;
+
+            let tbodyHtml = '';
+            daysToRender.forEach(day => {
+                periodsConfig.forEach((p, pIndex) => {
+                    let trClass = "hover:bg-gray-50 bg-white";
+                    let isLunch = p.type === 'lunch';
+                    if (isLunch) trClass = "bg-gray-100 text-gray-500 text-sm";
+
+                    tbodyHtml += `<tr class="${trClass}">`;
+
+                    if (pIndex === 0) {
+                        tbodyHtml += `<td rowspan="${periodsCount}" class="p-2 border border-gray-400 master-sticky-left-1 ${day.colorClass} text-center font-bold align-middle text-gray-800 text-lg min-w-[80px] print:static">${day.name}</td>`;
+                    }
+
+                    tbodyHtml += `<td class="p-2 border border-gray-400 master-sticky-left-2 bg-white text-center font-bold text-gray-700 min-w-[60px] print:static">
+                                    ${isLunch ? 'พัก' : p.id}
+                                  </td>`;
+
+                    let cellKey = `${day.id}_${p.id}`;
+                    let isLocked = LOCKED_PERIODS[cellKey];
+
+                    sortedClassrooms.forEach(cr => {
+                        let cellContent = '';
+                        let tdClass = "p-1 border border-gray-300 text-center";
+
+                        if (isLunch) {
+                             cellContent = `-`;
+                        } else if (isLocked) {
+                             tdClass += " bg-gray-100";
+                             cellContent = `<span class="text-[11px] text-gray-500">${isLocked.name}</span>`;
+                        } else {
+                            let foundContent = null;
+                            Object.keys(scheduleGrid).forEach(key => {
+                                if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomId == cr.id) {
+                                    foundContent = scheduleGrid[key];
+                                }
+                            });
+
+                            if (foundContent) {
+                                tdClass += " bg-indigo-50";
+                                cellContent = `<span class="font-bold text-[12px] text-gray-800 leading-tight w-full truncate block" title="${foundContent.name}">${foundContent.name}</span>`;
+                            }
+                        }
+                        tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
+                    });
+
+                    teachers.forEach(t => {
+                        let cellContent = '';
+                        let tdClass = "p-1 border border-gray-300 text-center";
+                        let storageKey = `${t.id}_${cellKey}`;
+
+                        if (isLunch) {
+                             cellContent = `-`;
+                        } else if (isLocked) {
+                             tdClass += " bg-gray-100";
+                             cellContent = `<span class="text-[11px] text-gray-500">${isLocked.name}</span>`;
+                        } else {
+                            let content = scheduleGrid[storageKey];
+                            if (content) {
+                                let roomName = getClassroomName(content.classroomId);
+                                tdClass += " bg-pink-50";
+                                cellContent = `<span class="font-bold text-[12px] text-gray-800 leading-tight w-full truncate block" title="${content.name} ${roomName}">${content.name} <span class="font-normal text-pink-600 text-[10px]">(${roomName})</span></span>`;
+                            }
+                        }
+                        tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
+                    });
+
+                    tbodyHtml += `</tr>`;
+                });
+            });
+
+            tbody.innerHTML = tbodyHtml;
+        }
+
         function clearSchedule() {
             Swal.fire({
                 title: 'แน่ใจนะ?',
-                text: "คุณต้องการล้างตารางที่จัดไว้ทั้งหมด?",
+                text: "คุณต้องการล้างตารางที่จัดไว้ของครูท่านนี้ทั้งหมด? (ยังไม่เซฟขึ้น Cloud จนกว่าจะกดบันทึก)",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
@@ -2073,7 +2664,9 @@
                     });
                     renderGrid();
                     updatePalette();
+                    renderMasterGrid();
                     Toast.fire({ icon: 'success', title: 'ล้างตารางเรียบร้อย' });
+                    saveToHistory();
                 }
             })
         }
@@ -2082,7 +2675,6 @@
             window.print();
         }
 
-        // ================= UTILS =================
         const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
@@ -2108,6 +2700,56 @@
             } catch(e) {}
         }
 
+
+        // ================= UNDO / REDO & SAVE SYSTEM =================
+        function saveToHistory() {
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+            historyStack.push(JSON.parse(JSON.stringify(scheduleGrid)));
+            historyIndex++;
+            updateUndoRedoButtons();
+        }
+
+        function updateUndoRedoButtons() {
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            
+            if (btnUndo) {
+                btnUndo.disabled = historyIndex <= 0;
+                btnUndo.className = btnUndo.disabled 
+                    ? "px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm flex items-center gap-2 cursor-not-allowed" 
+                    : "px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl shadow-md transition-all flex items-center gap-2";
+            }
+            if (btnRedo) {
+                btnRedo.disabled = historyIndex >= historyStack.length - 1;
+                btnRedo.className = btnRedo.disabled 
+                    ? "px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm flex items-center gap-2 cursor-not-allowed" 
+                    : "px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl shadow-md transition-all flex items-center gap-2";
+            }
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                scheduleGrid = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+                renderGrid();
+                updatePalette();
+                renderMasterGrid();
+                updateUndoRedoButtons();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < historyStack.length - 1) {
+                historyIndex++;
+                scheduleGrid = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+                renderGrid();
+                updatePalette();
+                renderMasterGrid();
+                updateUndoRedoButtons();
+            }
+        }
     </script>
 </body>
 </html>
