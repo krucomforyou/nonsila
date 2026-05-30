@@ -537,6 +537,9 @@
                         <button onclick="printSchedule()" class="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-print"></i> พิมพ์
                         </button>
+                        <button id="btn-lock-schedule" onclick="toggleScheduleLock()" class="px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                            <i class="fa-solid fa-lock-open" id="icon-lock"></i> <span id="text-lock">ล็อคตาราง</span>
+                        </button>
                     </div>
                 </div>
 
@@ -964,6 +967,10 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxg4X33ddRNPYk6seFn_VAqX-WCH_meaMUWP_CFKHPCW8R_YNhs3iq9ZnBw19fa4C38/exec';
 
         // ================= STATE MANAGEMENT =================
+        let isScheduleLocked = false;
+        let scheduleLockPassword = "";
+
+
         const DAYS = [
             { id: 'mon', name: 'จันทร์', colorClass: 'bg-mon' },
             { id: 'tue', name: 'อังคาร', colorClass: 'bg-tue' },
@@ -1208,6 +1215,16 @@
                     scheduleGrid = result.data.scheduleGrid || {};
                     periodsConfig = result.data.periodsConfig || [];
 
+                    const settings = result.data.settings || {};
+                    isScheduleLocked = settings.isScheduleLocked === 'true' || settings.isScheduleLocked === true;
+                    
+                    // ดึงรหัสผ่าน แปลงเป็น string ก่อน และเช็คว่ามี ' นำหน้าหรือไม่ ถ้ามีให้ตัดทิ้ง
+                    let rawPassword = settings.scheduleLockPassword ? settings.scheduleLockPassword.toString() : "";
+                    if (rawPassword.startsWith("'")) {
+                        rawPassword = rawPassword.substring(1);
+                    }
+                    scheduleLockPassword = rawPassword;
+
                     if (periodsConfig.length === 0) {
                         periodsConfig = [
                             { id: '1', name: 'คาบที่ 1', time: '08.30 - 09.30', type: 'class' },
@@ -1309,6 +1326,29 @@
             }
         }
 
+        async function saveSettingsToCloud() {
+            try {
+                // ดักเช็คว่าถ้ารหัสผ่านไม่ว่างเปล่า ให้เติม ' เข้าไปด้านหน้า
+                let safePassword = scheduleLockPassword ? "'" + scheduleLockPassword : "";
+                
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ 
+                        action: 'save', 
+                        sheetId: currentSheetId, 
+                        type: 'settings', 
+                        payload: {
+                            isScheduleLocked: isScheduleLocked,
+                            scheduleLockPassword: safePassword
+                        }
+                    })
+                });
+            } catch (error) {
+                console.error("Failed to save settings", error);
+            }
+        }
+
         // ฟังก์ชันใหม่สำหรับบันทึกข้อมูลและบันทึกตารางสอนไปพร้อมกัน
         async function saveWithSchedule(type, payloadData, btnId) {
             const btn = document.getElementById(btnId);
@@ -1360,6 +1400,7 @@
             }
             
             renderMasterGrid();
+            updateLockUI();
             switchTab('timetable-tab');
         }
 
@@ -1795,6 +1836,86 @@
                     saveStateToHistory('schedule');
                 }
             });
+        }
+
+        async function toggleScheduleLock() {
+            if (!isScheduleLocked) {
+                // กรณีต้องการล็อค
+                const { value: password } = await Swal.fire({
+                    title: 'ตั้งรหัสผ่านเพื่อล็อคตาราง',
+                    input: 'password',
+                    inputPlaceholder: 'กรอกรหัสผ่าน',
+                    showCancelButton: true,
+                    confirmButtonText: 'ล็อคตาราง',
+                    cancelButtonText: 'ยกเลิก',
+                    inputValidator: (value) => {
+                        if (!value) return 'กรุณากรอกรหัสผ่านเพื่อล็อค!'
+                    }
+                });
+
+                if (password) {
+                    scheduleLockPassword = password;
+                    isScheduleLocked = true;
+                    updateLockUI();
+                    Toast.fire({ icon: 'success', title: 'ล็อคตารางสอนเรียบร้อย' });
+
+                    saveSettingsToCloud();
+                }
+            } else {
+                // กรณีต้องการปลดล็อค
+                const { value: password } = await Swal.fire({
+                    title: 'กรอกรหัสผ่านเพื่อปลดล็อค',
+                    input: 'password',
+                    inputPlaceholder: 'รหัสผ่านของคุณ',
+                    showCancelButton: true,
+                    confirmButtonText: 'ปลดล็อค',
+                    cancelButtonText: 'ยกเลิก'
+                });
+
+                if (password) {
+                    if (password === scheduleLockPassword) {
+                        isScheduleLocked = false;
+                        scheduleLockPassword = "";
+                        updateLockUI();
+                        Toast.fire({ icon: 'success', title: 'ปลดล็อคสำเร็จ' });
+
+                        saveSettingsToCloud();
+                    } else {
+                        Swal.fire('รหัสผ่านไม่ถูกต้อง', 'ไม่สามารถปลดล็อคได้', 'error');
+                    }
+                }
+            }
+        }
+
+        function updateLockUI() {
+            const btnLock = document.getElementById('btn-lock-schedule');
+            const iconLock = document.getElementById('icon-lock');
+            const textLock = document.getElementById('text-lock');
+            const btnAuto = document.querySelector('button[onclick="showAutoScheduleOptions()"]');
+            const btnClear = document.querySelector('button[onclick="clearSchedule()"]');
+
+            if (isScheduleLocked) {
+                // เปลี่ยนสีปุ่มเป็นสีแดงเมื่อล็อคอยู่
+                btnLock.className = "px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5";
+                iconLock.className = 'fa-solid fa-lock text-white';
+                textLock.innerText = 'ปลดล็อคตาราง';
+                
+                // ทำให้ปุ่มจัดอัตโนมัติและล้างตารางดูเหมือนถูกปิดใช้งาน (จางลง)
+                if (btnAuto) btnAuto.classList.add('opacity-50', 'cursor-not-allowed');
+                if (btnClear) btnClear.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                // คืนค่าปุ่มกลับเป็นสีเทาปกติ
+                btnLock.className = "px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5";
+                iconLock.className = 'fa-solid fa-lock-open text-white';
+                textLock.innerText = 'ล็อคตาราง';
+                
+                if (btnAuto) btnAuto.classList.remove('opacity-50', 'cursor-not-allowed');
+                if (btnClear) btnClear.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            
+            // รีเฟรชตารางและพาเลทเพื่อเปิด/ปิดการลากการ์ด
+            renderGrid();
+            updatePalette();
         }
 
         function initTeacherDropdowns() {
@@ -2517,9 +2638,8 @@
 
                     if (remaining > 0) {
                         palette.innerHTML += `
-                            <div draggable="true" 
-                                ondragstart="drag(event, ${sub.id}, ${roomId})" 
-                                class="draggable bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm hover:shadow-md hover:border-pink-400 transition-all flex justify-between items-center group">
+                            <div ${!isScheduleLocked ? `draggable="true" ondragstart="drag(event, ${sub.id}, ${roomId})"` : ''} 
+                                class="${!isScheduleLocked ? 'draggable hover:border-pink-400 hover:shadow-md group' : 'opacity-60 cursor-not-allowed'} bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm transition-all flex justify-between items-center">
                                 <div class="overflow-hidden">
                                     <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name}</div>
                                     <div class="text-[11px] text-gray-500 mt-1">${sub.code} <span class="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded text-[10px] font-bold ml-1">${roomName}</span></div>
@@ -2610,21 +2730,27 @@
                                 : 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200 cursor-pointer hover:border-pink-300 relative group';
                             
                             innerDiv.id = `cell-${cellKey}`;
-                            innerDiv.setAttribute('ondragover', 'allowDrop(event)');
-                            innerDiv.setAttribute('ondragenter', 'dragEnter(event)');
-                            innerDiv.setAttribute('ondragleave', 'dragLeave(event)');
-                            innerDiv.setAttribute('ondrop', `drop(event, '${cellKey}')`);
+                            if (!isScheduleLocked) {
+                                innerDiv.setAttribute('ondragover', 'allowDrop(event)');
+                                innerDiv.setAttribute('ondragenter', 'dragEnter(event)');
+                                innerDiv.setAttribute('ondragleave', 'dragLeave(event)');
+                                innerDiv.setAttribute('ondrop', `drop(event, '${cellKey}')`);
+                            }
 
                             if (content) {
                                 let roomName = getClassroomName(content.classroomId);
-                                innerDiv.setAttribute('draggable', 'true');
-                                innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
+                                
+                                if (!isScheduleLocked) {
+                                    innerDiv.setAttribute('draggable', 'true');
+                                    innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
+                                }
+                                
                                 innerDiv.innerHTML = `
                                     <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${content.name}</span>
                                     <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
-                                    <button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md">
+                                    ${!isScheduleLocked ? `<button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md">
                                         <i class="fa-solid fa-xmark"></i>
-                                    </button>
+                                    </button>` : ''}
                                 `;
                             } else {
                                 innerDiv.innerHTML = '<span class="text-gray-300 text-xs hide-text-on-print"><i class="fa-solid fa-plus"></i></span>';
@@ -2667,6 +2793,7 @@
         }
 
         function drop(ev, targetCellKey) {
+            if (isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อค ไม่สามารถลากวางได้' });
             ev.preventDefault();
             ev.currentTarget.classList.remove('drag-over');
             
@@ -2790,6 +2917,7 @@
         }
 
         function removeSubjectFromCell(cellKey, event) {
+            if (isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่' });
             if(event) event.stopPropagation();
             let storageKey = `${currentTeacherId}_${cellKey}`;
             delete scheduleGrid[storageKey];
@@ -2800,6 +2928,7 @@
         }
 
         async function showAutoScheduleOptions() {
+            if (isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ กรุณาปลดล็อคก่อนครับ' });
             if (teachers.length === 0 || subjects.length === 0) {
                 return Toast.fire({ icon: 'warning', title: 'กรุณาเพิ่มครูและรายวิชาก่อนจัดอัตโนมัติ' });
             }
@@ -3319,6 +3448,7 @@
         }
 
         function clearSchedule() {
+            if (isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ กรุณาปลดล็อคก่อนครับ' });
             Swal.fire({
                 title: 'แน่ใจนะ?',
                 text: "คุณต้องการล้างตารางที่จัดไว้ของครูท่านนี้ทั้งหมด? (ยังไม่เซฟขึ้น Cloud จนกว่าจะกดบันทึก)",
