@@ -1134,7 +1134,7 @@
 
             if(!schoolName || !password) return;
 
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> กำลังตรวจสอบ...';
             btn.disabled = true;
 
             try {
@@ -1246,12 +1246,21 @@
         }
 
         async function saveDataToCloud(type, payloadData, btnId) {
-            const btn = document.getElementById(btnId);
-            const originalContent = btn.innerHTML; // เก็บค่าเดิมไว้ก่อนเผื่อพัง
+            let btn = null;
+            let originalContent = '';
             
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
-            btn.disabled = true;
-            btn.classList.add('opacity-70');
+            // เช็คว่ามีการส่ง ID ปุ่มมาให้จัดการ UI หรือไม่
+            if (btnId) {
+                btn = document.getElementById(btnId);
+                if (btn) {
+                    originalContent = btn.innerHTML; // เก็บค่าเดิมไว้ก่อนเผื่อพัง
+                    
+                    // ใช้ animate-spin ของ Tailwind เพื่อความเสถียร
+                    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> กำลังบันทึก...';
+                    btn.disabled = true;
+                    btn.classList.add('opacity-70');
+                }
+            }
 
             try {
                 const response = await fetch(SCRIPT_URL, {
@@ -1279,32 +1288,57 @@
                         default: typeName = 'ข้อมูล';
                     }
                     
-                    markAsSaved(type); // อัปเดตข้อมูลเป็นล่าสุด ทำให้ปุ่มเป็นสีเทาเฉพาะประเภทนั้น
+                    markAsSaved(type); 
                     Toast.fire({ icon: 'success', title: `บันทึก${typeName}ขึ้นระบบสำเร็จ!` });
                 } else {
                     throw new Error(result.error);
                 }
             } catch (error) {
                 Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + error.message, 'error');
-                btn.innerHTML = originalContent;
-                btn.classList.remove('opacity-70');
-                btn.disabled = false;
+                // คืนค่าปุ่มเฉพาะกรณีเกิด Error
+                if (btn) {
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('opacity-70');
+                    btn.disabled = false;
+                }
             } finally {
-                btn.innerHTML = originalContent;
+                if (btn) {
+                    btn.innerHTML = originalContent;
+                }
                 updateSaveButtonsState(type);
             }
         }
 
         // ฟังก์ชันใหม่สำหรับบันทึกข้อมูลและบันทึกตารางสอนไปพร้อมกัน
         async function saveWithSchedule(type, payloadData, btnId) {
-            // 1. บันทึกข้อมูลแท็บปัจจุบันขึ้น Cloud ก่อน (เช่น รายวิชา, ครู)
-            await saveDataToCloud(type, payloadData, btnId);
+            const btn = document.getElementById(btnId);
+            let originalContent = '';
             
-            // 2. ตรวจสอบว่าปุ่ม "บันทึกตาราง" (btn-save-cloud) แจ้งเตือนว่ามีการเปลี่ยนแปลงตารางค้างอยู่หรือไม่
-            const scheduleBtn = document.getElementById('btn-save-cloud');
-            if (scheduleBtn && !scheduleBtn.disabled) {
-                // ถ้าตารางมีการเปลี่ยนแปลงด้วย (เช่น วิชาในตารางหายไปเพราะถูกลบ) ให้สั่งบันทึกตารางตามไปด้วยเลย
-                await saveDataToCloud('schedule', scheduleGrid, 'btn-save-cloud');
+            // 1. ควบคุมการหมุนของปุ่มที่แท็บปัจจุบันให้หมุนต่อเนื่องจนกว่าจะเสร็จทุกสเต็ป
+            if (btn) {
+                originalContent = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> กำลังบันทึก...';
+                btn.disabled = true;
+                btn.classList.add('opacity-70');
+            }
+
+            try {
+                // 2. บันทึกข้อมูลแท็บปัจจุบัน (ส่ง null ไปเพื่อไม่ให้ฟังก์ชันสอดแทรกการล้างค่าปุ่ม)
+                await saveDataToCloud(type, payloadData, null);
+                
+                // 3. ตรวจสอบว่าปุ่ม "บันทึกตาราง" แจ้งเตือนว่ามีการเปลี่ยนแปลงตารางค้างอยู่หรือไม่
+                const scheduleBtn = document.getElementById('btn-save-cloud');
+                if (scheduleBtn && !scheduleBtn.disabled) {
+                    // สั่งบันทึกตารางแบบเบื้องหลัง (ส่ง null เช่นกัน)
+                    await saveDataToCloud('schedule', scheduleGrid, null);
+                }
+            } finally {
+                // 4. เมื่อทำงานเสร็จครบทุกอย่างแล้ว ค่อยคืนค่าปุ่มเดิม
+                if (btn) {
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('opacity-70');
+                    updateSaveButtonsState(type);
+                }
             }
         }
 
