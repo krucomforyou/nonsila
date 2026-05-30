@@ -378,7 +378,7 @@
                 </div>
                 <div>
                     <label class="block text-gray-600 font-bold mb-1">รหัสผ่าน</label>
-                    <input type="password" id="login-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-400 outline-none text-lg bg-gray-50" placeholder="••••••••" required>
+                    <input type="password" id="login-password" autocomplete="new-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-400 outline-none text-lg bg-gray-50" placeholder="••••••••" required>
                 </div>
                 <button type="submit" id="login-btn" class="w-full py-3 mt-4 bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white rounded-xl font-bold text-lg shadow-md transform transition hover:-translate-y-1">
                     <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
@@ -969,6 +969,19 @@
         // ================= STATE MANAGEMENT =================
         let isScheduleLocked = false;
         let currentLoginPassword = ""; // เปลี่ยนมาใช้ตัวแปรนี้แทน
+
+        // --- เพิ่มบล็อกนี้ เพื่อดักจับการกด Enter ในหน้าต่าง Pop-up ทั้งหมด ---
+        document.addEventListener('keydown', function(event) {
+            // เช็คว่ากดปุ่ม Enter และหน้าต่าง Pop-up (SweetAlert) กำลังแสดงอยู่หรือไม่
+            if (event.key === 'Enter' && Swal.isVisible()) {
+                const activeEl = document.activeElement;
+                // ถ้าเคอร์เซอร์กำลังพิมพ์อยู่ในช่องกรอกข้อมูล (และไม่ใช่ Checkbox) ให้สั่งจำลองการกดปุ่ม "ตกลง"
+                if (activeEl && activeEl.tagName === 'INPUT' && activeEl.type !== 'checkbox' && activeEl.type !== 'radio') {
+                    event.preventDefault(); // ป้องกันการเด้งหรือโหลดหน้าใหม่
+                    Swal.clickConfirm();    // สั่งกดยืนยัน
+                }
+            }
+        });
 
 
         const DAYS = [
@@ -1857,11 +1870,20 @@
                 // กรณีต้องการปลดล็อค (เช็คกับรหัสผ่านตอน Login)
                 const { value: password } = await Swal.fire({
                     title: 'กรอกรหัสผ่านเพื่อปลดล็อค',
-                    input: 'password',
-                    inputPlaceholder: 'รหัสผ่านเข้าสู่ระบบของคุณ',
+                    // เปลี่ยนมาเขียน HTML เองเพื่อใช้เทคนิค Readonly Hack
+                    html: `<input type="password" id="custom-unlock-pwd" class="swal2-input font-itim" placeholder="รหัสผ่านเข้าสู่ระบบของคุณ" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onkeydown="if(event.key === 'Enter') Swal.clickConfirm();">`,
                     showCancelButton: true,
                     confirmButtonText: 'ปลดล็อค',
-                    cancelButtonText: 'ยกเลิก'
+                    cancelButtonText: 'ยกเลิก',
+                    focusConfirm: false, // ป้องกันการเผลอกด Enter ก่อนพิมพ์
+                    preConfirm: () => {
+                        const pwdInput = document.getElementById('custom-unlock-pwd');
+                        if (!pwdInput.value) {
+                            Swal.showValidationMessage('กรุณากรอกรหัสผ่านเพื่อปลดล็อคครับ');
+                            return false;
+                        }
+                        return pwdInput.value;
+                    }
                 });
 
                 if (password) {
@@ -1906,6 +1928,7 @@
             // รีเฟรชตารางและพาเลทเพื่อเปิด/ปิดการลากการ์ด
             renderGrid();
             updatePalette();
+            updateUndoRedoButtons('schedule');
         }
 
         function initTeacherDropdowns() {
@@ -3954,8 +3977,12 @@
                 const redoBtn = document.getElementById(`btn-redo-${t}`);
                 const history = historyData[t];
                 
+                // เช็คว่าถ้าเป็นแท็บ schedule และล็อคอยู่ ให้บังคับปิดปุ่ม (true)
+                const forceDisable = (t === 'schedule' && isScheduleLocked);
+                
                 if (undoBtn) {
-                    undoBtn.disabled = history.index <= 0;
+                    // เพิ่ม forceDisable เข้าไปในเงื่อนไข
+                    undoBtn.disabled = forceDisable || history.index <= 0;
                     if (undoBtn.disabled) {
                         undoBtn.classList.remove('bg-white', 'hover:bg-gray-50', 'text-gray-700', 'border', 'border-gray-200', 'shadow-md');
                         undoBtn.classList.add('bg-gray-100', 'text-gray-400', 'shadow-sm', 'cursor-not-allowed');
@@ -3966,7 +3993,8 @@
                 }
                 
                 if (redoBtn) {
-                    redoBtn.disabled = history.index >= history.stack.length - 1;
+                    // เพิ่ม forceDisable เข้าไปในเงื่อนไข
+                    redoBtn.disabled = forceDisable || history.index >= history.stack.length - 1;
                     if (redoBtn.disabled) {
                         redoBtn.classList.remove('bg-white', 'hover:bg-gray-50', 'text-gray-700', 'border', 'border-gray-200', 'shadow-md');
                         redoBtn.classList.add('bg-gray-100', 'text-gray-400', 'shadow-sm', 'cursor-not-allowed');
@@ -3979,6 +4007,9 @@
         }
 
         function undo(type) {
+            // เพิ่มบรรทัดนี้เพื่อบล็อคถ้าตารางถูกล็อคอยู่
+            if (type === 'schedule' && isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ ไม่สามารถย้อนกลับได้' });
+            
             const history = historyData[type];
             if (history.index > 0) {
                 history.index--;
@@ -3988,6 +4019,9 @@
         }
 
         function redo(type) {
+            // เพิ่มบรรทัดนี้เพื่อบล็อคถ้าตารางถูกล็อคอยู่
+            if (type === 'schedule' && isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ ไม่สามารถทำซ้ำได้' });
+            
             const history = historyData[type];
             if (history.index < history.stack.length - 1) {
                 history.index++;
