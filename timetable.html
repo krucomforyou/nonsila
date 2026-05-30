@@ -1495,10 +1495,23 @@
                 return Swal.fire('ไม่สามารถลบได้', 'มีรายวิชาที่ผูกกับห้องเรียนนี้อยู่ กรุณาลบวิชาที่เกี่ยวข้องออกก่อน หรือแก้ไขรายวิชาโดยเอาห้องเรียนนี้ออก', 'error');
             }
 
-            classrooms = classrooms.filter(c => c.id !== id);
-            renderClassroomList();
-            Toast.fire({ icon: 'success', title: 'ลบห้องเรียนสำเร็จ' });
-            saveStateToHistory('classrooms');
+            // เพิ่มหน้าต่างยืนยันตรงนี้
+            Swal.fire({
+                title: 'ยืนยันการลบห้องเรียน?',
+                text: "ข้อมูลห้องเรียนนี้จะถูกลบออกจากระบบ คุณแน่ใจหรือไม่?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ใช่, ลบเลย!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    classrooms = classrooms.filter(c => c.id !== id);
+                    renderClassroomList();
+                    Toast.fire({ icon: 'success', title: 'ลบห้องเรียนสำเร็จ' });
+                    saveStateToHistory('classrooms');
+                }
+            });
         }
 
         function renderTableHeaders() {
@@ -1746,28 +1759,41 @@
                 return Swal.fire('ไม่สามารถลบได้', 'ต้องมีครูอย่างน้อย 1 คน', 'warning');
             }
 
-            // ตรวจสอบว่าครูท่านนี้มีวิชาที่รับผิดชอบอยู่หรือไม่
             const hasSubjects = subjects.some(s => s.teacherId == id);
             if (hasSubjects) {
                 return Swal.fire('ไม่สามารถลบได้', 'คุณครูท่านนี้ยังมีรายวิชาที่รับผิดชอบอยู่ กรุณาลบรายวิชาหรือเปลี่ยนครูผู้สอนในแท็บ "จัดการรายวิชา" ก่อนครับ', 'error');
             }
 
-            teachers = teachers.filter(t => t.id != id);
-            Object.keys(scheduleGrid).forEach(key => {
-                if(key.startsWith(id + '_')) delete scheduleGrid[key];
-            });
+            // เพิ่มหน้าต่างยืนยันตรงนี้
+            Swal.fire({
+                title: 'ยืนยันการลบรายชื่อครู?',
+                text: "ข้อมูลของคุณครูและตารางสอนที่เกี่ยวข้องจะถูกลบออกทั้งหมด คุณแน่ใจหรือไม่?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ใช่, ลบเลย!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    teachers = teachers.filter(t => t.id != id);
+                    Object.keys(scheduleGrid).forEach(key => {
+                        if(key.startsWith(id + '_')) delete scheduleGrid[key];
+                    });
 
-            if(currentTeacherId == id) {
-                let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
-                currentTeacherId = sortedTeachers.length > 0 ? sortedTeachers[0].id : null;
-            }
-            
-            initTeacherDropdowns();
-            renderTeacherList();
-            loadTeacherData();
-            renderMasterGrid();
-            saveStateToHistory('teachers');
-            saveStateToHistory('schedule');
+                    if(currentTeacherId == id) {
+                        let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+                        currentTeacherId = sortedTeachers.length > 0 ? sortedTeachers[0].id : null;
+                    }
+                    
+                    initTeacherDropdowns();
+                    renderTeacherList();
+                    loadTeacherData();
+                    renderMasterGrid();
+                    Toast.fire({ icon: 'success', title: 'ลบชื่อครูสำเร็จ' });
+                    saveStateToHistory('teachers');
+                    saveStateToHistory('schedule');
+                }
+            });
         }
 
         async function editTeacher(id) {
@@ -1866,15 +1892,29 @@
         }
 
         function deleteSubject(id) {
-            subjects = subjects.filter(s => s.id != id);
-            Object.keys(scheduleGrid).forEach(key => {
-                if(scheduleGrid[key].id == id) delete scheduleGrid[key];
+            // เพิ่มหน้าต่างยืนยันตรงนี้
+            Swal.fire({
+                title: 'ยืนยันการลบรายวิชา?',
+                text: "รายวิชานี้และข้อมูลที่ถูกจัดลงในตารางสอนจะถูกลบออกทั้งหมด แน่ใจหรือไม่?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ใช่, ลบเลย!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    subjects = subjects.filter(s => s.id != id);
+                    Object.keys(scheduleGrid).forEach(key => {
+                        if(scheduleGrid[key].id == id) delete scheduleGrid[key];
+                    });
+                    renderSubjectList();
+                    loadTeacherData();
+                    renderMasterGrid();
+                    Toast.fire({ icon: 'success', title: 'ลบรายวิชาสำเร็จ' });
+                    saveStateToHistory('subjects');
+                    saveStateToHistory('schedule');
+                }
             });
-            renderSubjectList();
-            loadTeacherData();
-            renderMasterGrid();
-            saveStateToHistory('subjects');
-            saveStateToHistory('schedule');
         }
 
         async function editSubject(id) {
@@ -2150,13 +2190,26 @@
         }
 
         function deleteActivity(cellKey) {
-            delete LOCKED_PERIODS[cellKey];
-            renderActivityList();
-            renderGrid();
-            renderMasterGrid();
-            updatePalette();
-            Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
-            saveStateToHistory('activities');
+            // เพิ่มหน้าต่างยืนยันตรงนี้
+            Swal.fire({
+                title: 'ยืนยันการลบกิจกรรม?',
+                text: "การล็อคคาบสำหรับกิจกรรมนี้จะถูกยกเลิก แน่ใจหรือไม่?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ใช่, ลบเลย!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    delete LOCKED_PERIODS[cellKey];
+                    renderActivityList();
+                    renderGrid();
+                    renderMasterGrid();
+                    updatePalette();
+                    Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
+                    saveStateToHistory('activities');
+                }
+            });
         }
 
         async function editActivity(oldKey) {
