@@ -150,11 +150,48 @@
             border: 1px solid #cbd5e1; 
         }
         
-        .master-sticky-left-1 { position: sticky; left: 0; z-index: 10; }
-        .master-sticky-left-2 { position: sticky; left: 80px; z-index: 10; } 
+        /* 1. ล็อคความกว้างคอลัมน์แรก (วัน/เวลา) */
+        .master-sticky-left-1, .master-sticky-corner-1 { 
+            position: sticky; left: 0; 
+            min-width: 80px !important; max-width: 80px !important; width: 80px !important; 
+            border-right: none !important; 
+        }
+        .master-sticky-left-1 { z-index: 15; }
+        .master-sticky-corner-1 { z-index: 35; top: 0; }
+        
+        /* (ลบ ::after ของคอลัมน์แรกทิ้งไป เพื่อแก้ปัญหาบัค rowspan) */
+        
         .master-sticky-top { position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .master-sticky-corner-1 { position: sticky top: 0; left: 0; z-index: 30; }
-        .master-sticky-corner-2 { position: sticky; top: 0; left: 80px; z-index: 30; }
+
+        /* 2. ล็อคความกว้างคอลัมน์ที่สอง (คาบที่) พร้อมปิดขอบเดิม */
+        .master-sticky-left-2, .master-sticky-corner-2 { 
+            position: sticky; left: 80px; 
+            min-width: 60px !important; max-width: 60px !important; width: 60px !important;
+            border-right: none !important; 
+            border-left: none !important;
+        }
+        .master-sticky-left-2 { z-index: 15; }
+        .master-sticky-corner-2 { z-index: 35; top: 0; }
+
+        /* สร้างเส้นขอบจำลองด้านซ้ายของ 'คาบที่' (ทำหน้าที่แทนเส้นขวาของ 'วัน' ที่หายไป) */
+        .master-sticky-left-2::before, .master-sticky-corner-2::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 1px; height: 100%;
+            background-color: #cbd5e1;
+            z-index: 40;
+        }
+
+        /* สร้างเส้นขอบจำลองด้านขวาของ 'คาบที่' (ขยับ right: -1px ไปทับเส้นจริง) */
+        .master-sticky-left-2::after, .master-sticky-corner-2::after {
+            content: "";
+            position: absolute;
+            top: 0; right: -1px;
+            width: 1px; height: 100%;
+            background-color: #cbd5e1;
+            z-index: 40;
+        }
 
         #loading-overlay {
             position: fixed;
@@ -263,6 +300,14 @@
             .master-sticky-left-1, .master-sticky-left-2, .master-sticky-top, .master-sticky-corner-1, .master-sticky-corner-2 {
                 position: static !important;
                 box-shadow: none !important;
+                border: 1px solid #cbd5e1 !important; /* เพิ่มบรรทัดนี้ เพื่อคืนค่าเส้นขอบจริงตอนพิมพ์ */
+            }
+
+            /* ปิดเส้นจำลองตอนพิมพ์ เพื่อป้องกันเส้นขอบซ้อนหรือแหว่ง */
+            .master-sticky-left-1::after, .master-sticky-corner-1::after,
+            .master-sticky-left-2::before, .master-sticky-corner-2::before,
+            .master-sticky-left-2::after, .master-sticky-corner-2::after {
+                display: none !important;
             }
 
             #schedule-table, #student-schedule-table, .print-clone table {
@@ -296,6 +341,11 @@
                 height: auto !important;
                 min-height: auto !important;
                 max-height: none !important;
+            }
+
+            /* แก้ปัญหาตารางรวมเวลาชี้แถวแล้วช่อง 'วัน' ดรอปสี */
+            .master-tbody-row:hover td:not(.master-sticky-left-1):not(.master-sticky-left-2) {
+                filter: brightness(0.95);
             }
         }
     </style>
@@ -3118,9 +3168,14 @@
             tbody.innerHTML = '';
 
             const daysToRender = filterDay === 'all' ? DAYS : DAYS.filter(d => d.id === filterDay);
-            const periodsCount = periodsConfig.length;
+            // 1. สร้างตัวแปรใหม่ กรองเอาเฉพาะคาบที่ไม่ใช่ lunch
+            const masterPeriods = periodsConfig.filter(p => p.type !== 'lunch');
+            // 2. ให้นับจำนวนแถวจากคาบเรียนปกติเท่านั้น เพื่อไม่ให้ตารางพัง
+            const periodsCount = masterPeriods.length;
 
             let sortedClassrooms = [...classrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
+            // 1. เพิ่มตัวแปรสำหรับเรียงชื่อครูตามตัวอักษรไทย
+            let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
             let theadHtml = `
                 <tr class="bg-gray-200 text-gray-800">
@@ -3132,7 +3187,8 @@
                 theadHtml += `<th class="p-2 border border-gray-400 master-sticky-top bg-indigo-100 text-indigo-900 min-w-[100px] w-[120px] shadow-sm">${cr.shortName}</th>`;
             });
 
-            teachers.forEach(t => {
+            // 2. เปลี่ยนมาใช้ sortedTeachers ในการลูปหัวตาราง
+            sortedTeachers.forEach(t => {
                 let displayName = t.name.replace('คุณครู', '').trim();
                 theadHtml += `<th class="p-2 border border-gray-400 master-sticky-top bg-pink-100 text-pink-900 min-w-[100px] w-[120px] truncate shadow-sm" title="${t.name}">${displayName}</th>`;
             });
@@ -3141,10 +3197,9 @@
 
             let tbodyHtml = '';
             daysToRender.forEach(day => {
-                periodsConfig.forEach((p, pIndex) => {
-                    let trClass = "hover:bg-gray-50 bg-white";
-                    let isLunch = p.type === 'lunch';
-                    if (isLunch) trClass = "bg-gray-100 text-gray-500 text-sm";
+                // 3. เปลี่ยนจากการลูป periodsConfig มาลูป masterPeriods แทน
+                masterPeriods.forEach((p, pIndex) => {
+                    let trClass = `${day.colorClass} master-tbody-row h-8`;
 
                     tbodyHtml += `<tr class="${trClass}">`;
 
@@ -3152,54 +3207,69 @@
                         tbodyHtml += `<td rowspan="${periodsCount}" class="p-2 border border-gray-400 master-sticky-left-1 ${day.colorClass} text-center font-bold align-middle text-gray-800 text-lg min-w-[80px] print:static">${day.name}</td>`;
                     }
 
-                    tbodyHtml += `<td class="p-2 border border-gray-400 master-sticky-left-2 bg-white text-center font-bold text-gray-700 min-w-[60px] print:static">
-                                    ${isLunch ? 'พัก' : p.id}
+                    // 4. ตัดโค้ดแสดงคำว่า "พัก" ออก แสดงแค่รหัสคาบ (p.id)
+                    tbodyHtml += `<td class="p-2 border border-gray-400 master-sticky-left-2 ${day.colorClass} text-center font-bold text-gray-700 min-w-[60px] print:static">
+                                    ${p.id}
                                   </td>`;
 
                     let cellKey = `${day.id}_${p.id}`;
                     let isLocked = LOCKED_PERIODS[cellKey];
 
+                    // === ส่วนที่ 1: ลูปข้อมูลฝั่งห้องเรียน (Classrooms) ===
                     sortedClassrooms.forEach(cr => {
                         let cellContent = '';
-                        let tdClass = "p-1 border border-gray-300 text-center";
+                        let tdClass = "border border-gray-400 text-center";
 
-                        if (isLunch) {
-                             cellContent = `-`;
-                        } else if (isLocked) {
-                             tdClass += " bg-gray-100";
-                             cellContent = `<span class="subject-name-text block w-full text-[11px] text-gray-500 text-center">${isLocked.name}</span>`;
+                        // 5. ลบเงื่อนไข if (isLunch) ทิ้งไปเลย เพราะไม่มีคาบพักโผล่มาแล้ว
+                        if (isLocked) {
+                             cellContent = `<div class="h-8 flex items-center justify-center"><span class="subject-name-text block w-full text-[11px] text-gray-600 text-center px-1">${isLocked.name}</span></div>`;
                         } else {
                             let foundContent = null;
+                            let teacherName = "";
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomId == cr.id) {
                                     foundContent = scheduleGrid[key];
+                                    const teacherId = parseInt(key.split('_')[0]);
+                                    const tObj = teachers.find(t => t.id == teacherId);
+                                    if (tObj) {
+                                        teacherName = tObj.name.replace('คุณครู', 'ครู');
+                                    }
                                 }
                             });
 
                             if (foundContent) {
-                                tdClass += " bg-indigo-50";
-                                cellContent = `<span class="subject-name-text block font-bold text-[13px] text-gray-800 leading-tight w-full px-1 text-center" title="${foundContent.name}">${foundContent.name}</span>`;
+                                cellContent = `
+                                    <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
+                                        <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${foundContent.name} ${teacherName}">${foundContent.name}</span>
+                                        <span class="font-normal text-gray-700 text-[9px] text-center mt-[1px]">(${teacherName})</span>
+                                    </div>`;
+                            } else {
+                                cellContent = `<div class="h-8"></div>`;
                             }
                         }
                         tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
                     });
 
-                    teachers.forEach(t => {
+                    // === ส่วนที่ 2: ลูปข้อมูลฝั่งคุณครู (Teachers) ===
+                    sortedTeachers.forEach(t => {
                         let cellContent = '';
-                        let tdClass = "p-1 border border-gray-300 text-center";
+                        let tdClass = "border border-gray-400 text-center";
                         let storageKey = `${t.id}_${cellKey}`;
 
-                        if (isLunch) {
-                             cellContent = `-`;
-                        } else if (isLocked) {
-                             tdClass += " bg-gray-100";
-                             cellContent = `<span class="subject-name-text block w-full text-[11px] text-gray-500 text-center">${isLocked.name}</span>`;
+                        // 6. ลบเงื่อนไข if (isLunch) ฝั่งครูทิ้งเช่นกัน
+                        if (isLocked) {
+                             cellContent = `<div class="h-8 flex items-center justify-center"><span class="subject-name-text block w-full text-[11px] text-gray-600 text-center px-1">${isLocked.name}</span></div>`;
                         } else {
                             let content = scheduleGrid[storageKey];
                             if (content) {
                                 let roomName = getClassroomName(content.classroomId);
-                                tdClass += " bg-pink-50 flex flex-col items-center justify-center";
-                                cellContent = `<span class="subject-name-text block font-bold text-[13px] text-gray-800 leading-tight w-full px-1 text-center" title="${content.name} ${roomName}">${content.name}</span><span class="font-normal text-pink-600 text-[10px] text-center">(${roomName})</span>`;
+                                cellContent = `
+                                    <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
+                                        <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${content.name} ${roomName}">${content.name}</span>
+                                        <span class="font-normal text-gray-700 text-[9px] text-center mt-[1px]">(${roomName})</span>
+                                    </div>`;
+                            } else {
+                                cellContent = `<div class="h-8"></div>`;
                             }
                         }
                         tbodyHtml += `<td class="${tdClass}">${cellContent}</td>`;
