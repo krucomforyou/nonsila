@@ -968,7 +968,7 @@
 
         // ================= STATE MANAGEMENT =================
         let isScheduleLocked = false;
-        let scheduleLockPassword = "";
+        let currentLoginPassword = ""; // เปลี่ยนมาใช้ตัวแปรนี้แทน
 
 
         const DAYS = [
@@ -1084,10 +1084,14 @@
             } else {
                 const savedSchool = sessionStorage.getItem('timetable_schoolName');
                 const savedSheetId = sessionStorage.getItem('timetable_sheetId');
+                const savedPassword = sessionStorage.getItem('timetable_password'); // <--- เพิ่มบรรทัดนี้
 
-                if (savedSchool && savedSheetId) {
+                // เพิ่มเงื่อนไข && savedPassword
+                if (savedSchool && savedSheetId && savedPassword) { 
                     currentSchoolName = savedSchool;
                     currentSheetId = savedSheetId;
+                    currentLoginPassword = savedPassword; // <--- เพิ่มบรรทัดนี้
+
                     document.getElementById('sidebar-school-name').innerText = savedSchool;
                     document.getElementById('table-school-name').innerText = savedSchool;
                     document.getElementById('student-table-school-name').innerText = savedSchool;
@@ -1155,9 +1159,11 @@
                 if (result.success) {
                     currentSchoolName = schoolName;
                     currentSheetId = result.sheetId;
+                    currentLoginPassword = password;
                     
                     sessionStorage.setItem('timetable_schoolName', currentSchoolName);
                     sessionStorage.setItem('timetable_sheetId', currentSheetId);
+                    sessionStorage.setItem('timetable_password', currentLoginPassword);
 
                     document.getElementById('sidebar-school-name').innerText = currentSchoolName;
                     document.getElementById('table-school-name').innerText = currentSchoolName;
@@ -1192,6 +1198,7 @@
                 if (result.isConfirmed) {
                     sessionStorage.removeItem('timetable_schoolName');
                     sessionStorage.removeItem('timetable_sheetId');
+                    sessionStorage.removeItem('timetable_password');
                     location.reload();
                 }
             });
@@ -1217,13 +1224,6 @@
 
                     const settings = result.data.settings || {};
                     isScheduleLocked = settings.isScheduleLocked === 'true' || settings.isScheduleLocked === true;
-                    
-                    // ดึงรหัสผ่าน แปลงเป็น string ก่อน และเช็คว่ามี ' นำหน้าหรือไม่ ถ้ามีให้ตัดทิ้ง
-                    let rawPassword = settings.scheduleLockPassword ? settings.scheduleLockPassword.toString() : "";
-                    if (rawPassword.startsWith("'")) {
-                        rawPassword = rawPassword.substring(1);
-                    }
-                    scheduleLockPassword = rawPassword;
 
                     if (periodsConfig.length === 0) {
                         periodsConfig = [
@@ -1328,9 +1328,6 @@
 
         async function saveSettingsToCloud() {
             try {
-                // ดักเช็คว่าถ้ารหัสผ่านไม่ว่างเปล่า ให้เติม ' เข้าไปด้านหน้า
-                let safePassword = scheduleLockPassword ? "'" + scheduleLockPassword : "";
-                
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1339,8 +1336,8 @@
                         sheetId: currentSheetId, 
                         type: 'settings', 
                         payload: {
-                            isScheduleLocked: isScheduleLocked,
-                            scheduleLockPassword: safePassword
+                            isScheduleLocked: isScheduleLocked
+                            // ไม่ต้องส่ง scheduleLockPassword แล้ว
                         }
                     })
                 });
@@ -1840,48 +1837,41 @@
 
         async function toggleScheduleLock() {
             if (!isScheduleLocked) {
-                // กรณีต้องการล็อค
-                const { value: password } = await Swal.fire({
-                    title: 'ตั้งรหัสผ่านเพื่อล็อคตาราง',
-                    input: 'password',
-                    inputPlaceholder: 'กรอกรหัสผ่าน',
+                // กรณีต้องการล็อค (ไม่ต้องให้ตั้งรหัสใหม่ ถามยืนยันอย่างเดียว)
+                Swal.fire({
+                    title: 'ยืนยันการล็อคตาราง?',
+                    text: 'ตารางจะถูกล็อค และต้องใช้ "รหัสผ่านเข้าสู่ระบบ" เพื่อปลดล็อค',
+                    icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'ล็อคตาราง',
-                    cancelButtonText: 'ยกเลิก',
-                    inputValidator: (value) => {
-                        if (!value) return 'กรุณากรอกรหัสผ่านเพื่อล็อค!'
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        isScheduleLocked = true;
+                        updateLockUI();
+                        Toast.fire({ icon: 'success', title: 'ล็อคตารางสอนเรียบร้อย' });
+                        saveSettingsToCloud(); // บันทึกสถานะการล็อคขึ้น Cloud
                     }
                 });
-
-                if (password) {
-                    scheduleLockPassword = password;
-                    isScheduleLocked = true;
-                    updateLockUI();
-                    Toast.fire({ icon: 'success', title: 'ล็อคตารางสอนเรียบร้อย' });
-
-                    saveSettingsToCloud();
-                }
             } else {
-                // กรณีต้องการปลดล็อค
+                // กรณีต้องการปลดล็อค (เช็คกับรหัสผ่านตอน Login)
                 const { value: password } = await Swal.fire({
                     title: 'กรอกรหัสผ่านเพื่อปลดล็อค',
                     input: 'password',
-                    inputPlaceholder: 'รหัสผ่านของคุณ',
+                    inputPlaceholder: 'รหัสผ่านเข้าสู่ระบบของคุณ',
                     showCancelButton: true,
                     confirmButtonText: 'ปลดล็อค',
                     cancelButtonText: 'ยกเลิก'
                 });
 
                 if (password) {
-                    if (password === scheduleLockPassword) {
+                    if (password === currentLoginPassword) { // เช็คกับรหัส Login
                         isScheduleLocked = false;
-                        scheduleLockPassword = "";
                         updateLockUI();
                         Toast.fire({ icon: 'success', title: 'ปลดล็อคสำเร็จ' });
-
-                        saveSettingsToCloud();
+                        saveSettingsToCloud(); // บันทึกสถานะปลดล็อคขึ้น Cloud
                     } else {
-                        Swal.fire('รหัสผ่านไม่ถูกต้อง', 'ไม่สามารถปลดล็อคได้', 'error');
+                        Swal.fire('รหัสผ่านไม่ถูกต้อง', 'กรุณาใช้รหัสผ่านเดียวกับตอนเข้าสู่ระบบครับ', 'error');
                     }
                 }
             }
