@@ -257,7 +257,6 @@
                 margin: 0 auto !important; 
             }
             th, td {
-                width: auto !important;
                 white-space: nowrap !important; 
             }
             
@@ -272,12 +271,11 @@
             }
             
             #schedule-table th, #schedule-table td,
-            #student-schedule-table th, #student-schedule-table td,
-            .print-clone th, .print-clone td {
-                min-width: 0 !important; 
-                white-space: normal !important; 
-                word-break: break-word !important; 
-            }
+                #student-schedule-table th, #student-schedule-table td,
+                .print-clone th, .print-clone td {
+                    white-space: normal !important; 
+                    word-break: break-word !important; 
+                }
             
             #schedule-table .h-16, #student-schedule-table .h-16, .print-clone .h-16 {
                 height: auto !important;
@@ -289,15 +287,15 @@
                 page-break-inside: avoid !important; 
             }
 
-            /* 3. ป้องกันหน้ากระดาษเปล่าหน้าที่ 2 ขั้นเด็ดขาด */
-            html, body, #app-container, main {
-                height: max-content !important; 
+            /* 3. จัดการขอบกระดาษและเคลียร์ความสูงให้ยืดหยุ่น */
+            @page {
+                margin: 10mm;
             }
-            
-            section {
-                page-break-after: avoid !important;
-                margin-bottom: 0 !important;
-                padding-bottom: 0 !important;
+
+            html, body {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
             }
         }
     </style>
@@ -1495,7 +1493,7 @@
             
             periodsConfig.forEach(p => {
                 if (p.type === 'lunch') {
-                    html += `<th class="w-20 min-w-[80px] pb-2"></th>`;
+                    html += `<th class="w-20 min-w-[80px] pb-2 print:w-20 print:min-w-[80px] print:max-w-[80px]"></th>`;
                 } else {
                     html += `<th class="w-32 min-w-[140px] pb-2">
                                 <div class="bg-yellow-100 p-2 rounded-xl border-2 border-yellow-300 shadow-sm flex flex-col leading-tight">
@@ -2409,7 +2407,7 @@
                         if (day.id === 'mon') { 
                             let tdLunch = document.createElement('td');
                             tdLunch.rowSpan = 5;
-                            tdLunch.className = 'p-2 w-20 min-w-[80px]'; 
+                            tdLunch.className = 'p-2 w-20 min-w-[80px] print:w-20 print:min-w-[80px] print:max-w-[80px]';
                             tdLunch.innerHTML = `
                                 <div class="bg-[#f0f4f8] h-full rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center shadow-inner relative overflow-hidden lunch-container">
                                     <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #f0f4f8 25%, #f0f4f8 75%, #ccc 75%, #ccc); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
@@ -2956,7 +2954,7 @@
                         if (day.id === 'mon') { 
                             let tdLunch = document.createElement('td');
                             tdLunch.rowSpan = 5;
-                            tdLunch.className = 'p-2 w-20 min-w-[80px]'; 
+                            tdLunch.className = 'p-2 w-20 min-w-[80px] print:w-20 print:min-w-[80px] print:max-w-[80px]';
                             tdLunch.innerHTML = `
                                 <div class="bg-[#f0f4f8] h-full rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center shadow-inner relative overflow-hidden lunch-container">
                                     <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #f0f4f8 25%, #f0f4f8 75%, #ccc 75%, #ccc); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
@@ -3186,11 +3184,52 @@
                 cancelButtonText: 'ยกเลิก'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.print();
+                    /* เปลี่ยนตรงนี้ครับ */
+                    executePrintSingle(isTeacherTab ? 'teacher' : 'student');
                 } else if (result.isDenied) {
                     executePrintAll(isTeacherTab ? 'teacher' : 'student');
                 }
             });
+        }
+
+        function executePrintSingle(type) {
+            Swal.fire({
+                title: 'กำลังเตรียมเอกสาร...',
+                html: 'กรุณารอสักครู่...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            setTimeout(() => {
+                const container = document.getElementById('print-all-container');
+                container.innerHTML = ''; 
+
+                if (type === 'teacher') {
+                    let originalArea = document.getElementById('printable-area');
+                    let clone = originalArea.cloneNode(true); 
+                    clone.id = `print-clone-teacher-current`;
+                    clone.classList.add('print-clone');
+                    container.appendChild(clone);
+                } else if (type === 'student') {
+                    let originalArea = document.getElementById('student-printable-area');
+                    let clone = originalArea.cloneNode(true);
+                    clone.id = `print-clone-student-current`;
+                    clone.classList.add('print-clone');
+                    container.appendChild(clone);
+                }
+
+                // เรียกใช้คลาส printing-all เพื่อซ่อน UI เดิมทั้งหมด ทำให้หน้ากระดาษสะอาด 100%
+                document.body.classList.add('printing-all'); 
+                Swal.close(); 
+                
+                setTimeout(() => {
+                    autoResizeText(); 
+                    setTimeout(() => {
+                        window.print();
+                    }, 200);
+                }, 200);
+
+            }, 200);
         }
 
         async function executePrintAll(type) {
