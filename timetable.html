@@ -810,6 +810,10 @@
                                     <input type="checkbox" id="new-subject-isHeavy" class="w-5 h-5 text-red-500 rounded border-gray-300 focus:ring-red-400 accent-red-500">
                                     <span class="text-sm font-bold text-red-500">วิชาเรียนหนัก</span>
                                 </label>
+                                <label class="flex items-center gap-2 cursor-pointer mt-1 ml-4">
+                                    <input type="checkbox" id="new-subject-isDoublePeriod" class="w-5 h-5 text-purple-500 rounded border-gray-300 focus:ring-purple-400 accent-purple-500">
+                                    <span class="text-sm font-bold text-purple-500">คาบคู่</span>
+                                </label>
                             </div>
                         </div>
                         
@@ -2074,6 +2078,7 @@
             const code = document.getElementById('new-subject-code').value.trim();
             const hours = parseInt(document.getElementById('new-subject-hours').value);
             const isHeavy = document.getElementById('new-subject-isHeavy').checked;
+            const isDoublePeriod = document.getElementById('new-subject-isDoublePeriod').checked;
 
             const checkedBoxes = document.querySelectorAll('.subject-classroom-checkbox:checked');
             const selectedClassroomIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
@@ -2084,19 +2089,14 @@
 
             const newId = subjects.length > 0 ? Math.max(...subjects.map(s => parseInt(s.id))) + 1 : 100;
             subjects.push({ 
-                id: newId, 
-                teacherId, 
-                name, 
-                code, 
-                classroomIds: selectedClassroomIds, 
-                hours,
-                isHeavy: isHeavy 
+                id: newId, teacherId, name, code, classroomIds: selectedClassroomIds, hours, isHeavy: isHeavy, isDoublePeriod: isDoublePeriod 
             });
             
             document.getElementById('new-subject-name').value = '';
             document.getElementById('new-subject-code').value = '';
             document.getElementById('new-subject-hours').value = 1;
-            document.getElementById('new-subject-isHeavy').checked = false; 
+            document.getElementById('new-subject-isHeavy').checked = false;
+            document.getElementById('new-subject-isDoublePeriod').checked = false;
             
             document.querySelectorAll('.subject-classroom-checkbox').forEach(cb => cb.checked = false);
             updateSelectedClassroomsText();
@@ -2190,6 +2190,11 @@
                             <input type="checkbox" id="swal-input-isHeavy" class="w-5 h-5 text-red-500 rounded border-gray-300 focus:ring-red-400 accent-red-500" ${subject.isHeavy ? 'checked' : ''}>
                             <span class="text-sm font-bold text-red-500">วิชาเรียนหนัก</span>
                         </label>
+
+                        <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                            <input type="checkbox" id="swal-input-isDoublePeriod" class="w-5 h-5 text-purple-500 rounded border-gray-300 focus:ring-purple-400 accent-purple-500" ${subject.isDoublePeriod ? 'checked' : ''}>
+                            <span class="text-sm font-bold text-purple-500">พยายามจัดเป็นคาบคู่</span>
+                        </label>
                     </div>
                 `,
                 focusConfirm: false,
@@ -2220,7 +2225,8 @@
                         code: document.getElementById('swal-input-code').value.trim(),
                         classroomIds: selectedIds,
                         hours: parseInt(document.getElementById('swal-input-hours').value),
-                        isHeavy: document.getElementById('swal-input-isHeavy').checked 
+                        isHeavy: document.getElementById('swal-input-isHeavy').checked,
+                        isDoublePeriod: document.getElementById('swal-input-isDoublePeriod').checked
                     }
                 }
             });
@@ -2236,7 +2242,8 @@
                 subject.code = formValues.code;
                 subject.classroomIds = formValues.classroomIds;
                 subject.hours = formValues.hours;
-                subject.isHeavy = formValues.isHeavy; 
+                subject.isHeavy = formValues.isHeavy;
+                subject.isDoublePeriod = formValues.isDoublePeriod;
 
                 let teacherChanged = oldTeacherId !== subject.teacherId;
                 let keysToProcess = Object.keys(scheduleGrid).filter(k => scheduleGrid[k].id == id);
@@ -2340,8 +2347,11 @@
                     <tr class="hover:bg-green-50/50 bg-white">
                         <td class="p-4 text-gray-600 font-medium">${teacherName}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">
-                            ${s.name}
-                            ${s.isHeavy ? '<span class="ml-2 bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200">วิชาหนัก</span>' : ''}
+                            <div class="text-gray-800">${s.name}</div>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                ${s.isHeavy ? '<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200">วิชาหนัก</span>' : ''}
+                                ${s.isDoublePeriod ? '<span class="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200">คาบคู่</span>' : ''}
+                            </div>
                         </td>
                         <td class="p-4 text-sm text-gray-500">${s.code}</td>
                         <td class="p-4 text-center font-bold text-pink-500 max-w-[200px] truncate" title="${roomNames}">${roomNames}</td>
@@ -2547,7 +2557,8 @@
                     const d = parts[1];
                     const pr = parts[2];
                     
-                    if (d === day && pr === period && scheduledTeacherId !== teacherId) {
+                    // แก้ไข: ใช้ == และ != เพื่อให้ระบบเปรียบเทียบตัวเลขกับข้อความ (String vs Int) ได้ถูกต้อง
+                    if (d == day && pr == period && scheduledTeacherId != teacherId) {
                         const scheduledSubject = scheduleGrid[key];
                         if (scheduledSubject.classroomId == targetClassroomId) {
                             const teacherObj = teachers.find(t => t.id == scheduledTeacherId);
@@ -3045,16 +3056,22 @@
                 let subjectsToPlace = [];
                 teacherSubjects.sort((a,b) => b.hours - a.hours).forEach(sub => {
                     sub.classroomIds.forEach(roomId => {
-                        for(let i=0; i<sub.hours; i++) {
+                        let doubleCount = sub.isDoublePeriod ? Math.floor(sub.hours / 2) : 0;
+                        let singleCount = sub.isDoublePeriod ? sub.hours % 2 : sub.hours;
+                        
+                        // โยนคาบคู่ (กิน 2 สล็อต) เข้าไปรอจัด
+                        for(let i=0; i<doubleCount; i++) {
                             subjectsToPlace.push({
-                            id: sub.id,
-                            teacherId: sub.teacherId,
-                            name: sub.name,
-                            code: sub.code,
-                            classroomId: roomId,
-                            hours: sub.hours,
-                            isHeavy: sub.isHeavy 
-                        });
+                                id: sub.id, teacherId: sub.teacherId, name: sub.name, code: sub.code,
+                                classroomId: roomId, hours: sub.hours, isHeavy: sub.isHeavy, duration: 2
+                            });
+                        }
+                        // โยนเศษคาบเดี่ยว (กิน 1 สล็อต) เข้าไปรอจัด
+                        for(let i=0; i<singleCount; i++) {
+                            subjectsToPlace.push({
+                                id: sub.id, teacherId: sub.teacherId, name: sub.name, code: sub.code,
+                                classroomId: roomId, hours: sub.hours, isHeavy: sub.isHeavy, duration: 1
+                            });
                         }
                     });
                 });
@@ -3106,17 +3123,39 @@
                             let afternoonSlots = [];
 
                             for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
-                                const slot = d.slots[sIdx];
-                                if (!scheduleGrid[`${tId}_${slot.key}`]) {
-                                    if(!checkConflict(tId, slot.day, slot.period, sub.classroomId)) {
-                                        const periodIndex = periodsConfig.findIndex(p => p.id == slot.period);
-                                        const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
-                                        
-                                        if (lunchIndex !== -1 && periodIndex < lunchIndex) {
-                                            morningSlots.push(sIdx);
-                                        } else {
-                                            afternoonSlots.push(sIdx);
+                                const slot1 = d.slots[sIdx];
+                                let isValid = false;
+                                let slotIndicesToPlace = [];
+
+                                if (sub.duration === 1) {
+                                    // จัดคาบเดี่ยวเหมือนเดิม
+                                    if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId)) {
+                                        isValid = true;
+                                        slotIndicesToPlace = [sIdx];
+                                    }
+                                } else if (sub.duration === 2 && sIdx < d.slots.length - 1) {
+                                    // จัดคาบคู่: ต้องเช็คสล็อตถัดไปว่าว่างและติดกันจริงๆ หรือไม่ (ห้ามพักเที่ยงคั่น)
+                                    const slot2 = d.slots[sIdx + 1];
+                                    const p1Idx = periodsConfig.findIndex(p => p.id == slot1.period);
+                                    const p2Idx = periodsConfig.findIndex(p => p.id == slot2.period);
+
+                                    if (p2Idx - p1Idx === 1) { // ตรวจสอบว่าคาบติดกันแบบไม่มี break คั่นกลาง
+                                        if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId) &&
+                                            !scheduleGrid[`${tId}_${slot2.key}`] && !checkConflict(tId, slot2.day, slot2.period, sub.classroomId)) {
+                                            isValid = true;
+                                            slotIndicesToPlace = [sIdx, sIdx + 1];
                                         }
+                                    }
+                                }
+
+                                if (isValid) {
+                                    const periodIndex = periodsConfig.findIndex(p => p.id == slot1.period);
+                                    const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
+                                    
+                                    if (lunchIndex !== -1 && periodIndex < lunchIndex) {
+                                        morningSlots.push(slotIndicesToPlace);
+                                    } else {
+                                        afternoonSlots.push(slotIndicesToPlace);
                                     }
                                 }
                             }
@@ -3130,18 +3169,21 @@
 
                             if(validSlots.length > 0) {
                                 let randomIndex = Math.floor(Math.random() * validSlots.length);
-                                let bestSlotIndex = validSlots[randomIndex];
+                                let bestSlotGroup = validSlots[randomIndex]; 
                                 
-                                let selectedSlot = d.slots[bestSlotIndex];
-                                scheduleGrid[`${tId}_${selectedSlot.key}`] = { 
-                                    id: sub.id, 
-                                    classroomId: sub.classroomId,
-                                    name: sub.name,
-                                    code: sub.code,
-                                    hours: sub.hours
-                                };
+                                // ทำการเซฟลงตารางกี่คาบก็วนลูปตามนั้น (คาบเดี่ยววน 1 รอบ, คาบคู่วน 2 รอบ)
+                                bestSlotGroup.forEach(idx => {
+                                    let selectedSlot = d.slots[idx];
+                                    scheduleGrid[`${tId}_${selectedSlot.key}`] = { 
+                                        id: sub.id, 
+                                        classroomId: sub.classroomId,
+                                        name: sub.name,
+                                        code: sub.code,
+                                        hours: sub.hours
+                                    };
+                                });
                                 placed = true;
-                                break;
+                                break; // หาช่องลงได้แล้ว ออกจากลูปวัน
                             }
                         }
                     }
@@ -3152,37 +3194,61 @@
                         }).sort(() => Math.random() - 0.5);
 
                         for (let d of fallbackDays) {
-                            let morningSlots = [];
-                            let afternoonSlots = [];
+                        let morningSlots = [];
+                        let afternoonSlots = [];
 
-                            for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
-                                const slot = d.slots[sIdx];
-                                if (!scheduleGrid[`${tId}_${slot.key}`]) {
-                                    if(!checkConflict(tId, slot.day, slot.period, sub.classroomId)) {
-                                        const periodIndex = periodsConfig.findIndex(p => p.id == slot.period);
-                                        const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
-                                        
-                                        if (lunchIndex !== -1 && periodIndex < lunchIndex) {
-                                            morningSlots.push(sIdx);
-                                        } else {
-                                            afternoonSlots.push(sIdx);
-                                        }
+                        for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
+                            const slot1 = d.slots[sIdx];
+                            let isValid = false;
+                            let slotIndicesToPlace = [];
+
+                            if (sub.duration === 1) {
+                                // จัดคาบเดี่ยว
+                                if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId)) {
+                                    isValid = true;
+                                    slotIndicesToPlace = [sIdx];
+                                }
+                            } else if (sub.duration === 2 && sIdx < d.slots.length - 1) {
+                                // จัดคาบคู่
+                                const slot2 = d.slots[sIdx + 1];
+                                const p1Idx = periodsConfig.findIndex(p => p.id == slot1.period);
+                                const p2Idx = periodsConfig.findIndex(p => p.id == slot2.period);
+
+                                if (p2Idx - p1Idx === 1) { // ตรวจสอบว่าคาบติดกันแบบไม่มี break คั่นกลาง
+                                    if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId) &&
+                                        !scheduleGrid[`${tId}_${slot2.key}`] && !checkConflict(tId, slot2.day, slot2.period, sub.classroomId)) {
+                                        isValid = true;
+                                        slotIndicesToPlace = [sIdx, sIdx + 1];
                                     }
                                 }
                             }
 
-                            let validSlots = [];
-                            if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
-                                validSlots = morningSlots;
-                            } else {
-                                validSlots = morningSlots.concat(afternoonSlots);
-                            }
-
-                            if(validSlots.length > 0) {
-                                let randomIndex = Math.floor(Math.random() * validSlots.length);
-                                let bestSlotIndex = validSlots[randomIndex];
+                            if (isValid) {
+                                const periodIndex = periodsConfig.findIndex(p => p.id == slot1.period);
+                                const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
                                 
-                                let selectedSlot = d.slots[bestSlotIndex];
+                                if (lunchIndex !== -1 && periodIndex < lunchIndex) {
+                                    morningSlots.push(slotIndicesToPlace);
+                                } else {
+                                    afternoonSlots.push(slotIndicesToPlace);
+                                }
+                            }
+                        }
+
+                        let validSlots = [];
+                        if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
+                            validSlots = morningSlots;
+                        } else {
+                            validSlots = morningSlots.concat(afternoonSlots);
+                        }
+
+                        if(validSlots.length > 0) {
+                            let randomIndex = Math.floor(Math.random() * validSlots.length);
+                            let bestSlotGroup = validSlots[randomIndex];
+                            
+                            // เซฟลงตารางตามจำนวนสล็อตที่กำหนด (1 หรือ 2)
+                            bestSlotGroup.forEach(idx => {
+                                let selectedSlot = d.slots[idx];
                                 scheduleGrid[`${tId}_${selectedSlot.key}`] = {
                                     id: sub.id, 
                                     classroomId: sub.classroomId,
@@ -3190,10 +3256,11 @@
                                     code: sub.code,
                                     hours: sub.hours
                                 };
-                                placed = true;
-                                break;
-                            }
+                            });
+                            placed = true;
+                            break;
                         }
+                    }
 
                         if (!placed) {
                             hasError = true; 
