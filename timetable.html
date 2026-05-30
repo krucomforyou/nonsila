@@ -615,7 +615,7 @@
                                 <button id="btn-redo-teachers" onclick="redo('teachers')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-teachers" onclick="saveDataToCloud('teachers', teachers, 'btn-save-teachers')" class="px-5 py-2.5 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-teachers" onclick="saveWithSchedule('teachers', teachers, 'btn-save-teachers')" class="px-5 py-2.5 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
@@ -713,7 +713,7 @@
                                 <button id="btn-redo-subjects" onclick="redo('subjects')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-subjects" onclick="saveDataToCloud('subjects', subjects, 'btn-save-subjects')" class="px-5 py-2.5 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-subjects" onclick="saveWithSchedule('subjects', subjects, 'btn-save-subjects')" class="px-5 py-2.5 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
@@ -807,7 +807,7 @@
                                 <button id="btn-redo-periods" onclick="redo('periods')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-periods" onclick="saveDataToCloud('periods', periodsConfig, 'btn-save-periods')" class="px-5 py-2.5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md transform hover:-translate-y-0.5 whitespace-nowrap">
+                                <button id="btn-save-periods" onclick="saveWithSchedule('periods', periodsConfig, 'btn-save-periods')" class="px-5 py-2.5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md transform hover:-translate-y-0.5 whitespace-nowrap">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                                 <button onclick="addPeriod()" class="px-5 py-2.5 bg-orange-400 hover:bg-orange-500 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap">
@@ -853,7 +853,7 @@
                                 <button id="btn-redo-activities" onclick="redo('activities')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-activities" onclick="saveDataToCloud('activities', LOCKED_PERIODS, 'btn-save-activities')" class="px-5 py-2.5 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-activities" onclick="saveWithSchedule('activities', LOCKED_PERIODS, 'btn-save-activities')" class="px-5 py-2.5 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
@@ -1240,6 +1240,19 @@
             } finally {
                 btn.innerHTML = originalContent;
                 updateSaveButtonsState(type);
+            }
+        }
+
+        // ฟังก์ชันใหม่สำหรับบันทึกข้อมูลและบันทึกตารางสอนไปพร้อมกัน
+        async function saveWithSchedule(type, payloadData, btnId) {
+            // 1. บันทึกข้อมูลแท็บปัจจุบันขึ้น Cloud ก่อน (เช่น รายวิชา, ครู)
+            await saveDataToCloud(type, payloadData, btnId);
+            
+            // 2. ตรวจสอบว่าปุ่ม "บันทึกตาราง" (btn-save-cloud) แจ้งเตือนว่ามีการเปลี่ยนแปลงตารางค้างอยู่หรือไม่
+            const scheduleBtn = document.getElementById('btn-save-cloud');
+            if (scheduleBtn && !scheduleBtn.disabled) {
+                // ถ้าตารางมีการเปลี่ยนแปลงด้วย (เช่น วิชาในตารางหายไปเพราะถูกลบ) ให้สั่งบันทึกตารางตามไปด้วยเลย
+                await saveDataToCloud('schedule', scheduleGrid, 'btn-save-cloud');
             }
         }
 
