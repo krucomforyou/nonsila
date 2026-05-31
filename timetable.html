@@ -32,6 +32,7 @@
 
     <!-- SweetAlert2 for cute alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
 
     <style>
         body, input, select, textarea, button {
@@ -219,6 +220,22 @@
             transition: font-size 0.2s ease-out;
         }
 
+        /* ช่วยให้ตารางบนมือถือเลื่อนซ้ายขวาได้ลื่นไหลขึ้น */
+        .overflow-auto {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* ลดขนาดตัวอักษรของตารางเมื่ออยู่บนจอมือถือ */
+        @media (max-width: 768px) {
+            #schedule-table th, #schedule-table td {
+                min-width: 80px !important;
+                font-size: 0.85rem !important;
+            }
+            .swal2-popup {
+                width: 90% !important; /* ให้ Modal เล็กลงพอดีจอมือถือ */
+            }
+        }
+
         @media print {
             @page {
                 margin: 10mm; 
@@ -378,7 +395,12 @@
                 </div>
                 <div>
                     <label class="block text-gray-600 font-bold mb-1">รหัสผ่าน</label>
-                    <input type="password" id="login-password" autocomplete="new-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-400 outline-none text-lg bg-gray-50" placeholder="••••••••" required>
+                    <div class="relative w-full">
+                        <input type="password" id="login-password" autocomplete="new-password" class="w-full px-4 py-3 pr-12 rounded-xl border-2 border-gray-200 focus:border-pink-400 outline-none text-lg bg-gray-50" placeholder="••••••••" required>
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-pink-500 transition-colors outline-none cursor-pointer">
+                            <i class="fa-solid fa-eye" id="toggle-password-icon"></i>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" id="login-btn" class="w-full py-3 mt-4 bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white rounded-xl font-bold text-lg shadow-md transform transition hover:-translate-y-1">
                     <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
@@ -394,8 +416,14 @@
     <div id="app-container" class="flex w-full h-full">
         
         <!-- Sidebar -->
-        <aside id="sidebar" class="w-64 shrink-0 bg-white shadow-xl z-10 flex flex-col border-r-4 border-pink-200 transition-all duration-300 ease-in-out hide-on-print">
+        <aside id="sidebar" class="w-64 shrink-0 bg-white shadow-xl z-50 flex flex-col border-r-4 border-pink-200 transition-all duration-300 ease-in-out hide-on-print absolute md:relative h-full -ml-64 md:ml-0">
             <div class="p-5 text-center border-b-2 border-dashed border-pink-200 relative">
+                <button id="btn-lock-schedule" onclick="toggleScheduleLock()" title="ล็อคตาราง" class="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors z-50 shadow-sm">
+                    <i class="fa-solid fa-lock-open" id="icon-lock"></i>
+                </button>
+                <button onclick="toggleSidebar()" class="absolute top-4 right-4 text-gray-400 hover:text-pink-500 md:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-pink-50 transition-colors z-50">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
                 <div class="w-16 h-16 mx-auto bg-pink-100 rounded-full flex items-center justify-center border-4 border-white shadow-md mb-2">
                     <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f431.svg" alt="cat logo" class="w-15 h-15 drop-shadow-sm">
                 </div>
@@ -449,6 +477,8 @@
                 </div>
             </div>
         </aside>
+
+        <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-gray-900/50 z-40 hidden md:hidden backdrop-blur-sm transition-opacity opacity-0"></div>
 
         <!-- Main Content Area -->
         <main class="flex-1 overflow-hidden flex flex-col relative bg-transparent">
@@ -505,7 +535,7 @@
             <section id="timetable-tab" class="flex-1 flex flex-col p-6 h-full overflow-hidden">
                 <!-- Header & Controls -->
                 <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4 bg-white p-4 rounded-2xl shadow-sm border-2 border-pink-200 hide-on-print">
-                    <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 w-full md:w-auto">
                         <button onclick="toggleSidebar()" class="px-4 py-2 bg-pink-100 hover:bg-pink-200 text-pink-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
                             <i class="fa-solid fa-bars"></i>
                         </button>
@@ -513,38 +543,37 @@
                         <label class="font-bold text-lg text-gray-700 ml-2">เลือกคุณครูผู้สอน:</label>
                         <select id="teacher-select" onchange="loadTeacherData()" class="px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-pink-400 focus:ring-0 outline-none font-itim text-lg min-w-[200px]">
                         </select>
-                        <span id="total-hours-badge" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner flex items-center gap-1"></span>
+                        
+                        <!-- เพิ่ม div หุ้ม badge เพื่อบังคับให้เต็มความกว้างและจัดกึ่งกลางบนมือถือ -->
+                            <span id="total-hours-badge" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner flex items-center gap-1"></span>
                     </div>
-                    <div class="flex flex-wrap justify-end gap-2">
-                        <button id="btn-undo-schedule" onclick="undo('schedule')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                    <div class="flex flex-wrap justify-center md:justify-end gap-1.5 md:gap-2 w-full mt-2 md:mt-0">
+                        <button id="btn-undo-schedule" onclick="undo('schedule')" class="btn-undo px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gray-100 text-gray-400 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center gap-1.5 md:gap-2 cursor-not-allowed" disabled>
                             <i class="fa-solid fa-rotate-left"></i>
                         </button>
-                        <button id="btn-redo-schedule" onclick="redo('schedule')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-2" disabled>
+                        <button id="btn-redo-schedule" onclick="redo('schedule')" class="btn-redo px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gray-100 text-gray-400 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center gap-1.5 md:gap-2 cursor-not-allowed mr-1 md:mr-2" disabled>
                             <i class="fa-solid fa-rotate-right"></i>
                         </button>
                         
-                        <button onclick="showAutoScheduleOptions()" class="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                        <button onclick="showAutoScheduleOptions()" class="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg md:rounded-xl shadow transition font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-wand-magic-sparkles"></i> จัดอัตโนมัติ
                         </button>
-                        <button onclick="clearSchedule()" class="px-4 py-2 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                        <button onclick="clearSchedule()" class="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-lg md:rounded-xl shadow transition font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-trash-can"></i> ล้างตาราง
                         </button>
                         
-                        <button id="btn-save-cloud" onclick="saveDataToCloud('schedule', scheduleGrid, 'btn-save-cloud')" class="px-4 py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                        <button id="btn-save-cloud" onclick="saveDataToCloud('schedule', scheduleGrid, 'btn-save-cloud')" class="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg md:rounded-xl shadow transition font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกตาราง
                         </button>
                         
-                        <button onclick="printSchedule()" class="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                        <button onclick="printSchedule()" class="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg md:rounded-xl shadow transition font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-print"></i> พิมพ์
-                        </button>
-                        <button id="btn-lock-schedule" onclick="toggleScheduleLock()" class="px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
-                            <i class="fa-solid fa-lock-open" id="icon-lock"></i> <span id="text-lock">ล็อคตาราง</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Workspace: Table + Palette -->
-                <div id="workspace-container" class="flex flex-1 gap-4 overflow-hidden">
+                <div id="workspace-container" class="flex flex-col md:flex-row flex-1 gap-4 overflow-hidden">
                     <!-- Timetable Grid -->
                     <div class="flex-1 bg-white rounded-3xl shadow-xl border-4 border-dashed border-pink-300 p-6 overflow-auto relative" id="printable-area">
                         <div class="w-max min-w-full mx-auto">
@@ -579,12 +608,12 @@
                     </div>
 
                     <!-- Subject Palette Wrapper -->
-                    <div class="relative flex items-center h-full hide-on-print shrink-0 transition-all duration-300">
+                    <div class="relative flex md:items-center h-[30%] md:h-full hide-on-print shrink-0 transition-all duration-300 z-10">
                         <button onclick="togglePalette()" class="absolute -left-4 z-20 w-4 h-12 bg-white border-y-2 border-l-2 border-dashed border-pink-300 rounded-l-lg flex items-center justify-center text-pink-500 hover:bg-pink-50 hover:text-pink-600 transition-all shadow-[-2px_0_5px_rgba(0,0,0,0.05)] cursor-pointer outline-none">
                             <i class="fa-solid fa-chevron-right text-xs" id="toggle-icon"></i>
                         </button>
                         
-                        <div id="subject-palette-container" class="w-48 bg-white rounded-2xl shadow-xl p-3 border-2 border-dashed border-pink-300 flex flex-col h-full shrink-0 transition-all duration-300">
+                        <div id="subject-palette-container" class="w-full md:w-48 bg-white rounded-2xl shadow-xl p-3 border-2 border-dashed border-pink-300 flex flex-col h-full shrink-0 transition-all duration-300">
                             <h3 class="text-center bg-pink-100 text-pink-600 rounded-full py-1.5 text-sm font-bold mb-3 shadow-sm border border-pink-200">
                                 <i class="fa-solid fa-puzzle-piece"></i> รายวิชา
                             </h3>
@@ -652,33 +681,51 @@
             <!-- ================= SETTINGS TABS (Teachers, Classrooms, Subjects, Periods, Activities) ================= -->
             <section id="teachers-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
                 <div class="max-w-4xl mx-auto">
-                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-200">
-                        <div class="flex flex-col sm:flex-row items-center gap-3 border-b border-dashed border-blue-100 pb-4 mb-6">
-                            <div class="w-12 h-12 shrink-0 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-500 text-2xl">
-                                <i class="fa-solid fa-chalkboard-user"></i>
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-blue-200 relative">
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-blue-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-blue-100 rounded-2xl hidden sm:flex items-center justify-center text-blue-500 text-xl">
+                                    <i class="fa-solid fa-chalkboard-user"></i>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-blue-500 leading-tight">จัดการข้อมูลคุณครู</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">เพิ่ม ลบ หรือแก้ไขรายชื่อคุณครูผู้สอนในโรงเรียน</p>
+                                </div>
                             </div>
-                            <div class="flex-1 w-full text-center sm:text-left">
-                                <h2 class="text-2xl font-bold text-blue-500">จัดการข้อมูลคุณครู</h2>
-                                <p class="text-xs text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อคุณครูผู้สอนในโรงเรียน</p>
-                            </div>
-                            <div class="flex items-center gap-2 mt-4 sm:mt-0 w-full sm:w-auto justify-end">
-                                <button id="btn-undo-teachers" onclick="undo('teachers')" class="btn-undo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button id="btn-undo-teachers" onclick="undo('teachers')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button id="btn-redo-teachers" onclick="redo('teachers')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
+                                <button id="btn-redo-teachers" onclick="redo('teachers')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-teachers" onclick="saveWithSchedule('teachers', teachers, 'btn-save-teachers')" class="px-5 py-2.5 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-teachers" onclick="saveWithSchedule('teachers', teachers, 'btn-save-teachers')" class="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
                         </div>
                         
-                        <div class="flex gap-2 mb-6">
-                            <input type="text" id="new-teacher-name" placeholder="ชื่อ-นามสกุล ครู (เช่น คุณครูอริสา พึ่งน้ำ)" class="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim text-lg">
-                            <button onclick="addTeacher()" class="px-6 py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2">
-                                <i class="fa-solid fa-plus"></i> เพิ่มชื่อครู
-                            </button>
+                        <div class="flex flex-col md:flex-row gap-4 mb-4 items-end bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                            <div class="flex-1 w-full">
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ค้นหาชื่อคุณครู</label>
+                                <div class="relative w-full">
+                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-blue-500">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </div>
+                                    <input type="text" id="teacher-search-input" onkeyup="renderTeacherList()" placeholder="พิมพ์ชื่อเพื่อค้นหา..." class="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-white shadow-sm focus:border-blue-400 outline-none font-itim text-lg bg-white placeholder-gray-400 transition-colors">
+                                    <button type="button" onclick="document.getElementById('teacher-search-input').value=''; renderTeacherList();" class="absolute inset-y-0 right-2 my-auto flex items-center justify-center w-8 h-8 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-all outline-none cursor-pointer transform hover:scale-110">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="w-full md:w-auto">
+                                <button onclick="openTeacherModal()" class="w-full md:w-auto h-[52px] px-6 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl shadow-md transition font-bold text-lg flex items-center justify-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                                    <i class="fa-solid fa-plus"></i> เพิ่มชื่อครู
+                                </button>
+                            </div>
                         </div>
 
                         <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
@@ -696,38 +743,83 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="teacher-modal" class="hidden fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-[#eff6ff] rounded-[1.5rem] overflow-hidden shadow-2xl w-full max-w-md flex flex-col transform transition-transform scale-95 border-4 border-dashed border-blue-300" style="box-shadow: 0 10px 25px -5px rgba(96, 165, 250, 0.3);">
+                        <div class="bg-blue-100/50 px-6 py-4 border-b border-blue-200 flex justify-between items-center shrink-0">
+                            <h3 id="teacher-modal-title" class="text-xl font-bold text-blue-600 flex items-center gap-2">
+                                <i class="fa-solid fa-user-plus"></i> เพิ่มคุณครูใหม่
+                            </h3>
+                            <button onclick="closeTeacherModal()" class="text-blue-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 shadow-sm">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 bg-white space-y-4">
+                            <input type="hidden" id="modal-teacher-id">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อ-นามสกุล คุณครู</label>
+                                <input type="text" id="modal-teacher-name" placeholder="เช่น คุณครูอริสา พึ่งน้ำ" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-400 outline-none font-itim text-lg">
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 rounded-b-[1.2rem]">
+                            <button type="button" onclick="closeTeacherModal()" class="px-5 py-2.5 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-300 rounded-xl font-bold transition-colors">
+                                ยกเลิก
+                            </button>
+                            <button type="button" onclick="saveTeacherFromModal()" class="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-check"></i> บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="classrooms-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
                 <div class="max-w-4xl mx-auto">
-                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-teal-200">
-                        <div class="flex flex-col sm:flex-row items-center gap-3 border-b border-dashed border-teal-100 pb-4 mb-6">
-                            <div class="w-12 h-12 shrink-0 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-500 text-2xl">
-                                <i class="fa-solid fa-chalkboard"></i>
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-teal-200 relative">
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-teal-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-teal-100 hover:bg-teal-200 text-teal-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-teal-100 rounded-2xl hidden sm:flex items-center justify-center text-teal-500 text-xl">
+                                    <i class="fa-solid fa-chalkboard"></i>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-teal-500 leading-tight">จัดการข้อมูลห้องเรียน</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">เพิ่ม ลบ หรือแก้ไขรายชื่อห้องเรียน</p>
+                                </div>
                             </div>
-                            <div class="flex-1 w-full text-center sm:text-left">
-                                <h2 class="text-2xl font-bold text-teal-500">จัดการข้อมูลห้องเรียน</h2>
-                                <p class="text-xs text-gray-400">เพิ่ม ลบ หรือแก้ไขรายชื่อห้องเรียน โดยกำหนดทั้งชื่อเต็มและชื่อย่อ</p>
-                            </div>
-                            <div class="flex items-center gap-2 mt-4 sm:mt-0 w-full sm:w-auto justify-end">
-                                <button id="btn-undo-classrooms" onclick="undo('classrooms')" class="btn-undo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button id="btn-undo-classrooms" onclick="undo('classrooms')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button id="btn-redo-classrooms" onclick="redo('classrooms')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
+                                <button id="btn-redo-classrooms" onclick="redo('classrooms')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-classrooms" onclick="saveDataToCloud('classrooms', classrooms, 'btn-save-classrooms')" class="px-5 py-2.5 bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-classrooms" onclick="saveDataToCloud('classrooms', classrooms, 'btn-save-classrooms')" class="px-4 py-2 bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
                         </div>
                         
-                        <div class="flex flex-col md:flex-row gap-2 mb-6">
-                            <input type="text" id="new-classroom-fullname" placeholder="ชื่อเต็ม (เช่น ประถมศึกษาปีที่ 4)" class="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-lg">
-                            <input type="text" id="new-classroom-shortname" placeholder="ชื่อย่อ (เช่น ป.4)" class="w-full md:w-48 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-lg">
-                            <button onclick="addClassroom()" class="px-6 py-3 bg-teal-400 hover:bg-teal-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center justify-center gap-2 whitespace-nowrap">
-                                <i class="fa-solid fa-plus"></i> เพิ่มห้องเรียน
-                            </button>
+                        <div class="flex flex-col md:flex-row gap-4 mb-4 items-end bg-teal-50 p-4 rounded-2xl border border-teal-100">
+                             <div class="flex-1 w-full">
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ค้นหาห้องเรียน</label>
+                                <div class="relative w-full">
+                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-teal-500">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </div>
+                                    <input type="text" id="classroom-search-input" onkeyup="renderClassroomList()" placeholder="พิมพ์ชื่อเต็มหรือชื่อย่อเพื่อค้นหา..." class="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-white shadow-sm focus:border-teal-400 outline-none font-itim text-lg bg-white placeholder-gray-400 transition-colors">
+                                    <button type="button" onclick="document.getElementById('classroom-search-input').value=''; renderClassroomList();" class="absolute inset-y-0 right-2 my-auto flex items-center justify-center w-8 h-8 text-gray-400 hover:text-teal-600 hover:bg-teal-100 rounded-full transition-all outline-none cursor-pointer transform hover:scale-110">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="w-full md:w-auto">
+                                <button onclick="openClassroomModal()" class="w-full md:w-auto h-[52px] px-6 bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600 text-white rounded-xl shadow-md transition font-bold text-lg flex items-center justify-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                                    <i class="fa-solid fa-plus"></i> เพิ่มห้องเรียน
+                                </button>
+                            </div>
                         </div>
 
                         <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
@@ -746,27 +838,65 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Custom Modal สำหรับเพิ่ม/แก้ไขห้องเรียน -->
+                <div id="classroom-modal" class="hidden fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-[#f0fdfa] rounded-[1.5rem] overflow-hidden shadow-2xl w-full max-w-md flex flex-col transform transition-transform scale-95 border-4 border-dashed border-teal-300" style="box-shadow: 0 10px 25px -5px rgba(20, 184, 166, 0.3);">
+                        <div class="bg-teal-100/50 px-6 py-4 border-b border-teal-200 flex justify-between items-center shrink-0">
+                            <h3 id="classroom-modal-title" class="text-xl font-bold text-teal-600 flex items-center gap-2">
+                                <i class="fa-solid fa-chalkboard"></i> เพิ่มห้องเรียนใหม่
+                            </h3>
+                            <button onclick="closeClassroomModal()" class="text-teal-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 shadow-sm">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 bg-white space-y-4">
+                            <input type="hidden" id="modal-classroom-id">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อเต็ม</label>
+                                <input type="text" id="modal-classroom-fullname" placeholder="เช่น ประถมศึกษาปีที่ 4" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อย่อ</label>
+                                <input type="text" id="modal-classroom-shortname" placeholder="เช่น ป.4" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-teal-400 outline-none font-itim text-lg">
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 rounded-b-[1.2rem]">
+                            <button type="button" onclick="closeClassroomModal()" class="px-5 py-2.5 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-300 rounded-xl font-bold transition-colors">
+                                ยกเลิก
+                            </button>
+                            <button type="button" onclick="saveClassroomFromModal()" class="px-6 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-check"></i> บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="subjects-tab" class="hidden flex-1 p-6 h-full overflow-y-auto relative">
-                <div class="max-w-5xl mx-auto">
+                <div class="max-w-4xl mx-auto">
                     <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-green-200 relative">
-                        <div class="flex flex-col sm:flex-row items-center gap-3 border-b border-dashed border-green-100 pb-4 mb-4">
-                            <div class="w-12 h-12 shrink-0 bg-green-100 rounded-2xl flex items-center justify-center text-green-500 text-2xl">
-                                <i class="fa-solid fa-book"></i>
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-green-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-green-100 rounded-2xl hidden sm:flex items-center justify-center text-green-500 text-xl">
+                                    <i class="fa-solid fa-book"></i>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-green-500 leading-tight">จัดการข้อมูลรายวิชา</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">สร้างรายวิชา กำหนดโควตา และผูกห้องเรียน</p>
+                                </div>
                             </div>
-                            <div class="flex-1 w-full text-center sm:text-left">
-                                <h2 class="text-2xl font-bold text-green-500">จัดการข้อมูลรายวิชา</h2>
-                                <p class="text-xs text-gray-400">สร้างรายวิชา กำหนดโควตา และผูกห้องเรียน</p>
-                            </div>
-                            <div class="flex items-center gap-2 mt-4 sm:mt-0 w-full sm:w-auto justify-end">
-                                <button id="btn-undo-subjects" onclick="undo('subjects')" class="btn-undo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button id="btn-undo-subjects" onclick="undo('subjects')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button id="btn-redo-subjects" onclick="redo('subjects')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
+                                <button id="btn-redo-subjects" onclick="redo('subjects')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-subjects" onclick="saveWithSchedule('subjects', subjects, 'btn-save-subjects')" class="px-5 py-2.5 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-subjects" onclick="saveWithSchedule('subjects', subjects, 'btn-save-subjects')" class="px-4 py-2 bg-gradient-to-r from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
@@ -783,7 +913,10 @@
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-green-500">
                                         <i class="fa-solid fa-magnifying-glass"></i>
                                     </div>
-                                    <input type="text" id="subject-search-input" onkeyup="renderSubjectList()" placeholder="ชื่อวิชา, รหัส, ห้องเรียน..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-white shadow-sm focus:border-green-400 outline-none font-itim text-lg bg-white placeholder-gray-400 transition-colors">
+                                    <input type="text" id="subject-search-input" onkeyup="renderSubjectList()" placeholder="ชื่อวิชา, รหัส, ห้องเรียน..." class="w-full pl-10 pr-10 py-2.5 rounded-xl border-2 border-white shadow-sm focus:border-green-400 outline-none font-itim text-lg bg-white placeholder-gray-400 transition-colors">
+                                    <button type="button" onclick="document.getElementById('subject-search-input').value=''; renderSubjectList();" class="absolute inset-y-0 right-2 my-auto flex items-center justify-center w-8 h-8 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded-full transition-all outline-none cursor-pointer transform hover:scale-110">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div class="w-full md:w-auto">
@@ -817,17 +950,20 @@
                 </div>
 
                 <div id="subject-modal" class="hidden fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-                    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col max-h-full overflow-hidden transform transition-transform scale-100">
-                        <div class="bg-green-50 px-6 py-4 border-b border-green-100 flex justify-between items-center shrink-0">
-                            <h3 id="subject-modal-title" class="text-xl font-bold text-green-600 flex items-center gap-2">
+                    <!-- ปรับเพิ่มความโค้งมน (rounded-[1.5rem]) และกรอบเส้นประสีเขียว (border-4 border-dashed border-green-300) -->
+                    <div class="bg-[#f0fdf4] rounded-[1.5rem] shadow-2xl w-full max-w-2xl flex flex-col max-h-full overflow-hidden transform transition-transform scale-100 border-4 border-dashed border-green-300" style="box-shadow: 0 10px 25px -5px rgba(74, 222, 128, 0.3);">
+                        
+                        <!-- Header -->
+                        <div class="bg-green-100/50 px-6 py-4 border-b border-green-200 flex justify-between items-center shrink-0 relative">
+                            <h3 id="subject-modal-title" class="text-xl font-bold text-green-600 flex items-center gap-2 z-10">
                                 <i class="fa-solid fa-book-open"></i> เพิ่มรายวิชาใหม่
                             </h3>
-                            <button onclick="closeSubjectModal()" class="text-gray-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50">
+                            <button onclick="closeSubjectModal()" class="text-green-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 z-10 shadow-sm">
                                 <i class="fa-solid fa-xmark text-xl"></i>
                             </button>
                         </div>
                         
-                        <div class="p-6 overflow-y-auto space-y-5">
+                        <div class="p-6 overflow-y-auto space-y-5 bg-white">
                             <input type="hidden" id="modal-subject-id">
                             
                             <div>
@@ -896,30 +1032,37 @@
             <section id="periods-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
                 <div class="max-w-4xl mx-auto">
                     <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-orange-200">
-                        <div class="flex flex-col md:flex-row items-center justify-between border-b border-dashed border-orange-100 pb-4 mb-6">
-                            <div class="flex items-center gap-3 w-full mb-4 md:mb-0">
-                                <div class="w-12 h-12 shrink-0 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 text-2xl">
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-orange-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-orange-100 rounded-2xl hidden sm:flex items-center justify-center text-orange-500 text-xl">
                                     <i class="fa-solid fa-clock"></i>
                                 </div>
-                                <div class="flex-1">
-                                    <h2 class="text-2xl font-bold text-orange-500">จัดการคาบเรียน / เวลา</h2>
-                                    <p class="text-xs text-gray-400">กำหนด คาบเรียน เวลาพัก ปรับโครงสร้างคาบ และจัดเรียงลำดับใหม่</p>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-orange-500 leading-tight">จัดการคาบเรียน / เวลา</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">กำหนด คาบเรียน เวลาพัก และจัดเรียงลำดับ</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 w-full justify-end md:w-auto">
-                                <button id="btn-undo-periods" onclick="undo('periods')" class="btn-undo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button id="btn-undo-periods" onclick="undo('periods')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button id="btn-redo-periods" onclick="redo('periods')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
+                                <button id="btn-redo-periods" onclick="redo('periods')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-periods" onclick="saveWithSchedule('periods', periodsConfig, 'btn-save-periods')" class="px-5 py-2.5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md transform hover:-translate-y-0.5 whitespace-nowrap">
+                                <button id="btn-save-periods" onclick="saveWithSchedule('periods', periodsConfig, 'btn-save-periods')" class="px-4 py-2 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
-                                <button onclick="addPeriod()" class="px-5 py-2.5 bg-orange-400 hover:bg-orange-500 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap">
-                                    <i class="fa-solid fa-plus"></i> เพิ่มคาบ/พักเบรค
-                                </button>
                             </div>
+                        </div>
+
+                        <!-- เพิ่มพื้นที่ปุ่ม "เพิ่มคาบ" แบบใหม่ -->
+                        <div class="flex justify-center md:justify-end mb-4">
+                            <button onclick="openPeriodModal()" class="w-full md:w-auto justify-center px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl shadow-md transition font-bold text-lg flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-plus"></i> เพิ่มคาบ/พักเบรค
+                            </button>
                         </div>
 
                         <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
@@ -939,57 +1082,82 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Custom Modal สำหรับเพิ่ม/แก้ไขคาบเรียน -->
+                <div id="period-modal" class="hidden fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-[#fff7ed] rounded-[1.5rem] overflow-hidden shadow-2xl w-full max-w-md flex flex-col transform transition-transform scale-95 border-4 border-dashed border-orange-300" style="box-shadow: 0 10px 25px -5px rgba(249, 115, 22, 0.3);">
+                        <div class="bg-orange-100/50 px-6 py-4 border-b border-orange-200 flex justify-between items-center shrink-0">
+                            <h3 id="period-modal-title" class="text-xl font-bold text-orange-600 flex items-center gap-2">
+                                <i class="fa-solid fa-clock"></i> เพิ่มคาบ/พักเบรค
+                            </h3>
+                            <button onclick="closePeriodModal()" class="text-orange-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 shadow-sm">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 bg-white space-y-4">
+                            <input type="hidden" id="modal-period-id">
+                            <div id="modal-period-type-container">
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ประเภท</label>
+                                <select id="modal-period-type" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-400 outline-none font-itim text-lg">
+                                    <option value="class">คาบเรียน</option>
+                                    <option value="lunch">เวลาพัก / เบรค</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อคาบ</label>
+                                <input type="text" id="modal-period-name" placeholder="เช่น คาบที่ 7 หรือ พักเบรค" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-400 outline-none font-itim text-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">เวลา (รูปแบบ 00.00 - 00.00)</label>
+                                <input type="text" id="modal-period-time" placeholder="เช่น 15.30 - 16.30" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-400 outline-none font-itim text-lg">
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 rounded-b-[1.2rem]">
+                            <button type="button" onclick="closePeriodModal()" class="px-5 py-2.5 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-300 rounded-xl font-bold transition-colors">
+                                ยกเลิก
+                            </button>
+                            <button type="button" onclick="savePeriodFromModal()" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-check"></i> บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="activities-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
                 <div class="max-w-4xl mx-auto">
-                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-purple-200">
-                        <div class="flex flex-col sm:flex-row items-center gap-3 border-b border-dashed border-purple-100 pb-4 mb-6">
-                            <div class="w-12 h-12 shrink-0 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-500 text-2xl">
-                                <i class="fa-solid fa-lock"></i>
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-purple-200 relative">
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-purple-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-purple-100 rounded-2xl hidden sm:flex items-center justify-center text-purple-500 text-xl">
+                                    <i class="fa-solid fa-lock"></i>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-purple-500 leading-tight">จัดการกิจกรรม / ล็อคคาบ</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">ล็อคคาบกิจกรรม เพื่อไม่ให้วิชาอื่นมาทับซ้อน</p>
+                                </div>
                             </div>
-                            <div class="flex-1 w-full text-center sm:text-left">
-                                <h2 class="text-2xl font-bold text-purple-500">จัดการวิชากิจกรรม / ล็อคคาบ</h2>
-                                <p class="text-xs text-gray-400">ล็อคคาบกิจกรรมของโรงเรียน เพื่อไม่ให้วิชาอื่นมาทับซ้อน</p>
-                            </div>
-                            <div class="flex items-center gap-2 mt-4 sm:mt-0 w-full sm:w-auto justify-end">
-                                <button id="btn-undo-activities" onclick="undo('activities')" class="btn-undo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button id="btn-undo-activities" onclick="undo('activities')" class="btn-undo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button id="btn-redo-activities" onclick="redo('activities')" class="btn-redo px-4 py-2.5 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed mr-1" disabled>
+                                <button id="btn-redo-activities" onclick="redo('activities')" class="btn-redo px-4 py-2 bg-gray-100 text-gray-400 rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-not-allowed" disabled>
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button id="btn-save-activities" onclick="saveWithSchedule('activities', LOCKED_PERIODS, 'btn-save-activities')" class="px-5 py-2.5 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5">
+                                <button id="btn-save-activities" onclick="saveWithSchedule('activities', LOCKED_PERIODS, 'btn-save-activities')" class="px-4 py-2 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
                                     <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
                                 </button>
                             </div>
                         </div>
 
-                        <div class="flex flex-col md:flex-row gap-4 mb-6 bg-purple-50 p-5 rounded-2xl border border-purple-100">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-600 mb-1">วันในสัปดาห์</label>
-                                <select id="new-activity-day" class="w-full md:w-36 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
-                                    <option value="mon">จันทร์</option>
-                                    <option value="tue">อังคาร</option>
-                                    <option value="wed">พุธ</option>
-                                    <option value="thu">พฤหัสบดี</option>
-                                    <option value="fri">ศุกร์</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-600 mb-1">เลือกคาบเวลา</label>
-                                <select id="new-activity-period" class="w-full md:w-56 px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
-                                </select>
-                            </div>
-                            <div class="flex-1">
-                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อกิจกรรม</label>
-                                <input type="text" id="new-activity-name" placeholder="เช่น ลูกเสือ-เนตรนารี, ชุมนุม" class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
-                            </div>
-                            <div class="flex items-end w-full md:w-auto">
-                                <button onclick="addActivity()" class="w-full md:w-auto h-[48px] px-6 bg-purple-400 hover:bg-purple-500 text-white rounded-xl shadow transition font-bold text-lg flex items-center gap-2 whitespace-nowrap">
-                                    <i class="fa-solid fa-plus"></i> เพิ่มกิจกรรมที่ล็อค
-                                </button>
-                            </div>
+                        <!-- ซ่อนฟอร์มเดิม แล้วใช้ปุ่มเพิ่มแบบเดียวกับแท็บอื่น -->
+                        <div class="flex justify-center md:justify-end mb-4">
+                            <button onclick="openActivityModal()" class="w-full md:w-auto justify-center px-6 py-3 bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl shadow-md transition font-bold text-lg flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-plus"></i> เพิ่มกิจกรรมที่ล็อค
+                            </button>
                         </div>
 
                         <div class="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
@@ -1004,6 +1172,52 @@
                                 <tbody id="activity-list-tbody" class="divide-y divide-gray-100 bg-white">
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Modal สำหรับเพิ่ม/แก้ไขกิจกรรม -->
+                <div id="activity-modal" class="hidden fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+                    <div class="bg-[#faf5ff] rounded-[1.5rem] overflow-hidden shadow-2xl w-full max-w-md flex flex-col transform transition-transform scale-95 border-4 border-dashed border-purple-300" style="box-shadow: 0 10px 25px -5px rgba(168, 85, 247, 0.3);">
+                        <div class="bg-purple-100/50 px-6 py-4 border-b border-purple-200 flex justify-between items-center shrink-0">
+                            <h3 id="activity-modal-title" class="text-xl font-bold text-purple-600 flex items-center gap-2">
+                                <i class="fa-solid fa-lock"></i> เพิ่มกิจกรรม
+                            </h3>
+                            <button onclick="closeActivityModal()" class="text-purple-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 shadow-sm">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 bg-white space-y-4">
+                            <input type="hidden" id="modal-activity-oldkey">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-600 mb-1">วันในสัปดาห์</label>
+                                    <select id="modal-activity-day" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg bg-gray-50">
+                                        <option value="mon">จันทร์</option>
+                                        <option value="tue">อังคาร</option>
+                                        <option value="wed">พุธ</option>
+                                        <option value="thu">พฤหัสบดี</option>
+                                        <option value="fri">ศุกร์</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-600 mb-1">เลือกคาบเวลา</label>
+                                    <select id="modal-activity-period" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg bg-gray-50">
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">ชื่อกิจกรรม</label>
+                                <input type="text" id="modal-activity-name" placeholder="เช่น ลูกเสือ-เนตรนารี, ชุมนุม" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none font-itim text-lg">
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 rounded-b-[1.2rem]">
+                            <button type="button" onclick="closeActivityModal()" class="px-5 py-2.5 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 border border-gray-300 rounded-xl font-bold transition-colors">
+                                ยกเลิก
+                            </button>
+                            <button type="button" onclick="saveActivityFromModal()" class="px-6 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-check"></i> บันทึกข้อมูล
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1133,14 +1347,6 @@
 
         // ================= INITIALIZATION & CLOUD FETCH =================
         window.onload = () => {
-            document.addEventListener('click', function(event) {
-                const container = document.getElementById('classroom-multiselect-container');
-                const dropdown = document.getElementById('classroom-dropdown');
-                if (container && dropdown && !container.contains(event.target)) {
-                    dropdown.classList.add('hidden');
-                }
-            });
-
             if (SCRIPT_URL === 'ใส่_WEB_APP_URL_ที่ได้จาก_Google_Apps_Script_ที่นี่' || !SCRIPT_URL) {
                 document.getElementById('loading-overlay').innerHTML = `
                     <div class="text-red-500 text-6xl mb-4"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -1513,11 +1719,47 @@
             } else if (tabId === 'timetable-tab') {
                 setTimeout(autoResizeText, 10);
             }
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar.classList.contains('-ml-64')) {
+                    toggleSidebar(); // เรียกใช้ toggle เพื่อปิดทั้ง Sidebar และ Backdrop ให้เนียนๆ
+                }
+            }
         }
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('-ml-64');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            
+            if (window.innerWidth < 768) {
+                // ----- โหมดมือถือ/แท็บเล็ต -----
+                const isHidden = sidebar.classList.contains('-ml-64');
+                if (isHidden) {
+                    // กำลังจะเปิด
+                    sidebar.classList.remove('-ml-64');
+                    backdrop.classList.remove('hidden');
+                    setTimeout(() => {
+                        backdrop.classList.remove('opacity-0');
+                    }, 10);
+                } else {
+                    // กำลังจะปิด
+                    sidebar.classList.add('-ml-64');
+                    backdrop.classList.add('opacity-0');
+                    setTimeout(() => {
+                        backdrop.classList.add('hidden');
+                    }, 300);
+                }
+            } else {
+                // ----- โหมดหน้าจอปกติ (Desktop/PC) -----
+                // สลับคลาสระหว่าง md:ml-0 (แสดง) กับ md:-ml-64 (ซ่อน)
+                if (sidebar.classList.contains('md:ml-0')) {
+                    sidebar.classList.remove('md:ml-0');
+                    sidebar.classList.add('md:-ml-64');
+                } else {
+                    sidebar.classList.remove('md:-ml-64');
+                    sidebar.classList.add('md:ml-0');
+                }
+            }
         }
 
         let isPaletteVisible = true;
@@ -1592,25 +1834,35 @@
             }
         }
 
+
         function renderClassroomList() {
             const tbody = document.getElementById('classroom-list-tbody');
+            const searchInput = document.getElementById('classroom-search-input');
+            if(!tbody) return;
             tbody.innerHTML = '';
             
-            let sortedClassrooms = [...classrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
+            let searchText = searchInput ? searchInput.value.toLowerCase() : '';
+
+            let filteredClassrooms = classrooms.filter(c => 
+                c.fullName.toLowerCase().includes(searchText) || 
+                c.shortName.toLowerCase().includes(searchText)
+            );
+            
+            let sortedClassrooms = [...filteredClassrooms].sort((a, b) => a.shortName.localeCompare(b.shortName, 'th'));
 
             sortedClassrooms.forEach((c, index) => {
                 tbody.innerHTML += `
-                    <tr class="hover:bg-teal-50/50 bg-white">
+                    <tr class="hover:bg-teal-50/50 bg-white group transition-colors">
                         <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">${c.fullName}</td>
                         <td class="p-4 font-bold text-teal-600 text-base">${c.shortName}</td>
                         <td class="p-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="editClassroom(${c.id})" class="text-teal-500 hover:text-teal-700 transition p-2 rounded-full hover:bg-teal-50" title="แก้ไข">
-                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                            <div class="flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onclick="openClassroomModal(${c.id})" class="text-teal-500 hover:text-teal-700 hover:bg-teal-100 p-2 rounded-xl transition" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
-                                <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                    <i class="fa-solid fa-trash text-lg"></i>
+                                <button onclick="deleteClassroom(${c.id})" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-xl transition" title="ลบ">
+                                    <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
                         </td>
@@ -1620,61 +1872,74 @@
             initClassroomDropdowns();
         }
 
-        function addClassroom() {
-            const fullInput = document.getElementById('new-classroom-fullname');
-            const shortInput = document.getElementById('new-classroom-shortname');
-            const fullName = fullInput.value.trim();
-            const shortName = shortInput.value.trim();
-            
-            if(!fullName || !shortName) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบทั้งชื่อเต็มและชื่อย่อ' });
+        // ================= ฟังก์ชันสำหรับ Modal จัดการห้องเรียน =================
+        function openClassroomModal(id = null) {
+            const modal = document.getElementById('classroom-modal');
+            const title = document.getElementById('classroom-modal-title');
+            const fullInput = document.getElementById('modal-classroom-fullname');
+            const shortInput = document.getElementById('modal-classroom-shortname');
+            const idInput = document.getElementById('modal-classroom-id');
 
-            const newId = classrooms.length > 0 ? Math.max(...classrooms.map(c => c.id)) + 1 : 1;
-            classrooms.push({ id: newId, fullName, shortName });
-            fullInput.value = '';
-            shortInput.value = '';
-            
-            renderClassroomList();
-            Toast.fire({ icon: 'success', title: 'เพิ่มห้องเรียนสำเร็จ' });
-            saveStateToHistory('classrooms');
+            if (id) {
+                const cr = classrooms.find(c => c.id === id);
+                title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> แก้ไขห้องเรียน';
+                fullInput.value = cr ? cr.fullName : '';
+                shortInput.value = cr ? cr.shortName : '';
+                idInput.value = id;
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-chalkboard"></i> เพิ่มห้องเรียนใหม่';
+                fullInput.value = '';
+                shortInput.value = '';
+                idInput.value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.add('scale-100');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
         }
 
-        async function editClassroom(id) {
-            const cr = classrooms.find(c => c.id === id);
-            if (!cr) return;
-            
-            const { value: formValues } = await Swal.fire({
-                title: 'แก้ไขชื่อห้องเรียน',
-                html:
-                    '<label class="block text-left text-sm mt-2 text-gray-600">ชื่อเต็ม:</label>' +
-                    `<input id="swal-edit-cr-full" class="swal2-input font-itim mt-1" placeholder="เช่น ประถมศึกษาปีที่ 4" value="${cr.fullName}">` +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">ชื่อย่อ:</label>' +
-                    `<input id="swal-edit-cr-short" class="swal2-input font-itim mt-1" placeholder="เช่น ป.4" value="${cr.shortName}">`,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                preConfirm: () => {
-                    return {
-                        fullName: document.getElementById('swal-edit-cr-full').value.trim(),
-                        shortName: document.getElementById('swal-edit-cr-short').value.trim()
-                    }
-                }
-            });
-            
-            if (formValues) {
-                if (!formValues.fullName || !formValues.shortName) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบ' });
-                cr.fullName = formValues.fullName;
-                cr.shortName = formValues.shortName;
-                renderClassroomList();
-                renderSubjectList(); 
-                renderGrid(); 
-                updatePalette();
-                renderMasterGrid();
-                if (document.getElementById('student-timetable-tab') && !document.getElementById('student-timetable-tab').classList.contains('hidden')) {
-                    loadStudentTimetable();
+        function closeClassroomModal() {
+            const modal = document.getElementById('classroom-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function saveClassroomFromModal() {
+            const editId = document.getElementById('modal-classroom-id').value;
+            const fullName = document.getElementById('modal-classroom-fullname').value.trim();
+            const shortName = document.getElementById('modal-classroom-shortname').value.trim();
+
+            if(!fullName || !shortName) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบทั้งชื่อเต็มและชื่อย่อ' });
+
+            if (editId) {
+                const id = parseInt(editId);
+                const cr = classrooms.find(c => c.id === id);
+                if(cr) {
+                    cr.fullName = fullName;
+                    cr.shortName = shortName;
                 }
                 Toast.fire({ icon: 'success', title: 'แก้ไขชื่อห้องเรียนสำเร็จ' });
-                saveStateToHistory('classrooms');
+            } else {
+                const newId = classrooms.length > 0 ? Math.max(...classrooms.map(c => c.id)) + 1 : 1;
+                classrooms.push({ id: newId, fullName, shortName });
+                Toast.fire({ icon: 'success', title: 'เพิ่มห้องเรียนสำเร็จ' });
             }
+
+            closeClassroomModal();
+            renderClassroomList();
+            renderSubjectList(); 
+            renderGrid(); 
+            updatePalette();
+            renderMasterGrid();
+            if (document.getElementById('student-timetable-tab') && !document.getElementById('student-timetable-tab').classList.contains('hidden')) {
+                loadStudentTimetable();
+            }
+            saveStateToHistory('classrooms');
         }
 
         function deleteClassroom(id) {
@@ -1683,15 +1948,20 @@
                 return Swal.fire('ไม่สามารถลบได้', 'มีรายวิชาที่ผูกกับห้องเรียนนี้อยู่ กรุณาลบวิชาที่เกี่ยวข้องออกก่อน หรือแก้ไขรายวิชาโดยเอาห้องเรียนนี้ออก', 'error');
             }
 
-            // เพิ่มหน้าต่างยืนยันตรงนี้
             Swal.fire({
-                title: 'ยืนยันการลบห้องเรียน?',
-                text: "ข้อมูลห้องเรียนนี้จะถูกลบออกจากระบบ คุณแน่ใจหรือไม่?",
-                icon: 'warning',
+                title: '<span class="text-teal-600 font-bold">ยืนยันการลบห้องเรียน?</span>',
+                html: '<span class="text-gray-600">ข้อมูลห้องเรียนนี้จะถูกลบออกจากระบบ<br>คุณแน่ใจหรือไม่? 🥺</span>',
+                imageUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f63f.svg',
+                imageWidth: 80,
+                imageHeight: 80,
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
                 cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ใช่, ลบเลย!'
+                confirmButtonText: 'ใช่, ลบเลย!',
+                customClass: {
+                    popup: 'border-teal-300'
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     classrooms = classrooms.filter(c => c.id !== id);
@@ -1701,6 +1971,8 @@
                 }
             });
         }
+
+
 
         function renderTableHeaders() {
             const thead = document.getElementById('schedule-thead');
@@ -1723,50 +1995,7 @@
             thead.innerHTML = html;
         }
 
-        function updateActivityPeriodDropdowns() {
-            const classPeriods = periodsConfig.filter(p => p.type === 'class');
-            const optionsHTML = classPeriods.map(p => `<option value="${p.id}">${p.name} (${p.time})</option>`).join('');
-            const mainSelect = document.getElementById('new-activity-period');
-            if(mainSelect) mainSelect.innerHTML = optionsHTML;
-        }
 
-        function renderPeriodList() {
-            const tbody = document.getElementById('period-list-tbody');
-            tbody.innerHTML = '';
-            
-            periodsConfig.forEach((p, index) => {
-                const isFirst = index === 0;
-                const isLast = index === periodsConfig.length - 1;
-                const typeBadge = p.type === 'lunch' 
-                    ? '<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold text-xs">พัก</span>' 
-                    : '<span class="bg-green-100 text-green-600 px-2.5 py-1 rounded-lg font-bold text-xs">เรียน</span>';
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-orange-50/50">
-                        <td class="p-3 text-center">
-                            <div class="flex flex-col items-center gap-1">
-                                <button onclick="movePeriod(${index}, -1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isFirst ? 'disabled' : ''}><i class="fa-solid fa-chevron-up"></i></button>
-                                <button onclick="movePeriod(${index}, 1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30" ${isLast ? 'disabled' : ''}><i class="fa-solid fa-chevron-down"></i></button>
-                            </div>
-                        </td>
-                        <td class="p-3">${typeBadge}</td>
-                        <td class="p-3 font-bold text-gray-800">${p.name}</td>
-                        <td class="p-3 text-gray-600">${p.time}</td>
-                        <td class="p-3 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="editPeriod('${p.id}')" class="text-blue-400 hover:text-blue-600 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
-                                </button>
-                                <button onclick="deletePeriod('${p.id}')" class="text-red-400 hover:text-red-600 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                    <i class="fa-solid fa-trash text-lg"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-            updateActivityPeriodDropdowns();
-        }
 
         function movePeriod(index, dir) {
             if (index + dir < 0 || index + dir >= periodsConfig.length) return;
@@ -1781,102 +2010,144 @@
             saveStateToHistory('periods');
         }
 
-        async function editPeriod(id) {
-            const period = periodsConfig.find(p => p.id == id);
-            if (!period) return;
 
-            const { value: formValues } = await Swal.fire({
-                title: 'แก้ไขเวลา/คาบ',
-                html:
-                    '<label class="block text-left text-sm mt-2 text-gray-600">ชื่อคาบ:</label>' +
-                    '<input id="swal-edit-p-name" class="swal2-input font-itim mt-1" placeholder="เช่น คาบที่ 1" value="' + period.name + '">' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">เวลา (รูปแบบ 00.00 - 00.00):</label>' +
-                    '<input id="swal-edit-p-time" class="swal2-input font-itim mt-1" placeholder="เช่น 08.30 - 09.30" value="' + period.time + '">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                preConfirm: () => {
-                    return {
-                        name: document.getElementById('swal-edit-p-name').value.trim(),
-                        time: document.getElementById('swal-edit-p-time').value.trim()
-                    }
-                }
+        function renderPeriodList() {
+            const tbody = document.getElementById('period-list-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            
+            periodsConfig.forEach((p, index) => {
+                const isFirst = index === 0;
+                const isLast = index === periodsConfig.length - 1;
+                const typeBadge = p.type === 'lunch' 
+                    ? '<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold text-xs">พัก</span>' 
+                    : '<span class="bg-green-100 text-green-600 px-2.5 py-1 rounded-lg font-bold text-xs">เรียน</span>';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-orange-50/50 bg-white group transition-colors">
+                        <td class="p-3 text-center">
+                            <div class="flex flex-col items-center gap-1">
+                                <button onclick="movePeriod(${index}, -1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30 transition" ${isFirst ? 'disabled' : ''}><i class="fa-solid fa-chevron-up"></i></button>
+                                <button onclick="movePeriod(${index}, 1)" class="text-gray-400 hover:text-orange-500 disabled:opacity-30 transition" ${isLast ? 'disabled' : ''}><i class="fa-solid fa-chevron-down"></i></button>
+                            </div>
+                        </td>
+                        <td class="p-3">${typeBadge}</td>
+                        <td class="p-3 font-bold text-gray-800">${p.name}</td>
+                        <td class="p-3 text-gray-600">${p.time}</td>
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onclick="openPeriodModal('${p.id}')" class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-2 rounded-xl transition" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="deletePeriod('${p.id}')" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-xl transition" title="ลบ">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
             });
-
-            if (formValues) {
-                if (!formValues.name || !formValues.time) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบ' });
-                period.name = formValues.name;
-                period.time = formValues.time;
-                renderPeriodList();
-                renderTableHeaders();
-                renderGrid();
-                renderMasterGrid();
-                Toast.fire({ icon: 'success', title: 'แก้ไขเวลาสำเร็จ' });
-                saveStateToHistory('periods');
-            }
+            updateActivityPeriodDropdowns();
         }
 
-        async function addPeriod() {
-            const { value: formValues } = await Swal.fire({
-                title: 'เพิ่มคาบเรียน / พักเบรค',
-                html:
-                    '<label class="block text-left text-sm mt-2 text-gray-600">ประเภท:</label>' +
-                    '<select id="swal-add-p-type" class="swal2-input font-itim mt-1">' +
-                        '<option value="class">คาบเรียน</option>' +
-                        '<option value="lunch">เวลาพัก / เบรค</option>' +
-                    '</select>' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">ชื่อคาบ (เช่น คาบที่ 7):</label>' +
-                    '<input id="swal-add-p-name" class="swal2-input font-itim mt-1" placeholder="ชื่อคาบ หรือ พักเบรค">' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">เวลา (รูปแบบ 00.00 - 00.00):</label>' +
-                    '<input id="swal-add-p-time" class="swal2-input font-itim mt-1" placeholder="เช่น 15.30 - 16.30">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'เพิ่ม',
-                cancelButtonText: 'ยกเลิก',
-                preConfirm: () => {
-                    return {
-                        type: document.getElementById('swal-add-p-type').value,
-                        name: document.getElementById('swal-add-p-name').value.trim(),
-                        time: document.getElementById('swal-add-p-time').value.trim()
-                    }
-                }
-            });
+        // ================= ฟังก์ชันสำหรับ Modal จัดการคาบเวลา =================
+        function openPeriodModal(id = null) {
+            const modal = document.getElementById('period-modal');
+            const title = document.getElementById('period-modal-title');
+            const typeInput = document.getElementById('modal-period-type');
+            const typeContainer = document.getElementById('modal-period-type-container');
+            const nameInput = document.getElementById('modal-period-name');
+            const timeInput = document.getElementById('modal-period-time');
+            const idInput = document.getElementById('modal-period-id');
 
-            if (formValues) {
-                if (!formValues.name || !formValues.time) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบ' });
-                
+            if (id) {
+                const period = periodsConfig.find(p => p.id == id);
+                title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> แก้ไขเวลา/คาบ';
+                typeContainer.style.display = 'none'; // ซ่อนการเปลี่ยนประเภทตอนแก้ไขเพื่อลดข้อผิดพลาด
+                nameInput.value = period ? period.name : '';
+                timeInput.value = period ? period.time : '';
+                idInput.value = id;
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-clock"></i> เพิ่มคาบ/พักเบรค';
+                typeContainer.style.display = 'block';
+                typeInput.value = 'class';
+                nameInput.value = '';
+                timeInput.value = '';
+                idInput.value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.add('scale-100');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closePeriodModal() {
+            const modal = document.getElementById('period-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function savePeriodFromModal() {
+            const editId = document.getElementById('modal-period-id').value;
+            const name = document.getElementById('modal-period-name').value.trim();
+            const time = document.getElementById('modal-period-time').value.trim();
+            
+            if (!name || !time) return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลให้ครบ' });
+
+            if (editId) {
+                // แก้ไข
+                const period = periodsConfig.find(p => p.id == editId);
+                if(period) {
+                    period.name = name;
+                    period.time = time;
+                }
+                Toast.fire({ icon: 'success', title: 'แก้ไขเวลาสำเร็จ' });
+            } else {
+                // เพิ่ม
+                const type = document.getElementById('modal-period-type').value;
                 let newId = 'p_' + Date.now().toString(); 
-                if(formValues.type === 'class') {
+                if(type === 'class') {
                      let numIds = periodsConfig.filter(p=>p.type==='class' && !isNaN(p.id)).map(p=>parseInt(p.id));
                      newId = numIds.length > 0 ? (Math.max(...numIds) + 1).toString() : '1';
                 }
 
                 periodsConfig.push({
                     id: newId,
-                    type: formValues.type,
-                    name: formValues.name,
-                    time: formValues.time
+                    type: type,
+                    name: name,
+                    time: time
                 });
-                
-                renderPeriodList();
-                renderTableHeaders();
-                renderGrid();
-                renderMasterGrid();
                 Toast.fire({ icon: 'success', title: 'เพิ่มคาบสำเร็จ' });
-                saveStateToHistory('periods');
             }
+
+            closePeriodModal();
+            renderPeriodList();
+            renderTableHeaders();
+            renderGrid();
+            renderMasterGrid();
+            saveStateToHistory('periods');
         }
 
         function deletePeriod(id) {
             Swal.fire({
-                title: 'แน่ใจหรือไม่?',
-                text: "วิชาและกิจกรรมที่จัดไว้ในคาบนี้จะถูกลบออกจากตารางด้วย",
-                icon: 'warning',
+                title: '<span class="text-orange-600 font-bold">แน่ใจหรือไม่?</span>',
+                html: '<span class="text-gray-600">วิชาและกิจกรรมที่จัดไว้ในคาบนี้<br>จะถูกลบออกจากตารางด้วย 🥺</span>',
+                imageUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f63f.svg',
+                imageWidth: 80,
+                imageHeight: 80,
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
                 cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ใช่, ลบเลย!'
+                confirmButtonText: 'ใช่, ลบเลย!',
+                customClass: {
+                    popup: 'border-orange-300'
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     periodsConfig = periodsConfig.filter(p => p.id != id);
@@ -1900,6 +2171,7 @@
                 }
             });
         }
+
 
         async function toggleScheduleLock() {
             if (!isScheduleLocked) {
@@ -1955,30 +2227,28 @@
         function updateLockUI() {
             const btnLock = document.getElementById('btn-lock-schedule');
             const iconLock = document.getElementById('icon-lock');
-            const textLock = document.getElementById('text-lock');
+
             const btnAuto = document.querySelector('button[onclick="showAutoScheduleOptions()"]');
             const btnClear = document.querySelector('button[onclick="clearSchedule()"]');
 
             if (isScheduleLocked) {
-                // เปลี่ยนสีปุ่มเป็นสีแดงเมื่อล็อคอยู่
-                btnLock.className = "px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5";
-                iconLock.className = 'fa-solid fa-lock text-white';
-                textLock.innerText = 'ปลดล็อคตาราง';
+                // เมื่อล็อค: ปุ่มกลายเป็นสีแดงอ่อน ไอคอนแม่กุญแจปิด
+                btnLock.className = "absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-colors z-50 shadow-sm";
+                iconLock.className = 'fa-solid fa-lock';
+                btnLock.title = 'ปลดล็อคระบบตารางสอน'; // เปลี่ยน Tooltip
                 
-                // ทำให้ปุ่มจัดอัตโนมัติและล้างตารางดูเหมือนถูกปิดใช้งาน (จางลง)
                 if (btnAuto) btnAuto.classList.add('opacity-50', 'cursor-not-allowed');
                 if (btnClear) btnClear.classList.add('opacity-50', 'cursor-not-allowed');
             } else {
-                // คืนค่าปุ่มกลับเป็นสีเทาปกติ
-                btnLock.className = "px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5";
-                iconLock.className = 'fa-solid fa-lock-open text-white';
-                textLock.innerText = 'ล็อคตาราง';
+                // เมื่อปลดล็อค: ปุ่มกลับเป็นสีเทาสะอาดๆ ไอคอนแม่กุญแจเปิด
+                btnLock.className = "absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors z-50 shadow-sm";
+                iconLock.className = 'fa-solid fa-lock-open';
+                btnLock.title = 'ล็อคระบบตารางสอน'; // เปลี่ยน Tooltip
                 
                 if (btnAuto) btnAuto.classList.remove('opacity-50', 'cursor-not-allowed');
                 if (btnClear) btnClear.classList.remove('opacity-50', 'cursor-not-allowed');
             }
             
-            // รีเฟรชตารางและพาเลทเพื่อเปิด/ปิดการลากการ์ด
             renderGrid();
             updatePalette();
             updateUndoRedoButtons('schedule');
@@ -2287,19 +2557,98 @@
             saveStateToHistory('schedule');
         }
 
-        function addTeacher() {
-            const input = document.getElementById('new-teacher-name');
-            const name = input.value.trim();
+
+        function renderTeacherList() {
+            const tbody = document.getElementById('teacher-list-tbody');
+            const searchInput = document.getElementById('teacher-search-input');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            
+            let searchText = searchInput ? searchInput.value.toLowerCase() : '';
+            
+            // ค้นหาและเรียงลำดับ
+            let filteredTeachers = teachers.filter(t => t.name.toLowerCase().includes(searchText));
+            let sortedTeachers = [...filteredTeachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+
+            sortedTeachers.forEach((t, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-blue-50/50 bg-white group transition-colors">
+                        <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
+                        <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onclick="openTeacherModal(${t.id})" class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-2 rounded-xl transition" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-xl transition" title="ลบ">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // ================= ฟังก์ชันสำหรับ Modal จัดการคุณครู =================
+        function openTeacherModal(id = null) {
+            const modal = document.getElementById('teacher-modal');
+            const title = document.getElementById('teacher-modal-title');
+            const nameInput = document.getElementById('modal-teacher-name');
+            const idInput = document.getElementById('modal-teacher-id');
+
+            if (id) {
+                const teacher = teachers.find(t => t.id === id);
+                title.innerHTML = '<i class="fa-solid fa-user-pen"></i> แก้ไขชื่อคุณครู';
+                nameInput.value = teacher ? teacher.name : '';
+                idInput.value = id;
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-user-plus"></i> เพิ่มคุณครูใหม่';
+                nameInput.value = '';
+                idInput.value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.add('scale-100');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeTeacherModal() {
+            const modal = document.getElementById('teacher-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function saveTeacherFromModal() {
+            const editId = document.getElementById('modal-teacher-id').value;
+            const name = document.getElementById('modal-teacher-name').value.trim();
+
             if(!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อครู' });
 
-            const newId = teachers.length > 0 ? Math.max(...teachers.map(t => parseInt(t.id))) + 1 : 1;
-            teachers.push({ id: newId, name });
-            input.value = '';
-            
+            if (editId) {
+                // แก้ไข
+                const id = parseInt(editId);
+                const teacher = teachers.find(t => t.id === id);
+                if(teacher) teacher.name = name;
+                Toast.fire({ icon: 'success', title: 'แก้ไขชื่อครูสำเร็จ' });
+            } else {
+                // เพิ่มใหม่
+                const newId = teachers.length > 0 ? Math.max(...teachers.map(t => parseInt(t.id))) + 1 : 1;
+                teachers.push({ id: newId, name });
+                Toast.fire({ icon: 'success', title: 'เพิ่มครูสำเร็จ' });
+            }
+
+            closeTeacherModal();
             initTeacherDropdowns();
             renderTeacherList();
+            renderSubjectList(); // อัปเดตชื่อครูในแท็บรายวิชา
             renderMasterGrid();
-            Toast.fire({ icon: 'success', title: 'เพิ่มครูสำเร็จ' });
+            if (currentTeacherId == editId) loadTeacherData();
             saveStateToHistory('teachers');
         }
 
@@ -2313,15 +2662,21 @@
                 return Swal.fire('ไม่สามารถลบได้', 'คุณครูท่านนี้ยังมีรายวิชาที่รับผิดชอบอยู่ กรุณาลบรายวิชาหรือเปลี่ยนครูผู้สอนในแท็บ "จัดการรายวิชา" ก่อนครับ', 'error');
             }
 
-            // เพิ่มหน้าต่างยืนยันตรงนี้
+            // ใช้ธีม SweetAlert แจ้งเตือนสีฟ้า-แดง พร้อมอีโมจิให้เข้ากับแท็บคุณครู
             Swal.fire({
-                title: 'ยืนยันการลบรายชื่อครู?',
-                text: "ข้อมูลของคุณครูและตารางสอนที่เกี่ยวข้องจะถูกลบออกทั้งหมด คุณแน่ใจหรือไม่?",
-                icon: 'warning',
+                title: '<span class="text-blue-600 font-bold">ยืนยันการลบรายชื่อครู?</span>',
+                html: '<span class="text-gray-600">ข้อมูลของคุณครูและตารางสอนที่เกี่ยวข้อง<br>จะถูกลบออกทั้งหมด คุณแน่ใจหรือไม่? 🥺</span>',
+                imageUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f63f.svg',
+                imageWidth: 80,
+                imageHeight: 80,
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
                 cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ใช่, ลบเลย!'
+                confirmButtonText: 'ใช่, ลบเลย!',
+                customClass: {
+                    popup: 'border-blue-300'
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     teachers = teachers.filter(t => t.id != id);
@@ -2345,72 +2700,22 @@
             });
         }
 
-        async function editTeacher(id) {
-            const teacher = teachers.find(t => t.id == id);
-            if (!teacher) return;
-            
-            const { value: newName } = await Swal.fire({
-                title: 'แก้ไขชื่อคุณครู',
-                input: 'text',
-                inputValue: teacher.name,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                inputValidator: (value) => {
-                    if (!value) return 'กรุณากรอกชื่อคุณครู!';
-                }
-            });
-            
-            if (newName) {
-                teacher.name = newName.trim();
-                initTeacherDropdowns();
-                renderTeacherList();
-                renderSubjectList(); 
-                renderMasterGrid();
-                if (currentTeacherId == id) loadTeacherData(); 
-                Toast.fire({ icon: 'success', title: 'แก้ไขชื่อครูสำเร็จ' });
-                saveStateToHistory('teachers');
-            }
-        }
-
-        function renderTeacherList() {
-            const tbody = document.getElementById('teacher-list-tbody');
-            tbody.innerHTML = '';
-            
-            let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
-
-            sortedTeachers.forEach((t, index) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-blue-50/50 bg-white">
-                        <td class="p-4 text-center text-gray-500 font-bold">${index + 1}</td>
-                        <td class="p-4 font-bold text-gray-800 text-base">${t.name}</td>
-                        <td class="p-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="editTeacher(${t.id})" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
-                                </button>
-                                <button onclick="deleteTeacher(${t.id})" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                    <i class="fa-solid fa-trash text-lg"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-
 
         function deleteSubject(id) {
-            // เพิ่มหน้าต่างยืนยันตรงนี้
             Swal.fire({
-                title: 'ยืนยันการลบรายวิชา?',
-                text: "รายวิชานี้และข้อมูลที่ถูกจัดลงในตารางสอนจะถูกลบออกทั้งหมด แน่ใจหรือไม่?",
-                icon: 'warning',
+                title: '<span class="text-green-600 font-bold">ยืนยันการลบรายวิชา?</span>',
+                html: '<span class="text-gray-600">รายวิชานี้และข้อมูลที่ถูกจัดลงในตารางสอน<br>จะถูกลบออกทั้งหมด แน่ใจหรือไม่? 🥺</span>',
+                imageUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f63f.svg', // รูปแมวตกใจ
+                imageWidth: 80,
+                imageHeight: 80,
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
                 cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ใช่, ลบเลย!'
+                confirmButtonText: 'ใช่, ลบเลย!',
+                customClass: {
+                    popup: 'border-green-300' // ดึงสีเส้นประให้เข้ากับแท็บรายวิชา
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     subjects = subjects.filter(s => s.id != id);
@@ -2455,137 +2760,17 @@
             });
         }
         
-        
 
-        function filterSubjects() {
-            const input = document.getElementById('subject-search-input');
-            const filter = input.value.toLowerCase();
-            const tbody = document.getElementById('subject-list-tbody');
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {
-                let textContent = rows[i].innerText.toLowerCase();
-                if (textContent.includes(filter)) {
-                    rows[i].style.display = ""; 
-                } else {
-                    rows[i].style.display = "none"; 
-                }
-            }
-        }
-
-        function addActivity() {
-            const day = document.getElementById('new-activity-day').value;
-            const period = document.getElementById('new-activity-period').value;
-            const name = document.getElementById('new-activity-name').value.trim();
-            const cellKey = `${day}_${period}`;
-
-            if (!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
-
-            LOCKED_PERIODS[cellKey] = { name: name, isLocked: true };
-            
-            Object.keys(scheduleGrid).forEach(key => {
-                if(key.endsWith(`_${cellKey}`)) delete scheduleGrid[key];
-            });
-
-            document.getElementById('new-activity-name').value = '';
-            renderActivityList();
-            renderGrid();
-            renderMasterGrid();
-            updatePalette();
-            Toast.fire({ icon: 'success', title: 'เพิ่มกิจกรรมสำเร็จ' });
-            saveStateToHistory('activities');
-            saveStateToHistory('schedule');
-        }
-
-        function deleteActivity(cellKey) {
-            // เพิ่มหน้าต่างยืนยันตรงนี้
-            Swal.fire({
-                title: 'ยืนยันการลบกิจกรรม?',
-                text: "การล็อคคาบสำหรับกิจกรรมนี้จะถูกยกเลิก แน่ใจหรือไม่?",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonText: 'ยกเลิก',
-                confirmButtonText: 'ใช่, ลบเลย!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    delete LOCKED_PERIODS[cellKey];
-                    renderActivityList();
-                    renderGrid();
-                    renderMasterGrid();
-                    updatePalette();
-                    Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
-                    saveStateToHistory('activities');
-                }
-            });
-        }
-
-        async function editActivity(oldKey) {
-            const activity = LOCKED_PERIODS[oldKey];
-            if (!activity) return;
-
-            const [oldDay, oldPeriod] = oldKey.split('_');
+        function updateActivityPeriodDropdowns() {
             const classPeriods = periodsConfig.filter(p => p.type === 'class');
-            const periodOptions = classPeriods.map(p => `<option value="${p.id}" ${oldPeriod == p.id ? 'selected' : ''}>${p.name} (${p.time})</option>`).join('');
-
-            const { value: formValues } = await Swal.fire({
-                title: 'แก้ไขกิจกรรม',
-                html:
-                    '<label class="block text-left text-sm mt-2 text-gray-600">วัน:</label>' +
-                    '<select id="swal-edit-act-day" class="swal2-input font-itim mt-1">' +
-                    '<option value="mon" ' + (oldDay === 'mon' ? 'selected' : '') + '>จันทร์</option>' +
-                    '<option value="tue" ' + (oldDay === 'tue' ? 'selected' : '') + '>อังคาร</option>' +
-                    '<option value="wed" ' + (oldDay === 'wed' ? 'selected' : '') + '>พุธ</option>' +
-                    '<option value="thu" ' + (oldDay === 'thu' ? 'selected' : '') + '>พฤหัสบดี</option>' +
-                    '<option value="fri" ' + (oldDay === 'fri' ? 'selected' : '') + '>ศุกร์</option>' +
-                    '</select>' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">คาบที่:</label>' +
-                    '<select id="swal-edit-act-period" class="swal2-input font-itim mt-1">' +
-                    periodOptions +
-                    '</select>' +
-                    '<label class="block text-left text-sm mt-4 text-gray-600">ชื่อกิจกรรม:</label>' +
-                    '<input id="swal-edit-act-name" class="swal2-input font-itim mt-1" placeholder="ชื่อกิจกรรม" value="' + activity.name.replace(/"/g, '&quot;') + '">',
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                preConfirm: () => {
-                    return {
-                        day: document.getElementById('swal-edit-act-day').value,
-                        period: document.getElementById('swal-edit-act-period').value,
-                        name: document.getElementById('swal-edit-act-name').value.trim()
-                    }
-                }
-            });
-
-            if (formValues) {
-                if (!formValues.name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
-                
-                const newKey = `${formValues.day}_${formValues.period}`;
-                
-                if (newKey !== oldKey && LOCKED_PERIODS[newKey]) {
-                    return Swal.fire('ไม่สามารถย้ายได้', 'ช่องเวลาใหม่มีกิจกรรมอื่นล็อคอยู่แล้ว', 'error');
-                }
-
-                delete LOCKED_PERIODS[oldKey];
-                LOCKED_PERIODS[newKey] = { name: formValues.name, isLocked: true };
-                
-                Object.keys(scheduleGrid).forEach(key => {
-                    if(key.endsWith(`_${newKey}`)) delete scheduleGrid[key];
-                });
-
-                renderActivityList();
-                renderGrid();
-                renderMasterGrid();
-                updatePalette();
-                Toast.fire({ icon: 'success', title: 'แก้ไขกิจกรรมสำเร็จ' });
-                saveStateToHistory('activities');
-                saveStateToHistory('schedule');
-            }
+            const optionsHTML = classPeriods.map(p => `<option value="${p.id}">${p.name} (${p.time})</option>`).join('');
+            const modalSelect = document.getElementById('modal-activity-period');
+            if(modalSelect) modalSelect.innerHTML = optionsHTML;
         }
 
         function renderActivityList() {
             const tbody = document.getElementById('activity-list-tbody');
+            if(!tbody) return;
             tbody.innerHTML = '';
             const dayNames = { mon: 'จันทร์', tue: 'อังคาร', wed: 'พุธ', thu: 'พฤหัสบดี', fri: 'ศุกร์' };
             
@@ -2610,16 +2795,16 @@
                 const pName = pObj ? pObj.name : `คาบที่ ${periodId}`;
 
                 tbody.innerHTML += `
-                    <tr class="hover:bg-purple-50/50 bg-white">
+                    <tr class="hover:bg-purple-50/50 bg-white group transition-colors">
                         <td class="p-4 text-gray-600 font-medium">วัน${dayStr} - ${pName}</td>
                         <td class="p-4 font-bold text-gray-800 text-base">${actName}</td>
                         <td class="p-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="editActivity('${key}')" class="text-blue-500 hover:text-blue-700 transition p-2 rounded-full hover:bg-blue-50" title="แก้ไข">
-                                    <i class="fa-solid fa-pen-to-square text-lg"></i>
+                            <div class="flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onclick="openActivityModal('${key}')" class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-2 rounded-xl transition" title="แก้ไข">
+                                    <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
-                                <button onclick="deleteActivity('${key}')" class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50" title="ลบ">
-                                    <i class="fa-solid fa-trash text-lg"></i>
+                                <button onclick="deleteActivity('${key}')" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-xl transition" title="ลบ">
+                                    <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
                         </td>
@@ -2627,6 +2812,121 @@
                 `;
             });
         }
+
+        // ================= ฟังก์ชันสำหรับ Modal จัดการกิจกรรม =================
+        function openActivityModal(oldKey = null) {
+            const modal = document.getElementById('activity-modal');
+            const title = document.getElementById('activity-modal-title');
+            const dayInput = document.getElementById('modal-activity-day');
+            const periodInput = document.getElementById('modal-activity-period');
+            const nameInput = document.getElementById('modal-activity-name');
+            const oldKeyInput = document.getElementById('modal-activity-oldkey');
+
+            if (oldKey) {
+                const activity = LOCKED_PERIODS[oldKey];
+                const [oldDay, oldPeriod] = oldKey.split('_');
+                title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> แก้ไขกิจกรรม';
+                dayInput.value = oldDay;
+                periodInput.value = oldPeriod;
+                nameInput.value = activity ? activity.name : '';
+                oldKeyInput.value = oldKey;
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-lock"></i> เพิ่มกิจกรรมที่ล็อค';
+                dayInput.value = 'mon';
+                if(periodInput.options.length > 0) periodInput.selectedIndex = 0;
+                nameInput.value = '';
+                oldKeyInput.value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.add('scale-100');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeActivityModal() {
+            const modal = document.getElementById('activity-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function saveActivityFromModal() {
+            const oldKey = document.getElementById('modal-activity-oldkey').value;
+            const day = document.getElementById('modal-activity-day').value;
+            const period = document.getElementById('modal-activity-period').value;
+            const name = document.getElementById('modal-activity-name').value.trim();
+            const newKey = `${day}_${period}`;
+
+            if (!name) return Toast.fire({ icon: 'error', title: 'กรุณากรอกชื่อกิจกรรม' });
+
+            if (oldKey) {
+                // แก้ไข
+                if (newKey !== oldKey && LOCKED_PERIODS[newKey]) {
+                    return Swal.fire('ไม่สามารถย้ายได้', 'ช่องเวลาใหม่มีกิจกรรมอื่นล็อคอยู่แล้ว', 'error');
+                }
+
+                delete LOCKED_PERIODS[oldKey];
+                LOCKED_PERIODS[newKey] = { name: name, isLocked: true };
+                
+                Object.keys(scheduleGrid).forEach(key => {
+                    if(key.endsWith(`_${newKey}`)) delete scheduleGrid[key];
+                });
+                Toast.fire({ icon: 'success', title: 'แก้ไขกิจกรรมสำเร็จ' });
+            } else {
+                // เพิ่ม
+                if (LOCKED_PERIODS[newKey]) {
+                    return Swal.fire('ข้อมูลซ้ำ', 'ช่องเวลานี้มีกิจกรรมล็อคอยู่แล้ว', 'error');
+                }
+                LOCKED_PERIODS[newKey] = { name: name, isLocked: true };
+                
+                Object.keys(scheduleGrid).forEach(key => {
+                    if(key.endsWith(`_${newKey}`)) delete scheduleGrid[key];
+                });
+                Toast.fire({ icon: 'success', title: 'เพิ่มกิจกรรมสำเร็จ' });
+            }
+
+            closeActivityModal();
+            renderActivityList();
+            renderGrid();
+            renderMasterGrid();
+            updatePalette();
+            saveStateToHistory('activities');
+            saveStateToHistory('schedule');
+        }
+
+        function deleteActivity(cellKey) {
+            Swal.fire({
+                title: '<span class="text-purple-600 font-bold">ยืนยันการลบกิจกรรม?</span>',
+                html: '<span class="text-gray-600">การล็อคคาบสำหรับกิจกรรมนี้จะถูกยกเลิก<br>แน่ใจหรือไม่? 🥺</span>',
+                imageUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f63f.svg',
+                imageWidth: 80,
+                imageHeight: 80,
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                customClass: {
+                    popup: 'border-purple-300'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    delete LOCKED_PERIODS[cellKey];
+                    renderActivityList();
+                    renderGrid();
+                    renderMasterGrid();
+                    updatePalette();
+                    Toast.fire({ icon: 'success', title: 'ลบกิจกรรมสำเร็จ' });
+                    saveStateToHistory('activities');
+                }
+            });
+        }
+
+
 
         function checkConflict(teacherId, day, period, targetClassroomId) {
             let conflictInfo = null;
@@ -4021,10 +4321,10 @@
 
                 if (isDirty) {
                     btn.disabled = false;
-                    btn.className = `px-4 md:px-5 py-2 md:py-2.5 ${saveBtnConfigs[config.id]} rounded-xl shadow transition font-bold flex items-center gap-2 text-md whitespace-nowrap transform hover:-translate-y-0.5`;
+                    btn.className = `px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base ${saveBtnConfigs[config.id]} rounded-lg md:rounded-xl shadow transition font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap transform hover:-translate-y-0.5`;
                 } else {
                     btn.disabled = true;
-                    btn.className = `px-4 md:px-5 py-2 md:py-2.5 bg-gray-200 text-gray-400 border border-gray-300 rounded-xl shadow-none font-bold flex items-center gap-2 text-md whitespace-nowrap cursor-not-allowed transition-all`;
+                    btn.className = `px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-gray-200 text-gray-400 border border-gray-300 rounded-lg md:rounded-xl shadow-none font-bold flex items-center gap-1.5 md:gap-2 whitespace-nowrap cursor-not-allowed transition-all`;
                 }
             });
         }
@@ -4174,6 +4474,21 @@
                 history.index++;
                 restoreStateFromHistory(type, history.index);
                 updateUndoRedoButtons(type);
+            }
+        }
+
+        // ฟังก์ชันสำหรับเปิด-ปิดการมองเห็นรหัสผ่าน
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('login-password');
+            const icon = document.getElementById('toggle-password-icon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                pwdInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
     </script>
