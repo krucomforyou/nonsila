@@ -4662,6 +4662,77 @@
                 zoomLevelText.innerText = Math.round(currentTableZoom * 100) + '%';
             }
         }
+
+        // ================= SMARTPHONE BACK BUTTON HANDLER =================
+        
+        // 1. ทันทีที่โหลดหน้าเว็บเสร็จ ให้สร้างประวัติจำลอง (Dummy State) ขึ้นมาดักไว้
+        window.history.pushState({ page: 'timetable_main' }, '');
+
+        // 2. ดักจับเหตุการณ์เมื่อผู้ใช้กดปุ่มย้อนกลับ (Back) บนสมาร์ทโฟน
+        window.addEventListener('popstate', function(event) {
+            let actionTaken = false;
+
+            // ตรวจสอบว่ามี Alert (SweetAlert) เปิดอยู่หรือไม่ ถ้ามีให้ปิดก่อน
+            if (Swal.isVisible()) {
+                Swal.close();
+                actionTaken = true;
+            }
+            
+            // ตรวจสอบว่ามีหน้าต่าง Modal ใดเปิดอยู่หรือไม่
+            const modalActions = [
+                { id: 'teacher-modal', closeFn: closeTeacherModal },
+                { id: 'classroom-modal', closeFn: closeClassroomModal },
+                { id: 'subject-modal', closeFn: closeSubjectModal },
+                { id: 'period-modal', closeFn: closePeriodModal },
+                { id: 'activity-modal', closeFn: closeActivityModal }
+            ];
+
+            if (!actionTaken) {
+                for (let modal of modalActions) {
+                    const el = document.getElementById(modal.id);
+                    // ถ้า Modal ไม่ได้ถูกซ่อนอยู่ (กำลังแสดงผล)
+                    if (el && !el.classList.contains('hidden')) {
+                        modal.closeFn(); // สั่งรันฟังก์ชันปิด Modal นั้นๆ
+                        actionTaken = true;
+                        break; // ปิดแค่หน้าต่างเดียวต่อการกด 1 ครั้ง
+                    }
+                }
+            }
+
+            // ตรวจสอบแถบเมนูด้านซ้าย (Sidebar) ว่าเปิดค้างอยู่บนหน้าจอมือถือหรือไม่
+            if (!actionTaken && window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar && !sidebar.classList.contains('-ml-64')) {
+                    toggleSidebar(); // สั่งปิดเมนู
+                    actionTaken = true;
+                }
+            }
+
+            if (actionTaken) {
+                // ถ้ามีการปิด Modal หรือ Sidebar ไปแล้ว -> ต้องสร้างประวัติจำลองใหม่ เพื่อดักการกด Back ครั้งหน้า
+                window.history.pushState({ page: 'timetable_main' }, '');
+            } else {
+                // ถ้าไม่มีอะไรเปิดอยู่เลย -> แสดงหน้าต่างถามยืนยันการออกจากระบบ
+                Swal.fire({
+                    title: 'ต้องการออกจากระบบ?',
+                    text: 'คุณต้องการออกจากระบบจัดการตารางสอนใช่หรือไม่?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ec4899',
+                    cancelButtonColor: '#9ca3af',
+                    confirmButtonText: 'ออกจากระบบ',
+                    cancelButtonText: 'อยู่ต่อ'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // เรียกฟังก์ชันออกจากระบบ (ลบเซสชันและกลับไปหน้าล็อกอิน)
+                        logout();
+                    } else {
+                        // ถ้าเลือกอยู่ต่อ -> สร้างประวัติจำลองดักไว้เหมือนเดิม
+                        window.history.pushState({ page: 'timetable_main' }, '');
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>
