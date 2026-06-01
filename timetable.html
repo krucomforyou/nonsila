@@ -3398,9 +3398,33 @@
 
                         } else {
                             let content = scheduleGrid[storageKey];
+                            let conflictDetails = [];
                             
+                            // เช็คการซ้อนทับ (Conflict) กับคุณครูท่านอื่น
+                            if (content) {
+                                Object.keys(scheduleGrid).forEach(key => {
+                                    if (key !== storageKey && key.endsWith(`_${cellKey}`)) {
+                                        let otherContent = scheduleGrid[key];
+                                        if (otherContent.classroomIds) {
+                                            let intersectingRooms = content.classroomIds.filter(roomId => otherContent.classroomIds.includes(roomId));
+                                            if (intersectingRooms.length > 0) {
+                                                let otherTeacherId = key.split('_')[0];
+                                                let otherTeacher = teachers.find(t => t.id == otherTeacherId);
+                                                let otherTeacherName = otherTeacher ? otherTeacher.name : "ครูท่านอื่น";
+                                                let roomNames = intersectingRooms.map(id => getClassroomName(id)).join(', ');
+                                                conflictDetails.push(`ชนกับวิชา ${otherContent.name} (${otherTeacherName} ห้อง ${roomNames})`);
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            let isConflict = conflictDetails.length > 0;
+
                             innerDiv.className = content 
-                                ? 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-md border-2 border-solid border-gray-300 relative group cursor-grab hover:border-pink-300'
+                                ? (isConflict 
+                                    ? 'dropzone bg-red-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-md border-2 border-solid border-red-400 relative group cursor-grab hover:border-red-500' 
+                                    : 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-md border-2 border-solid border-gray-300 relative group cursor-grab hover:border-pink-300')
                                 : 'dropzone bg-white h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200 cursor-pointer hover:border-pink-300 relative group';
                             
                             innerDiv.id = `cell-${cellKey}`;
@@ -3419,10 +3443,22 @@
                                     innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, '${content.classroomIds.join(',')}')`);
                                 }
                                 
+                                if (isConflict) {
+                                    innerDiv.title = "⚠️ พบการซ้อนทับ:\n" + conflictDetails.join('\n');
+                                    
+                                    // ➕ เพิ่มโค้ด 2 บรรทัดนี้ด้านล่าง: เพื่อให้แตะบนมือถือแล้วขึ้น Pop-up
+                                    let conflictHtmlString = conflictDetails.map(d => `• ${d}`).join('<br>');
+                                    innerDiv.setAttribute('onclick', `showMobileConflict("${conflictHtmlString.replace(/"/g, '&quot;')}")`);
+                                }
+                                
+                                let titleColor = isConflict ? 'text-red-700' : 'text-gray-800';
+                                let subColor = isConflict ? 'text-red-500' : 'text-gray-500';
+                                let badgeBg = isConflict ? 'bg-red-200 text-red-800' : 'bg-teal-100 text-teal-700';
+
                                 innerDiv.innerHTML = `
-                                    <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${content.name}</span>
-                                    <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${content.code} <span class="bg-teal-100 text-teal-700 px-1 rounded text-[10px] font-bold">${roomName}</span></span>
-                                    ${!isScheduleLocked ? `<button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md">
+                                    <span class="subject-name-text block font-bold ${titleColor} leading-tight w-full px-1 text-center">${content.name}</span>
+                                    <span class="text-[11px] ${subColor} leading-none mt-1 text-center">${content.code} <span class="${badgeBg} px-1 rounded text-[10px] font-bold">${roomName}</span></span>
+                                    ${!isScheduleLocked ? `<button onclick="removeSubjectFromCell('${cellKey}', event)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:flex items-center justify-center shadow-md z-10">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>` : ''}
                                 `;
@@ -4050,28 +4086,50 @@
                             if(LOCKED_PERIODS[cellKey].name.includes('ชุมนุม')) innerDiv.innerHTML += '<i class="fa-solid fa-users absolute opacity-10 text-3xl right-1 bottom-1"></i>';
                             if(LOCKED_PERIODS[cellKey].name.includes('แนะแนว')) innerDiv.innerHTML += '<i class="fa-solid fa-compass absolute opacity-10 text-3xl right-1 bottom-1"></i>';
                         } else {
-                            let foundContent = null;
-                            let teacherName = "";
+                            let foundContents = [];
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`)) {
                                     if (scheduleGrid[key].classroomIds && scheduleGrid[key].classroomIds.includes(classroomId)) {
-                                        foundContent = scheduleGrid[key];
                                         const teacherId = parseInt(key.split('_')[0]);
                                         const tObj = teachers.find(t => t.id == teacherId);
-                                        teacherName = tObj ? tObj.name : "ไม่ระบุ";
+                                        foundContents.push({
+                                            content: scheduleGrid[key],
+                                            teacherName: tObj ? tObj.name : "ไม่ระบุ"
+                                        });
                                     }
                                 }
                             });
 
-                            if (foundContent) {
+                            if (foundContents.length > 0) {
                                 totalClassHours++;
-                                innerDiv.className = 'bg-indigo-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-solid border-indigo-200 relative';
-                                let shortTeacherName = teacherName.replace('คุณครู', 'ครู');
-                                innerDiv.innerHTML = `
-                                    <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${foundContent.name}</span>
-                                    <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${foundContent.code}</span>
-                                    <span class="bg-indigo-200 text-indigo-700 px-1 mt-0.5 rounded text-[10px] font-bold w-11/12 truncate text-center" title="${teacherName}">${shortTeacherName}</span>
-                                `;
+                                let isConflict = foundContents.length > 1;
+
+                                if (isConflict) {
+                                    // ✏️ แก้ไขคลาสจาก cursor-help เป็น cursor-pointer ให้รู้ว่ากดแตะได้
+                                    innerDiv.className = 'bg-red-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-solid border-red-400 relative cursor-pointer';
+                                    
+                                    let conflictText = foundContents.map(f => `${f.content.name} (${f.teacherName})`).join('\\nชนกับ\\n');
+                                    innerDiv.title = "⚠️ เวลาเรียนซ้อนทับ:\\n" + conflictText.replace(/\\n/g, '\n');
+                                    
+                                    // ➕ เพิ่มโค้ด 2 บรรทัดนี้: เพื่อรองรับการแตะบนสมาร์ทโฟน
+                                    let conflictHtmlString = foundContents.map(f => `• วิชา <b>${f.content.name}</b> (ครูผู้สอน: ${f.teacherName})`).join('<br>');
+                                    innerDiv.setAttribute('onclick', `showMobileConflict("<b>ห้องเรียนนี้มีเรียนซ้อนกันในคาบนี้:</b><br><br>${conflictHtmlString.replace(/"/g, '&quot;')}")`);
+                                    
+                                    innerDiv.innerHTML = `
+                                        <span class="subject-name-text block font-bold text-red-700 leading-tight w-full px-1 text-center">⚠️ ชนกัน ${foundContents.length} วิชา</span>
+                                        <span class="bg-red-200 text-red-800 px-1 mt-1 rounded text-[10px] font-bold w-11/12 truncate text-center">แตะเพื่อดูรายละเอียด</span>
+                                    `;
+                                } else {
+                                    let foundContent = foundContents[0].content;
+                                    let teacherName = foundContents[0].teacherName;
+                                    innerDiv.className = 'bg-indigo-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-solid border-indigo-200 relative';
+                                    let shortTeacherName = teacherName.replace('คุณครู', 'ครู');
+                                    innerDiv.innerHTML = `
+                                        <span class="subject-name-text block font-bold text-gray-800 leading-tight w-full px-1 text-center">${foundContent.name}</span>
+                                        <span class="text-[11px] text-gray-500 leading-none mt-1 text-center">${foundContent.code}</span>
+                                        <span class="bg-indigo-200 text-indigo-700 px-1 mt-0.5 rounded text-[10px] font-bold w-11/12 truncate text-center" title="${teacherName}">${shortTeacherName}</span>
+                                    `;
+                                }
                             } else {
                                 innerDiv.className = 'bg-gray-50 h-16 rounded-xl flex flex-col justify-center items-center shadow-sm border-2 border-dashed border-gray-200';
                                 innerDiv.innerHTML = '<span class="text-gray-300 text-xs hide-text-on-print">ว่าง</span>';
@@ -4160,20 +4218,27 @@
                         if (isLocked) {
                              cellContent = `<div class="h-8 flex items-center justify-center"><span class="subject-name-text block w-full text-[11px] text-gray-600 text-center px-1">${isLocked.name}</span></div>`;
                         } else {
-                            let foundContent = null;
-                            let teacherName = "";
+                            let foundContents = [];
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomIds && scheduleGrid[key].classroomIds.includes(cr.id)) {
-                                    foundContent = scheduleGrid[key];
                                     const teacherId = parseInt(key.split('_')[0]);
                                     const tObj = teachers.find(t => t.id == teacherId);
-                                    if (tObj) {
-                                        teacherName = tObj.name.replace('คุณครู', 'ครู');
-                                    }
+                                    foundContents.push({
+                                        content: scheduleGrid[key],
+                                        teacherName: tObj ? tObj.name.replace('คุณครู', 'ครู') : "ไม่ระบุ"
+                                    });
                                 }
                             });
 
-                            if (foundContent) {
+                            if (foundContents.length > 1) {
+                                let tooltip = foundContents.map(f => `• ${f.content.name} (${f.teacherName})`).join('<br>');
+                                cellContent = `
+                                    <div onclick="showMobileConflict('<b>ห้องเรียนนี้มีเรียนซ้อนทับกันในคาบนี้:</b><br><br>${tooltip.replace(/'/g, "\\'")}')" class="h-8 flex items-center justify-center bg-red-100 border-2 border-red-400 text-red-800 w-full cursor-pointer" title="⚠️ ซ้อนทับ: ${foundContents.map(f => `${f.content.name} (${f.teacherName})`).join(' ชนกับ ')}">
+                                        <span class="subject-name-text block font-bold text-[11px] w-full text-center truncate">⚠️ ชน ${foundContents.length} วิชา</span>
+                                    </div>`;
+                            } else if (foundContents.length === 1) {
+                                let foundContent = foundContents[0].content;
+                                let teacherName = foundContents[0].teacherName;
                                 cellContent = `
                                     <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
                                         <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${foundContent.name} ${teacherName}">${foundContent.name}</span>
@@ -4198,13 +4263,39 @@
                         } else {
                             let content = scheduleGrid[storageKey];
                             if (content) {
-                                // เปลี่ยนมาใช้ map ดึงชื่อห้องเรียนแบบ Array ให้รองรับเรียนรวม
+                                let conflictDetails = [];
+                                Object.keys(scheduleGrid).forEach(key => {
+                                    if (key !== storageKey && key.endsWith(`_${cellKey}`)) {
+                                        let otherContent = scheduleGrid[key];
+                                        if (otherContent.classroomIds) {
+                                            let intersectingRooms = content.classroomIds.filter(roomId => otherContent.classroomIds.includes(roomId));
+                                            if (intersectingRooms.length > 0) {
+                                                let otherTeacherId = key.split('_')[0];
+                                                let otherTeacher = teachers.find(t => t.id == otherTeacherId);
+                                                let otherTeacherName = otherTeacher ? otherTeacher.name.replace('คุณครู', 'ครู') : "ครูท่านอื่น";
+                                                let roomNames = intersectingRooms.map(id => getClassroomName(id)).join(', ');
+                                                conflictDetails.push(`${otherContent.name} (${otherTeacherName} ห้อง ${roomNames})`);
+                                            }
+                                        }
+                                    }
+                                });
+
                                 let roomName = content.classroomIds ? content.classroomIds.map(id => getClassroomName(id)).join(', ') : 'ไม่ระบุ';
-                                cellContent = `
-                                    <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
-                                        <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${content.name} ${roomName}">${content.name}</span>
-                                        <span class="font-normal text-gray-700 text-[9px] text-center mt-[1px]">(${roomName})</span>
-                                    </div>`;
+                                
+                                if (conflictDetails.length > 0) {
+                                    let tooltip = "• " + conflictDetails.join('<br>• ');
+                                    cellContent = `
+                                        <div onclick="showMobileConflict('<b>คุณครูท่านนี้มีตารางสอนชนกัน (เนื่องจากห้องเรียนปลายทางถูกจัดวิชาอื่นทับ):</b><br><br>${tooltip.replace(/'/g, "\\'")}')" class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden bg-red-100 border-2 border-red-400 text-red-800 w-full cursor-pointer" title="⚠️ ซ้อนทับ">
+                                            <span class="subject-name-text block font-bold text-[12px] w-full text-center truncate" title="${content.name}">${content.name}</span>
+                                            <span class="font-normal text-[9px] text-center mt-[1px] bg-red-200 px-1 rounded-sm">⚠️ ซ้อนทับ</span>
+                                        </div>`;
+                                } else {
+                                    cellContent = `
+                                        <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
+                                            <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${content.name} ${roomName}">${content.name}</span>
+                                            <span class="font-normal text-gray-700 text-[9px] text-center mt-[1px]">(${roomName})</span>
+                                        </div>`;
+                                }
                             } else {
                                 cellContent = `<div class="h-8"></div>`;
                             }
@@ -4784,27 +4875,182 @@
             });
         }
 
+        // ฟังก์ชันวิเคราะห์ว่าข้อมูลใดถูกเปลี่ยนแปลงระหว่าง Undo/Redo
+        // คืนค่าเป็น Object: { msg: "ข้อความ", targetTeacherId: "ไอดีครู (ถ้ามี)" }
+        function getChangeDetails(oldStateStr, newStateStr, type) {
+            let result = { msg: "มีการเปลี่ยนแปลงข้อมูล", targetTeacherId: null };
+            if (!oldStateStr || !newStateStr) return result;
+
+            try {
+                const oldData = JSON.parse(oldStateStr);
+                const newData = JSON.parse(newStateStr);
+
+                // 1. กรณีข้อมูลเป็นแบบรายการ Array (ครู, ห้องเรียน, วิชา, คาบ)
+                if (Array.isArray(oldData) && Array.isArray(newData)) {
+                    const removed = oldData.find(o => !newData.some(n => n.id === o.id));
+                    if (removed) {
+                        result.msg = `ลบ: ${removed.name || removed.shortName || removed.time}`;
+                        if (type === 'subjects') result.targetTeacherId = removed.teacherId;
+                        return result;
+                    }
+
+                    const added = newData.find(n => !oldData.some(o => o.id === n.id));
+                    if (added) {
+                        result.msg = `เพิ่ม: ${added.name || added.shortName || added.time}`;
+                        if (type === 'subjects') result.targetTeacherId = added.teacherId;
+                        return result;
+                    }
+
+                    const changed = newData.find(n => {
+                        const o = oldData.find(old => old.id === n.id);
+                        return o && JSON.stringify(o) !== JSON.stringify(n);
+                    });
+                    if (changed) {
+                        result.msg = `แก้ไข: ${changed.name || changed.shortName || changed.time}`;
+                        if (type === 'subjects') result.targetTeacherId = changed.teacherId;
+                        return result;
+                    }
+                }
+
+                // 2. กรณีข้อมูลเป็นตาราง (ScheduleGrid, Activities)
+                if (!Array.isArray(oldData) && typeof oldData === 'object') {
+                    const oldKeys = Object.keys(oldData);
+                    const newKeys = Object.keys(newData);
+
+                    // หาว่าช่องไหนถูกลบออกไป
+                    const removedKey = oldKeys.find(k => !newKeys.includes(k));
+                    if (removedKey) {
+                        if (type === 'schedule') {
+                            const tId = removedKey.split('_')[0];
+                            const tObj = teachers.find(t => t.id == tId);
+                            result.msg = `ดึงวิชา ${oldData[removedKey].name} ของ ${tObj ? tObj.name : 'ครู'} ออก`;
+                            result.targetTeacherId = tId;
+                            return result;
+                        }
+                        if (type === 'activities') {
+                            result.msg = `ยกเลิกล็อคกิจกรรม ${oldData[removedKey].name}`;
+                            return result;
+                        }
+                    }
+
+                    // หาว่าช่องไหนถูกเพิ่มเข้ามา
+                    const addedKey = newKeys.find(k => !oldKeys.includes(k));
+                    if (addedKey) {
+                        if (type === 'schedule') {
+                            const tId = addedKey.split('_')[0];
+                            const tObj = teachers.find(t => t.id == tId);
+                            result.msg = `จัดวิชา ${newData[addedKey].name} ให้ ${tObj ? tObj.name : 'ครู'}`;
+                            result.targetTeacherId = tId;
+                            return result;
+                        }
+                        if (type === 'activities') {
+                            result.msg = `เพิ่มล็อคกิจกรรม ${newData[addedKey].name}`;
+                            return result;
+                        }
+                    }
+
+                    // หาว่ามีการสลับที่ หรือแก้ไข
+                    const changedKey = newKeys.find(k => oldKeys.includes(k) && JSON.stringify(oldData[k]) !== JSON.stringify(newData[k]));
+                    if (changedKey) {
+                        if (type === 'schedule') {
+                            const tId = changedKey.split('_')[0];
+                            const tObj = teachers.find(t => t.id == tId);
+                            result.msg = `ปรับเปลี่ยนตารางสอนของ ${tObj ? tObj.name : 'ครู'}`;
+                            result.targetTeacherId = tId;
+                            return result;
+                        }
+                        if (type === 'activities') {
+                            result.msg = `แก้ไขกิจกรรม ${newData[changedKey].name}`;
+                            return result;
+                        }
+                    }
+                }
+                
+                result.msg = "คืนค่าข้อมูลแล้ว";
+                return result;
+            } catch (e) {
+                result.msg = "คืนค่าข้อมูลแล้ว";
+                return result;
+            }
+        }
+
         function undo(type) {
-            // เพิ่มบรรทัดนี้เพื่อบล็อคถ้าตารางถูกล็อคอยู่
             if (type === 'schedule' && isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ ไม่สามารถย้อนกลับได้' });
             
             const history = historyData[type];
             if (history.index > 0) {
+                const oldState = history.stack[history.index]; 
                 history.index--;
+                const newState = history.stack[history.index]; 
+
+                // หาสิ่งที่เปลี่ยนไป
+                const changeDetails = getChangeDetails(oldState, newState, type);
+
                 restoreStateFromHistory(type, history.index);
                 updateUndoRedoButtons(type);
+
+                // เด้งไปเลือกครูคนนั้นใน Dropdown ทันที ถ้ามีการระบุไอดีมา
+                if (changeDetails.targetTeacherId) {
+                    const selectEl = document.getElementById('teacher-select');
+                    if (selectEl && selectEl.querySelector(`option[value="${changeDetails.targetTeacherId}"]`)) {
+                        selectEl.value = changeDetails.targetTeacherId;
+                        loadTeacherData(); // สั่งรีเฟรชตารางของครูคนนี้
+                    }
+                }
+
+                Toast.fire({ icon: 'info', title: 'ย้อนกลับ (Undo)', text: changeDetails.msg });
+
+                const tabMap = {
+                    'schedule': 'timetable-tab',
+                    'teachers': 'teachers-tab',
+                    'classrooms': 'classrooms-tab',
+                    'subjects': 'subjects-tab',
+                    'periods': 'periods-tab',
+                    'activities': 'activities-tab'
+                };
+                if (tabMap[type]) {
+                    switchTab(tabMap[type]);
+                }
             }
         }
 
         function redo(type) {
-            // เพิ่มบรรทัดนี้เพื่อบล็อคถ้าตารางถูกล็อคอยู่
             if (type === 'schedule' && isScheduleLocked) return Toast.fire({ icon: 'error', title: 'ตารางถูกล็อคอยู่ ไม่สามารถทำซ้ำได้' });
             
             const history = historyData[type];
             if (history.index < history.stack.length - 1) {
+                const oldState = history.stack[history.index]; 
                 history.index++;
+                const newState = history.stack[history.index]; 
+
+                // หาสิ่งที่เปลี่ยนไป
+                const changeDetails = getChangeDetails(oldState, newState, type);
+
                 restoreStateFromHistory(type, history.index);
                 updateUndoRedoButtons(type);
+
+                // เด้งไปเลือกครูคนนั้นใน Dropdown ทันที ถ้ามีการระบุไอดีมา
+                if (changeDetails.targetTeacherId) {
+                    const selectEl = document.getElementById('teacher-select');
+                    if (selectEl && selectEl.querySelector(`option[value="${changeDetails.targetTeacherId}"]`)) {
+                        selectEl.value = changeDetails.targetTeacherId;
+                        loadTeacherData(); // สั่งรีเฟรชตารางของครูคนนี้
+                    }
+                }
+
+                Toast.fire({ icon: 'success', title: 'ทำซ้ำ (Redo)', text: changeDetails.msg });
+
+                const tabMap = {
+                    'schedule': 'timetable-tab',
+                    'teachers': 'teachers-tab',
+                    'classrooms': 'classrooms-tab',
+                    'subjects': 'subjects-tab',
+                    'periods': 'periods-tab',
+                    'activities': 'activities-tab'
+                };
+                if (tabMap[type]) {
+                    switchTab(tabMap[type]);
+                }
             }
         }
 
@@ -5033,7 +5279,7 @@
                         emptyState.classList.add('hidden');
                         
                         // เรียงจากใหม่ไปเก่า
-                        const sortedData = result.data.sort((a, b) => b.id.localeCompare(a.id)); 
+                        const sortedData = result.data.reverse();
                         
                         sortedData.forEach(sem => {
                             tbody.innerHTML += `
@@ -5224,6 +5470,20 @@
                     } catch(error) {
                         Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
                     }
+                }
+            });
+        }
+
+        // ฟังก์ชันแสดงรายละเอียดการชนกันสำหรับสมาร์ทโฟน (เมื่อกด/แตะที่การ์ดสีแดง)
+        function showMobileConflict(details) {
+            Swal.fire({
+                title: '⚠️ รายละเอียดการซ้อนทับ',
+                html: `<div class="text-left font-itim text-base text-gray-700 p-2 leading-relaxed">${details}</div>`,
+                icon: 'warning',
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: 'รับทราบ',
+                customClass: {
+                    popup: 'rounded-3xl border-4 border-dashed border-red-300'
                 }
             });
         }
