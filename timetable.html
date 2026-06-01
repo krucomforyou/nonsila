@@ -337,6 +337,8 @@
                 .print-clone th, .print-clone td {
                     white-space: normal !important; 
                     word-break: break-word !important; 
+                    line-height: 1.1 !important; /* เพิ่มบรรทัดนี้เพื่อลดระยะห่างระหว่างบรรทัด */
+                    padding: 1px !important; /* ลดช่องว่างภายในการ์ดให้มีพื้นที่แสดงตัวอักษรมากขึ้น */
                 }
             
             #schedule-table .h-16, #student-schedule-table .h-16, .print-clone .h-16 {
@@ -367,6 +369,30 @@
 
             #zoom-content {
                 zoom: 1 !important;
+            }
+
+            .print-clone .subject-name-text,
+            body.printing-all .subject-name-text {
+                white-space: normal !important;
+                word-wrap: break-word !important;
+                word-break: break-word !important; /* เปลี่ยนเป็น break-word เพื่อไม่ให้ตัดกลางคำถ้าไม่จำเป็น */
+                /* ลบบรรทัด font-size ทิ้งไปเลย เพื่อให้วิชาชื่อสั้นตัวใหญ่ตามปกติ */
+                line-height: 1.15 !important;
+            }
+
+            /* 2. ย่อขนาดรหัสวิชา/ชื่อครู ด้านล่างลงอีกนิดให้สมดุลกัน */
+            .print-clone .text-\[11px\],
+            body.printing-all .text-\[11px\] {
+                font-size: 9px !important;
+                margin-top: 2px !important;
+            }
+
+            /* 3. ปลดล็อคความสูงของการ์ด ให้ยืดหยุ่นรับข้อความ 2 บรรทัดได้ */
+            .print-clone .dropzone,
+            .print-clone .locked-cell {
+                height: auto !important;
+                min-height: 56px !important;
+                padding: 4px 2px !important;
             }
         }
     </style>
@@ -1352,9 +1378,9 @@
                 }
 
                 let currentFontSizeStyle = window.getComputedStyle(el, null).getPropertyValue('font-size');
-                let fontSize = parseFloat(currentFontSizeStyle) || 16; 
-                
-                const minFontSize = 13; 
+                let fontSize = parseFloat(currentFontSizeStyle) || 14; 
+
+                const minFontSize = 10; // ปรับตัวเลขตรงนี้ให้เล็กลง
                 
                 while (el.scrollWidth > maxWidth && fontSize > minFontSize) {
                     fontSize -= 0.5;
@@ -2300,8 +2326,10 @@
             
             if(!mainSelect || !filterSelect || !modalSelect) return;
 
+            let currentFilterVal = filterSelect.value; // เก็บค่าเดิมไว้ก่อน
+
             mainSelect.innerHTML = '';
-            filterSelect.innerHTML = '';
+            filterSelect.innerHTML = '<option value="all">-- แสดงทุกรายวิชา --</option>'; // เพิ่มตัวเลือกแสดงทั้งหมด
             modalSelect.innerHTML = '';
 
             let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
@@ -2314,11 +2342,16 @@
 
             if(teachers.length > 0 && currentTeacherId) {
                 mainSelect.value = currentTeacherId;
-                filterSelect.value = currentTeacherId;
             } else if (sortedTeachers.length > 0) {
                 mainSelect.value = sortedTeachers[0].id;
-                filterSelect.value = sortedTeachers[0].id;
                 currentTeacherId = sortedTeachers[0].id;
+            }
+
+            // ตั้งค่า Dropdown ค้นหาวิชา ให้แสดงทั้งหมดเป็นค่าเริ่มต้น หรือเป็นค่าเดิมที่เคยเลือกไว้
+            if (currentFilterVal && (currentFilterVal === 'all' || teachers.find(t => t.id == currentFilterVal))) {
+                filterSelect.value = currentFilterVal;
+            } else {
+                filterSelect.value = 'all';
             }
         }
 
@@ -2333,11 +2366,15 @@
             
             tbody.innerHTML = '';
             
-            const targetTeacherId = parseInt(filterSelect.value);
+            const filterValue = filterSelect.value;
             const searchText = searchInput ? searchInput.value.toLowerCase() : '';
 
-            // กรองเอาเฉพาะวิชาของครูที่เลือกใน Dropdown
-            let filteredSubjects = subjects.filter(s => s.teacherId === targetTeacherId);
+            // กรองวิชาตามครูที่เลือก ถ้าเลือก 'all' ให้แสดงทั้งหมด
+            let filteredSubjects = subjects;
+            if (filterValue !== 'all') {
+                const targetTeacherId = parseInt(filterValue);
+                filteredSubjects = subjects.filter(s => s.teacherId === targetTeacherId);
+            }
             
             // กรองซ้อนด้วย Search Bar
             if (searchText) {
@@ -2351,6 +2388,13 @@
 
             if (filteredSubjects.length === 0) {
                 tbody.parentElement.classList.add('hidden');
+                
+                // ปรับข้อความแจ้งเตือนให้เข้ากับการเลือก 'all'
+                const emptyDesc = filterValue === 'all' 
+                    ? 'โรงเรียนนี้ยังไม่มีรายวิชาในระบบ กดปุ่มเพิ่มรายวิชาได้เลยครับ'
+                    : 'คุณครูท่านนี้ยังไม่มีรายวิชาที่รับผิดชอบ กดปุ่มเพิ่มรายวิชาได้เลยครับ';
+                emptyState.querySelector('p').innerText = emptyDesc;
+
                 emptyState.classList.remove('hidden');
                 return;
             } else {
@@ -2376,14 +2420,17 @@
                 return subjectSort.direction === 'asc' ? valA - valB : valB - valA;
             });
 
-            // วาดตาราง (เอาคอลัมน์ชื่อครูออก เพราะเรารู้อยู่แล้วว่ากำลังดูของครูคนไหน)
+            // วาดตาราง (เพิ่มคอลัมน์ชื่อครูเข้าไปให้เห็นชัดเจนตอนกดดู 'ทั้งหมด')
             filteredSubjects.forEach(s => {
                 const roomNames = s.classroomIds.map(id => getClassroomName(id)).join(', ') || 'ไม่ระบุ';
+                const teacherObj = teachers.find(t => t.id === s.teacherId);
+                const teacherName = teacherObj ? teacherObj.name : 'ไม่ระบุครู';
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-green-50/50 bg-white group transition-colors">
                         <td class="p-4 font-bold text-gray-800 text-base">
                             <div class="text-gray-800">${s.name}</div>
+                            <div class="text-[11px] text-gray-500 font-normal mt-0.5"><i class="text-gray-400"></i> ${teacherName}</div>
                             <div class="flex flex-wrap gap-1 mt-1 items-center">
                                 ${s.isHeavy ? '<span class="bg-red-100 text-red-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-red-200 leading-none">วิชาหนัก</span>' : ''}
                                 ${s.isDoublePeriod ? '<span class="bg-purple-100 text-purple-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-purple-200 leading-none">คาบคู่</span>' : ''}
