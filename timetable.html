@@ -494,6 +494,11 @@
                     <i class="fa-solid fa-lock text-lg text-purple-400"></i> กิจกรรม / ล็อคคาบ
                 </button>
 
+                <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 pt-4 mb-1">จัดการไฟล์ระบบ</div>
+                <button onclick="switchTab('semesters-tab')" id="nav-semesters" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-pink-50 text-gray-600 rounded-xl font-bold transition-all">
+                    <i class="fa-solid fa-folder-open text-lg text-amber-500"></i> คลังภาคเรียน
+                </button>
+
                 <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 pt-4 mb-1">เครื่องมือเสริม</div>
                 <a href="https://www.ilovepdf.com/th/pdf_to_jpg" target="_blank" class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-xl font-bold transition-all">
                     <i class="fa-solid fa-file-pdf text-lg text-red-500"></i> แปลง PDF เป็นรูปภาพ
@@ -1303,6 +1308,51 @@
                 </div>
             </section>
 
+            <section id="semesters-tab" class="hidden flex-1 p-6 h-full overflow-y-auto">
+                <div class="max-w-4xl mx-auto">
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border-2 border-amber-200 relative">
+                        <div class="flex flex-col md:flex-row gap-4 justify-between items-center border-b border-dashed border-amber-100 pb-4 mb-4">
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button onclick="toggleSidebar()" class="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-600 rounded-xl shadow-sm transition-all font-bold flex items-center gap-2" title="ซ่อน/แสดง เมนู">
+                                    <i class="fa-solid fa-bars"></i>
+                                </button>
+                                <div class="w-10 h-10 shrink-0 bg-amber-100 rounded-2xl hidden sm:flex items-center justify-center text-amber-500 text-xl">
+                                    <i class="fa-solid fa-folder-open"></i>
+                                </div>
+                                <div class="text-center sm:text-left">
+                                    <h2 class="text-xl font-bold text-amber-500 leading-tight">คลังเก็บภาคเรียน</h2>
+                                    <p class="text-xs text-gray-400 leading-tight hidden sm:block mt-1">เก็บสำเนาตารางสอนปัจจุบันแยกเป็นเทอม และดึงกลับมาใช้ใหม่ได้</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button onclick="saveCurrentAsSemester()" class="px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl shadow transition font-bold flex items-center gap-2 whitespace-nowrap transform hover:-translate-y-0.5">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูลปัจจุบันเป็นภาคเรียนใหม่
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-gray-100 rounded-2xl shadow-sm">
+                            <table class="w-full min-w-[600px] text-left border-collapse text-sm">
+                                <thead>
+                                    <tr class="bg-amber-50 text-amber-700">
+                                        <th class="p-4 font-bold">ชื่อภาคเรียน / แฟ้มข้อมูล</th>
+                                        <th class="p-4 font-bold text-center">วันที่บันทึก</th>
+                                        <th class="p-4 text-center w-40 font-bold">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="semester-list-tbody" class="divide-y divide-gray-100 bg-white">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="empty-semester-state" class="hidden text-center py-10">
+                            <div class="text-gray-300 text-6xl mb-3"><i class="fa-solid fa-box-open"></i></div>
+                            <h3 class="text-xl font-bold text-gray-500">ยังไม่มีแฟ้มภาคเรียน</h3>
+                            <p class="text-gray-400 text-sm">กดปุ่ม "บันทึกข้อมูลปัจจุบันเป็นภาคเรียนใหม่" ด้านบนเพื่อเริ่มเก็บประวัติ</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
     
@@ -1804,7 +1854,7 @@
 
         // ================= UI TOGGLES & NAVIGATION =================
         function switchTab(tabId) {
-            const tabs = ['master-timetable-tab', 'timetable-tab', 'student-timetable-tab', 'teachers-tab', 'classrooms-tab', 'subjects-tab', 'periods-tab', 'activities-tab'];
+            const tabs = ['master-timetable-tab', 'timetable-tab', 'student-timetable-tab', 'teachers-tab', 'classrooms-tab', 'subjects-tab', 'periods-tab', 'activities-tab', 'semesters-tab'];
             tabs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -4946,6 +4996,220 @@
                 });
             }
         });
+
+        // ================= SEMESTER MANAGEMENT LOGIC =================
+        
+        // เพิ่มแท็บลงใน list ควบคุมตอนสลับหน้าจอ
+        const originalSwitchTab = switchTab;
+        switchTab = function(tabId) {
+            originalSwitchTab(tabId);
+            if (tabId === 'semesters-tab') {
+                const activeBtn = document.getElementById(`nav-semesters`);
+                if (activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 bg-amber-100 text-amber-700 rounded-xl font-bold transition-all shadow-sm";
+                loadSemestersList();
+            }
+        };
+
+        async function loadSemestersList() {
+            const tbody = document.getElementById('semester-list-tbody');
+            const emptyState = document.getElementById('empty-semester-state');
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center p-6 text-gray-400"><i class="fa-solid fa-spinner animate-spin text-2xl mb-2"></i><br>กำลังโหลด...</td></tr>';
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'getSemesters', sheetId: currentSheetId })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    tbody.innerHTML = '';
+                    if (result.data.length === 0) {
+                        tbody.parentElement.classList.add('hidden');
+                        emptyState.classList.remove('hidden');
+                    } else {
+                        tbody.parentElement.classList.remove('hidden');
+                        emptyState.classList.add('hidden');
+                        
+                        // เรียงจากใหม่ไปเก่า
+                        const sortedData = result.data.sort((a, b) => b.id.localeCompare(a.id)); 
+                        
+                        sortedData.forEach(sem => {
+                            tbody.innerHTML += `
+                                <tr class="hover:bg-amber-50/50 bg-white group transition-colors">
+                                    <td class="p-4 font-bold text-gray-800 text-base"><i class="fa-solid fa-file-lines text-amber-400 mr-2"></i> ${sem.name}</td>
+                                    <td class="p-4 text-center text-sm text-gray-500">${sem.date}</td>
+                                    <td class="p-4 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button onclick="restoreSemester('${sem.fileId}', '${sem.name}')" class="text-blue-500 hover:text-white hover:bg-blue-500 border border-blue-500 px-3 py-1.5 rounded-xl font-bold transition text-xs shadow-sm" title="โหลดข้อมูลมาแทนที่ตารางปัจจุบัน">
+                                                <i class="fa-solid fa-download"></i> โหลด
+                                            </button>
+                                            <button onclick="deleteSemesterArchive('${sem.fileId}')" class="text-red-500 hover:text-white hover:bg-red-500 border border-red-500 px-3 py-1.5 rounded-xl font-bold transition text-xs shadow-sm" title="ลบแฟ้มนี้">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center p-4 text-red-500">โหลดข้อมูลล้มเหลว: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function saveCurrentAsSemester() {
+            const { value: semesterName } = await Swal.fire({
+                title: 'บันทึกเป็นแฟ้มภาคเรียน',
+                input: 'text',
+                inputLabel: 'ชื่อแฟ้ม / ภาคเรียน (เช่น 1/2567)',
+                inputPlaceholder: 'พิมพ์ชื่อภาคเรียนที่นี่...',
+                showCancelButton: true,
+                confirmButtonText: 'บันทึกแฟ้ม',
+                cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#f59e0b',
+                inputValidator: (value) => {
+                    if (!value) return 'กรุณาระบุชื่อแฟ้มข้อมูลครับ!';
+                }
+            });
+
+            if (semesterName) {
+                Swal.fire({ title: 'กำลังบันทึกและรวบรวมไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                
+                // รวบรวมข้อมูลทั้งหมดใน State ปัจจุบัน
+                const currentPayload = {
+                    teachers: teachers,
+                    classrooms: classrooms,
+                    periodsConfig: periodsConfig,
+                    subjects: subjects,
+                    LOCKED_PERIODS: LOCKED_PERIODS,
+                    scheduleGrid: scheduleGrid
+                };
+
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ 
+                            action: 'saveSemester', 
+                            sheetId: currentSheetId,
+                            schoolName: currentSchoolName,
+                            semesterName: semesterName,
+                            payload: currentPayload 
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire('บันทึกสำเร็จ!', `บันทึกข้อมูลตารางปัจจุบันเป็นแฟ้ม "${semesterName}" เรียบร้อยแล้ว`, 'success');
+                        loadSemestersList();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    Swal.fire('ข้อผิดพลาด', `ไม่สามารถบันทึกได้: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function restoreSemester(fileId, name) {
+            Swal.fire({
+                title: 'คำเตือน! ทับข้อมูลปัจจุบัน',
+                html: `คุณกำลังจะดึงแฟ้มข้อมูล <b>"${name}"</b> มาใช้งาน<br><br><span class="text-red-500 font-bold">ข้อมูลตารางสอน, รายวิชา, และครู "ชุดปัจจุบัน" ที่คุณกำลังเปิดอยู่ จะถูกลบและทับด้วยข้อมูลจากแฟ้มนี้ทั้งหมด!</span><br><br>แนะนำให้กด "บันทึกข้อมูลปัจจุบันเป็นแฟ้ม" ก่อน หากไม่อยากสูญเสียข้อมูลเทอมนี้ไป`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'รับทราบ ดึงข้อมูลมาทับเลย!',
+                cancelButtonText: 'ยกเลิก',
+                customClass: { popup: 'rounded-3xl border-4 border-blue-200' }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: 'กำลังโหลดข้อมูลจากคลัง...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    
+                    try {
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'loadSemester', fileId: fileId })
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            Swal.fire({ title: 'กำลังติดตั้งข้อมูลลงตาราง...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                            
+                            // นำข้อมูลที่โหลดมา เซ็ตเป็น State ปัจจุบัน
+                            const data = result.data;
+                            teachers = data.teachers || [];
+                            classrooms = data.classrooms || [];
+                            periodsConfig = data.periodsConfig || [];
+                            subjects = data.subjects || [];
+                            LOCKED_PERIODS = data.LOCKED_PERIODS || {};
+                            scheduleGrid = data.scheduleGrid || {};
+
+                            // ทำการ Save ข้อมูลทั้งหมดนี้ ขึ้น Google Sheets ปกติ (ทับของเดิม)
+                            const saveResponse = await fetch(SCRIPT_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                body: JSON.stringify({ action: 'save', type: 'all', sheetId: currentSheetId, payload: data })
+                            });
+                            
+                            const saveResult = await saveResponse.json();
+                            if(saveResult.success) {
+                                // รีเฟรชหน้า UI ทั้งหมด
+                                if (teachers.length > 0) {
+                                    let sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+                                    currentTeacherId = sortedTeachers[0].id;
+                                }
+                                initializeUI();
+                                markAsSaved('all');
+                                
+                                Swal.fire('โหลดสำเร็จ!', `ดึงข้อมูลแฟ้ม "${name}" มาเป็นตารางปัจจุบันเรียบร้อยแล้ว`, 'success');
+                                switchTab('timetable-tab'); // เด้งกลับไปหน้าจัดตาราง
+                            } else {
+                                throw new Error(saveResult.error);
+                            }
+                        } else {
+                            throw new Error(result.error);
+                        }
+                    } catch (error) {
+                        Swal.fire('ข้อผิดพลาด', `ไม่สามารถโหลดแฟ้มข้อมูลได้: ${error.message}`, 'error');
+                    }
+                }
+            });
+        }
+
+        function deleteSemesterArchive(fileId) {
+            Swal.fire({
+                title: 'ยืนยันการลบแฟ้ม?',
+                text: "แฟ้มข้อมูลนี้จะถูกย้ายลงถังขยะใน Google Drive ไม่สามารถกู้คืนผ่านระบบนี้ได้อีก แน่ใจหรือไม่?",
+                icon: 'error',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'ใช่, ลบทิ้งเลย',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    try {
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'deleteSemester', sheetId: currentSheetId, fileId: fileId })
+                        });
+                        const resJSON = await response.json();
+                        if(resJSON.success) {
+                            Toast.fire({ icon: 'success', title: 'ลบแฟ้มภาคเรียนเรียบร้อย' });
+                            loadSemestersList();
+                        }
+                    } catch(error) {
+                        Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>
