@@ -339,10 +339,11 @@
                     word-break: break-word !important; 
                     line-height: 1.1 !important; /* เพิ่มบรรทัดนี้เพื่อลดระยะห่างระหว่างบรรทัด */
                     padding: 1px !important; /* ลดช่องว่างภายในการ์ดให้มีพื้นที่แสดงตัวอักษรมากขึ้น */
+                    height: 1px !important;
                 }
             
             #schedule-table .h-16, #student-schedule-table .h-16, .print-clone .h-16 {
-                height: auto !important;
+                height: 100% !important;
                 min-height: 50px !important;
                 padding: 2px !important;
             }
@@ -390,7 +391,7 @@
             /* 3. ปลดล็อคความสูงของการ์ด ให้ยืดหยุ่นรับข้อความ 2 บรรทัดได้ */
             .print-clone .dropzone,
             .print-clone .locked-cell {
-                height: auto !important;
+                height: 100% !important;
                 min-height: 56px !important;
                 padding: 4px 2px !important;
             }
@@ -1053,6 +1054,14 @@
                                 </div>
                                 
                                 <div class="col-span-2 flex flex-col gap-3">
+                                    <label class="relative flex items-center justify-between cursor-pointer p-3 bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-300 transition-colors">
+                                        <span class="text-sm font-bold text-blue-600 flex items-center gap-2"><i class="fa-solid fa-users"></i> เรียนรวม <span class="text-[10px] font-normal text-blue-400">(สอนหลายห้องในคาบเดียว)</span></span>
+                                        <div class="relative">
+                                            <input type="checkbox" id="modal-isShared" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500 shadow-inner"></div>
+                                        </div>
+                                    </label>
+
                                     <label class="relative flex items-center justify-between cursor-pointer p-3 bg-red-50 rounded-xl border border-red-100 hover:border-red-300 transition-colors">
                                         <span class="text-sm font-bold text-red-600 flex items-center gap-2"><i class="fa-solid fa-weight-hanging"></i> วิชาเรียนหนัก <span class="text-[10px] font-normal text-red-400">(แนะนำให้จัดช่วงเช้า)</span></span>
                                         <div class="relative">
@@ -1066,6 +1075,22 @@
                                         <div class="relative">
                                             <input type="checkbox" id="modal-isDoublePeriod" class="sr-only peer">
                                             <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500 shadow-inner"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="relative flex items-center justify-between cursor-pointer p-3 bg-orange-50 rounded-xl border border-orange-100 hover:border-orange-300 transition-colors">
+                                        <span class="text-sm font-bold text-orange-600 flex items-center gap-2"><i class="fa-solid fa-sun"></i> คาบเช้าเท่านั้น <span class="text-[10px] font-normal text-orange-400">(บังคับลงก่อนพักเที่ยง)</span></span>
+                                        <div class="relative">
+                                            <input type="checkbox" id="modal-isMorningOnly" class="sr-only peer" onchange="if(this.checked) document.getElementById('modal-isAfternoonOnly').checked = false;">
+                                            <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="relative flex items-center justify-between cursor-pointer p-3 bg-indigo-50 rounded-xl border border-indigo-100 hover:border-indigo-300 transition-colors">
+                                        <span class="text-sm font-bold text-indigo-600 flex items-center gap-2"><i class="fa-solid fa-moon"></i> คาบบ่ายเท่านั้น <span class="text-[10px] font-normal text-indigo-400">(บังคับลงหลังพักเที่ยง)</span></span>
+                                        <div class="relative">
+                                            <input type="checkbox" id="modal-isAfternoonOnly" class="sr-only peer" onchange="if(this.checked) document.getElementById('modal-isMorningOnly').checked = false;">
+                                            <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 shadow-inner"></div>
                                         </div>
                                     </label>
                                 </div>
@@ -1355,6 +1380,35 @@
             'btn-save-activities': 'bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600'
         };
 
+        // ================= AUTO EQUALIZE TABLE ROWS =================
+        function equalizeTableRows() {
+            // ดึงตารางทั้งหมดที่ถูกโคลนออกมาสำหรับเตรียมพิมพ์
+            const printContainers = document.querySelectorAll('.print-clone');
+            
+            printContainers.forEach(container => {
+                const tables = container.querySelectorAll('table');
+                tables.forEach(table => {
+                    const rows = table.querySelectorAll('tbody tr');
+                    let maxHeight = 0;
+                    
+                    // 1. วนลูปวัดความสูงของทุกแถว เพื่อหาแถวที่สูงที่สุด
+                    rows.forEach(row => {
+                        row.style.height = 'auto'; // คืนค่าเริ่มต้นให้ยืดหดตามจริงก่อนวัด
+                        if (row.offsetHeight > maxHeight) {
+                            maxHeight = row.offsetHeight;
+                        }
+                    });
+                    
+                    // 2. ถ้าระบบพบความสูงที่มากที่สุดแล้ว ให้นำไปบังคับใช้กับทุกแถวให้เท่ากัน
+                    if (maxHeight > 0) {
+                        rows.forEach(row => {
+                            row.style.height = maxHeight + 'px';
+                        });
+                    }
+                });
+            });
+        }
+
         // ================= AUTO RESIZE TEXT =================
         function autoResizeText() {
             const elements = document.querySelectorAll('.subject-name-text');
@@ -1548,6 +1602,16 @@
                     LOCKED_PERIODS = result.data.LOCKED_PERIODS || {};
                     scheduleGrid = result.data.scheduleGrid || {};
                     periodsConfig = result.data.periodsConfig || [];
+                    // แปลงข้อมูลเก่าให้รองรับระบบใหม่
+                    Object.keys(scheduleGrid).forEach(key => {
+                        if (scheduleGrid[key].classroomId && !scheduleGrid[key].classroomIds) {
+                            scheduleGrid[key].classroomIds = [scheduleGrid[key].classroomId];
+                        }
+                        // Parse String กลับเป็น Array กรณีดึงมาจาก Google Sheets
+                        if (typeof scheduleGrid[key].classroomIds === 'string') {
+                            try { scheduleGrid[key].classroomIds = JSON.parse(scheduleGrid[key].classroomIds); } catch(e){}
+                        }
+                    });
 
                     const settings = result.data.settings || {};
                     isScheduleLocked = settings.isScheduleLocked === 'true' || settings.isScheduleLocked === true;
@@ -2432,8 +2496,11 @@
                             <div class="text-gray-800">${s.name}</div>
                             <div class="text-[11px] text-gray-500 font-normal mt-0.5"><i class="text-gray-400"></i> ${teacherName}</div>
                             <div class="flex flex-wrap gap-1 mt-1 items-center">
+                                ${s.isShared ? '<span class="bg-blue-100 text-blue-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-blue-200 leading-none"><i class="fa-solid fa-users"></i> เรียนรวม</span>' : ''}
                                 ${s.isHeavy ? '<span class="bg-red-100 text-red-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-red-200 leading-none">วิชาหนัก</span>' : ''}
                                 ${s.isDoublePeriod ? '<span class="bg-purple-100 text-purple-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-purple-200 leading-none">คาบคู่</span>' : ''}
+                                ${s.isMorningOnly ? '<span class="bg-orange-100 text-orange-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-orange-200 leading-none"><i class="fa-solid fa-sun"></i> เช้าเท่านั้น</span>' : ''}
+                                ${s.isAfternoonOnly ? '<span class="bg-indigo-100 text-indigo-600 px-1.5 py-[2px] rounded text-[10px] font-bold border border-indigo-200 leading-none"><i class="fa-solid fa-moon"></i> บ่ายเท่านั้น</span>' : ''}
                             </div>
                         </td>
                         <td class="p-4 text-sm text-gray-500 font-medium">${s.code}</td>
@@ -2476,6 +2543,9 @@
             document.getElementById('modal-subject-hours').value = '1';
             document.getElementById('modal-isHeavy').checked = false;
             document.getElementById('modal-isDoublePeriod').checked = false;
+            document.getElementById('modal-isShared').checked = false;
+            document.getElementById('modal-isMorningOnly').checked = false;
+            document.getElementById('modal-isAfternoonOnly').checked = false;
             modalSelectedClassrooms = [];
 
             // เซ็ตครูเริ่มต้นตาม Filter ปัจจุบัน
@@ -2490,6 +2560,9 @@
                     document.getElementById('modal-subject-hours').value = subject.hours;
                     document.getElementById('modal-isHeavy').checked = subject.isHeavy;
                     document.getElementById('modal-isDoublePeriod').checked = subject.isDoublePeriod;
+                    document.getElementById('modal-isShared').checked = subject.isShared || false;
+                    document.getElementById('modal-isMorningOnly').checked = subject.isMorningOnly || false;
+                    document.getElementById('modal-isAfternoonOnly').checked = subject.isAfternoonOnly || false;
                     modalSelectedClassrooms = [...subject.classroomIds];
 
                     if (isDuplicate) {
@@ -2572,6 +2645,9 @@
             const hours = parseInt(document.getElementById('modal-subject-hours').value);
             const isHeavy = document.getElementById('modal-isHeavy').checked;
             const isDoublePeriod = document.getElementById('modal-isDoublePeriod').checked;
+            const isShared = document.getElementById('modal-isShared').checked;
+            const isMorningOnly = document.getElementById('modal-isMorningOnly').checked;
+            const isAfternoonOnly = document.getElementById('modal-isAfternoonOnly').checked;
 
             if(!name || !code || modalSelectedClassrooms.length === 0) {
                 return Toast.fire({ icon: 'error', title: 'กรุณากรอกข้อมูลและเลือกห้องเรียนอย่างน้อย 1 ห้อง' });
@@ -2591,13 +2667,20 @@
                 subject.hours = hours;
                 subject.isHeavy = isHeavy;
                 subject.isDoublePeriod = isDoublePeriod;
+                subject.isShared = isShared;
+                subject.isMorningOnly = isMorningOnly;
+                subject.isAfternoonOnly = isAfternoonOnly;
 
                 let teacherChanged = oldTeacherId !== subject.teacherId;
                 
                 // เคลียร์/ย้าย คาบในตาราง (เหมือนโค้ดเดิมของคุณ)
                 let keysToProcess = Object.keys(scheduleGrid).filter(k => scheduleGrid[k].id == id);
                 keysToProcess.forEach(key => {
-                    if (!subject.classroomIds.includes(scheduleGrid[key].classroomId)) {
+                    let currentRooms = scheduleGrid[key].classroomIds || [];
+                    // กรองเก็บไว้เฉพาะห้องที่ยังผูกอยู่กับวิชานี้ (เผื่อครูกดเอาบางห้องออก)
+                    let keptRooms = currentRooms.filter(r => subject.classroomIds.includes(r));
+                    
+                    if (keptRooms.length === 0) {
                         delete scheduleGrid[key];
                     } else {
                         if (teacherChanged) {
@@ -2605,12 +2688,13 @@
                             let newKey = `${subject.teacherId}_${parts[1]}_${parts[2]}`;
                             if (!scheduleGrid[newKey]) {
                                 scheduleGrid[newKey] = {
-                                    id: subject.id, classroomId: scheduleGrid[key].classroomId,
+                                    id: subject.id, classroomIds: keptRooms,
                                     name: subject.name, code: subject.code, hours: subject.hours
                                 };
                             }
                             delete scheduleGrid[key];
                         } else {
+                            scheduleGrid[key].classroomIds = keptRooms;
                             scheduleGrid[key].name = subject.name;
                             scheduleGrid[key].code = subject.code;
                             scheduleGrid[key].hours = subject.hours;
@@ -2622,7 +2706,7 @@
                 // --- กรณีเพิ่มใหม่ / คัดลอก (Add/Duplicate) ---
                 const newId = subjects.length > 0 ? Math.max(...subjects.map(s => parseInt(s.id))) + 1 : 100;
                 subjects.push({ 
-                    id: newId, teacherId, name, code, classroomIds: [...modalSelectedClassrooms], hours, isHeavy, isDoublePeriod 
+                    id: newId, teacherId, name, code, classroomIds: [...modalSelectedClassrooms], hours, isHeavy, isDoublePeriod, isShared, isMorningOnly, isAfternoonOnly 
                 });
                 Toast.fire({ icon: 'success', title: 'บันทึกรายวิชาสำเร็จ' });
             }
@@ -3010,7 +3094,7 @@
 
 
 
-        function checkConflict(teacherId, day, period, targetClassroomId) {
+        function checkConflict(teacherId, day, period, targetClassroomIds) { // รับพารามิเตอร์เป็น Array
             let conflictInfo = null;
             Object.keys(scheduleGrid).forEach(key => {
                 const parts = key.split('_');
@@ -3019,10 +3103,12 @@
                     const d = parts[1];
                     const pr = parts[2];
                     
-                    // แก้ไข: ใช้ == และ != เพื่อให้ระบบเปรียบเทียบตัวเลขกับข้อความ (String vs Int) ได้ถูกต้อง
                     if (d == day && pr == period && scheduledTeacherId != teacherId) {
                         const scheduledSubject = scheduleGrid[key];
-                        if (scheduledSubject.classroomId == targetClassroomId) {
+                        // เช็คว่าห้องที่ลากมา มีห้องไหนชนกับตารางที่มีอยู่แล้วไหม
+                        const hasConflict = scheduledSubject.classroomIds && scheduledSubject.classroomIds.some(r => targetClassroomIds.includes(r));
+                        
+                        if (hasConflict) {
                             const teacherObj = teachers.find(t => t.id == scheduledTeacherId);
                             conflictInfo = {
                                 teacherName: teacherObj ? teacherObj.name : 'คุณครูท่านอื่น',
@@ -3036,7 +3122,7 @@
             return conflictInfo;
         }
 
-        function getRecommendations(teacherId, classroomId) {
+        function getRecommendations(teacherId, targetClassroomIds) {
             let recs = [];
             const classPeriods = periodsConfig.filter(p => p.type === 'class');
             
@@ -3055,7 +3141,7 @@
                             const d = parts[1];
                             const pr = parts[2];
                             if (d === day.id && pr == p.id) {
-                                if (scheduleGrid[key].classroomId == classroomId) {
+                                if (scheduleGrid[key].classroomIds && scheduleGrid[key].classroomIds.some(r => targetClassroomIds.includes(r))) {
                                     roomBusy = true; 
                                 }
                             }
@@ -3095,11 +3181,13 @@
             renderGrid();
         }
 
-        function getScheduledCount(subjectId, classroomId) {
+        function getScheduledCount(subjectId, targetClassroomIds) {
             let count = 0;
             Object.keys(scheduleGrid).forEach(key => {
-                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId && scheduleGrid[key].classroomId == classroomId) {
-                    count++;
+                if(key.startsWith(currentTeacherId + '_') && scheduleGrid[key].id == subjectId) {
+                    // ตรวจสอบว่าตรงกับกลุ่มห้องเรียนที่ลากมาหรือไม่
+                    const isMatch = JSON.stringify(scheduleGrid[key].classroomIds.sort()) === JSON.stringify(targetClassroomIds.sort());
+                    if(isMatch) count++;
                 }
             });
             return count;
@@ -3112,33 +3200,82 @@
             let teacherSubjects = subjects.filter(s => s.teacherId == currentTeacherId);
             let totalAssigned = 0;
             let totalRequire = 0;
+            
+            // 1. สร้าง Array สำหรับเก็บไอเทมวิชาเพื่อนำไปเรียงลำดับก่อนแสดงผล
+            let paletteItems = [];
 
             teacherSubjects.forEach(sub => {
-                sub.classroomIds.forEach(roomId => {
-                    let scheduled = getScheduledCount(sub.id, roomId);
+                if (sub.isShared) {
+                    // --- กรณีเรียนรวม ---
+                    let scheduled = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_') && scheduleGrid[k].id == sub.id).length;
                     let remaining = sub.hours - scheduled;
                     totalAssigned += scheduled;
                     totalRequire += sub.hours;
                     
-                    let roomName = getClassroomName(roomId);
+                    let roomNames = sub.classroomIds.map(id => getClassroomName(id)).join(', ');
+                    let roomsString = sub.classroomIds.join(',');
+
+                    // หาชื่อห้องเรียนที่น้อยที่สุดมาเป็นคีย์สำหรับการเรียงลำดับ
+                    let sortKey = sub.classroomIds.map(id => getClassroomName(id)).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }))[0] || '';
 
                     if (remaining > 0) {
-                        palette.innerHTML += `
-                            <div ${!isScheduleLocked ? `draggable="true" ondragstart="drag(event, ${sub.id}, ${roomId})"` : ''} 
-                                class="${!isScheduleLocked ? 'draggable hover:border-pink-400 hover:shadow-md group' : 'opacity-60 cursor-not-allowed'} bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm transition-all flex justify-between items-center">
-                                <div class="overflow-hidden">
-                                    <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name}</div>
-                                    <div class="text-[11px] text-gray-500 mt-1">${sub.code} <span class="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded text-[10px] font-bold ml-1">${roomName}</span></div>
+                        let html = `
+                            <div ${!isScheduleLocked ? `draggable="true" ondragstart="drag(event, ${sub.id}, '${roomsString}')"` : ''} 
+                                class="${!isScheduleLocked ? 'draggable hover:border-pink-400 hover:shadow-md group' : 'opacity-60 cursor-not-allowed'} bg-blue-50 border-2 border-blue-300 rounded-xl p-2 shadow-sm transition-all flex justify-between items-center">
+                                <div class="overflow-hidden w-full pr-2">
+                                    <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name} <i class="fa-solid fa-users text-blue-500 text-[10px]"></i></div>
+                                    <div class="text-[11px] text-gray-500 mt-1 truncate">${sub.code} <span class="bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold ml-1">${roomNames}</span></div>
                                 </div>
-                                <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                <div class="bg-blue-200 text-blue-700 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
                                     ${remaining}
                                 </div>
                             </div>
                         `;
+                        paletteItems.push({ sortKey: sortKey, subjectName: sub.name, html: html });
                     }
-                });
+                } else {
+                    // --- กรณีเรียนแยก (ปกติ) ---
+                    sub.classroomIds.forEach(roomId => {
+                        let scheduled = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_') && scheduleGrid[k].id == sub.id && scheduleGrid[k].classroomIds.includes(roomId)).length;
+                        let remaining = sub.hours - scheduled;
+                        totalAssigned += scheduled;
+                        totalRequire += sub.hours;
+                        
+                        let roomName = getClassroomName(roomId);
+
+                        if (remaining > 0) {
+                            let html = `
+                                <div ${!isScheduleLocked ? `draggable="true" ondragstart="drag(event, ${sub.id}, '${roomId}')"` : ''} 
+                                    class="${!isScheduleLocked ? 'draggable hover:border-pink-400 hover:shadow-md group' : 'opacity-60 cursor-not-allowed'} bg-white border-2 border-pink-200 rounded-xl p-2 shadow-sm transition-all flex justify-between items-center">
+                                    <div class="overflow-hidden w-full pr-2">
+                                        <div class="font-bold text-gray-800 text-sm truncate" title="${sub.name}">${sub.name}</div>
+                                        <div class="text-[11px] text-gray-500 mt-1 truncate">${sub.code} <span class="bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded text-[10px] font-bold ml-1">${roomName}</span></div>
+                                    </div>
+                                    <div class="bg-pink-100 text-pink-600 w-7 h-7 shrink-0 text-sm rounded-full flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+                                        ${remaining}
+                                    </div>
+                                </div>
+                            `;
+                            paletteItems.push({ sortKey: roomName, subjectName: sub.name, html: html });
+                        }
+                    });
+                }
             });
 
+            // 2. ทำการเรียงลำดับ paletteItems ตามชั้นเรียน (sortKey) ถ้าชั้นเดียวกันให้เรียงตามชื่อวิชา
+            // ใช้ { numeric: true } เพื่อให้ ป.10 มาหลัง ป.2 และ ป.6/2 มาหลัง ป.6/1 อย่างถูกต้อง
+            paletteItems.sort((a, b) => {
+                let roomCmp = a.sortKey.localeCompare(b.sortKey, 'th', { numeric: true });
+                if (roomCmp !== 0) return roomCmp;
+                return a.subjectName.localeCompare(b.subjectName, 'th');
+            });
+
+            // 3. นำ HTML ที่เรียงลำดับแล้วไปแสดงผล
+            paletteItems.forEach(item => {
+                palette.innerHTML += item.html;
+            });
+
+            // อัปเดตสถิติคาบสอน
             const mySchedulesCount = Object.keys(scheduleGrid).filter(k => k.startsWith(currentTeacherId + '_')).length;
             const lockedActivitiesCount = Object.keys(LOCKED_PERIODS).length;
             const totalTeachingHours = mySchedulesCount + lockedActivitiesCount;
@@ -3153,6 +3290,7 @@
                 tableTotalHours.innerHTML = `<i class="fa-regular fa-clock"></i> ${totalTeachingHours} คาบ/สัปดาห์`;
             }
 
+            // แจ้งเตือนเมื่อจัดเสร็จหรือไม่มีวิชา
             if (palette.innerHTML === '' && teacherSubjects.length > 0) {
                 palette.innerHTML = `<div class="text-center text-green-500 font-bold p-4 bg-green-50 rounded-xl border border-green-200"><i class="fa-solid fa-check-circle"></i> จัดครบแล้ว!</div>`;
             } else if (teacherSubjects.length === 0) {
@@ -3224,11 +3362,11 @@
                             }
 
                             if (content) {
-                                let roomName = getClassroomName(content.classroomId);
+                                let roomName = content.classroomIds.map(id => getClassroomName(id)).join(', ');
                                 
                                 if (!isScheduleLocked) {
                                     innerDiv.setAttribute('draggable', 'true');
-                                    innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, ${content.classroomId})`);
+                                    innerDiv.setAttribute('ondragstart', `dragFromGrid(event, '${cellKey}', ${content.id}, '${content.classroomIds.join(',')}')`);
                                 }
                                 
                                 innerDiv.innerHTML = `
@@ -3256,24 +3394,24 @@
         function dragEnter(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
         function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
-        function drag(ev, subjectId, classroomId) {
+        function drag(ev, subjectId, classroomIdsString) {
             const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'palette',
                 subjectId: subjectId,
-                classroomId: classroomId,
-                subjectObj: { ...baseSub, classroomId: classroomId },
+                classroomIds: classroomIdsString.split(',').map(Number), // รองรับหลายห้อง
+                subjectObj: baseSub,
                 sourceCellKey: null
             };
         }
 
-        function dragFromGrid(ev, cellKey, subjectId, classroomId) {
+        function dragFromGrid(ev, cellKey, subjectId, classroomIdsString) {
             const baseSub = subjects.find(s => s.id == subjectId);
             dragSource = {
                 type: 'grid',
                 subjectId: subjectId,
-                classroomId: classroomId,
-                subjectObj: { ...baseSub, classroomId: classroomId },
+                classroomIds: classroomIdsString.split(',').map(Number),
+                subjectObj: baseSub,
                 sourceCellKey: cellKey
             };
         }
@@ -3288,11 +3426,11 @@
             const [targetDay, targetPeriod] = targetCellKey.split('_');
             const targetSubject = dragSource.subjectObj;
 
-            const conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, targetSubject.classroomId);
+            const conflict = checkConflict(currentTeacherId, targetDay, targetPeriod, dragSource.classroomIds);
 
             if (conflict) {
-                const roomName = getClassroomName(targetSubject.classroomId);
-                const recs = getRecommendations(currentTeacherId, targetSubject.classroomId);
+                const roomName = dragSource.classroomIds.map(id => getClassroomName(id)).join(', ');
+                const recs = getRecommendations(currentTeacherId, dragSource.classroomIds);
                 
                 let recsHTML = recs.length > 0 
                     ? recs.map(r => `
@@ -3362,14 +3500,14 @@
             const targetSubject = dragSource.subjectObj;
 
             if (dragSource.type === 'palette') {
-                let scheduled = getScheduledCount(targetSubject.id, targetSubject.classroomId);
+                let scheduled = getScheduledCount(targetSubject.id, dragSource.classroomIds);
                 if (scheduled >= targetSubject.hours) {
                     Toast.fire({ icon: 'error', title: 'วิชานี้จัดครบชั่วโมงแล้ว' });
                     return;
                 }
                 scheduleGrid[targetStorageKey] = { 
                     id: targetSubject.id, 
-                    classroomId: targetSubject.classroomId,
+                    classroomIds: dragSource.classroomIds,
                     name: targetSubject.name,
                     code: targetSubject.code,
                     hours: targetSubject.hours
@@ -3382,10 +3520,10 @@
                 const existingSubjectAtTarget = scheduleGrid[targetStorageKey];
 
                 if (existingSubjectAtTarget) {
-                    const swapConflict = checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], existingSubjectAtTarget.classroomId);
+                    const swapConflict = checkConflict(currentTeacherId, sourceCellKey.split('_')[0], sourceCellKey.split('_')[1], existingSubjectAtTarget.classroomIds);
                     
                     if (swapConflict) {
-                        const roomName = getClassroomName(existingSubjectAtTarget.classroomId);
+                        const roomName = existingSubjectAtTarget.classroomIds.map(id => getClassroomName(id)).join(', ');
                         Swal.fire({
                             title: '⚠️ ไม่สามารถสลับคาบได้โดยตรง',
                             text: `การสลับจะทำให้วิชา ${existingSubjectAtTarget.name} ของห้อง ${roomName} ไปชนกับคุณครูท่านอื่นที่คาบต้นทาง`,
@@ -3395,7 +3533,7 @@
                     }
                     scheduleGrid[targetStorageKey] = { 
                         id: targetSubject.id, 
-                        classroomId: targetSubject.classroomId,
+                        classroomIds: dragSource.classroomIds,
                         name: targetSubject.name,
                         code: targetSubject.code,
                         hours: targetSubject.hours
@@ -3404,7 +3542,7 @@
                 } else {
                     scheduleGrid[targetStorageKey] = { 
                         id: targetSubject.id, 
-                        classroomId: targetSubject.classroomId,
+                        classroomIds: dragSource.classroomIds,
                         name: targetSubject.name,
                         code: targetSubject.code,
                         hours: targetSubject.hours
@@ -3512,266 +3650,290 @@
                 teachersToSchedule = teachers.map(t => t.id);
             }
 
-            teachersToSchedule.forEach(tId => {
-                Object.keys(scheduleGrid).forEach(key => {
-                    if(key.startsWith(tId + '_')) delete scheduleGrid[key];
+            const classPeriods = periodsConfig.filter(p => p.type === 'class');
+            
+            let globalAvailableSlots = [];
+            DAYS.forEach(day => {
+                classPeriods.forEach(p => {
+                    let cellKey = `${day.id}_${p.id}`;
+                    if (!LOCKED_PERIODS[cellKey]) {
+                        globalAvailableSlots.push({ day: day.id, period: p.id, key: cellKey });
+                    }
                 });
             });
 
-            const classPeriods = periodsConfig.filter(p => p.type === 'class');
-            let hasError = false;
-
-            let teacherLoad = teachersToSchedule.map(tId => {
-                return {
-                    id: tId,
-                    totalHours: subjects.filter(s => s.teacherId == tId).reduce((sum, s) => sum + (s.hours * s.classroomIds.length), 0)
-                };
-            }).sort((a, b) => b.totalHours - a.totalHours);
-
-            for (let tLoad of teacherLoad) {
-                let tId = tLoad.id;
+            let baseBlocksToPlace = [];
+            teachersToSchedule.forEach(tId => {
                 let teacherSubjects = subjects.filter(s => s.teacherId == tId);
-                
-                if (teacherSubjects.length === 0) continue;
-
-                let subjectsToPlace = [];
-                teacherSubjects.sort((a,b) => b.hours - a.hours).forEach(sub => {
-                    sub.classroomIds.forEach(roomId => {
-                        let doubleCount = sub.isDoublePeriod ? Math.floor(sub.hours / 2) : 0;
-                        let singleCount = sub.isDoublePeriod ? sub.hours % 2 : sub.hours;
-                        
-                        // โยนคาบคู่ (กิน 2 สล็อต) เข้าไปรอจัด
-                        for(let i=0; i<doubleCount; i++) {
-                            subjectsToPlace.push({
-                                id: sub.id, teacherId: sub.teacherId, name: sub.name, code: sub.code,
-                                classroomId: roomId, hours: sub.hours, isHeavy: sub.isHeavy, duration: 2
-                            });
-                        }
-                        // โยนเศษคาบเดี่ยว (กิน 1 สล็อต) เข้าไปรอจัด
-                        for(let i=0; i<singleCount; i++) {
-                            subjectsToPlace.push({
-                                id: sub.id, teacherId: sub.teacherId, name: sub.name, code: sub.code,
-                                classroomId: roomId, hours: sub.hours, isHeavy: sub.isHeavy, duration: 1
-                            });
-                        }
-                    });
-                });
-
-                let availableSlots = [];
-                DAYS.forEach(day => {
-                    classPeriods.forEach(p => {
-                        let cellKey = `${day.id}_${p.id}`;
-                        if(!LOCKED_PERIODS[cellKey]) {
-                            availableSlots.push({ day: day.id, period: p.id, key: cellKey });
-                        }
-                    });
-                });
-
-                let slotsByDay = { mon:[], tue:[], wed:[], thu:[], fri:[] };
-                availableSlots.forEach(slot => slotsByDay[slot.day].push(slot));
-
-                for (let sub of subjectsToPlace) {
-                    let placed = false;
+                teacherSubjects.forEach(sub => {
+                    let doubleCount = sub.isDoublePeriod ? Math.floor(sub.hours / 2) : 0;
+                    let singleCount = sub.isDoublePeriod ? sub.hours % 2 : sub.hours;
                     
-                    let daysArr = Object.keys(slotsByDay).map(dayId => {
-                        let count = 0;
-                        let hasSameSubject = false;
-                        classPeriods.forEach(p => {
-                            let k = `${tId}_${dayId}_${p.id}`;
-                            if(scheduleGrid[k]) {
-                                count++;
-                                if (scheduleGrid[k].id == sub.id && scheduleGrid[k].classroomId == sub.classroomId) hasSameSubject = true;
-                            }
+                    if (sub.isShared) {
+                        for (let i = 0; i < doubleCount; i++) baseBlocksToPlace.push({ ...sub, tId: tId, duration: 2 });
+                        for (let i = 0; i < singleCount; i++) baseBlocksToPlace.push({ ...sub, tId: tId, duration: 1 });
+                    } else {
+                        sub.classroomIds.forEach(roomId => {
+                            for (let i = 0; i < doubleCount; i++) baseBlocksToPlace.push({ ...sub, tId: tId, classroomIds: [roomId], duration: 2 });
+                            for (let i = 0; i < singleCount; i++) baseBlocksToPlace.push({ ...sub, tId: tId, classroomIds: [roomId], duration: 1 });
                         });
-                        return { id: dayId, count: count, hasSameSubject: hasSameSubject, slots: slotsByDay[dayId] };
-                    });
+                    }
+                });
+            });
+
+            const MAX_ATTEMPTS = 50; 
+            let bestGrid = null;
+            let minUnplaced = Infinity;
+            let originalGridStr = JSON.stringify(scheduleGrid); 
+            
+            // เก็บรายการเงื่อนไขที่ถูกยกเลิกในรอบที่ดีที่สุด
+            let bestWarnings = new Set();
+
+            Swal.fire({
+                title: 'กำลังคำนวณตาราง...',
+                html: 'AI กำลังสุ่มหาทางที่ดีที่สุด และจะประนีประนอมเงื่อนไขหากถึงทางตัน...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
                     
-                    daysArr.sort((a,b) => {
-                        if (options.spread) {
-                            if (a.hasSameSubject !== b.hasSameSubject) {
-                                return a.hasSameSubject ? 1 : -1; 
-                            }
-                        }
-                        if (a.count !== b.count) return a.count - b.count; 
-                        return Math.random() - 0.5; 
-                    });
+                    setTimeout(() => {
+                        
+                        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                            scheduleGrid = JSON.parse(originalGridStr);
+                            teachersToSchedule.forEach(tId => {
+                                Object.keys(scheduleGrid).forEach(key => {
+                                    if (key.startsWith(tId + '_')) delete scheduleGrid[key];
+                                });
+                            });
 
-                    for (let d of daysArr) {
-                        if (options.limitDay && d.count >= options.maxPerDay) continue;
+                            let attemptBlocks = JSON.parse(JSON.stringify(baseBlocksToPlace));
+                            let currentAttemptWarnings = new Set();
+                            
+                            // [แก้ไขใหม่!] ให้น้ำหนักคาบคู่ (duration) มหาศาล เพื่อรับประกันว่าคาบคู่จะถูกจัดก่อนเสมอ
+                            // และลดค่า Random noise ลง เพื่อไม่ให้คาบเดี่ยวบังเอิญแซงคิวคาบคู่ได้
+                            attemptBlocks.sort((a, b) => {
+                                // 1. คาบคู่ต้องถูกจัดก่อนเสมอ (สำคัญที่สุด)
+                                if (b.duration !== a.duration) return b.duration - a.duration;
+                                
+                                // 2. วิชาที่เรียนรวมหลายห้อง หาที่ลงยากกว่า ต้องจัดก่อน
+                                if (b.classroomIds.length !== a.classroomIds.length) return b.classroomIds.length - a.classroomIds.length;
+                                
+                                // 3. วิชาเรียนหนัก (เช่น คณิต วิทย์) ให้ลงก่อน เพื่อให้ไปกระจุกช่วงเช้าตามเงื่อนไขได้ง่าย
+                                let heavyA = a.isHeavy ? 1 : 0;
+                                let heavyB = b.isHeavy ? 1 : 0;
+                                if (heavyB !== heavyA) return heavyB - heavyA;
+                                
+                                // 4. วิชาที่มีชั่วโมงสอนเยอะกว่า ให้จัดก่อน
+                                if (b.hours !== a.hours) return b.hours - a.hours;
+                                
+                                // 5. ถ้าเงื่อนไขเหมือนกันเป๊ะ ถึงจะใช้การสุ่ม
+                                return Math.random() - 0.5;
+                            });
 
-                        if (d.slots.length > 0) {
-                            let morningSlots = [];
-                            let afternoonSlots = [];
+                            let unplacedCount = 0;
+                            // === [เพิ่มโค้ดส่วนนี้] สร้าง State Map สำหรับเช็คชนแบบความเร็วสูง ===
+                            let fastTeacherMap = {};
+                            let fastRoomMap = {};
 
-                            for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
-                                const slot1 = d.slots[sIdx];
-                                let isValid = false;
-                                let slotIndicesToPlace = [];
-
-                                if (sub.duration === 1) {
-                                    // จัดคาบเดี่ยวเหมือนเดิม
-                                    if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId)) {
-                                        isValid = true;
-                                        slotIndicesToPlace = [sIdx];
+                            // ฟังก์ชันจำลองตารางปัจจุบันลง Map
+                            const buildFastMap = () => {
+                                fastTeacherMap = {};
+                                fastRoomMap = {};
+                                Object.keys(scheduleGrid).forEach(key => {
+                                    let parts = key.split('_'); // [teacherId, day, period]
+                                    if(parts.length >= 3) {
+                                        let tId = parts[0];
+                                        let d_p = `${parts[1]}_${parts[2]}`;
+                                        fastTeacherMap[`${tId}_${d_p}`] = true;
+                                        if(scheduleGrid[key].classroomIds) {
+                                            scheduleGrid[key].classroomIds.forEach(rId => {
+                                                fastRoomMap[`${rId}_${d_p}`] = true;
+                                            });
+                                        }
                                     }
-                                } else if (sub.duration === 2 && sIdx < d.slots.length - 1) {
-                                    // จัดคาบคู่: ต้องเช็คสล็อตถัดไปว่าว่างและติดกันจริงๆ หรือไม่ (ห้ามพักเที่ยงคั่น)
-                                    const slot2 = d.slots[sIdx + 1];
-                                    const p1Idx = periodsConfig.findIndex(p => p.id == slot1.period);
-                                    const p2Idx = periodsConfig.findIndex(p => p.id == slot2.period);
+                                });
+                            };
+                            buildFastMap(); // อัปเดต Map ครั้งแรกของรอบนี้
 
-                                    if (p2Idx - p1Idx === 1) { // ตรวจสอบว่าคาบติดกันแบบไม่มี break คั่นกลาง
-                                        if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId) &&
-                                            !scheduleGrid[`${tId}_${slot2.key}`] && !checkConflict(tId, slot2.day, slot2.period, sub.classroomId)) {
-                                            isValid = true;
-                                            slotIndicesToPlace = [sIdx, sIdx + 1];
+                            // ฟังก์ชันเช็คว่าชนไหม (เร็วกว่า checkConflict เดิมมาก)
+                            const isFastConflict = (tId, day, period, roomIds) => {
+                                let d_p = `${day}_${period}`;
+                                if (fastTeacherMap[`${tId}_${d_p}`]) return true;
+                                for (let i = 0; i < roomIds.length; i++) {
+                                    if (fastRoomMap[`${roomIds[i]}_${d_p}`]) return true;
+                                }
+                                return false;
+                            };
+
+                            for (let block of attemptBlocks) {
+                                let placed = false;
+                                let tId = block.tId;
+
+                                for (let pass = 1; pass <= 4; pass++) {
+                                    if (placed) break;
+
+                                    let useSpread = (pass <= 2) ? options.spread : false;
+                                    let useHeavyMorning = (pass === 1) ? options.heavyMorning : false;
+                                    let useLimitDay = (pass <= 3) ? options.limitDay : false;
+
+                                    let slotsByDay = { mon: [], tue: [], wed: [], thu: [], fri: [] };
+                                    globalAvailableSlots.forEach(slot => slotsByDay[slot.day].push(slot));
+
+                                    let daysArr = Object.keys(slotsByDay).map(dayId => {
+                                        let count = 0;
+                                        let hasSameSubject = false;
+                                        classPeriods.forEach(p => {
+                                            let k = `${tId}_${dayId}_${p.id}`;
+                                            if (scheduleGrid[k]) {
+                                                count++;
+                                                if (scheduleGrid[k].id == block.id && JSON.stringify(scheduleGrid[k].classroomIds.sort()) === JSON.stringify(block.classroomIds.sort())) {
+                                                    hasSameSubject = true;
+                                                }
+                                            }
+                                        });
+                                        return { id: dayId, count: count, hasSameSubject: hasSameSubject, slots: slotsByDay[dayId] };
+                                    });
+
+                                    daysArr.sort((a, b) => {
+                                        if (useSpread && a.hasSameSubject !== b.hasSameSubject) return a.hasSameSubject ? 1 : -1;
+                                        if (a.count !== b.count) return a.count - b.count;
+                                        return Math.random() - 0.5;
+                                    });
+
+                                    for (let d of daysArr) {
+                                        if (useLimitDay && d.count >= options.maxPerDay) continue;
+                                        if (useSpread && d.hasSameSubject) continue;
+
+                                        let validSlotGroups = [];
+
+                                        for (let sIdx = 0; sIdx < d.slots.length; sIdx++) {
+                                            const slot1 = d.slots[sIdx];
+                                            let isValid = false;
+                                            let slotIndicesToPlace = [];
+
+                                            // แก้ไขบรรทัดคาบเดี่ยว
+                                            if (block.duration === 1) {
+                                                if (!isFastConflict(tId, slot1.day, slot1.period, block.classroomIds)) {
+                                                    isValid = true;
+                                                    slotIndicesToPlace = [sIdx];
+                                                }
+                                            } 
+                                            // แก้ไขบรรทัดคาบคู่
+                                            else if (block.duration === 2 && sIdx < d.slots.length - 1) {
+                                                const slot2 = d.slots[sIdx + 1];
+                                                const p1Idx = periodsConfig.findIndex(p => p.id == slot1.period);
+                                                const p2Idx = periodsConfig.findIndex(p => p.id == slot2.period);
+
+                                                if (p2Idx - p1Idx === 1) { 
+                                                    if (!isFastConflict(tId, slot1.day, slot1.period, block.classroomIds) &&
+                                                        !isFastConflict(tId, slot2.day, slot2.period, block.classroomIds)) {
+                                                        isValid = true;
+                                                        slotIndicesToPlace = [sIdx, sIdx + 1];
+                                                    }
+                                                }
+                                            }
+
+                                            if (isValid) {
+                                                const periodIndex = periodsConfig.findIndex(p => p.id == slot1.period);
+                                                const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
+                                                let isMorning = (lunchIndex !== -1 && periodIndex < lunchIndex);
+                                                
+                                                if (useHeavyMorning && block.isHeavy && !isMorning) continue; 
+                                                // เพิ่ม 2 บรรทัดนี้
+                                                if (block.isMorningOnly && !isMorning) continue;
+                                                if (block.isAfternoonOnly && isMorning) continue;
+                                                
+                                                
+                                                validSlotGroups.push(slotIndicesToPlace);
+                                            }
+                                        }
+
+                                        if (validSlotGroups.length > 0) {
+                                            let randomIndex = Math.floor(Math.random() * validSlotGroups.length);
+                                            let bestSlotGroup = validSlotGroups[randomIndex];
+                                            
+                                            bestSlotGroup.forEach(idx => {
+                                                let selectedSlot = d.slots[idx];
+                                                scheduleGrid[`${tId}_${selectedSlot.key}`] = {
+                                                    id: block.id, 
+                                                    classroomIds: block.classroomIds,
+                                                    name: block.name,
+                                                    code: block.code,
+                                                    hours: block.hours
+                                                };
+                                                
+                                                // [เพิ่มบรรทัดนี้] อัปเดต State Map ทันทีที่จัดลงตาราง
+                                                fastTeacherMap[`${tId}_${selectedSlot.key}`] = true;
+                                                block.classroomIds.forEach(rId => fastRoomMap[`${rId}_${selectedSlot.key}`] = true);
+                                            });
+                                            placed = true;
+                                            
+                                            // [เพิ่มการบันทึก Log] ถ้าระบบต้องจัดใน Pass ที่ 2 ขึ้นไป แปลว่ามีการตัดเงื่อนไข
+                                            if (pass >= 2 && options.heavyMorning && block.isHeavy) currentAttemptWarnings.add("⚠️ ยอมให้วิชาหนักไปอยู่ช่วงบ่าย");
+                                            if (pass >= 3 && options.spread) currentAttemptWarnings.add("⚠️ ยอมให้วิชาเดียวกันเรียนซ้ำในวันเดียว");
+                                            if (pass >= 4 && options.limitDay) currentAttemptWarnings.add(`⚠️ ยอมให้ครูสอนเกินโควต้าสูงสุด (${options.maxPerDay} คาบ/วัน)`);
+                                            
+                                            break; 
                                         }
                                     }
                                 }
 
-                                if (isValid) {
-                                    const periodIndex = periodsConfig.findIndex(p => p.id == slot1.period);
-                                    const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
-                                    
-                                    if (lunchIndex !== -1 && periodIndex < lunchIndex) {
-                                        morningSlots.push(slotIndicesToPlace);
-                                    } else {
-                                        afternoonSlots.push(slotIndicesToPlace);
-                                    }
-                                }
+                                if (!placed) unplacedCount++;
                             }
 
-                            let validSlots = [];
-                            if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
-                                validSlots = morningSlots;
-                            } else {
-                                validSlots = morningSlots.concat(afternoonSlots);
+                            // เก็บบันทึกสถิติรอบที่ทำผลงานได้ดีที่สุด
+                            if (unplacedCount < minUnplaced) {
+                                minUnplaced = unplacedCount;
+                                bestGrid = JSON.stringify(scheduleGrid);
+                                bestWarnings = new Set(currentAttemptWarnings); // เก็บคำเตือนของรอบที่ดีที่สุดไว้
                             }
 
-                            if(validSlots.length > 0) {
-                                let randomIndex = Math.floor(Math.random() * validSlots.length);
-                                let bestSlotGroup = validSlots[randomIndex]; 
-                                
-                                // ทำการเซฟลงตารางกี่คาบก็วนลูปตามนั้น (คาบเดี่ยววน 1 รอบ, คาบคู่วน 2 รอบ)
-                                bestSlotGroup.forEach(idx => {
-                                    let selectedSlot = d.slots[idx];
-                                    scheduleGrid[`${tId}_${selectedSlot.key}`] = { 
-                                        id: sub.id, 
-                                        classroomId: sub.classroomId,
-                                        name: sub.name,
-                                        code: sub.code,
-                                        hours: sub.hours
-                                    };
-                                });
-                                placed = true;
-                                break; // หาช่องลงได้แล้ว ออกจากลูปวัน
-                            }
-                        }
-                    }
-
-                    if (!placed) {
-                        let fallbackDays = Object.keys(slotsByDay).map(dayId => {
-                            return { id: dayId, slots: slotsByDay[dayId] };
-                        }).sort(() => Math.random() - 0.5);
-
-                        for (let d of fallbackDays) {
-                        let morningSlots = [];
-                        let afternoonSlots = [];
-
-                        for(let sIdx = 0; sIdx < d.slots.length; sIdx++) {
-                            const slot1 = d.slots[sIdx];
-                            let isValid = false;
-                            let slotIndicesToPlace = [];
-
-                            if (sub.duration === 1) {
-                                // จัดคาบเดี่ยว
-                                if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId)) {
-                                    isValid = true;
-                                    slotIndicesToPlace = [sIdx];
-                                }
-                            } else if (sub.duration === 2 && sIdx < d.slots.length - 1) {
-                                // จัดคาบคู่
-                                const slot2 = d.slots[sIdx + 1];
-                                const p1Idx = periodsConfig.findIndex(p => p.id == slot1.period);
-                                const p2Idx = periodsConfig.findIndex(p => p.id == slot2.period);
-
-                                if (p2Idx - p1Idx === 1) { // ตรวจสอบว่าคาบติดกันแบบไม่มี break คั่นกลาง
-                                    if (!scheduleGrid[`${tId}_${slot1.key}`] && !checkConflict(tId, slot1.day, slot1.period, sub.classroomId) &&
-                                        !scheduleGrid[`${tId}_${slot2.key}`] && !checkConflict(tId, slot2.day, slot2.period, sub.classroomId)) {
-                                        isValid = true;
-                                        slotIndicesToPlace = [sIdx, sIdx + 1];
-                                    }
-                                }
-                            }
-
-                            if (isValid) {
-                                const periodIndex = periodsConfig.findIndex(p => p.id == slot1.period);
-                                const lunchIndex = periodsConfig.findIndex(p => p.type === 'lunch');
-                                
-                                if (lunchIndex !== -1 && periodIndex < lunchIndex) {
-                                    morningSlots.push(slotIndicesToPlace);
-                                } else {
-                                    afternoonSlots.push(slotIndicesToPlace);
-                                }
-                            }
+                            // ถ้ารอบไหนจัดลงได้ 100% โดยไม่ผิดเงื่อนไขเลย (bestWarnings.size == 0) ให้หยุดทันที
+                            if (minUnplaced === 0 && currentAttemptWarnings.size === 0) break;
                         }
 
-                        let validSlots = [];
-                        if (options.heavyMorning && sub.isHeavy && morningSlots.length > 0) {
-                            validSlots = morningSlots;
-                        } else {
-                            validSlots = morningSlots.concat(afternoonSlots);
+                        scheduleGrid = JSON.parse(bestGrid);
+                        
+                        renderGrid();
+                        updatePalette();
+                        renderMasterGrid(); 
+                        saveStateToHistory('schedule');
+                        popSound();
+
+                        Swal.close();
+
+                        // สร้างข้อความแจ้งเตือนเงื่อนไขที่ถูกยกเลิก (ถ้ามี)
+                        let warningHtml = '';
+                        if (bestWarnings.size > 0) {
+                            warningHtml = `
+                                <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl text-left text-sm font-itim">
+                                    <p class="font-bold mb-2">เพื่อให้จัดตารางลงตัว ระบบจำเป็นต้องยกเลิกเงื่อนไขดังนี้:</p>
+                                    <ul class="list-none space-y-1">
+                                        ${Array.from(bestWarnings).map(w => `<li>${w}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
                         }
 
-                        if(validSlots.length > 0) {
-                            let randomIndex = Math.floor(Math.random() * validSlots.length);
-                            let bestSlotGroup = validSlots[randomIndex];
-                            
-                            // เซฟลงตารางตามจำนวนสล็อตที่กำหนด (1 หรือ 2)
-                            bestSlotGroup.forEach(idx => {
-                                let selectedSlot = d.slots[idx];
-                                scheduleGrid[`${tId}_${selectedSlot.key}`] = {
-                                    id: sub.id, 
-                                    classroomId: sub.classroomId,
-                                    name: sub.name,
-                                    code: sub.code,
-                                    hours: sub.hours
-                                };
+                        if (minUnplaced > 0) {
+                            Swal.fire({
+                                title: 'จัดสำเร็จบางส่วน!',
+                                html: `<p class="font-itim text-gray-700">ยังมีอีก <b>${minUnplaced} คาบ</b> ที่ไม่สามารถลงได้ เพราะตารางชนกัน 100% (ช่องว่างไม่พอ)</p>${warningHtml}`,
+                                icon: 'warning',
+                                confirmButtonColor: '#ec4899'
                             });
-                            placed = true;
-                            break;
+                        } else {
+                            Swal.fire({
+                                title: 'จัดตารางสำเร็จ!',
+                                html: `<p class="font-itim text-gray-700">ระบบค้นหาและจัดตารางลงตัว 100% เรียบร้อยครับ!</p>${warningHtml}`,
+                                icon: 'success',
+                                confirmButtonColor: '#ec4899'
+                            });
                         }
-                    }
 
-                        if (!placed) {
-                            hasError = true; 
-                        }
-                    }
+                    }, 100); 
                 }
-            }
-
-            renderGrid();
-            updatePalette();
-            renderMasterGrid(); 
-            
-            if (hasError) {
-                Swal.fire({
-                    title: 'จัดสำเร็จบางส่วน!',
-                    text: 'บางวิชาไม่สามารถจัดลงตารางได้เนื่องจากตารางชนกัน หรือเงื่อนไขที่คุณตั้งจำกัดเกินไป กรุณาจัดเพิ่มด้วยตนเองครับ',
-                    icon: 'warning',
-                    confirmButtonColor: '#ec4899'
-                });
-            } else {
-                Swal.fire({
-                    title: 'จัดตารางสำเร็จ!',
-                    text: 'ระบบจัดตารางให้อัตโนมัติตามเงื่อนไขเรียบร้อยแล้วครับ (อย่าลืมกดบันทึกขึ้นระบบ)',
-                    icon: 'success',
-                    confirmButtonColor: '#ec4899'
-                });
-            }
-            saveStateToHistory('schedule');
-
-            popSound();
+            });
         }
 
         function loadStudentTimetable() {
@@ -3842,7 +4004,7 @@
                             let teacherName = "";
                             Object.keys(scheduleGrid).forEach(key => {
                                 if (key.endsWith(`_${cellKey}`)) {
-                                    if (scheduleGrid[key].classroomId == classroomId) {
+                                    if (scheduleGrid[key].classroomIds && scheduleGrid[key].classroomIds.includes(classroomId)) {
                                         foundContent = scheduleGrid[key];
                                         const teacherId = parseInt(key.split('_')[0]);
                                         const tObj = teachers.find(t => t.id == teacherId);
@@ -3951,7 +4113,7 @@
                             let foundContent = null;
                             let teacherName = "";
                             Object.keys(scheduleGrid).forEach(key => {
-                                if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomId == cr.id) {
+                                if (key.endsWith(`_${cellKey}`) && scheduleGrid[key].classroomIds && scheduleGrid[key].classroomIds.includes(cr.id)) {
                                     foundContent = scheduleGrid[key];
                                     const teacherId = parseInt(key.split('_')[0]);
                                     const tObj = teachers.find(t => t.id == teacherId);
@@ -3986,7 +4148,8 @@
                         } else {
                             let content = scheduleGrid[storageKey];
                             if (content) {
-                                let roomName = getClassroomName(content.classroomId);
+                                // เปลี่ยนมาใช้ map ดึงชื่อห้องเรียนแบบ Array ให้รองรับเรียนรวม
+                                let roomName = content.classroomIds ? content.classroomIds.map(id => getClassroomName(id)).join(', ') : 'ไม่ระบุ';
                                 cellContent = `
                                     <div class="h-8 flex flex-col items-center justify-center p-0 leading-none overflow-hidden">
                                         <span class="subject-name-text block font-bold text-[12px] text-gray-900 w-full text-center" title="${content.name} ${roomName}">${content.name}</span>
@@ -4172,6 +4335,7 @@
 
                 setTimeout(() => {
                     autoResizeText(); 
+                    equalizeTableRows();
                     setTimeout(() => {
                         window.print();
                         document.title = originalTitle; // คืนค่าชื่อเว็บเดิมหลังพิมพ์เสร็จ
@@ -4259,6 +4423,7 @@
 
                 setTimeout(() => {
                     autoResizeText(); 
+                    equalizeTableRows();
                     setTimeout(() => {
                         window.print();
                         document.title = originalTitle; // คืนค่าชื่อเว็บเดิมหลังพิมพ์เสร็จ
@@ -4341,6 +4506,7 @@
 
                 setTimeout(() => {
                     autoResizeText(); 
+                    equalizeTableRows();
                     setTimeout(() => {
                         window.print();
                         document.title = originalTitle; // คืนค่าชื่อเว็บเดิมหลังพิมพ์เสร็จ
