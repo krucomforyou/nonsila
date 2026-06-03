@@ -140,9 +140,7 @@
                 <div>
                     <label class="block text-zinc-700 font-medium mb-1.5 text-sm">ชื่อสถานศึกษา</label>
                     <select id="login-school-select" class="w-full px-4 py-2.5 rounded-lg border border-zinc-200 text-sm bg-white cursor-pointer transition-colors" required>
-                        <option value="" disabled selected>เลือกโรงเรียน</option>
-                        <option value="โรงเรียนบ้านจันทน์หอมตาเสก">โรงเรียนบ้านจันทน์หอมตาเสก สพป.ศรีสะเกษ เขต 4</option>
-                        <option value="โรงเรียนโนนศิลาสว่างวิทย์">โรงเรียนโนนศิลาสว่างวิทย์</option>
+                    <option value="" disabled selected>เลือกโรงเรียน</option>
                     </select>
                 </div>
                 <div>
@@ -1382,6 +1380,30 @@
         let currentActiveStep = 1;
         let selectedStudentForVisit = null;
 
+        // ฟังก์ชันสำหรับดึงรายชื่อโรงเรียนจาก Master Sheet มาใส่ใน Dropdown Login
+        async function loadSchoolsDropdown() {
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getSchools' })
+                });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const schoolSelect = document.getElementById('login-school-select');
+                    // ล้างค่าเดิมและสร้างตัวเลือกเริ่มต้น
+                    schoolSelect.innerHTML = '<option value="" disabled selected>เลือกโรงเรียน</option>';
+                    
+                    // วนลูปนำรายชื่อโรงเรียนจากหลังบ้านมาสร้างเป็น Option
+                    result.data.forEach(schoolName => {
+                        schoolSelect.innerHTML += `<option value="${schoolName}">${schoolName}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('ไม่สามารถโหลดรายชื่อโรงเรียนได้:', error);
+            }
+        }
+
         window.onload = async () => {
             const savedSchool = sessionStorage.getItem('homevisit_school');
             const savedSheetId = sessionStorage.getItem('homevisit_sheet_id');
@@ -1389,8 +1411,10 @@
             if (savedSchool && savedSheetId) {
                 currentSchoolName = savedSchool;
                 currentSheetId = savedSheetId;
-                await loadSystemData(); // โหลดข้อมูลจริงถ้าเคย Login แล้ว
+                await loadSystemData(); 
             } else {
+                // เรียกฟังก์ชันดึงรายชื่อโรงเรียนจากระบบก่อนแสดงหน้า Login
+                await loadSchoolsDropdown();
                 document.getElementById('loading-overlay').style.display = 'none';
                 document.getElementById('login-overlay').style.display = 'flex';
             }
