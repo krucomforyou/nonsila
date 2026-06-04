@@ -2616,6 +2616,12 @@
         function adjustCanvasSignature(canvasId) {
             const canvas = document.getElementById(canvasId);
             
+            // ❌ ป้องกันการกดจัดตำแหน่งรูปภาพที่ดึงจากระบบ เพื่อหลีกเลี่ยง Tainted Canvas
+            if (canvas.hasAttribute('data-saved-url')) {
+                alert('ไม่สามารถจัดตำแหน่งลายเซ็นที่ดึงจากระบบได้ หากต้องการแก้ไขกรุณากด "ล้าง" แล้วเซ็นใหม่ครับ');
+                return;
+            }
+
             // เช็คว่ากระดานว่างเปล่าหรือไม่
             const blank = document.createElement('canvas');
             blank.width = canvas.width; blank.height = canvas.height;
@@ -2681,9 +2687,16 @@
                     const down = e => { 
                         d = true; 
                         
-                        // ✅ ถ้าบนกระดานมีรูปจากระบบอยู่ แล้วยูสเซอร์พยายามเอานิ้ววาดทับ ให้ล้างกระดานก่อน (ป้องกัน Error)
+                        // ✅ ถ้าบนกระดานมีรูปจากระบบอยู่ แล้วยูสเซอร์พยายามเอานิ้ววาดทับ ให้ล้างกระดานก่อน
                         if (canvas.hasAttribute('data-saved-url')) {
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            // ใช้การตั้งค่าขนาดใหม่เพื่อปลดล็อกสถานะ Tainted Canvas
+                            canvas.width = canvas.width; 
+                            
+                            // เมื่อรีเซ็ต canvas ค่าพู่กันจะหายไป ต้องตั้งค่าใหม่เสมอ
+                            ctx.strokeStyle = '#1d4ed8'; 
+                            ctx.lineWidth = 8;
+                            ctx.lineCap = 'round';
+                            
                             canvas.removeAttribute('data-saved-url');
                         }
                         
@@ -3370,7 +3383,15 @@
         function clearSignature(id) {
             const canvas = document.getElementById(id);
             if(canvas) {
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                // รีเซ็ตเพื่อปลดล็อกสถานะ Tainted Canvas
+                canvas.width = canvas.width; 
+                
+                // ตั้งค่ารูปแบบเส้นพู่กันกลับคืนมา
+                const ctx = canvas.getContext('2d');
+                ctx.strokeStyle = '#1d4ed8'; 
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                
                 // ล้างข้อมูล URL รูปภาพเดิมทิ้ง
                 canvas.removeAttribute('data-saved-url'); 
             }
