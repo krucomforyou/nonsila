@@ -15,6 +15,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -692,6 +693,7 @@
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
                                 <div>
                                     <div class="flex justify-between items-end mb-1">
                                         <span class="text-xs font-medium text-zinc-700">1. นักเรียน</span>
@@ -700,6 +702,7 @@
                                     </div>
                                     <canvas id="sig-student" class="sig-canvas w-full h-32 sm:h-40 md:h-32" width="1200" height="360"></canvas>
                                 </div>
+                                
                                 <div>
                                     <div class="flex justify-between items-end mb-1">
                                         <span class="text-xs font-medium text-zinc-700">2. ผู้ปกครอง</span>
@@ -735,25 +738,25 @@
                                         </div>
                                     </div>
                                     <canvas id="sig-officer" class="sig-canvas w-full h-32 sm:h-40 md:h-32" width="1200" height="360"></canvas>
-                                    
                                     <select id="form-officer-select" onchange="autoLoadOfficerSignature()" class="w-full px-2 py-1 mt-2 rounded text-xs border border-zinc-200 outline-none bg-white focus:border-zinc-900">
                                         <option value="">-- เลือกเจ้าหน้าที่รัฐ --</option>
                                     </select>
                                 </div>
-                            </div>
-                            
-                            <div class="mt-6 pt-4 border-t border-zinc-100">
-                                <div class="flex justify-between items-end mb-1">
-                                    <span class="text-xs font-medium text-zinc-700">5. ผู้อำนวยการสถานศึกษา</span>
-                                    <div class="flex items-center gap-3">
-                                        <label class="flex items-center gap-1 text-[10px] text-zinc-500 cursor-pointer">
-                                            <input type="checkbox" id="cb-sig-director" onchange="toggleSystemSig('director')" class="rounded border-zinc-300"> ดึงจากระบบ
-                                        </label>
-                                        <button type="button" onclick="adjustCanvasSignature('sig-director')" class="text-[10px] text-blue-500 hover:text-blue-700"><i class="fa-solid fa-crop-simple"></i> จัดตำแหน่ง</button>
-                                        <button type="button" onclick="clearSignature('sig-director'); document.getElementById('cb-sig-director').checked=false;" class="text-[10px] text-zinc-400 hover:text-zinc-900">ล้าง</button>
+
+                                <div>
+                                    <div class="flex justify-between items-end mb-1">
+                                        <span class="text-xs font-medium text-zinc-700">5. ผู้อำนวยการสถานศึกษา</span>
+                                        <div class="flex items-center gap-3">
+                                            <label class="flex items-center gap-1 text-[10px] text-zinc-500 cursor-pointer">
+                                                <input type="checkbox" id="cb-sig-director" onchange="toggleSystemSig('director')" class="rounded border-zinc-300"> ดึงจากระบบ
+                                            </label>
+                                            <button type="button" onclick="adjustCanvasSignature('sig-director')" class="text-[10px] text-blue-500 hover:text-blue-700"><i class="fa-solid fa-crop-simple"></i> จัดตำแหน่ง</button>
+                                            <button type="button" onclick="clearSignature('sig-director'); document.getElementById('cb-sig-director').checked=false;" class="text-[10px] text-zinc-400 hover:text-zinc-900">ล้าง</button>
+                                        </div>
                                     </div>
+                                    <canvas id="sig-director" class="sig-canvas w-full h-32 sm:h-40 md:h-32" width="1200" height="360"></canvas>
                                 </div>
-                                <canvas id="sig-director" class="sig-canvas w-full h-32 sm:h-40 md:h-32" width="1200" height="360"></canvas>
+                                
                             </div>
                         </div>
                 </form>
@@ -767,12 +770,16 @@
                             <h2 class="text-2xl font-bold tracking-tight text-zinc-900">จัดการข้อมูลนักเรียน</h2>
                             <p class="text-zinc-500 text-sm">ดูแลรายชื่อ ชั้นเรียน และดูสถานะการเยี่ยมบ้าน</p>
                         </div>
-                        <div class="flex items-center gap-2 w-full sm:w-auto">
-                            <button onclick="simulateExcelImport()" class="flex-1 sm:flex-none px-4 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg transition-colors shadow-sm text-center">
-                                นำเข้า (Excel)
+                        <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                            <input type="file" id="excel-import-file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelImport(event)">
+                            <button onclick="document.getElementById('excel-import-file').click()" class="flex-1 sm:flex-none px-3 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg transition-colors shadow-sm text-center">
+                                <i class="fa-solid fa-file-excel text-green-600 mr-1"></i> นำเข้า
                             </button>
-                            <button onclick="openStudentModal()" class="flex-1 sm:flex-none px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+                            <button onclick="openStudentModal()" class="flex-1 sm:flex-none px-3 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-sm font-medium rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-plus text-xs"></i> เพิ่มคนใหม่
+                            </button>
+                            <button onclick="saveAllStudents()" class="w-full sm:w-auto px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกเข้าระบบ
                             </button>
                         </div>
                     </div>
@@ -1105,12 +1112,16 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div class="sm:col-span-1">
+                        <label class="block font-medium text-zinc-700 mb-1 text-xs">ชื่อเล่น</label>
+                        <input type="text" id="modal-std-nickname" class="w-full px-3 py-2 border border-zinc-200 rounded-md focus:border-zinc-900 outline-none">
+                    </div>
+                    <div class="sm:col-span-2">
                         <label class="block font-medium text-zinc-700 mb-1 text-xs">เลขประจำตัวประชาชน</label>
                         <input type="text" id="modal-std-national-id" class="w-full px-3 py-2 border border-zinc-200 rounded-md focus:border-zinc-900 outline-none">
                     </div>
-                    <div>
+                    <div class="sm:col-span-1">
                         <label class="block font-medium text-zinc-700 mb-1 text-xs">เพศ</label>
                         <select id="modal-std-gender" class="w-full px-3 py-2 border border-zinc-200 rounded-md focus:border-zinc-900 outline-none bg-white">
                             <option value="ชาย">ชาย</option>
@@ -1270,29 +1281,33 @@
         </div>
     </div>
 
-    <div id="delete-modal" class="hidden fixed inset-0 bg-zinc-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-[24px] shadow-2xl w-full max-w-[400px] p-6 sm:p-8 relative border border-zinc-200 flex flex-col items-center text-center">
+    <div id="delete-modal" class="hidden fixed inset-0 bg-zinc-950/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-all duration-300 opacity-0">
+        <div id="delete-modal-box" class="bg-white rounded-2xl shadow-xl w-full max-w-[420px] p-6 relative border border-zinc-200 transform scale-95 transition-all duration-300">
             
-            <div class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-5 border border-red-100">
-                <i class="fa-solid fa-triangle-exclamation text-red-600 text-2xl"></i>
+            <div class="flex gap-4 sm:gap-5 items-start">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-zinc-50 flex items-center justify-center shrink-0 border border-zinc-200">
+                    <i class="fa-solid fa-triangle-exclamation text-zinc-900 text-lg sm:text-xl"></i>
+                </div>
+                <div class="pt-1">
+                    <h3 id="delete-modal-title" class="text-base sm:text-lg font-bold text-zinc-900 tracking-tight leading-none">ยืนยันการลบข้อมูล</h3>
+                    <p id="delete-modal-desc" class="text-sm text-zinc-500 mt-2 leading-relaxed pr-2">
+                        คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้? การกระทำนี้ไม่สามารถยกเลิกได้
+                    </p>
+                </div>
             </div>
-            
-            <h3 id="delete-modal-title" class="text-xl font-bold text-zinc-900 tracking-tight">ยืนยันการลบข้อมูล</h3>
-            <p id="delete-modal-desc" class="text-sm text-zinc-500 mt-2 leading-relaxed">
-                คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้? (การกระทำนี้ไม่สามารถยกเลิกได้)
-            </p>
             
             <input type="hidden" id="delete-target-id">
             <input type="hidden" id="delete-target-type">
             
-            <div class="mt-8 flex w-full gap-3">
-                <button type="button" onclick="closeDeleteModal()" class="flex-1 py-3 bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 rounded-xl text-sm font-medium transition-all outline-none">
+            <div class="mt-6 sm:mt-8 flex w-full gap-3 justify-end">
+                <button type="button" onclick="closeDeleteModal()" class="px-5 py-2.5 bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 rounded-xl text-sm font-medium transition-all outline-none">
                     ยกเลิก
                 </button>
-                <button type="button" onclick="confirmDeletion()" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-all shadow-sm outline-none">
+                <button type="button" onclick="confirmDeletion()" class="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm outline-none">
                     ลบข้อมูล
                 </button>
             </div>
+            
         </div>
     </div>
 
@@ -1499,10 +1514,15 @@
             const activeBtn = document.getElementById(`nav-${tabId.replace('-tab', '')}`);
             if (activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2 text-white bg-zinc-900 rounded-lg font-medium transition-all shadow-sm text-sm";
 
-            // --- เพิ่มการทำงานตรงนี้ ---
+            // ==========================================
+            // จุดที่เพิ่มใหม่: ถ้าออกไปหน้าอื่น ให้เคลียร์ฟอร์มเยี่ยมบ้านทันที
+            if (tabId !== 'visit-form-tab') {
+                resetVisitFormState();
+            }
+            // ==========================================
+
             if (tabId === 'reports-tab') previewReport();
-            if (tabId === 'visit-form-tab') validateCurrentStep(); // <--- ให้ระบบเช็คปุ่มล็อคทันทีเมื่อเข้าเมนูบันทึกข้อมูล
-            // ----------------------
+            if (tabId === 'visit-form-tab') validateCurrentStep();
 
             if (window.innerWidth < 768 && !document.getElementById('sidebar').classList.contains('-ml-64')) toggleSidebar();
         }
@@ -1551,15 +1571,21 @@
                 return classFilter === 'all' || sClsStr === classFilter;
             });
 
-            // 2. จัดเรียงข้อมูล (เลียนแบบหน้าตาราง: ชั้น > ชื่อ > รหัส)
+            // 2. จัดเรียงข้อมูล (เลียนแบบหน้าตาราง: ชั้น > เพศ > รหัส > ชื่อ)
             filtered.sort((a, b) => {
                 let valA = `${a.class}/${a.room}`; let valB = `${b.class}/${b.room}`;
                 if (valA !== valB) return valA.localeCompare(valB);
                 
-                valA = a.name; valB = b.name;
+                // เรียงตามเพศ (ชาย มาก่อน หญิง)
+                valA = a.gender || ''; valB = b.gender || '';
+                if (valA !== valB) return valA.localeCompare(valB);
+
+                // เรียงตามรหัสนักเรียน
+                valA = (a.code || '').toString(); valB = (b.code || '').toString();
                 if (valA !== valB) return valA.localeCompare(valB);
                 
-                valA = a.code; valB = b.code;
+                // เรียงตามชื่อตัวอักษร
+                valA = a.name || ''; valB = b.name || '';
                 return valA.localeCompare(valB);
             });
 
@@ -1643,14 +1669,22 @@
                 let valA, valB;
                 
                 if (currentSortColumn === 'class') {
-                    // การเรียงแบบพิเศษ: ชั้น > ชื่อ > รหัส
+                    // ลำดับการเรียง: 1.ชั้นเรียน > 2.เพศ > 3.รหัส > 4.ชื่อ-สกุล
+                    
+                    // 1. เรียงตามชั้นเรียนและห้อง
                     valA = `${a.class}/${a.room}`; valB = `${b.class}/${b.room}`;
                     if (valA !== valB) return currentSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                     
-                    valA = a.name; valB = b.name;
+                    // 2. เรียงตามเพศ (ชาย มาก่อน หญิง)
+                    valA = a.gender || ''; valB = b.gender || '';
                     if (valA !== valB) return currentSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+                    // 3. เรียงตามรหัสนักเรียน (ใช้ numeric: true เพื่อให้เลขอย่าง '2' มาก่อน '10')
+                    valA = (a.code || '').toString(); valB = (b.code || '').toString();
+                    if (valA !== valB) return currentSortDirection === 'asc' ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
                     
-                    valA = a.code; valB = b.code;
+                    // 4. เรียงตามชื่อ
+                    valA = a.name || ''; valB = b.name || '';
                     return currentSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                 } else if (currentSortColumn === 'name') {
                     valA = a.name; valB = b.name;
@@ -1735,16 +1769,22 @@
                     if(prefixValue === 'น.ส.') prefixValue = 'นางสาว';
                     document.getElementById('modal-std-prefix').value = prefixValue || 'เด็กชาย';
                     document.getElementById('modal-std-fullname').value = `${student.name} ${student.surname}`.trim();
+                    
+                    // เพิ่มบรรทัดนี้: ดึงชื่อเล่นมาแสดง
+                    document.getElementById('modal-std-nickname').value = student.nickname || '';
+                    
                     document.getElementById('modal-std-national-id').value = student.nationalId || '';
                     document.getElementById('modal-std-gender').value = student.gender || 'ชาย';
-                    
-                    // นำชั้นและห้องของเด็กรวมกันเพื่อจับคู่กับค่าใน Select
                     document.getElementById('modal-std-class').value = `${student.class}/${student.room}`;
                 }
             } else {
                 document.getElementById('modal-std-code').value = '';
                 document.getElementById('modal-std-prefix').value = 'เด็กชาย';
                 document.getElementById('modal-std-fullname').value = '';
+                
+                // เพิ่มบรรทัดนี้: ล้างค่าชื่อเล่นเมื่อเพิ่มคนใหม่
+                document.getElementById('modal-std-nickname').value = '';
+                
                 document.getElementById('modal-std-national-id').value = '';
                 document.getElementById('modal-std-gender').value = 'ชาย';
                 const classOptions = document.getElementById('modal-std-class').options;
@@ -1760,17 +1800,27 @@
         // --- ฟังก์ชันบันทึกข้อมูลนักเรียน (เพิ่มใหม่/แก้ไข) ---
         function saveStudentFromModal() {
             const id = document.getElementById('modal-student-id').value;
-            const code = document.getElementById('modal-std-code').value;
+            const code = document.getElementById('modal-std-code').value.trim();
             let prefix = document.getElementById('modal-std-prefix').value;
             const fullName = document.getElementById('modal-std-fullname').value.trim();
-            const nationalId = document.getElementById('modal-std-national-id').value;
+            
+            // เพิ่มบรรทัดนี้: รับค่าชื่อเล่นจากฟอร์ม
+            const nickname = document.getElementById('modal-std-nickname').value.trim();
+            
+            const nationalId = document.getElementById('modal-std-national-id').value.trim();
             const gender = document.getElementById('modal-std-gender').value;
             
-            // แยกค่า "ป.6/2" กลับเป็น class และ room แยกกันเพื่อเก็บลงฐานข้อมูลเดิม
             const classRoomStr = document.getElementById('modal-std-class').value;
             const [studentClass, room] = classRoomStr.split('/');
 
             if (!code || !fullName) { showBlocksAlert('warning', 'ข้อมูลไม่ครบถ้วน', 'กรุณากรอกรหัส และชื่อ-นามสกุลนักเรียนให้ครบถ้วน'); return; }
+
+            const isDuplicate = students.some(s => s.code === code && s.id.toString() !== id);
+            if (isDuplicate) {
+                showBlocksAlert('warning', 'ตรวจพบข้อมูลซ้ำ', `รหัสนักเรียน ${code} มีอยู่แล้วในระบบ กรุณาตรวจสอบอีกครั้ง`);
+                return;
+            }
+
             if(prefix === 'เด็กชาย') prefix = 'ด.ช.';
             if(prefix === 'เด็กหญิง') prefix = 'ด.ญ.';
             if(prefix === 'นางสาว') prefix = 'น.ส.';
@@ -1782,11 +1832,13 @@
                 const parsedId = parseInt(id);
                 const index = students.findIndex(s => s.id === parsedId);
                 if (index !== -1) {
-                    students[index] = { ...students[index], code, prefix, name, surname, nationalId, gender, class: studentClass, room };
+                    // แก้ไขบรรทัดนี้: เพิ่ม nickname ลงไปใน Object
+                    students[index] = { ...students[index], code, prefix, name, surname, nickname, nationalId, gender, class: studentClass, room };
                 }
             } else {
                 const newId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
-                students.push({ id: newId, code, prefix, name, surname, nickname: '', nationalId, gender, class: studentClass, room, visited: false });
+                // แก้ไขบรรทัดนี้: เปลี่ยนจาก nickname: '' เป็น nickname: nickname
+                students.push({ id: newId, code, prefix, name, surname, nickname: nickname, nationalId, gender, class: studentClass, room, visited: false });
             }
 
             renderStudentListTable();
@@ -1794,7 +1846,7 @@
             initSystemDropdowns();
             closeStudentModal();
             
-            showBlocksToast('บันทึกข้อมูลสำเร็จ', 'success');
+            showBlocksToast('พักข้อมูลไว้ชั่วคราว (อย่าลืมกด บันทึกเข้าระบบ)', 'success');
         }
 
         // --- 1. ฟังก์ชันกลางสำหรับเรียกเปิด Pop-up ลบข้อมูล ---
@@ -1803,27 +1855,76 @@
             document.getElementById('delete-target-type').value = type;
             document.getElementById('delete-modal-title').innerText = title;
             document.getElementById('delete-modal-desc').innerText = desc;
-            document.getElementById('delete-modal').classList.remove('hidden');
+            
+            const modal = document.getElementById('delete-modal');
+            const box = document.getElementById('delete-modal-box');
+
+            // แสดงผลพร้อม Animation เฟดเข้า
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+        }
+
+        // --- ฟังก์ชันปิดหน้าต่างยืนยันการลบ ---
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            const box = document.getElementById('delete-modal-box');
+
+            // เล่น Animation เฟดออก
+            modal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            
+            // รอจน Animation จบแล้วค่อยซ่อน element
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         // --- 2. เปลี่ยนปุ่มลบต่างๆ ให้มาเรียกฟังก์ชันกลาง ---
-        async function deleteStudent(id) {
-            if (confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนักเรียนรายนี้?')) {
-                // อัปเดต Array ฝั่งหน้าจอ
-                students = students.filter(s => s.id !== id);
-                
-                // --- ส่วนที่เพิ่มเข้ามา เพื่ออัปเดต Database ---
-                showModernAlert({ title: 'กำลังลบข้อมูล...', text: 'กรุณารอสักครู่', icon: 'loading' });
-                
-                
-                await saveDataToBackend('students', students);
-                closeModernAlert();
-                // ----------------------------------------
+        function deleteStudent(id) {
+            // เรียกใช้ Modal สไตล์ Blocks.so แทนการใช้ confirm() ของเบราว์เซอร์
+            openDeleteModal(id, 'student', 'ลบข้อมูลนักเรียน', 'คุณแน่ใจหรือไม่ที่จะลบข้อมูลนักเรียนรายนี้? (การกระทำนี้ไม่สามารถยกเลิกได้)');
+        }
 
+        function deleteClassConfig(index) {
+            openDeleteModal(index, 'class', 'ลบชั้นเรียน', 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชั้นเรียนนี้ออกจากระบบ?');
+        }
+
+        function deleteOfficerConfig(index) {
+            openDeleteModal(index, 'officer', 'ลบเจ้าหน้าที่รัฐ', 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลเจ้าหน้าที่รัฐท่านนี้ออกจากระบบ?');
+        }
+
+        function confirmDeletion() {
+            const id = document.getElementById('delete-target-id').value;
+            const type = document.getElementById('delete-target-type').value;
+            
+            closeDeleteModal();
+            
+            if (type === 'student') {
+                const parsedId = parseInt(id);
+                students = students.filter(s => s.id !== parsedId);
+                delete visitRecords[parsedId]; 
+                
                 renderStudentListTable();
                 updateDashboardStats();
                 initSystemDropdowns();
-                showBlocksToast('ลบข้อมูลสำเร็จ', 'success');
+                showBlocksToast('ลบข้อมูลชั่วคราว (อย่าลืมกด บันทึกเข้าระบบ)', 'success');
+            } 
+            else if (type === 'class') {
+                classesConfig.splice(parseInt(id), 1);
+                renderSettingsTab();
+                initSystemDropdowns();
+                showBlocksToast('ลบข้อมูลชั่วคราว (อย่าลืมกด บันทึกการตั้งค่า)', 'success');
+            } 
+            else if (type === 'officer') {
+                officersConfig.splice(parseInt(id), 1);
+                renderSettingsTab();
+                initSystemDropdowns();
+                showBlocksToast('ลบข้อมูลชั่วคราว (อย่าลืมกด บันทึกการตั้งค่า)', 'success');
             }
         }
 
@@ -1835,68 +1936,89 @@
             openDeleteModal(index, 'officer', 'ลบเจ้าหน้าที่รัฐ', 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลเจ้าหน้าที่รัฐท่านนี้ออกจากระบบ?');
         }
 
-        // --- 3. ดำเนินการลบเมื่อผู้ใช้กดยืนยันใน Pop-up ---
-        function confirmDeletion() {
-            const id = document.getElementById('delete-target-id').value;
-            const type = document.getElementById('delete-target-type').value;
-            
-            // ตรวจสอบว่ากำลังลบอะไร แล้วทำคำสั่งลบให้ถูกต้อง
-            if (type === 'student') {
-                const parsedId = parseInt(id);
-                students = students.filter(s => s.id !== parsedId);
-                delete visitRecords[parsedId];
-                renderStudentListTable();
-                updateDashboardStats();
-                initSystemDropdowns();
-            } 
-            else if (type === 'class') {
-                classesConfig.splice(parseInt(id), 1);
-                renderSettingsTab();
-                initSystemDropdowns(); // อัปเดต dropdown ในหน้าฟอร์ม
-            } 
-            else if (type === 'officer') {
-                officersConfig.splice(parseInt(id), 1);
-                renderSettingsTab();
-                initSystemDropdowns(); // อัปเดต dropdown ในหน้าฟอร์ม
-            }
-            
-            // ปิด Pop-up
-            closeDeleteModal();
-            
-            showBlocksToast('ลบข้อมูลสำเร็จ', 'success');
-        }
 
-        // --- ฟังก์ชันปิดหน้าต่างยืนยันการลบ ---
-        function closeDeleteModal() {
-            document.getElementById('delete-modal').classList.add('hidden');
-        }
+        // --- ฟังก์ชันนำเข้าข้อมูลจาก Excel ของจริง ---
+        async function handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
+            // แสดงหน้าต่างโหลดแบบ Blocks.so
+            showBlocksAlert('loading', 'กำลังอ่านไฟล์ Excel', 'ระบบกำลังดึงข้อมูลและบันทึกลงฐานข้อมูล กรุณารอสักครู่...');
 
-        // --- ฟังก์ชันจำลองการนำเข้า Excel ---
-        function simulateExcelImport() {
-            // โชว์หมุนติ้วๆ แบบไม่มีปุ่มกด
-            showModernAlert({ 
-                title: 'กำลังนำเข้าข้อมูล', 
-                text: 'ระบบกำลังดึงข้อมูลจากไฟล์ Excel...', 
-                icon: 'loading' 
-            });
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0]; // ดึงข้อมูลจากชีทแรกเสมอ
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // แปลงตาราง Excel เป็น JSON (โดยใช้หัวคอลัมน์แถวแรกเป็น Key)
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-            setTimeout(() => {
-                const newId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
-                students.push(
-                    { id: newId, code: '99001', prefix: 'ด.ญ.', name: 'เรียนดี', surname: 'ศรีสวัสดิ์', nickname: 'น้ำ', nationalId: '6666666666666', gender: 'หญิง', class: 'ป.1', room: '1', parent: 'นางสมใจ ศรีสวัสดิ์', relation: 'มารดา', visited: false },
-                    { id: newId+1, code: '99002', prefix: 'ด.ช.', name: 'เก่งกาจ', surname: 'กล้าหาญ', nickname: 'กาย', nationalId: '7777777777777', gender: 'ชาย', class: 'ป.6', room: '2', parent: 'นายใจเด็ด กล้าหาญ', relation: 'บิดา', visited: false }
-                );
-                renderStudentListTable();
-                updateDashboardStats();
-                initSystemDropdowns();
-                
-                // สลับกลับมาโชว์หน้าต่างสำเร็จ
-                showModernAlert({ 
-                    title: 'สำเร็จ!', 
-                    text: 'นำเข้าข้อมูลนักเรียนใหม่ 2 รายการเรียบร้อย' 
-                });
-            }, 1500);
+                    if (jsonData.length === 0) {
+                        showBlocksAlert('warning', 'ไม่พบข้อมูล', 'ไฟล์ Excel ว่างเปล่า หรือรูปแบบไม่ถูกต้อง');
+                        return;
+                    }
+
+                    // หา ID ต่อจากของเดิม
+                    let newId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
+                    
+                    const newStudents = [];
+                    let duplicateCount = 0; // ตัวนับจำนวนคนที่ซ้ำ
+
+                    jsonData.forEach(row => {
+                        const codeStr = (row['รหัสนักเรียน'] || '').toString().trim();
+                        
+                        // เช็คว่าแถวนั้นมีข้อมูลรหัสหรือชื่อ
+                        if (codeStr || row['ชื่อ']) {
+                            
+                            // --- ตรวจสอบว่ารหัสนักเรียนนี้มีในระบบแล้วหรือยัง ---
+                            const isExist = students.some(s => s.code === codeStr) || newStudents.some(s => s.code === codeStr);
+                            
+                            if (isExist && codeStr !== '') {
+                                duplicateCount++; // ถ้ารหัสซ้ำ ให้นับเก็บไว้ แล้วปล่อยผ่านไป (ไม่บันทึก)
+                            } else {
+                                newStudents.push({
+                                    id: newId++,
+                                    code: codeStr,
+                                    prefix: row['คำนำหน้า'] || 'เด็กชาย',
+                                    name: row['ชื่อ'] || '',
+                                    surname: row['นามสกุล'] || '',
+                                    nickname: row['ชื่อเล่น'] || '',
+                                    nationalId: (row['เลขประจำตัวประชาชน'] || '').toString().trim(),
+                                    gender: row['เพศ'] || 'ชาย',
+                                    class: row['ชั้น'] || '',
+                                    room: (row['ห้อง'] || '1').toString(),
+                                    visited: false
+                                });
+                            }
+                        }
+                    });
+
+                    // นำข้อมูลใหม่ (เฉพาะคนที่ไม่ซ้ำ) ไปต่อท้ายข้อมูลเดิม
+                    students = [...students, ...newStudents];
+
+                    // 2. อัปเดตหน้าจอ
+                    renderStudentListTable();
+                    updateDashboardStats();
+                    initSystemDropdowns();
+
+                    // แจ้งเตือนสรุปผลการนำเข้า
+                    if (duplicateCount > 0) {
+                        showBlocksAlert('success', 'นำเข้าสำเร็จ (มีการข้ามข้อมูลซ้ำ)', `เพิ่มใหม่ ${newStudents.length} รายการ และข้ามรหัสที่ซ้ำกัน ${duplicateCount} รายการ (กรุณากด "บันทึกเข้าระบบ")`);
+                    } else {
+                        showBlocksAlert('success', 'นำเข้าสำเร็จ!', `ดึงข้อมูลใหม่จำนวน ${newStudents.length} รายการ (กรุณากด "บันทึกเข้าระบบ")`);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showBlocksAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถอ่านไฟล์ Excel ได้ ตรวจสอบว่าไฟล์ไม่ได้ติดรหัสผ่าน');
+                } finally {
+                    // ล้างค่า input เพื่อให้สามารถกดอัปโหลดไฟล์เดิมซ้ำได้ถ้าระบบขัดข้อง
+                    document.getElementById('excel-import-file').value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         function preventSubmit(e) { e.preventDefault(); }
@@ -1905,16 +2027,19 @@
             const clsStr = document.getElementById('form-class-select').value;
             const sel = document.getElementById('form-student-select');
             sel.innerHTML = '<option value="">-- เลือกชื่อนักเรียนเป้าหมาย --</option>';
+            
             if (!clsStr) {
                 sel.disabled = true;
             } else {
                 sel.disabled = false;
                 // แยก "ป.6/2" กลับเป็น class="ป.6" และ room="2"
-                const [cls, rm] = clsStr.split('/');
-                
-                // กรองนักเรียนที่ตรงทั้งชั้นและห้องเท่านั้น
-                students.filter(s => s.class === cls && s.room === rm).forEach(s => {
-                    sel.innerHTML += `<option value="${s.id}">${s.prefix}${s.name} ${s.surname}</option>`;
+                const parts = clsStr.split('/');
+                const cls = parts[0];
+                const rm = parts[1] || '1'; // เผื่อกรณีไม่มีห้องให้ปัดเป็นห้อง 1
+
+                // แปลงค่าเป็น String ก่อนเทียบ เพื่อแก้ปัญหาชนิดข้อมูลระหว่างตัวเลขและข้อความ
+                students.filter(s => String(s.class) === String(cls) && String(s.room || '1') === String(rm)).forEach(s => {
+                    sel.innerHTML += `<option value="${s.id}">${s.prefix || ''}${s.name} ${s.surname}</option>`;
                 });
             }
             
@@ -2125,159 +2250,186 @@
 
         // เพิ่มฟังก์ชันจำลองการบันทึกข้อมูล (เพื่อให้ปุ่มทำงานได้และเห็นภาพรวม)
         async function saveVisitForm() {
-            if (!selectedStudentForVisit) return;
-            
-            // เปลี่ยนสถานะนักเรียนเป็น "เยี่ยมแล้ว"
-            selectedStudentForVisit.visited = true;
-            
-            // --- เพิ่มโค้ดดึงรูปลายเซ็นเก็บไว้ในฐานข้อมูล ---
-            const studentId = selectedStudentForVisit.id;
-            if (!visitRecords[studentId]) visitRecords[studentId] = {};
-            
-            // ฟังก์ชันเช็คว่ากระดานว่างหรือไม่ (เพื่อไม่เซฟรูปเปล่า)
-            const getSigData = (id) => {
-                const cvs = document.getElementById(id);
-                const blank = document.createElement('canvas');
-                blank.width = cvs.width; blank.height = cvs.height;
-                return cvs.toDataURL() === blank.toDataURL() ? '' : cvs.toDataURL();
-            };
-
-            visitRecords[studentId].sigStudent = getSigData('sig-student');
-            visitRecords[studentId].sigGuardian = getSigData('sig-guardian');
-            visitRecords[studentId].sigTeacher = getSigData('sig-teacher');
-            visitRecords[studentId].sigOfficer = getSigData('sig-officer');
-            visitRecords[studentId].sigDirector = getSigData('sig-director');
-
-            // --- เพิ่มการบันทึกชื่อและตำแหน่งเจ้าหน้าที่รัฐที่เลือก ---
-            const officerSel = document.getElementById('form-officer-select').value;
-            if (officerSel) {
-                const [oName, oPos] = officerSel.split('|');
-                visitRecords[studentId].officerName = oName;
-                visitRecords[studentId].officerPosition = oPos;
-            } else {
-                visitRecords[studentId].officerName = "";
-                visitRecords[studentId].officerPosition = "";
+            // 1. ดักจับกรณีตัวแปรหาย (Silent Failure Fix)
+            if (!selectedStudentForVisit) {
+                showBlocksAlert('error', 'ข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียนที่กำลังเยี่ยมบ้าน กรุณากลับไปที่ขั้นตอนที่ 1 เพื่อเลือกชื่อนักเรียนใหม่อีกครั้ง');
+                return;
             }
-
-            const guardianBlocks = document.querySelectorAll('.guardian-block');
-            const guardiansList = [];
-            guardianBlocks.forEach(block => {
-                guardiansList.push({
-                    name: block.querySelector('.g-name').value,
-                    relation: block.querySelector('.g-relation').value,
-                    nationalId: block.querySelector('.g-nid').value,
-                    edu: block.querySelector('.g-edu').value,
-                    job: block.querySelector('.g-job').value,
-                    phone: block.querySelector('.g-phone').value,
-                    welfare: block.querySelector('.g-welfare').value
-                });
-            });
-            visitRecords[studentId].guardians = guardiansList;
-
-            // =========================================================
-            // เพิ่มโค้ดชุดนี้ เพื่อบันทึกข้อมูลขั้นตอนที่ 2 ถึง 6
-            // =========================================================
-
-            // --- ขั้นตอนที่ 2: สถานภาพครอบครัว ---
-            visitRecords[studentId].familyStatus = document.getElementById('form-family-status').value;
-            visitRecords[studentId].livingWith = document.getElementById('form-living-with').value;
-
-            // --- ขั้นตอนที่ 3: สมาชิกในครัวเรือนและรายได้ ---
-            const householdRows = document.querySelectorAll('.household-row');
-            const householdList = [];
-            householdRows.forEach(row => {
-                const inputs = row.querySelectorAll('input'); // ดึงช่องกรอกทั้งหมดในแต่ละแถว
-                householdList.push({
-                    name: inputs[0].value,
-                    relation: inputs[1].value,
-                    age: inputs[2].value,
-                    income: parseFloat(inputs[3].value) || 0 // แปลงเป็นตัวเลข
-                });
-            });
-            visitRecords[studentId].household = householdList;
-
-            // --- ขั้นตอนที่ 4: สภาพที่อยู่อาศัย ---
-            const checkedWelfare = document.querySelectorAll('.form-welfare-checkbox:checked');
-            visitRecords[studentId].welfareList = Array.from(checkedWelfare).map(cb => cb.value); // ดึงค่า Checkbox
             
-            visitRecords[studentId].houseFloor = document.getElementById('form-house-floor').value;
-            visitRecords[studentId].houseWall = document.getElementById('form-house-wall').value;
-            visitRecords[studentId].houseRoof = document.getElementById('form-house-roof').value;
-            visitRecords[studentId].houseToilet = document.getElementById('form-house-toilet').value;
-            visitRecords[studentId].houseLand = document.getElementById('form-house-land').value;
-            visitRecords[studentId].houseWater = document.getElementById('form-house-water').value;
-            visitRecords[studentId].houseType = document.getElementById('form-house-type').value;
-            visitRecords[studentId].houseElec = document.getElementById('form-house-elec').value;
-            visitRecords[studentId].houseAsset = document.getElementById('form-house-asset').value;
+            try {
+                // เปลี่ยนสถานะนักเรียนเป็น "เยี่ยมแล้ว"
+                selectedStudentForVisit.visited = true;
+                
+                // --- เพิ่มโค้ดดึงรูปลายเซ็นเก็บไว้ในฐานข้อมูล ---
+                const studentId = selectedStudentForVisit.id;
+                if (!visitRecords[studentId]) visitRecords[studentId] = {};
 
-            // --- ขั้นตอนที่ 5: การเดินทางและที่อยู่ ---
-            visitRecords[studentId].travelMethod = document.getElementById('form-travel-method').value;
-            visitRecords[studentId].travelDistance = document.getElementById('form-travel-distance').value;
-            visitRecords[studentId].travelTime = document.getElementById('form-travel-time').value;
-            visitRecords[studentId].travelCost = document.getElementById('form-travel-expense').value;
-            visitRecords[studentId].travelAllowance = document.getElementById('form-student-allowance').value;
-            
-            visitRecords[studentId].addressNo = document.getElementById('form-address-no').value;
-            visitRecords[studentId].addressMoo = document.getElementById('form-address-moo').value;
-            visitRecords[studentId].addressRoad = document.getElementById('form-address-road').value;
-            visitRecords[studentId].addressTambon = document.getElementById('form-address-tambon').value;
-            visitRecords[studentId].addressAmphoe = document.getElementById('form-address-amphoe').value;
-            visitRecords[studentId].addressProvince = document.getElementById('form-address-province').value;
-            visitRecords[studentId].addressZip = document.getElementById('form-address-zip').value;
-
-            // --- ขั้นตอนที่ 6: ภาพถ่าย ---
-            const getImgSrc = (id) => {
-                const img = document.getElementById(id);
-                // ถ้ารูปไม่มีคลาส hidden แปลว่ามีการอัปโหลด ให้ดึง base64 (src) มาเก็บไว้
-                return img.classList.contains('hidden') ? "" : img.src;
-            };
-            visitRecords[studentId].picStudent = getImgSrc('preview-pic-student');
-            visitRecords[studentId].picOuter = getImgSrc('preview-pic-outer');
-            visitRecords[studentId].picInner = getImgSrc('preview-pic-inner');
-
-            // =========================================================
-            
-
-            // หลังจากเก็บข้อมูลด้านบนครบแล้ว จึงแสดง Alert สำเร็จ
-            showModernAlert({
-                title: 'บันทึกข้อมูลสำเร็จ!',
-                text: 'ระบบได้บันทึกข้อมูลการเยี่ยมบ้านเรียบร้อยแล้ว',
-                onConfirm: () => {
-                    // 1. ล้างข้อมูลในฟอร์มและรีเซ็ตตัวแปร
-                    document.getElementById('visit-main-form').reset();
-                    selectedStudentForVisit = null;
-                    currentActiveStep = 1;
+                visitRecords[studentId].studentId = studentId;
+                // เพิ่มข้อมูล รหัส, ชื่อ, สกุล เพื่อส่งไปให้ Backend ตั้งชื่อโฟลเดอร์
+                visitRecords[studentId].studentCode = selectedStudentForVisit.code;
+                visitRecords[studentId].studentName = selectedStudentForVisit.name;
+                visitRecords[studentId].studentSurname = selectedStudentForVisit.surname;
+                
+                // ฟังก์ชันเช็คว่ากระดานว่างหรือไม่ (เพื่อไม่เซฟรูปเปล่า)
+                const getSigData = (id) => {
+                    const cvs = document.getElementById(id);
+                    if (!cvs) return ''; 
                     
-                    // 2. ปรับหน้าต่าง UI ให้กลับไปแสดงผล Step ที่ 1
-                    document.getElementById('step-indicator').innerText = `ขั้นตอนที่ 1 / 7`;
-                    document.getElementById('multi-form-progress').style.width = `${(1/7)*100}%`;
-                    document.querySelectorAll('.step-panel').forEach((el, i) => {
-                        el.classList.toggle('hidden', i !== 0);
-                    });
-                    
-                    // 3. รีเซ็ตปุ่ม "กลับ" และ "ถัดไป"
-                    const prevBtn = document.getElementById('btn-form-prev');
-                    prevBtn.disabled = true;
-                    prevBtn.className = "px-4 py-2 bg-white border border-zinc-200 text-zinc-400 font-medium text-sm rounded-lg flex items-center gap-1.5 cursor-not-allowed";
-                    validateCurrentStep();
-                    
-                    // 4. ล้างกระดานลายเซ็น, ซ่อนรูปภาพที่พรีวิวไว้ และล้างตารางรายได้
-                    ['sig-student', 'sig-guardian', 'sig-teacher', 'sig-officer', 'sig-director'].forEach(id => clearSignature(id));
-                    ['preview-pic-student', 'preview-pic-outer', 'preview-pic-inner'].forEach(id => {
-                        const img = document.getElementById(id);
-                        if(img) { img.src = ''; img.classList.add('hidden'); }
-                    });
-                    document.getElementById('household-tbody').innerHTML = '';
-                    calculateHouseholdSummary();
+                    // ✅ 1. ถ้ารูปถูกดึงมาจากระบบ (ไม่ได้วาดใหม่) ให้ส่ง URL เดิมกลับไปเลย จะได้ไม่ติด Error Tainted Canvas
+                    if (cvs.hasAttribute('data-saved-url')) {
+                        return cvs.getAttribute('data-saved-url');
+                    }
 
-                    // 5. อัปเดตฐานข้อมูลเบื้องหลัง
-                    renderStudentListTable();
-                    updateDashboardStats();
-                    
-                    // 6. เลื่อนหน้าจอกลับขึ้นไปบนสุดให้พร้อมกรอกคนต่อไป
-                    document.getElementById('visit-main-form').scrollTop = 0;
+                    // ✅ 2. ถ้าเป็นการวาดใหม่ด้วยนิ้ว ให้แปลงเส้นวาดเป็นรูปภาพตามปกติ
+                    const blank = document.createElement('canvas');
+                    blank.width = cvs.width; blank.height = cvs.height;
+                    return cvs.toDataURL() === blank.toDataURL() ? '' : cvs.toDataURL();
+                };
+
+                visitRecords[studentId].sigStudent = getSigData('sig-student');
+                visitRecords[studentId].sigGuardian = getSigData('sig-guardian');
+                visitRecords[studentId].sigTeacher = getSigData('sig-teacher');
+                visitRecords[studentId].sigOfficer = getSigData('sig-officer');
+                visitRecords[studentId].sigDirector = getSigData('sig-director');
+
+                // --- เพิ่มการบันทึกชื่อและตำแหน่งเจ้าหน้าที่รัฐที่เลือก ---
+                const officerSel = document.getElementById('form-officer-select').value;
+                if (officerSel) {
+                    const [oName, oPos] = officerSel.split('|');
+                    visitRecords[studentId].officerName = oName;
+                    visitRecords[studentId].officerPosition = oPos;
+                } else {
+                    visitRecords[studentId].officerName = "";
+                    visitRecords[studentId].officerPosition = "";
                 }
-            });
+
+                const guardianBlocks = document.querySelectorAll('.guardian-block');
+                const guardiansList = [];
+                guardianBlocks.forEach(block => {
+                    guardiansList.push({
+                        name: block.querySelector('.g-name').value || '',
+                        relation: block.querySelector('.g-relation').value || '',
+                        nationalId: block.querySelector('.g-nid').value || '',
+                        edu: block.querySelector('.g-edu').value || '',
+                        job: block.querySelector('.g-job').value || '',
+                        phone: block.querySelector('.g-phone').value || '',
+                        welfare: block.querySelector('.g-welfare').value || ''
+                    });
+                });
+                visitRecords[studentId].guardians = guardiansList;
+
+                // --- ขั้นตอนที่ 2: สถานภาพครอบครัว ---
+                visitRecords[studentId].familyStatus = document.getElementById('form-family-status').value;
+                visitRecords[studentId].livingWith = document.getElementById('form-living-with').value;
+
+                // --- ขั้นตอนที่ 3: สมาชิกในครัวเรือนและรายได้ ---
+                const householdRows = document.querySelectorAll('.household-row');
+                const householdList = [];
+                householdRows.forEach(row => {
+                    const inputs = row.querySelectorAll('input');
+                    if (inputs.length >= 4) {
+                        householdList.push({
+                            name: inputs[0].value,
+                            relation: inputs[1].value,
+                            age: inputs[2].value,
+                            income: parseFloat(inputs[3].value) || 0
+                        });
+                    }
+                });
+                visitRecords[studentId].household = householdList;
+
+                // --- ขั้นตอนที่ 4: สภาพที่อยู่อาศัย ---
+                const checkedWelfare = document.querySelectorAll('.form-welfare-checkbox:checked');
+                visitRecords[studentId].welfareList = Array.from(checkedWelfare).map(cb => cb.value); 
+                
+                visitRecords[studentId].houseFloor = document.getElementById('form-house-floor').value;
+                visitRecords[studentId].houseWall = document.getElementById('form-house-wall').value;
+                visitRecords[studentId].houseRoof = document.getElementById('form-house-roof').value;
+                visitRecords[studentId].houseToilet = document.getElementById('form-house-toilet').value;
+                visitRecords[studentId].houseLand = document.getElementById('form-house-land').value;
+                visitRecords[studentId].houseWater = document.getElementById('form-house-water').value;
+                visitRecords[studentId].houseType = document.getElementById('form-house-type').value;
+                visitRecords[studentId].houseElec = document.getElementById('form-house-elec').value;
+                visitRecords[studentId].houseAsset = document.getElementById('form-house-asset').value;
+
+                // --- ขั้นตอนที่ 5: การเดินทางและที่อยู่ ---
+                visitRecords[studentId].travelMethod = document.getElementById('form-travel-method').value;
+                visitRecords[studentId].travelDistance = document.getElementById('form-travel-distance').value;
+                visitRecords[studentId].travelTime = document.getElementById('form-travel-time').value;
+                visitRecords[studentId].travelCost = document.getElementById('form-travel-expense').value;
+                visitRecords[studentId].travelAllowance = document.getElementById('form-student-allowance').value;
+                
+                visitRecords[studentId].addressNo = document.getElementById('form-address-no').value;
+                visitRecords[studentId].addressMoo = document.getElementById('form-address-moo').value;
+                visitRecords[studentId].addressRoad = document.getElementById('form-address-road').value;
+                visitRecords[studentId].addressTambon = document.getElementById('form-address-tambon').value;
+                visitRecords[studentId].addressAmphoe = document.getElementById('form-address-amphoe').value;
+                visitRecords[studentId].addressProvince = document.getElementById('form-address-province').value;
+                visitRecords[studentId].addressZip = document.getElementById('form-address-zip').value;
+
+                // --- ขั้นตอนที่ 6: ภาพถ่าย ---
+                const getImgSrc = (id) => {
+                    const img = document.getElementById(id);
+                    if (!img) return "";
+                    return img.classList.contains('hidden') ? "" : img.src;
+                };
+                visitRecords[studentId].picStudent = getImgSrc('preview-pic-student');
+                visitRecords[studentId].picOuter = getImgSrc('preview-pic-outer');
+                visitRecords[studentId].picInner = getImgSrc('preview-pic-inner');
+
+                // =========================================================
+                // ส่งข้อมูลไปบันทึกที่ Google Sheet
+                // =========================================================
+                showBlocksAlert('loading', 'กำลังบันทึกข้อมูล...', 'กรุณารอสักครู่ ระบบกำลังแปลงไฟล์ภาพและอัปเดตข้อมูลเยี่ยมบ้าน');
+
+                const visitsArray = Object.values(visitRecords);
+                const saveVisits = await saveDataToBackend('visits', visitsArray);
+                const saveStudents = await saveDataToBackend('students', students);
+
+                if (saveVisits && saveStudents) {
+                    showBlocksAlert('success', 'บันทึกข้อมูลสำเร็จ!', 'ระบบได้อัปเดตข้อมูลเยี่ยมบ้านลงฐานข้อมูลเรียบร้อยแล้ว', () => {
+                        
+                        resetVisitFormState();
+                        
+                        document.getElementById('visit-main-form').reset();
+
+                        document.getElementById('form-student-select').innerHTML = '<option value="">-- เลือกชื่อนักเรียนเป้าหมาย --</option>';
+                        document.getElementById('form-student-select').disabled = true;
+
+                        selectedStudentForVisit = null;
+                        currentActiveStep = 1;
+                        
+                        document.getElementById('step-indicator').innerText = `ขั้นตอนที่ 1 / 7`;
+                        document.getElementById('multi-form-progress').style.width = `${(1/7)*100}%`;
+                        document.querySelectorAll('.step-panel').forEach((el, i) => {
+                            el.classList.toggle('hidden', i !== 0);
+                        });
+                        
+                        const prevBtn = document.getElementById('btn-form-prev');
+                        prevBtn.disabled = true;
+                        prevBtn.className = "px-4 py-2 bg-white border border-zinc-200 text-zinc-400 font-medium text-sm rounded-lg flex items-center gap-1.5 cursor-not-allowed";
+                        validateCurrentStep();
+                        
+                        ['sig-student', 'sig-guardian', 'sig-teacher', 'sig-officer', 'sig-director'].forEach(id => clearSignature(id));
+                        ['preview-pic-student', 'preview-pic-outer', 'preview-pic-inner'].forEach(id => {
+                            const img = document.getElementById(id);
+                            if(img) { img.src = ''; img.classList.add('hidden'); }
+                        });
+                        document.getElementById('household-tbody').innerHTML = '';
+                        calculateHouseholdSummary();
+
+                        document.getElementById('visit-main-form').scrollTop = 0;
+                        loadSystemData(); 
+                    });
+                } else {
+                    showBlocksAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลเยี่ยมบ้านได้ กรุณาลองใหม่อีกครั้ง');
+                }
+                
+            // 2. ดักจับ Error ที่อาจเกิดขึ้นระหว่างทำงาน
+            } catch (err) {
+                console.error("Save Visit Form Error:", err);
+                showBlocksAlert('error', 'ระบบขัดข้อง', 'ตรวจพบข้อมูลไม่สมบูรณ์: ' + err.message);
+            }
         }
 
         // --- ฟังก์ชันตรวจสอบข้อมูลเพื่อเปิด/ปิดปุ่มถัดไป ---
@@ -2307,6 +2459,57 @@
                 nextBtn.className = "px-5 py-2 bg-zinc-100 border border-zinc-200 text-zinc-400 font-medium text-sm rounded-lg flex items-center gap-1.5 cursor-not-allowed";
                 nextBtn.innerText = btnText;
             }
+        }
+
+
+        // --- ฟังก์ชันสำหรับล้างข้อมูลฟอร์มเยี่ยมบ้านทั้งหมด ---
+        function resetVisitFormState() {
+            const form = document.getElementById('visit-main-form');
+            if (!form) return;
+
+            // 1. ล้างข้อความใน Input ทั้งหมด
+            form.reset();
+
+            // 2. รีเซ็ต Dropdown รายชื่อนักเรียน
+            selectedStudentForVisit = null;
+            document.getElementById('form-student-select').innerHTML = '<option value="">-- เลือกชื่อนักเรียนเป้าหมาย --</option>';
+            document.getElementById('form-student-select').disabled = true;
+
+            // 3. รีเซ็ต Step กลับไปหน้า 1
+            currentActiveStep = 1;
+            document.getElementById('step-indicator').innerText = `ขั้นตอนที่ 1 / 7`;
+            document.getElementById('multi-form-progress').style.width = `${(1/7)*100}%`;
+            
+            document.querySelectorAll('.step-panel').forEach((el, i) => {
+                el.classList.toggle('hidden', i !== 0);
+            });
+
+            // 4. ล้างกล่อง Dynamic ต่างๆ (ผู้ปกครอง, สมาชิกในบ้าน)
+            document.getElementById('guardians-container').innerHTML = '';
+            document.getElementById('household-tbody').innerHTML = '';
+            calculateHouseholdSummary(); // รีเซ็ตยอดเงินกลับเป็น 0
+
+            // 5. ซ่อนรูปภาพพรีวิวที่ค้างอยู่
+            ['preview-pic-student', 'preview-pic-outer', 'preview-pic-inner'].forEach(id => {
+                const img = document.getElementById(id);
+                if(img) { img.src = ''; img.classList.add('hidden'); }
+            });
+
+            // 6. ล้างกระดานลายเซ็นทั้งหมด และปลดล็อค Checkbox ดึงจากระบบ
+            ['sig-student', 'sig-guardian', 'sig-teacher', 'sig-officer', 'sig-director'].forEach(id => clearSignature(id));
+            ['cb-sig-teacher', 'cb-sig-officer', 'cb-sig-director'].forEach(id => {
+                const cb = document.getElementById(id);
+                if(cb) { cb.checked = false; cb.disabled = false; }
+            });
+
+            // 7. รีเซ็ตปุ่มกดย้อนกลับ/ถัดไป และเลื่อนจอขึ้นบนสุด
+            const prevBtn = document.getElementById('btn-form-prev');
+            if(prevBtn) {
+                prevBtn.disabled = true;
+                prevBtn.className = "px-4 py-2 bg-white border border-zinc-200 text-zinc-400 font-medium text-sm rounded-lg flex items-center gap-1.5 cursor-not-allowed";
+            }
+            validateCurrentStep();
+            form.scrollTop = 0;
         }
 
         // ==========================================
@@ -2477,6 +2680,13 @@
                     
                     const down = e => { 
                         d = true; 
+                        
+                        // ✅ ถ้าบนกระดานมีรูปจากระบบอยู่ แล้วยูสเซอร์พยายามเอานิ้ววาดทับ ให้ล้างกระดานก่อน (ป้องกัน Error)
+                        if (canvas.hasAttribute('data-saved-url')) {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            canvas.removeAttribute('data-saved-url');
+                        }
+                        
                         ctx.beginPath(); 
                         const pos = getPos(e);
                         ctx.moveTo(pos.x, pos.y); 
@@ -2497,11 +2707,6 @@
                     canvas.addEventListener('touchend', up);
                 }
             });
-        }
-
-        function clearSignature(id) {
-            const canvas = document.getElementById(id);
-            if(canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
         }
 
         // --- ฟังก์ชันเพิ่มตารางสมาชิกครอบครัว ---
@@ -2690,6 +2895,17 @@
                 document.getElementById('r-household-tbody').innerHTML = '<tr><td colspan="5" class="p-1.5 text-center text-zinc-500">กรุณาบันทึกข้อมูลเยี่ยมบ้านก่อน</td></tr>';
                 document.getElementById('r-total-income').innerText = '- บาท';
                 document.getElementById('r-avg-income').innerText = '- บาท';
+
+                // 👉 เพิ่มโค้ดส่วนนี้เพื่อเคลียร์รูปภาพที่ค้างอยู่ 👈
+                ['r-img-outer', 'r-img-inner', 'r-student-photo'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) { el.src = ''; el.classList.add('hidden'); }
+                });
+                // แสดงข้อความ "ไม่มีรูปภาพประกอบ" และ "รูปถ่ายนักเรียน" กลับมา
+                ['r-img-outer-txt', 'r-img-inner-txt', 'r-student-photo-text'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('hidden');
+                });
 
                 const blankSpace = '\u00A0'.repeat(55); // <--- ปรับเป็น 55 หรือ 60 ให้ตรงกับด้านบน
                 const blankPos = '\u00A0'.repeat(40); // <--- ปรับเป็น 40 ให้ตรงกับด้านบน
@@ -3077,7 +3293,7 @@
 
         function closeClassModal() { document.getElementById('class-modal').classList.add('hidden'); }
 
-        async function saveClassModal() {
+        function saveClassModal() {
             const index = parseInt(document.getElementById('modal-class-index').value);
             const className = document.getElementById('modal-class-name').value;
             const roomName = document.getElementById('modal-class-room').value;
@@ -3088,20 +3304,16 @@
             const newData = { className: className, roomName: roomName, advisor: advisor, signature: tempSignatureBase64 };
 
             if (index >= 0 && classesConfig[index]) {
-                // อัปเดตข้อมูลเดิม
                 classesConfig[index] = { ...classesConfig[index], ...newData };
             } else {
-                // เพิ่มข้อมูลใหม่
                 newData.id = classesConfig.length ? Math.max(...classesConfig.map(c => c.id || 0)) + 1 : 1;
                 classesConfig.push(newData);
             }
 
-            // ส่งข้อมูลเป็น Object Array (แก้ไขรูปแบบให้ตรงกับ Backend)
-            await saveDataToBackend('classrooms', classesConfig);
-
-            renderSettingsTab(); // เปลี่ยนจาก renderClassesConfigTable เป็น renderSettingsTab
+            renderSettingsTab();
             initSystemDropdowns();
             closeClassModal();
+            showBlocksToast('พักข้อมูลไว้ชั่วคราว (อย่าลืมกด บันทึกการตั้งค่า)', 'success');
         }
 
 
@@ -3155,15 +3367,31 @@
             closeSchoolModal();
         }
 
+        function clearSignature(id) {
+            const canvas = document.getElementById(id);
+            if(canvas) {
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                // ล้างข้อมูล URL รูปภาพเดิมทิ้ง
+                canvas.removeAttribute('data-saved-url'); 
+            }
+        }
+
         // ฟังก์ชันสำหรับวาดรูป Base64 ลงบน Canvas
         function drawBase64ToCanvas(base64Str, canvasId) {
             const canvas = document.getElementById(canvasId);
             if(!canvas) return;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // ล้างข้อมูลเก่า
+            canvas.removeAttribute('data-saved-url');
+
             if (!base64Str) return;
 
             const img = new Image();
+            
+            // ❌ เอา img.crossOrigin ออก เพื่อให้รูป Google Drive โหลดได้
+            
             img.onload = function() {
                 const hRatio = canvas.width / img.width;
                 const vRatio = canvas.height / img.height;
@@ -3171,6 +3399,9 @@
                 const centerShift_x = (canvas.width - img.width * ratio) / 2;
                 const centerShift_y = (canvas.height - img.height * ratio) / 2;
                 ctx.drawImage(img, 0, 0, img.width, img.height, centerShift_x, centerShift_y, img.width * ratio, img.height * ratio);
+                
+                // ✅ ซ่อน URL ของรูปไว้ที่ตัว Canvas เพื่อใช้ตอนกดบันทึก
+                canvas.setAttribute('data-saved-url', base64Str);
             }
             img.src = base64Str;
         }
@@ -3218,10 +3449,11 @@
 
             // 3. เลือกชั้นเรียนใน Select Box และโหลดรายชื่อ
             const classSelect = document.getElementById('form-class-select');
-            classSelect.value = `${student.class}/${student.room}`;
+            // แก้ไขบรรทัดนี้: เพิ่ม || '1' เพื่อป้องกัน Error ในกรณีที่นักเรียนไม่มีข้อมูลห้อง
+            classSelect.value = `${student.class}/${student.room || '1'}`;
             filterStudentsByClass();
 
-            // 4. เลือกชื่อนักเรียน (การใส่ค่าตรงนี้ จะไปปลุก autoFillStudentBasicInfo() ให้ดึงข้อมูลทันที)
+            // 4. เลือกชื่อนักเรียน 
             const studentSelect = document.getElementById('form-student-select');
             studentSelect.value = student.id;
             autoFillStudentBasicInfo();
@@ -3283,7 +3515,7 @@
         `);
 
         // ==========================================
-        // ระบบแจ้งเตือน (Alert & Toast) สไตล์ Blocks.so
+        // ระบบแจ้งเตือน (Alert & Toast) สไตล์ Blocks.so (ดำ-ขาว)
         // ==========================================
         document.body.insertAdjacentHTML('beforeend', `
             <div id="blocks-alert-overlay" class="hidden fixed inset-0 bg-zinc-900/40 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all duration-300 opacity-0">
@@ -3302,7 +3534,6 @@
             <div id="blocks-toast-container" class="fixed top-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
         `);
 
-        // ฟังก์ชันเรียกหน้าต่างแจ้งเตือน
         function showBlocksAlert(type, title, text, callback) {
             const overlay = document.getElementById('blocks-alert-overlay');
             const box = document.getElementById('blocks-alert-box');
@@ -3313,26 +3544,25 @@
             document.getElementById('blocks-alert-title').innerText = title;
             document.getElementById('blocks-alert-text').innerText = text;
 
-            // กำหนดสีและไอคอนตามประเภท (success, error, warning, loading)
+            // คุมโทนสีขาว-ดำ สำหรับทุกสถานะ
             if (type === 'success') {
-                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-emerald-100 bg-emerald-50 text-emerald-600';
+                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-zinc-200 bg-zinc-50 text-zinc-900';
                 icon.className = 'fa-solid fa-check';
                 btn.style.display = 'block';
             } else if (type === 'error') {
-                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-red-100 bg-red-50 text-red-600';
+                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-zinc-200 bg-zinc-50 text-zinc-900';
                 icon.className = 'fa-solid fa-xmark';
                 btn.style.display = 'block';
             } else if (type === 'warning') {
-                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-amber-100 bg-amber-50 text-amber-500';
+                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-zinc-200 bg-zinc-50 text-zinc-900';
                 icon.className = 'fa-solid fa-exclamation';
                 btn.style.display = 'block';
             } else if (type === 'loading') {
-                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-zinc-100 bg-zinc-50 text-zinc-900';
+                iconWrap.className = 'w-14 h-14 rounded-full mb-5 flex items-center justify-center border border-zinc-100 bg-white text-zinc-900 shadow-sm';
                 icon.className = 'fa-solid fa-circle-notch fa-spin';
-                btn.style.display = 'none'; // ซ่อนปุ่มเวลาโหลด
+                btn.style.display = 'none'; 
             }
 
-            // แสดงผลพร้อม Animation
             overlay.classList.remove('hidden');
             setTimeout(() => {
                 overlay.classList.remove('opacity-0');
@@ -3340,7 +3570,6 @@
                 box.classList.add('scale-100');
             }, 10);
 
-            // เมื่อกดปุ่ม "ตกลง"
             btn.onclick = () => {
                 closeBlocksAlert();
                 if (callback) callback();
@@ -3356,17 +3585,16 @@
             setTimeout(() => overlay.classList.add('hidden'), 300);
         }
 
-        // ฟังก์ชัน Toast เล็กๆ มุมขวาบน (ปรับดีไซน์ใหม่)
         function showBlocksToast(title, type = 'success') {
             const container = document.getElementById('blocks-toast-container');
             const toast = document.createElement('div');
             
-            let iconColor = type === 'success' ? 'text-emerald-500 bg-emerald-50 border-emerald-100' : 'text-red-500 bg-red-50 border-red-100';
+            // คุมโทนสีขาว-ดำ สำหรับ Toast
             let iconClass = type === 'success' ? 'fa-check' : 'fa-xmark';
 
             toast.className = "bg-white border border-zinc-200 shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 transform translate-x-full opacity-0 transition-all duration-300 pointer-events-auto min-w-[240px]";
             toast.innerHTML = `
-                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${iconColor}">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border text-zinc-900 bg-zinc-50 border-zinc-200">
                     <i class="fa-solid ${iconClass} text-sm"></i>
                 </div>
                 <p class="text-sm font-semibold text-zinc-900 pr-4">${title}</p>
@@ -3414,7 +3642,7 @@
         }
 
         // --- ระบบจัดเรียงตาราง (Sorting) ---
-        let currentSortColumn = 'class'; // เริ่มต้นให้เรียงตามชั้นเรียน
+        let currentSortColumn = 'code'; // เปลี่ยนให้เริ่มต้นเรียงตามรหัสนักเรียนแทน
         let currentSortDirection = 'asc'; // asc (น้อยไปมาก) หรือ desc (มากไปน้อย)
 
         function sortTable(col) {
@@ -3546,7 +3774,45 @@
             }
         }
 
-        
+        // ==========================================
+        // ฟังก์ชันบันทึกข้อมูลรวมทีเดียว (Batch Saving)
+        // ==========================================
+
+        // 1. กดบันทึกในหน้า "นักเรียน"
+        async function saveAllStudents() {
+            showBlocksAlert('loading', 'กำลังบันทึกข้อมูล...', 'กรุณารอสักครู่ ระบบกำลังส่งรายชื่อนักเรียนทั้งหมดขึ้น Google Sheet');
+            
+            const saveSuccess = await saveDataToBackend('students', students);
+            
+            closeBlocksAlert();
+            if (saveSuccess) {
+                // แก้ไขบรรทัดนี้: เพิ่ม () => { loadSystemData(); } ต่อท้าย
+                showBlocksAlert('success', 'บันทึกสำเร็จ!', 'อัปเดตข้อมูลนักเรียนทั้งหมดลงฐานข้อมูลเรียบร้อยแล้ว', () => {
+                    loadSystemData(); // ซิงค์ข้อมูลให้เป็นปัจจุบัน
+                });
+            } else {
+                showBlocksAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+            }
+        }
+
+        // 2. กดบันทึกในหน้า "ตั้งค่า"
+        async function saveAllSystemSettings() {
+            showBlocksAlert('loading', 'กำลังบันทึกข้อมูล...', 'กรุณารอสักครู่ ระบบกำลังอัปเดตการตั้งค่าระบบทั้งหมด');
+            
+            const r1 = await saveDataToBackend('config', [schoolConfig]);
+            const r2 = await saveDataToBackend('classrooms', classesConfig);
+            const r3 = await saveDataToBackend('officers', officersConfig);
+            
+            closeBlocksAlert();
+            if (r1 && r2 && r3) {
+                // แก้ไขบรรทัดนี้: เพิ่ม () => { loadSystemData(); } ต่อท้าย
+                showBlocksAlert('success', 'บันทึกสำเร็จ!', 'อัปเดตการตั้งค่าสถานศึกษา ชั้นเรียน และเจ้าหน้าที่เรียบร้อยแล้ว', () => {
+                    loadSystemData(); // ซิงค์ข้อมูลดึง URL กลับมาแทนที่ Base64
+                });
+            } else {
+                showBlocksAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกการตั้งค่าบางส่วนได้');
+            }
+        }
     </script>
 </body>
 </html>
