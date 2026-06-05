@@ -387,8 +387,8 @@
                                 <span class="text-[10px] text-gray-400"><i class="fas fa-hand-rock"></i> Drag & Drop</span>
                             </div>
                             
-                            <!-- กล่องเก็บการ์ดที่สามารถลากได้ -->
-                            <div id="subjectCardsContainer" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar pb-2 pr-1">
+                            <!-- กล่องเก็บการ์ดที่สามารถลากได้ (ปรับให้มี Scrollbar และไม่ยาวเกินไป) -->
+                            <div id="subjectCardsContainer" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar pb-2 pr-1 max-h-[250px] xl:max-h-[450px]">
                                 <!-- การ์ดจะถูกสร้างที่นี่ -->
                             </div>
                         </div>
@@ -399,7 +399,8 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <button onclick="clearSchedule()" class="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm flex items-center gap-1 transition"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                             </div>
-                            <div id="visualTimetable" class="overflow-x-auto bg-gray-50 rounded-xl shadow-sm border border-gray-200 hide-scrollbar py-4 px-2 relative flex items-start justify-center min-h-[400px] flex-1">
+                            <!-- แก้ไขกล่องหุ้มตารางให้แสดงผลพอดีช่อง -->
+                            <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
                                 <!-- ตารางจะถูกสร้างที่นี่ -->
                             </div>
                         </div>
@@ -643,7 +644,7 @@
             headers: [],
             attendance: [],
             schedule: [],
-            subjects: [], // เพิ่มตัวแปรสำหรับเก็บการ์ดรายวิชา
+            subjects: [], // เก็บการ์ดรายวิชาที่ยังไม่ได้ลากลงตาราง
             currentDate: '',
             currentClass: '',
             currentSubjectPeriod: '',
@@ -1186,15 +1187,8 @@
                 if (json.status === 'success') {
                     state.schedule = json.data;
                     
-                    // ดึงวิชาเดิมจากตารางสอน กลับมาสร้างเป็นการ์ดวิชาให้อัตโนมัติ ป้องกันวิชาหายเมื่อรีเฟรช
-                    state.subjects = [];
-                    state.schedule.forEach(s => {
-                        let cleanSubj = s.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                        if(!cleanSubj) cleanSubj = s.subjectPeriod;
-                        const exists = state.subjects.find(sub => sub.name === cleanSubj && sub.className === s.className);
-                        if(!exists) state.subjects.push({ id: Date.now() + Math.random(), name: cleanSubj, className: s.className });
-                    });
-
+                    state.subjects = []; // เริ่มต้นการ์ดที่ยังไม่ได้วางให้ว่างเปล่า
+                    
                     renderSubjectCards();
                     renderVisualTimetable();
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
@@ -1227,7 +1221,7 @@
             const cls = document.getElementById('subjectClassInput').value;
             if(!name || !cls) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุชื่อวิชาและห้องเรียน'); return; }
             
-            const newSubject = { id: Date.now(), name: name, className: cls };
+            const newSubject = { id: Date.now() + Math.random(), name: name, className: cls };
             state.subjects.push(newSubject);
             
             document.getElementById('subjectNameInput').value = '';
@@ -1241,9 +1235,9 @@
                 return;
             }
             container.innerHTML = state.subjects.map(sub => `
-                <div draggable="true" ondragstart="drag(event, '${sub.name}', '${sub.className}')" 
+                <div draggable="true" ondragstart="drag(event, '${sub.name}', '${sub.className}', '${sub.id}')" 
                      class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex justify-between items-center group relative">
-                    <button onclick="removeSubjectCard(${sub.id})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px]"><i class="fas fa-times"></i></button>
+                    <button onclick="removeSubjectCard('${sub.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px]"><i class="fas fa-times"></i></button>
                     <div>
                         <div class="font-bold text-school-navy text-sm">${sub.name}</div>
                         <div class="text-xs text-white ${sub.className === '-' ? 'bg-emerald-500' : 'bg-school-blue'} px-2 py-0.5 rounded inline-block mt-1 shadow-sm">${sub.className === '-' ? 'กิจกรรม' : sub.className}</div>
@@ -1254,7 +1248,7 @@
         }
 
         function removeSubjectCard(id) {
-            state.subjects = state.subjects.filter(s => s.id !== id);
+            state.subjects = state.subjects.filter(s => String(s.id) !== String(id));
             renderSubjectCards();
         }
 
@@ -1262,9 +1256,8 @@
             ev.preventDefault();
         }
 
-        function drag(ev, subjectName, className) {
-            // ปรับ format เป็น text/plain แบบมาตรฐาน เพื่อแก้บัคลากไม่ลงในเบราว์เซอร์ Safari/Firefox
-            ev.dataTransfer.setData("text/plain", JSON.stringify({ name: subjectName, class: className }));
+        function drag(ev, subjectName, className, id) {
+            ev.dataTransfer.setData("text/plain", JSON.stringify({ name: subjectName, class: className, id: id }));
         }
 
         function drop(ev, targetDay, targetPeriodIndex) {
@@ -1277,6 +1270,7 @@
             
             const subjectName = data.name;
             const className = data.class;
+            const cardId = data.id;
             
             if(!subjectName || !className) return;
 
@@ -1288,11 +1282,24 @@
 
             const existingIndex = state.schedule.findIndex(s => s.day === targetDay && s.subjectPeriod.includes(periodName));
             if(existingIndex >= 0) {
+                // เด้งวิชาเก่าในช่องนี้ กลับไปอยู่ในกล่องการ์ดทางซ้าย
+                const oldItem = state.schedule[existingIndex];
+                let cleanOldSubj = oldItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                if(!cleanOldSubj) cleanOldSubj = oldItem.subjectPeriod;
+                state.subjects.push({ id: Date.now() + Math.random(), name: cleanOldSubj, className: oldItem.className });
+
+                // เขียนทับช่องในตารางด้วยวิชาใหม่
                 state.schedule[existingIndex] = { day: targetDay, subjectPeriod: subjectPeriodString, className: className };
             } else {
                 state.schedule.push({ day: targetDay, subjectPeriod: subjectPeriodString, className: className });
             }
 
+            // ลบการ์ดที่ลากลงตารางไปแล้ว ออกจากกล่องด้านซ้าย
+            if (cardId) {
+                state.subjects = state.subjects.filter(s => String(s.id) !== String(cardId));
+            }
+
+            renderSubjectCards();
             renderVisualTimetable();
         }
 
@@ -1300,14 +1307,31 @@
             if(state.schedule.length === 0) return;
             cuteAlert.confirm('ล้างตารางทั้งหมด?', 'คุณแน่ใจหรือไม่ที่จะล้างตารางสอนทั้งหมด', 'ใช่, ล้างเลย! 🗑️', '#ef4444').then((result) => {
                 if (result.isConfirmed) {
+                    // นำการ์ดทั้งหมดในตาราง กลับคืนไปอยู่กล่องทางซ้าย
+                    state.schedule.forEach(item => {
+                        let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                        if(!cleanSubj) cleanSubj = item.subjectPeriod;
+                        state.subjects.push({ id: Date.now() + Math.random(), name: cleanSubj, className: item.className });
+                    });
+
                     state.schedule = [];
+                    renderSubjectCards();
                     renderVisualTimetable();
                 }
             });
         }
 
         function removeScheduleItem(day, subjectPeriod) {
+            // เมื่อกดกากบาทในตาราง ให้นำการ์ดกลับคืนไปทางซ้าย
+            const item = state.schedule.find(s => s.day === day && s.subjectPeriod === subjectPeriod);
+            if (item) {
+                let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                if(!cleanSubj) cleanSubj = item.subjectPeriod;
+                state.subjects.push({ id: Date.now() + Math.random(), name: cleanSubj, className: item.className });
+            }
+
             state.schedule = state.schedule.filter(s => !(s.day === day && s.subjectPeriod === subjectPeriod));
+            renderSubjectCards();
             renderVisualTimetable();
         }
 
@@ -1341,31 +1365,18 @@
                 }
             });
 
-            const dayColWidth = 100;
-            let totalTableWidth = dayColWidth;
+            // ปรับตารางให้ตอบสนอง (Responsive) ยืดพอดีคอนเทนเนอร์
+            let html = `<div id="timetableExport" class="bg-white p-3 md:p-4 rounded-xl w-full overflow-x-auto hide-scrollbar" style="font-family: 'Sarabun', sans-serif;">`;
             
-            config.periods.forEach(p => {
-                if(p.isBreak && p.customWidth && p.customWidth > 0) {
-                    totalTableWidth += parseInt(p.customWidth);
-                } else if (p.isBreak) {
-                    totalTableWidth += 60;
-                } else {
-                    totalTableWidth += parseInt(config.colWidth);
-                }
-            });
-            
-            let html = `<div id="timetableExport" class="bg-white p-4 rounded-xl" style="font-family: 'Sarabun', sans-serif; width: ${totalTableWidth + 32}px; max-width: none; margin: 0 auto;">`;
-            
-            html += `<table class="text-center border-collapse text-sm mx-auto" style="width: ${totalTableWidth}px; table-layout: fixed;">`;
+            html += `<table class="text-center border-collapse text-sm w-full min-w-[700px]" style="table-layout: fixed;">`;
             html += '<thead class="bg-school-navy text-white border-b-2 border-school-navyLight">';
-            html += `<tr><th class="py-3 px-2 border border-school-navyLight align-middle" style="width: ${dayColWidth}px;">วัน / คาบ</th>`;
+            html += `<tr><th class="py-3 px-2 border border-school-navyLight align-middle w-20 md:w-24">วัน / คาบ</th>`;
             
             config.periods.forEach(p => {
                 if(p.isBreak) {
-                    let w = (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : 60;
-                    html += `<th class="py-3 px-1 border border-school-navyLight bg-[#162f59] shadow-inner align-middle" style="width: ${w}px;"></th>`;
+                    html += `<th class="py-3 px-1 border border-school-navyLight bg-[#162f59] shadow-inner align-middle w-10 md:w-16"></th>`;
                 } else {
-                    html += `<th class="py-3 px-2 border border-school-navyLight align-middle leading-tight" style="width: ${config.colWidth}px;">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
+                    html += `<th class="py-3 px-2 border border-school-navyLight align-middle leading-tight">${p.name}<br><span class="text-[10px] font-normal text-blue-200">${p.time}</span></th>`;
                 }
             });
             html += '</tr></thead><tbody>';
@@ -1388,8 +1399,7 @@
                     
                     if (p.isBreak) {
                         if (dayIndex === 0) {
-                            let breakWidth = (p.customWidth && p.customWidth > 0) ? parseInt(p.customWidth) : 60;
-                            html += `<td rowspan="5" class="py-4 px-1 border border-gray-200 bg-gray-50 text-center align-middle" style="width: ${breakWidth}px; height: ${config.rowHeight * 5}px;">
+                            html += `<td rowspan="5" class="py-4 px-1 border border-gray-200 bg-gray-50 text-center align-middle" style="height: ${config.rowHeight * 5}px;">
                                 <div class="flex items-center justify-center w-full h-full">
                                     <div style="transform: rotate(-90deg); white-space: nowrap;">
                                         <span class="text-school-navy font-bold text-lg">${p.name}</span>
@@ -1415,7 +1425,7 @@
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
 
-                            html += `<td ${dropZoneAttr} class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle relative group" style="width: ${config.colWidth}px; height: ${config.rowHeight}px; overflow: hidden;">
+                            html += `<td ${dropZoneAttr} class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 <button onclick="removeScheduleItem('${day}', '${item.subjectPeriod}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>
                                 <div class="flex flex-col items-center justify-center w-full h-full py-1">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${cleanSubj}</div>
@@ -1423,7 +1433,7 @@
                                 </div>
                             </td>`;
                         } else {
-                            html += `<td ${dropZoneAttr} class="py-2 px-2 border border-gray-100 text-gray-400 bg-gray-50/50 hover:bg-blue-50 transition font-light text-xs border-dashed cursor-pointer" style="width: ${config.colWidth}px; height: ${config.rowHeight}px;">
+                            html += `<td ${dropZoneAttr} class="py-2 px-2 border border-gray-100 text-gray-400 bg-gray-50/50 hover:bg-blue-50 transition font-light text-xs border-dashed cursor-pointer" style="height: ${config.rowHeight}px;">
                                 <div class="flex flex-col items-center justify-center opacity-50 hover:opacity-100 transition">
                                     <i class="fas fa-plus mb-1 text-gray-300"></i>
                                     <span>วางที่นี่</span>
