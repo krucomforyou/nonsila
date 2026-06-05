@@ -1257,7 +1257,30 @@
         }
 
         function drag(ev, subjectName, className, id) {
-            ev.dataTransfer.setData("text/plain", JSON.stringify({ name: subjectName, class: className, id: id }));
+            // เพิ่มการแนบ source ว่ามาจาก sidebar
+            ev.dataTransfer.setData("text/plain", JSON.stringify({ source: 'sidebar', name: subjectName, class: className, id: id }));
+        }
+
+        // เพิ่มฟังก์ชันใหม่ สำหรับลากจากการ์ดที่อยู่ในตารางแล้ว
+        function dragFromTable(ev, sourceDay, sourceSubjectPeriod, subjectName, className) {
+            ev.dataTransfer.setData("text/plain", JSON.stringify({ 
+                source: 'table', 
+                sourceDay: sourceDay, 
+                sourceSubjectPeriod: sourceSubjectPeriod, 
+                name: subjectName, 
+                class: className 
+            }));
+        }
+
+        // เพิ่มฟังก์ชันใหม่ สำหรับลากจากการ์ดที่อยู่ในตารางแล้ว
+        function dragFromTable(ev, sourceDay, sourceSubjectPeriod, subjectName, className) {
+            ev.dataTransfer.setData("text/plain", JSON.stringify({ 
+                source: 'table', 
+                sourceDay: sourceDay, 
+                sourceSubjectPeriod: sourceSubjectPeriod, 
+                name: subjectName, 
+                class: className 
+            }));
         }
 
         function drop(ev, targetDay, targetPeriodIndex) {
@@ -1270,7 +1293,6 @@
             
             const subjectName = data.name;
             const className = data.class;
-            const cardId = data.id;
             
             if(!subjectName || !className) return;
 
@@ -1278,25 +1300,58 @@
             if(targetPeriodIndex < 1 || targetPeriodIndex > nonBreakPeriods.length) return;
 
             const periodName = nonBreakPeriods[targetPeriodIndex-1].name;
-            const subjectPeriodString = `${subjectName} ${periodName}`;
+            const targetSubjectPeriodString = `${subjectName} ${periodName}`;
 
-            const existingIndex = state.schedule.findIndex(s => s.day === targetDay && s.subjectPeriod.includes(periodName));
-            if(existingIndex >= 0) {
-                // เด้งวิชาเก่าในช่องนี้ กลับไปอยู่ในกล่องการ์ดทางซ้าย
-                const oldItem = state.schedule[existingIndex];
-                let cleanOldSubj = oldItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                if(!cleanOldSubj) cleanOldSubj = oldItem.subjectPeriod;
-                state.subjects.push({ id: Date.now() + Math.random(), name: cleanOldSubj, className: oldItem.className });
+            // หาว่าช่องเป้าหมายมีวิชาอยู่แล้วหรือไม่
+            const existingTargetIndex = state.schedule.findIndex(s => s.day === targetDay && s.subjectPeriod.includes(periodName));
 
-                // เขียนทับช่องในตารางด้วยวิชาใหม่
-                state.schedule[existingIndex] = { day: targetDay, subjectPeriod: subjectPeriodString, className: className };
-            } else {
-                state.schedule.push({ day: targetDay, subjectPeriod: subjectPeriodString, className: className });
-            }
+            if (data.source === 'sidebar') {
+                // กรณีลากมาจากกล่องด้านซ้าย
+                if(existingTargetIndex >= 0) {
+                    const oldItem = state.schedule[existingTargetIndex];
+                    let cleanOldSubj = oldItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                    if(!cleanOldSubj) cleanOldSubj = oldItem.subjectPeriod;
+                    state.subjects.push({ id: Date.now() + Math.random(), name: cleanOldSubj, className: oldItem.className });
+                    
+                    state.schedule[existingTargetIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
+                } else {
+                    state.schedule.push({ day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className });
+                }
 
-            // ลบการ์ดที่ลากลงตารางไปแล้ว ออกจากกล่องด้านซ้าย
-            if (cardId) {
-                state.subjects = state.subjects.filter(s => String(s.id) !== String(cardId));
+                if (data.id) {
+                    state.subjects = state.subjects.filter(s => String(s.id) !== String(data.id));
+                }
+            } 
+            else if (data.source === 'table') {
+                // กรณีลากจากในตารางด้วยกันเอง
+                const sourceDay = data.sourceDay;
+                const sourceSubjectPeriod = data.sourceSubjectPeriod;
+                
+                // ถ้าวางช่องเดิมเป๊ะๆ ให้ข้ามไป
+                if (sourceDay === targetDay && sourceSubjectPeriod.includes(periodName)) return;
+
+                const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subjectPeriod === sourceSubjectPeriod);
+                if (sourceIndex < 0) return;
+
+                if (existingTargetIndex >= 0) {
+                    // ถ้าช่องเป้าหมายมีวิชาอยู่แล้ว -> สลับกัน (Swap)
+                    const oldTargetItem = state.schedule[existingTargetIndex];
+                    
+                    // 1. เปลี่ยนวิชาในมือ ไปลงเป้าหมาย
+                    state.schedule[sourceIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
+                    
+                    // 2. เปลี่ยนวิชาที่เคยอยู่เป้าหมาย ไปลงช่องต้นทาง
+                    let cleanOldTargetSubj = oldTargetItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
+                    if(!cleanOldTargetSubj) cleanOldTargetSubj = oldTargetItem.subjectPeriod;
+                    
+                    const sourcePeriodMatch = sourceSubjectPeriod.match(/คาบ.*?\d+/i);
+                    const sourcePeriodName = sourcePeriodMatch ? sourcePeriodMatch[0] : '';
+                    
+                    state.schedule[existingTargetIndex] = { day: sourceDay, subjectPeriod: `${cleanOldTargetSubj} ${sourcePeriodName}`.trim(), className: oldTargetItem.className };
+                } else {
+                    // ถ้าช่องเป้าหมายว่าง -> แค่ย้ายไป (Move)
+                    state.schedule[sourceIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
+                }
             }
 
             renderSubjectCards();
@@ -1425,9 +1480,12 @@
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
 
-                            html += `<td ${dropZoneAttr} class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
+                            // เพิ่มให้ช่องตารางเป็นแบบ Draggable
+                            let dragAttr = `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subjectPeriod}', '${cleanSubj}', '${item.className}')"`;
+
+                            html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle relative group cursor-grab active:cursor-grabbing" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 <button onclick="removeScheduleItem('${day}', '${item.subjectPeriod}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>
-                                <div class="flex flex-col items-center justify-center w-full h-full py-1">
+                                <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${cleanSubj}</div>
                                     ${classPill}
                                 </div>
