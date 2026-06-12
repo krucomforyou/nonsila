@@ -170,6 +170,15 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-school text-orange-500"></i> จัดการห้องเรียน</h3>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="new-class-input" placeholder="เช่น ป.6/1" class="border border-gray-300 rounded-lg px-3 py-2 flex-1 outline-none focus:border-orange-500">
+                            <button onclick="addNewClass()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition">เพิ่มห้อง</button>
+                        </div>
+                        <div id="teacher-classes-list" class="flex flex-wrap gap-2"></div>
+                    </div>
                     
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -207,7 +216,9 @@
             </div>
             <div class="space-y-4">
                 <input type="text" id="auth-group-name" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200" placeholder="ชื่อกลุ่ม">
-                <input type="text" id="auth-group-class" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200" placeholder="ชั้นเรียน (เช่น ป.4/1)">
+                <select id="auth-group-class" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200">
+                    <option value="" disabled selected>เลือกชั้นเรียน</option>
+                </select>
                 <div id="auth-members-container" class="hidden">
                     <textarea id="auth-group-members" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 resize-none" rows="3" placeholder="รายชื่อสมาชิก (กด Enter ขึ้นบรรทัดใหม่)"></textarea>
                 </div>
@@ -824,6 +835,30 @@
             }
         }
 
+        const classSelect = document.getElementById('auth-group-class');
+            if (classSelect) {
+                classSelect.innerHTML = '<option value="" disabled selected>เลือกชั้นเรียน</option>';
+                (appConfig.classes || []).forEach(c => {
+                    classSelect.innerHTML += `<option value="${c}">${c}</option>`;
+                });
+            }
+
+            // อัปเดตรายการห้องเรียนในหน้าครู
+            const classListContainer = document.getElementById('teacher-classes-list');
+            if (classListContainer) {
+                classListContainer.innerHTML = '';
+                if (!appConfig.classes || appConfig.classes.length === 0) {
+                    classListContainer.innerHTML = '<span class="text-gray-400 text-sm">ยังไม่มีข้อมูลห้องเรียน</span>';
+                } else {
+                    appConfig.classes.forEach(c => {
+                        classListContainer.innerHTML += `
+                            <div class="bg-orange-50 border border-orange-200 text-orange-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm">
+                                ${c} <button onclick="removeClass('${c}')" class="text-orange-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark"></i></button>
+                            </div>`;
+                    });
+                }
+            }
+
         window.uploadMap = async () => {
             const fileInput = document.getElementById('file-map');
             if(!fileInput.files[0]) return showModal('คำเตือน', 'กรุณาเลือกไฟล์ภาพแผนที่', 'error');
@@ -1267,29 +1302,42 @@
         }
 
         function renderTeacherSubmissions(subs) {
-            const container = document.getElementById('tab-submissions');
-            if (subs.length === 0) {
-                container.innerHTML = `<div class="text-center py-12 text-gray-400">ยังไม่มีการส่งงาน</div>`;
-                return;
+        const container = document.getElementById('tab-submissions');
+        if (subs.length === 0) {
+            container.innerHTML = `<div class="text-center py-12 text-gray-400">ยังไม่มีการส่งงาน</div>`;
+            return;
+        }
+        
+        // 1. จัดกลุ่มข้อมูล: ห้องเรียน -> กลุ่ม -> ผลงาน
+        const groupedByClass = {};
+        subs.forEach(sub => {
+            if (!groupedByClass[sub.classLevel]) groupedByClass[sub.classLevel] = {};
+            if (!groupedByClass[sub.classLevel][sub.groupId]) {
+                groupedByClass[sub.classLevel][sub.groupId] = { groupName: sub.groupName, submissions: [] };
             }
-            container.innerHTML = '';
+            groupedByClass[sub.classLevel][sub.groupId].submissions.push(sub);
+        });
 
-            const groupedSubs = {};
-            subs.forEach(sub => {
-                if (!groupedSubs[sub.groupId]) {
-                    groupedSubs[sub.groupId] = { groupName: sub.groupName, classLevel: sub.classLevel, submissions: [] };
-                }
-                groupedSubs[sub.groupId].submissions.push(sub);
-            });
+        // 2. สร้าง UI
+        container.innerHTML = '';
+        for (const cls in groupedByClass) {
+            let classHtml = `
+            <div class="mb-8 bg-white/50 p-4 rounded-2xl border-2 border-orange-100">
+                <h2 class="text-xl font-bold text-orange-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open text-orange-500"></i> ชั้นเรียน: ${escapeHtml(cls)}
+                </h2>
+                <div class="space-y-4">
+            `;
 
-            for (const groupId in groupedSubs) {
-                const group = groupedSubs[groupId];
-                let groupHtml = `
-                <div class="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden mb-6">
+            for (const groupId in groupedByClass[cls]) {
+                const group = groupedByClass[cls][groupId];
+                // วางโครงสร้างกล่องกลุ่ม (เหมือนโค้ดเดิมเป๊ะๆ)
+                classHtml += `
+                <div class="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
                     <div class="bg-blue-50 px-5 py-3 border-b border-blue-200 flex justify-between items-center cursor-pointer hover:bg-blue-100 transition" onclick="toggleSubmissions('${groupId}')">
                         <div class="flex items-center gap-3">
                             <i id="chevron-${groupId}" class="fa-solid fa-chevron-down text-blue-500 transition-transform duration-300"></i>
-                            <h3 class="text-lg font-bold text-blue-800"><i class="fa-solid fa-users mr-2"></i> กลุ่ม: ${escapeHtml(group.groupName)} <span class="text-sm font-normal text-gray-500 ml-2">(${escapeHtml(group.classLevel)})</span></h3>
+                            <h3 class="text-lg font-bold text-blue-800"><i class="fa-solid fa-users mr-2"></i> กลุ่ม: ${escapeHtml(group.groupName)}</h3>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full border border-blue-300">ส่ง ${group.submissions.length} ครั้ง</span>
@@ -1299,11 +1347,10 @@
                     <div id="subs-container-${groupId}" class="p-4 space-y-4 bg-gray-50">
                 `;
 
+                // วนลูปวาดกล่องผลงานแต่ละชิ้น (ใช้ logic เดิม)
                 group.submissions.forEach((sub, index) => {
                     const timeString = new Date(sub.timestamp).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-                    
-                    let statusBadge = '';
-                    let actionBtns = '';
+                    let statusBadge = ''; let actionBtns = '';
 
                     if (sub.grading === 'รอตรวจ') {
                         statusBadge = `<span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded border border-yellow-300 ml-2"><i class="fa-solid fa-hourglass-half"></i> รอตรวจ</span>`;
@@ -1311,8 +1358,7 @@
                             <div class="mt-2 flex gap-2">
                                 <button onclick="manualGrade('${sub.id}', '${sub.groupId}', ${sub.taskNumber}, true)" class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow-sm transition"><i class="fa-solid fa-check"></i> ให้ผ่าน</button>
                                 <button onclick="manualGrade('${sub.id}', '${sub.groupId}', ${sub.taskNumber}, false)" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-sm transition"><i class="fa-solid fa-xmark"></i> ให้แก้ใหม่</button>
-                            </div>
-                        `;
+                            </div>`;
                     } else if (sub.grading && sub.grading.includes('ถูกต้อง') || sub.grading === 'ผ่าน (ไม่ตั้งเฉลย)') {
                         statusBadge = `<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded border border-green-300 ml-2"><i class="fa-solid fa-check"></i> ถูกต้อง</span>`;
                     } else if (sub.grading && sub.grading.includes('ผิดพลาด')) {
@@ -1336,25 +1382,25 @@
                     const isLatest = index === 0 ? 'border-2 border-green-400 shadow-md' : 'border border-gray-200 shadow-sm opacity-80';
                     const latestBadge = index === 0 ? `<span class="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full absolute -top-2 -right-2 shadow">ล่าสุด</span>` : '';
 
-                    groupHtml += `
+                    classHtml += `
                         <div class="bg-white rounded-xl p-4 relative transition-all hover:opacity-100 ${isLatest}">
                             ${latestBadge}
                             <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                                <div>
-                                    <span class="font-bold text-gray-800">โจทย์ข้อ ${sub.taskNumber}</span>
-                                    ${statusBadge}
-                                </div>
+                                <div><span class="font-bold text-gray-800">โจทย์ข้อ ${sub.taskNumber}</span>${statusBadge}</div>
                                 <div class="text-xs font-bold text-gray-400"><i class="fa-regular fa-clock"></i> ${timeString}</div>
                             </div>
                             ${blocksHtml}
                             ${actionBtns}
                         </div>`;
                 });
-
-                groupHtml += `</div></div>`; 
-                container.innerHTML += groupHtml;
+                
+                classHtml += `</div></div>`; // ปิด subs-container และ group container
             }
+            
+            classHtml += `</div></div>`; // ปิด class container
+            container.innerHTML += classHtml;
         }
+    }
 
 
         // ฟังก์ชันพับ/กาง แถบส่งงาน
@@ -1499,6 +1545,35 @@
                 switchView('student');
             } else { switchView('home'); }
         });
+
+        window.addNewClass = async () => {
+            const input = document.getElementById('new-class-input');
+            const newClass = input.value.trim();
+            if(!newClass) return;
+            if(!appConfig.classes) appConfig.classes = [];
+            if(appConfig.classes.includes(newClass)) return showModal('คำเตือน', 'มีห้องเรียนนี้อยู่แล้ว', 'error');
+            
+            showLoading(true, "กำลังบันทึกห้องเรียน...");
+            try {
+                appConfig.classes.push(newClass);
+                await fetchGAS('updateClasses', { classes: appConfig.classes });
+                updateConfigUI();
+                input.value = '';
+            } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+            finally { showLoading(false); }
+        };
+
+        window.removeClass = (className) => {
+            openConfirmModal('ยืนยันการลบ', `ต้องการลบห้องเรียน ${className} ใช่หรือไม่?`, async () => {
+                showLoading(true, "กำลังลบห้องเรียน...");
+                try {
+                    appConfig.classes = appConfig.classes.filter(c => c !== className);
+                    await fetchGAS('updateClasses', { classes: appConfig.classes });
+                    updateConfigUI();
+                } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+                finally { showLoading(false); }
+            });
+        };
     </script>
 </body>
 </html>
