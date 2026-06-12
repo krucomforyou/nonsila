@@ -356,22 +356,41 @@
         let tempAnswerKey = [];
         let editingTaskNum = null;
 
-        async function fetchGAS(action, payloadData = {}) {
-            try {
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: action, ...payloadData })
-                });
-                const textResponse = await response.text();
-                let result;
-                try { result = JSON.parse(textResponse); } 
-                catch (e) { throw new Error("ระบบหลังบ้านตั้งค่าไม่ถูกต้อง กรุณา Deploy ใหม่"); }
-                if (!result.success) throw new Error(result.error);
-                return result.data;
-            } catch (error) {
-                if (error.message.includes("Failed to fetch") || error.name === "TypeError") throw new Error("ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้");
-                throw error;
+        async function fetchGAS(action, payloadData = {}, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: action, ...payloadData })
+                    });
+                    const textResponse = await response.text();
+                    let result;
+                    try { 
+                        result = JSON.parse(textResponse); 
+                    } catch (e) { 
+                        throw new Error("ระบบหลังบ้านตอบกลับผิดปกติ"); 
+                    }
+                    if (!result.success) throw new Error(result.error);
+                    return result.data; // ถ้าส่งสำเร็จ ให้คืนค่ากลับไปเลย
+                    
+                } catch (error) {
+                    // เช็คว่าเป็นปัญหาเน็ตหลุด/คอขวด หรือเป็นปัญหาที่ระบบแจ้งเตือนมาเอง (เช่น รหัสผ่านผิด)
+                    const isNetworkError = error.message.includes("Failed to fetch") || error.name === "TypeError" || error.message.includes("ระบบหลังบ้านตอบกลับผิดปกติ");
+                    
+                    // ถ้าไม่ใช่ปัญหาเน็ตหลุด (เช่น รหัสผ่านครูผิด, ใส่ข้อมูลไม่ครบ) ให้เด้งแจ้งเตือนทันที ไม่ต้องส่งซ้ำ
+                    if (!isNetworkError) {
+                        throw error;
+                    }
+
+                    // ถ้าเป็นปัญหาเน็ตหลุด และพยายามส่งซ้ำจนครบ 3 ครั้งแล้ว ให้ยอมแพ้และเด้งแจ้งเตือน
+                    if (i === retries - 1) {
+                        throw new Error("เซิร์ฟเวอร์คนใช้งานเยอะหรืออินเทอร์เน็ตไม่เสถียร กรุณากดลองใหม่อีกครั้งครับ");
+                    }
+
+                    // ถ้าเน็ตหลุด แต่ยังส่งไม่ครบโควต้า ให้รอเวลาสักพัก (1 วิ, 2 วิ ตามลำดับ) แล้ววนลูปส่งใหม่
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                }
             }
         }
 
@@ -1064,6 +1083,27 @@
             } catch (error) { showModal("เกิดข้อผิดพลาด", error.message, 'error'); }
         };
 
+        // 🌟 เพิ่มฟังก์ชันสั่งโจทย์พร้อมกันทุกกลุ่ม
+        window.assignTaskToAll = async () => {
+            const selectEl = document.getElementById('select-assign-all');
+            if(!selectEl) return;
+            const taskNum = parseInt(selectEl.value);
+            
+            openConfirmModal('ยืนยันมอบโจทย์ให้ทุกกลุ่ม', `ต้องการสั่งโจทย์ "ข้อที่ ${taskNum}" ให้กับนักเรียนทุกกลุ่มพร้อมกันใช่หรือไม่?\n\n(หากมีกลุ่มใดที่กำลังทำข้ออื่นอยู่ จะถูกเปลี่ยนเป็นโจทย์ข้อนี้ทันที)`, async () => {
+                showLoading(true, "กำลังส่งโจทย์ให้ทุกกลุ่ม...");
+                try {
+                    await fetchGAS('assignTaskToAll', { taskNumber: taskNum });
+                    const data = await fetchGAS('getTeacherData');
+                    renderTeacherGroups(data.groups);
+                    showModal('สำเร็จ', `ส่งโจทย์ข้อ ${taskNum} ให้ทุกกลุ่มเรียบร้อยแล้ว`, 'success');
+                } catch (error) { 
+                    showModal("เกิดข้อผิดพลาด", error.message, 'error'); 
+                } finally {
+                    showLoading(false);
+                }
+            });
+        };
+
         window.cancelTaskForGroup = async (groupId) => {
             openConfirmModal('ยืนยันการยกเลิก', 'ต้องการยกเลิกโจทย์ที่กำลังทำอยู่ของกลุ่มนี้ ใช่หรือไม่?', async () => {
                 try {
@@ -1091,7 +1131,29 @@
         function renderTeacherGroups(groups) {
             const container = document.getElementById('tab-groups');
             if (groups.length === 0) return container.innerHTML = `<div class="text-center py-12 text-gray-400">ยังไม่มีกลุ่มลงทะเบียน</div>`;
-            container.innerHTML = '';
+            
+            // 🌟 เพิ่ม UI กล่องคำสั่ง "มอบโจทย์ให้ทุกกลุ่มพร้อมกัน"
+            let assignAllHtml = '';
+            if(appConfig.tasks.length > 0) {
+                let options = appConfig.tasks.map(t => `<option value="${t.taskNumber}">ข้อที่ ${t.taskNumber}</option>`).join('');
+                assignAllHtml = `
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+                        <div class="font-bold text-blue-800 flex items-center gap-2">
+                            <i class="fa-solid fa-bullhorn text-xl"></i> <span>มอบโจทย์พร้อมกันทุกกลุ่ม</span>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <select id="select-assign-all" class="px-4 py-2 border border-blue-300 rounded-xl outline-none text-sm w-full sm:w-auto font-bold text-gray-700 bg-white cursor-pointer">
+                                ${options}
+                            </select>
+                            <button onclick="assignTaskToAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow transition whitespace-nowrap flex items-center gap-2">
+                                <i class="fa-solid fa-paper-plane"></i> สั่งโจทย์ทันที
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = assignAllHtml; // วางกล่องควบคุมไว้ด้านบนสุด
+
             groups.forEach(g => {
                 const completed = g.completedTasks || [];
                 const isWorking = g.currentTask !== null;
@@ -1110,7 +1172,7 @@
                     });
                 }
                 container.innerHTML += `
-                    <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWorking ? 'border-blue-500' : 'border-yellow-400'} p-5 flex flex-col md:flex-row justify-between gap-4">
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWorking ? 'border-blue-500' : 'border-yellow-400'} p-5 flex flex-col md:flex-row justify-between gap-4 mb-4">
                         <div class="w-full md:w-1/3">
                             <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-users text-blue-500"></i> ${escapeHtml(g.groupName)}</h3>
                             <p class="text-sm font-medium text-gray-500 mb-2">ชั้น: ${escapeHtml(g.classLevel)}</p>
