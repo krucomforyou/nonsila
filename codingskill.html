@@ -1033,14 +1033,46 @@
 
             const btn = document.querySelector('button[onclick="submitWork()"]');
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเข้าคิว...'; 
+            btn.disabled = true;
 
             try {
+                // 🌟 ระบบเข้าคิวจำลอง (ช่วยกระจาย Load ไม่ให้ยิง Server พร้อมกัน)
+                // สุ่มคิวให้เด็กแต่ละคนไม่เท่ากัน (เช่น ได้คิวที่ 2 ถึง 6)
+                let queueNumber = Math.floor(Math.random() * 5) + 2; 
+                showLoading(true, `กำลังเข้าคิวส่งงาน... (รออีก ${queueNumber} คิว)`);
+
+                // วนลูปนับถอยหลังคิวทีละ 1 วินาที
+                while (queueNumber > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    queueNumber--;
+                    if (queueNumber > 0) {
+                        document.getElementById('loading-title').innerText = `กำลังเข้าคิวส่งงาน... (รออีก ${queueNumber} คิว)`;
+                    } else {
+                        document.getElementById('loading-title').innerText = `ถึงคิวของคุณแล้ว! กำลังส่งข้อมูล...`;
+                    }
+                }
+
+                // สุ่มดีเลย์เพิ่มเล็กน้อย (0-1 วินาที) เพื่อกันไม่ให้คิวที่หลุดพร้อมกันชนกันเป๊ะๆ
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 1000));
+
+                // เคลียร์ช่องว่างท้ายๆ ออกก่อนส่ง
                 let cleanBlocks = [...workspaceBlocks];
                 while(cleanBlocks.length > 0 && cleanBlocks[cleanBlocks.length - 1] === null) cleanBlocks.pop();
 
-                const result = await fetchGAS('submitWork', { groupId: myGroupId, groupName: myGroupData.groupName, classLevel: myGroupData.classLevel, members: myGroupData.members, taskNumber: currentTask, blocks: cleanBlocks });
+                // 🚀 ยิงข้อมูลจริงไปที่ Server
+                const result = await fetchGAS('submitWork', { 
+                    groupId: myGroupId, 
+                    groupName: myGroupData.groupName, 
+                    classLevel: myGroupData.classLevel, 
+                    members: myGroupData.members, 
+                    taskNumber: currentTask, 
+                    blocks: cleanBlocks 
+                });
                 
+                showLoading(false); // ปิดหน้าต่างโหลด (คิว) เมื่อส่งเสร็จ
+
+                // ตรวจสอบสถานะการตรวจ
                 if (result.hasKey) {
                     if (!result.isCorrect) {
                         showModal('คำตอบยังไม่ถูกต้อง ❌', 'เส้นทางที่ส่งไปยังไม่ตรงกับเฉลยครับ\nลองตรวจสอบและแก้ไขโค้ดใหม่อีกครั้งนะ สู้ๆ!', 'error');
@@ -1050,14 +1082,15 @@
                     }
                 } else {
                     showModal('ส่งงานเรียบร้อย! ⏳', 'ระบบบันทึกผลงานแล้ว\nกรุณารอคุณครูตรวจสอบความถูกต้องครับ', 'info');
-                    
-                    // 🌟 เพิ่มบรรทัดนี้: เพื่อจำว่าเพิ่งส่งข้อไหนไปให้ครูตรวจ
                     sessionStorage.setItem('lastSubmittedTask', currentTask); 
-                    
                     currentTask = null; clearWorkspace(); updateWaitingOverlay();
                 }
-            } catch (error) { showModal('ผิดพลาด', error.message, 'error'); } 
-            finally { btn.innerHTML = originalHTML; btn.disabled = false; }
+            } catch (error) { 
+                showLoading(false);
+                showModal('ผิดพลาด', error.message, 'error'); 
+            } finally { 
+                btn.innerHTML = originalHTML; btn.disabled = false; 
+            }
         };
 
         function loadTeacherData() {
