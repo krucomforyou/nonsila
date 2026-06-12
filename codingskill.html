@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coding Skills Activity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f0fdf4; }
+        .code-block { cursor: grab; transition: transform 0.1s; }
+        .code-block:active { cursor: grabbing; transform: scale(0.95); }
+        .drop-slot { transition: all 0.2s; }
+        .drop-slot.drag-over { background-color: #dbeafe; border-color: #3b82f6; transform: scale(1.05); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-white shadow-sm border-b border-green-200 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            
+            <div class="flex items-center gap-2 md:gap-4 overflow-hidden">
+                <div class="flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-gamepad text-green-600 text-xl md:text-2xl"></i>
+                    <h1 class="text-lg md:text-xl font-bold text-green-800 hidden md:block">เกมลากโค้ด</h1>
+                </div>
+                
+                <div id="header-task-info" class="hidden items-center gap-2 md:gap-3 border-l border-gray-200 pl-2 md:pl-4">
+                    <div class="flex items-center gap-1 md:gap-2">
+                        <span class="font-bold text-gray-600 text-xs md:text-sm hidden sm:inline">ภารกิจ:</span>
+                        <span id="current-task-display" class="px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold bg-gray-100 text-gray-500 border border-gray-300 whitespace-nowrap">ยังไม่มีโจทย์</span>
+                    </div>
+                    <div id="task-completed-badge" class="hidden text-xs font-bold text-green-600 items-center gap-1 whitespace-nowrap">
+                        <i class="fa-solid fa-medal"></i> <span class="hidden sm:inline">ทำเสร็จ:</span> <span id="completed-tasks-list">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="nav-buttons" class="flex gap-2 shrink-0">
+                <button id="btn-show-group-info" onclick="openGroupInfoModal()" class="hidden px-3 py-2 rounded-lg text-sm font-bold text-green-700 bg-green-100 hover:bg-green-200 transition items-center max-w-[120px] md:max-w-[200px] truncate">
+                    <i class="fa-solid fa-users mr-1"></i> <span id="btn-group-name-text" class="truncate">ข้อมูลกลุ่ม</span>
+                </button>
+                <button id="btn-home-logout" onclick="confirmGoHome()" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition flex items-center">
+                    <i id="icon-home-logout" class="fa-solid fa-house mr-1"></i> <span id="text-home-logout" class="hidden sm:inline">หน้าแรก</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden">
+        
+        <div id="view-home" class="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-20 transition-opacity duration-300">
+            <div class="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border-4 border-green-100">
+                <i class="fa-solid fa-map-location-dot text-6xl text-green-500 mb-6"></i>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">ยินดีต้อนรับ</h2>
+                <p class="text-gray-500 mb-8">เลือกบทบาทของคุณเพื่อเข้าสู่ระบบ</p>
+                <div class="space-y-4">
+                    <button onclick="switchView('student')" class="w-full py-4 px-6 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-users"></i> เข้าเรียน (นักเรียน)
+                    </button>
+                    <button onclick="switchView('teacher')" class="w-full py-4 px-6 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-chalkboard-user"></i> ห้องพักครู
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-student" class="absolute inset-0 hidden flex flex-col md:flex-row bg-gray-50 h-full overflow-hidden">
+            <div class="w-full flex flex-col h-full relative">
+
+                <div class="flex-1 overflow-y-auto p-4 md:p-6 bg-[#f8fafc]">
+                    <div class="max-w-7xl mx-auto flex flex-col xl:flex-row gap-6 items-start h-full">
+                        <div class="w-full xl:w-5/12 bg-white rounded-2xl shadow-sm p-4 border-2 border-dashed border-gray-300 sticky top-0 z-20">
+                            <h3 class="font-bold text-blue-800 mb-3 text-center text-lg"><i class="fa-solid fa-map-location-dot"></i> แผนที่อ้างอิง</h3>
+                            <img id="student-map-img" src="https://placehold.co/800x400/e2e8f0/64748b?text=กำลังโหลดแผนที่..." alt="Map" class="w-full h-auto object-contain rounded-lg max-h-[60vh] mx-auto cursor-pointer border border-gray-200" onclick="openImageModal(this.src)">
+                            <div class="text-center text-xs text-gray-400 mt-2">คลิกที่รูปเพื่อขยายใหญ่</div>
+                        </div>
+
+                        <div class="w-full xl:w-7/12 relative rounded-2xl flex flex-col h-full">
+                            <div id="waiting-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center transition-opacity duration-300 rounded-2xl border border-gray-200 shadow-inner">
+                                <div class="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm border-2 border-blue-200">
+                                    <div id="waiting-icon" class="text-6xl text-blue-400 mb-4 animate-bounce"><i class="fa-solid fa-hourglass-half"></i></div>
+                                    <h2 id="waiting-title" class="text-xl font-bold text-gray-800 mb-2">กำลังเตรียมข้อมูล...</h2>
+                                    <p id="waiting-message" class="text-gray-600 text-sm">กรุณารอสักครู่</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-md p-4 mb-4 border-2 border-dashed border-gray-300">
+                                <img id="current-task-img" src="" alt="Task" class="w-full h-auto object-contain rounded-lg max-h-32 mx-auto cursor-pointer" onclick="openImageModal(this.src)" onerror="this.src='https://placehold.co/800x400/e2e8f0/64748b?text=โจทย์'">
+                                <div class="text-center text-xs text-gray-400 mt-2">คลิกที่รูปเพื่อขยาย</div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-sm p-5 border-2 border-dashed border-gray-300 flex-1">
+                                <div class="flex flex-col lg:flex-row gap-6">
+                                    <div class="w-full lg:w-1/3">
+                                        <h3 class="font-bold text-gray-700 mb-3 pb-2 border-b-2 border-gray-100 flex items-center gap-2 text-sm"><i class="fa-solid fa-toolbox text-blue-500"></i> กล่องเครื่องมือ</h3>
+                                        <div id="toolbox" class="grid grid-cols-3 gap-2 overflow-y-auto pr-2 max-h-[350px]"></div>
+                                        <button onclick="clearWorkspace()" class="mt-4 w-full py-2 bg-red-100 text-red-600 rounded-xl text-sm font-bold hover:bg-red-200 transition flex items-center justify-center gap-2 border border-red-200"><i class="fa-solid fa-trash-can"></i> ล้างกระดาน</button>
+                                    </div>
+                                    <div class="w-full lg:w-2/3 flex flex-col">
+                                        <div class="flex justify-between items-end mb-3 pb-2 border-b-2 border-gray-100">
+                                            <h3 class="font-bold text-gray-700 flex items-center gap-2 text-sm"><i class="fa-solid fa-chess-board text-purple-500"></i> พื้นที่วางโค้ด</h3>
+                                        </div>
+                                        <div id="workspace-grid" class="grid grid-cols-6 gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200 min-h-[250px] flex-1"></div>
+                                        <div class="mt-4 flex justify-end">
+                                            <button onclick="submitWork()" class="py-2.5 px-6 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"><i class="fa-solid fa-paper-plane"></i> ส่งคำตอบ</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-teacher" class="absolute inset-0 hidden bg-gray-50 overflow-y-auto">
+            <div class="max-w-6xl mx-auto p-6">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-blue-100 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-blue-800 flex items-center gap-3"><i class="fa-solid fa-chalkboard-user text-blue-500"></i> ระบบควบคุม (สำหรับครู)</h2>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="switchTeacherTab('groups')" id="tab-btn-groups" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow transition">จัดการนักเรียน</button>
+                        <button onclick="switchTeacherTab('submissions')" id="tab-btn-subs" class="px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50 transition">ผลงานที่ส่ง</button>
+                        <button onclick="switchTeacherTab('config')" id="tab-btn-config" class="px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50 transition">จัดการโจทย์และแผนที่</button>
+                    </div>
+                </div>
+
+                <div id="tab-groups" class="grid gap-6">
+                    <div class="text-center py-12 text-gray-400"><i class="fa-solid fa-spinner fa-spin text-4xl mb-4 text-blue-300"></i><p>กำลังโหลด...</p></div>
+                </div>
+
+                <div id="tab-submissions" class="grid gap-6 hidden"></div>
+
+                <div id="tab-config" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-map-location-dot text-green-500"></i> ตั้งค่าแผนที่อ้างอิง</h3>
+                        <div class="flex flex-col md:flex-row gap-6 items-start">
+                            <div class="w-full md:w-1/3">
+                                <p class="text-sm text-gray-600 mb-2">อัปโหลดไฟล์ภาพแผนที่ใหม่ (ระบบจะบันทึกทับของเดิม)</p>
+                                <input type="file" id="file-map" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 mb-3 border border-gray-200 rounded-lg p-1">
+                                <button onclick="uploadMap()" id="btn-upload-map" class="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex items-center justify-center gap-2"><i class="fa-solid fa-cloud-arrow-up"></i> บันทึกแผนที่</button>
+                            </div>
+                            <div class="w-full md:w-2/3 border-l pl-0 md:pl-6">
+                                <p class="text-sm text-gray-600 mb-2 font-bold">แผนที่ปัจจุบันที่นักเรียนเห็น:</p>
+                                <img id="teacher-preview-map" src="" alt="ยังไม่มีแผนที่" class="max-h-48 rounded border border-gray-200 bg-gray-50 object-contain p-2" onerror="this.src='https://placehold.co/400x200?text=ยังไม่ได้ตั้งค่าแผนที่'">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-images text-blue-500"></i> คลังโจทย์ภารกิจ</h3>
+                            <div>
+                                <input type="file" id="file-task" accept="image/*" class="hidden" onchange="uploadTask(event)">
+                                <button onclick="document.getElementById('file-task').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2"><i class="fa-solid fa-plus"></i> เพิ่มโจทย์ใหม่</button>
+                            </div>
+                        </div>
+                        <div id="teacher-tasks-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="text-center py-8 text-gray-400 col-span-full"><i class="fa-solid fa-spinner fa-spin mb-2"></i> กำลังโหลดโจทย์...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="fixed inset-0 bg-black/90 z-[60] hidden flex flex-col items-center justify-center p-4" onclick="closeImageModal()">
+        <button class="absolute top-4 right-4 text-white hover:text-gray-300 text-3xl"><i class="fa-solid fa-xmark"></i></button>
+        <img id="full-image" src="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl border-4 border-gray-800" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- Student Auth Modal -->
+    <div id="student-auth-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4 transition-opacity duration-300 hidden opacity-0 pointer-events-none">
+        <div id="student-auth-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="text-5xl text-center mb-4 text-green-500"><i class="fa-solid fa-users-viewfinder"></i></div>
+            <div class="flex border-b mb-6">
+                <button id="tab-login" onclick="setAuthMode('login')" class="w-1/2 py-2 text-center font-bold text-green-600 border-b-2 border-green-600 transition-colors">ล็อกอิน (กลุ่มเดิม)</button>
+                <button id="tab-register" onclick="setAuthMode('register')" class="w-1/2 py-2 text-center font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition-colors">สร้างกลุ่มใหม่</button>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="auth-group-name" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200" placeholder="ชื่อกลุ่ม">
+                <input type="text" id="auth-group-class" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200" placeholder="ชั้นเรียน (เช่น ป.4/1)">
+                <div id="auth-members-container" class="hidden">
+                    <textarea id="auth-group-members" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 resize-none" rows="3" placeholder="รายชื่อสมาชิก (กด Enter ขึ้นบรรทัดใหม่)"></textarea>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="switchView('home')" class="w-1/3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">กลับ</button>
+                    <button id="btn-submit-auth" onclick="submitStudentAuth()" class="w-2/3 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg">เข้าสู่ระบบ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Group Info Modal -->
+    <div id="group-info-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4 transition-opacity duration-300 hidden opacity-0 pointer-events-none">
+        <div id="group-info-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="text-5xl text-center mb-4 text-green-500"><i class="fa-solid fa-id-card"></i></div>
+            <h3 class="text-xl font-bold text-center text-gray-800 mb-4">ข้อมูลกลุ่ม</h3>
+            <div class="space-y-3 mb-6 text-left">
+                <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <div class="text-xs text-green-600 mb-1 font-bold">ชื่อกลุ่ม:</div>
+                    <div id="display-group-name" class="font-bold text-gray-800 text-lg">-</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <div class="text-xs text-green-600 mb-1 font-bold">ชั้นเรียน:</div>
+                    <div id="display-group-class" class="font-bold text-gray-800 text-lg">-</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <div class="text-xs text-green-600 mb-1 font-bold">สมาชิก:</div>
+                    <div id="display-group-members" class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">-</div>
+                </div>
+            </div>
+            <button onclick="closeGroupInfoModal()" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ปิดหน้าต่าง</button>
+        </div>
+    </div>
+
+    <!-- Answer Key Modal -->
+    <div id="answer-key-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[80] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div id="answer-key-content" class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 id="answer-key-title" class="text-xl font-bold text-gray-800"><i class="fa-solid fa-key text-yellow-500"></i> กำหนดเฉลยข้อ ...</h3>
+                <button onclick="closeAnswerKeyModal()" class="text-gray-400 hover:text-gray-600 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex flex-col md:flex-row gap-6">
+                <div class="w-full md:w-1/3 border-r pr-0 md:pr-4">
+                    <h4 class="text-sm font-bold text-gray-600 mb-2">คลิกเพื่อเพิ่มบล็อกเฉลย</h4>
+                    <div id="ak-toolbox" class="grid grid-cols-3 gap-2 overflow-y-auto pr-2 max-h-[300px]"></div>
+                </div>
+                <div class="w-full md:w-2/3">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-sm font-bold text-gray-600">ลำดับคำตอบที่ถูกต้อง</h4>
+                        <button onclick="tempAnswerKey=[]; renderAkWorkspace()" class="text-red-500 hover:text-red-700 text-xs font-bold transition"><i class="fa-solid fa-trash"></i> ล้างทั้งหมด</button>
+                    </div>
+                    <div id="ak-workspace" class="flex flex-wrap gap-2 bg-gray-50 p-4 rounded-xl border-2 border-dashed border-gray-300 min-h-[150px] content-start"></div>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-2 justify-end pt-4 border-t">
+                <button onclick="closeAnswerKeyModal()" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ยกเลิก</button>
+                <button id="btn-save-ak" onclick="saveAnswerKey()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg"><i class="fa-solid fa-save"></i> บันทึกเฉลย</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div id="password-modal-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="text-5xl text-center mb-4 text-blue-500"><i class="fa-solid fa-lock"></i></div>
+            <h3 class="text-xl font-bold text-center text-gray-800 mb-2">ยืนยันตัวตน</h3>
+            <p class="text-center text-gray-600 mb-4">กรุณาใส่รหัสผ่านเพื่อเข้าห้องพักครู</p>
+            <input type="password" id="teacher-password" class="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 text-center text-lg tracking-widest outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="รหัสผ่าน" onkeypress="if(event.key === 'Enter') verifyTeacherPassword()">
+            <div class="flex gap-2">
+                <button onclick="closePasswordModal()" class="w-1/3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ยกเลิก</button>
+                <button id="btn-verify-pwd" onclick="verifyTeacherPassword()" class="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg">เข้าสู่ระบบ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Submissions Password Modal -->
+    <div id="clear-sub-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[80] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div id="clear-sub-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="text-5xl text-center mb-4 text-red-500"><i class="fa-solid fa-trash-can"></i></div>
+            <h3 class="text-xl font-bold text-center text-gray-800 mb-2">เคลียร์ผลงาน</h3>
+            <p class="text-center text-gray-600 mb-4 text-sm">ใส่รหัสผ่านครูเพื่อยืนยันการลบผลงาน <br><span class="text-red-500 font-bold">ทั้งหมด</span> ของกลุ่มนี้</p>
+            <input type="password" id="clear-sub-password" class="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 text-center text-lg tracking-widest outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200" placeholder="รหัสผ่าน" onkeypress="if(event.key === 'Enter') executeClearSubmissions()">
+            <div class="flex gap-2">
+                <button onclick="closeClearSubModal()" class="w-1/3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ยกเลิก</button>
+                <button id="btn-confirm-clear" onclick="executeClearSubmissions()" class="w-2/3 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition shadow-lg">ยืนยันลบข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[80] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div id="confirm-modal-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div class="text-5xl text-center mb-4 text-red-500"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 id="confirm-modal-title" class="text-xl font-bold text-center text-gray-800 mb-2">ยืนยัน</h3>
+            <p id="confirm-modal-message" class="text-center text-gray-600 mb-6 whitespace-pre-line"></p>
+            <div class="flex gap-2">
+                <button onclick="closeConfirmModal()" class="w-1/2 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ยกเลิก</button>
+                <button id="btn-confirm-action" class="w-1/2 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition shadow-lg">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="custom-modal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div id="modal-content" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform scale-90 transition-transform duration-300">
+            <div id="modal-icon" class="text-5xl text-center mb-4"></div>
+            <h3 id="modal-title" class="text-xl font-bold text-center text-gray-800 mb-2 whitespace-pre-line"></h3>
+            <p id="modal-message" class="text-center text-gray-600 mb-6 whitespace-pre-line leading-relaxed text-sm"></p>
+            <button onclick="closeModal()" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loading-modal" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-[110] hidden flex flex-col items-center justify-center p-4">
+        <div class="text-6xl text-blue-500 mb-4 animate-spin"><i class="fa-solid fa-circle-notch"></i></div>
+        <h3 id="loading-title" class="text-xl font-bold text-gray-800">กำลังประมวลผล...</h3>
+        <p class="text-gray-500">กรุณารอสักครู่ ห้ามปิดหน้าต่างนี้</p>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzlUn6D--lMOdTbzRoBc1ZiFBCqkpXoTrzSefKLGrtxM_mwbKSElvcYcnbTHTtcK2ro/exec"; 
+
+        const BLOCK_DEF = {
+            'start': { icon: 'fa-play', label: 'เริ่ม', color: 'bg-green-600', border: 'border-green-700' },
+            'finish': { icon: 'fa-flag-checkered', label: 'จบ', color: 'bg-red-600', border: 'border-red-700' },
+            'up': { icon: 'fa-arrow-up', label: 'ขึ้น', color: 'bg-green-400', border: 'border-green-500' },
+            'down': { icon: 'fa-arrow-down', label: 'ลง', color: 'bg-red-400', border: 'border-red-500' },
+            'left': { icon: 'fa-arrow-left', label: 'ซ้าย', color: 'bg-orange-400', border: 'border-orange-500' },
+            'right': { icon: 'fa-arrow-right', label: 'ขวา', color: 'bg-blue-400', border: 'border-blue-500' },
+            'turn-left': { icon: 'fa-reply', label: 'เลี้ยวซ้าย', color: 'bg-teal-500', border: 'border-teal-600' },
+            'turn-right': { icon: 'fa-share', label: 'เลี้ยวขวา', color: 'bg-teal-500', border: 'border-teal-600' },
+            'road-cross': { icon: 'fa-plus', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-t-up': { icon: 'fa-t fa-rotate-180', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-t-down': { icon: 'fa-t', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-t-left': { icon: 'fa-t fa-rotate-90', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-t-right': { icon: 'fa-t fa-rotate-270', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-c-tr': { icon: 'fa-l', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-c-br': { icon: 'fa-l fa-rotate-90', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-c-bl': { icon: 'fa-l fa-rotate-180', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'road-c-tl': { icon: 'fa-l fa-rotate-270', label: '', color: 'bg-gray-600', border: 'border-gray-700' },
+            'house': { icon: 'fa-house', label: 'บ้าน', color: 'bg-indigo-400', border: 'border-indigo-500' },
+            'market': { icon: 'fa-store', label: 'ตลาด', color: 'bg-orange-400', border: 'border-orange-500' },
+            'school': { icon: 'fa-school', label: 'โรงเรียน', color: 'bg-blue-500', border: 'border-blue-600' },
+            'hospital': { icon: 'fa-hospital', label: 'โรงพยาบาล', color: 'bg-rose-400', border: 'border-rose-500' },
+            'zoo': { icon: 'fa-paw', label: 'สวนสัตว์', color: 'bg-amber-500', border: 'border-amber-600' },
+            'temple': { icon: 'fa-vihara', label: 'วัด', color: 'bg-yellow-500', border: 'border-yellow-600' },
+            'post-office': { icon: 'fa-envelope', label: 'ไปรษณีย์', color: 'bg-red-500', border: 'border-red-600' },
+            'amusement-park': { icon: 'fa-tent', label: 'สวนสนุก', color: 'bg-pink-500', border: 'border-pink-600' }
+        };
+
+        const BLOCK_GROUPS = [
+            { title: '1. เริ่มต้นและสิ้นสุด', keys: ['start', 'finish'] },
+            { title: '2. ทิศทางการเดินและเลี้ยว', keys: ['up', 'down', 'left', 'right', 'turn-left', 'turn-right'] },
+            { title: '3. ทางแยก หรือจุดเลี้ยว', keys: ['road-cross', 'road-t-up', 'road-t-down', 'road-t-left', 'road-t-right', 'road-c-tr', 'road-c-br', 'road-c-bl', 'road-c-tl'] },
+            { title: '4. จุดแวะต่างๆ', keys: ['house', 'market', 'school', 'hospital', 'zoo', 'temple', 'post-office', 'amusement-park'] }
+        ];
+
+        let currentTask = null;
+        let workspaceBlocks = Array(24).fill(null);
+        let myGroupId = null;
+        let myGroupData = null;
+        let studentPollingInterval = null;
+        let teacherPollingInterval = null;
+        let appConfig = { mapUrl: '', tasks: [] };
+        let tempAnswerKey = [];
+        let editingTaskNum = null;
+
+        async function fetchGAS(action, payloadData = {}) {
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: action, ...payloadData })
+                });
+                const textResponse = await response.text();
+                let result;
+                try { result = JSON.parse(textResponse); } 
+                catch (e) { throw new Error("ระบบหลังบ้านตั้งค่าไม่ถูกต้อง กรุณา Deploy ใหม่"); }
+                if (!result.success) throw new Error(result.error);
+                return result.data;
+            } catch (error) {
+                if (error.message.includes("Failed to fetch") || error.name === "TypeError") throw new Error("ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้");
+                throw error;
+            }
+        }
+
+        async function loadAppConfig() {
+            try {
+                appConfig = await fetchGAS('getConfig');
+                updateConfigUI();
+                updateWaitingOverlay();
+            } catch (e) { console.error("Failed to load config:", e); }
+        }
+
+        function showModal(title, message, type = 'info') {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            const icon = document.getElementById('modal-icon');
+            if (type === 'success') icon.innerHTML = '<i class="fa-solid fa-circle-check text-green-500"></i>';
+            else if (type === 'error') icon.innerHTML = '<i class="fa-solid fa-circle-exclamation text-red-500"></i>';
+            else icon.innerHTML = '<i class="fa-solid fa-circle-info text-blue-500"></i>';
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+        }
+
+        window.closeModal = () => {
+            const modal = document.getElementById('custom-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('modal-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.openConfirmModal = (title, message, onConfirm) => {
+            const modal = document.getElementById('confirm-modal');
+            const content = document.getElementById('confirm-modal-content');
+            document.getElementById('confirm-modal-title').innerText = title;
+            document.getElementById('confirm-modal-message').innerText = message;
+            const btn = document.getElementById('btn-confirm-action');
+            btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+        };
+
+        window.closeConfirmModal = () => {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('confirm-modal-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.confirmGoHome = () => {
+            const homeView = document.getElementById('view-home');
+            if (!homeView.classList.contains('hidden')) return;
+            const isStudent = !document.getElementById('view-student').classList.contains('hidden');
+            const isTeacher = !document.getElementById('view-teacher').classList.contains('hidden');
+            let message = 'คุณต้องการกลับไปยังหน้าแรกใช่หรือไม่?';
+            if (isStudent) message = 'คุณต้องการออกจากห้องเรียน และกลับไปยังหน้าแรกใช่หรือไม่?\n(คำเตือน: โค้ดที่กำลังลากค้างไว้จะถูกล้างค่าทั้งหมด)';
+            else if (isTeacher) message = 'คุณต้องการออกจากระบบห้องพักครู และกลับไปยังหน้าแรกใช่หรือไม่?';
+            
+            openConfirmModal('ยืนยันการออกจากระบบ', message, () => { 
+                switchView('home'); 
+                if (isStudent) {
+                    myGroupId = null; myGroupData = null; currentTask = null;
+                    clearWorkspace();
+                    document.getElementById('btn-show-group-info').classList.add('hidden');
+                    document.getElementById('btn-show-group-info').classList.remove('flex');
+                    document.getElementById('header-task-info').classList.add('hidden');
+                    document.getElementById('header-task-info').classList.remove('flex');
+                    sessionStorage.removeItem('studentData'); 
+                } else if (isTeacher) {
+                    sessionStorage.removeItem('teacherAuth'); 
+                }
+            });
+        };
+
+        window.openPasswordModal = () => {
+            const modal = document.getElementById('password-modal');
+            const content = document.getElementById('password-modal-content');
+            document.getElementById('teacher-password').value = '';
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+            setTimeout(() => document.getElementById('teacher-password').focus(), 300);
+        };
+
+        window.closePasswordModal = () => {
+            const modal = document.getElementById('password-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('password-modal-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        function showLoading(show, title="กำลังโหลด...") {
+            const el = document.getElementById('loading-modal');
+            document.getElementById('loading-title').innerText = title;
+            if(show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        window.openImageModal = (src) => {
+            document.getElementById('full-image').src = src;
+            document.getElementById('image-modal').classList.remove('hidden');
+        };
+        window.closeImageModal = () => document.getElementById('image-modal').classList.add('hidden');
+
+        let currentAuthMode = 'login'; 
+
+        window.openStudentAuthModal = () => {
+            const modal = document.getElementById('student-auth-modal');
+            const content = document.getElementById('student-auth-content');
+            setAuthMode('login'); 
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+        };
+
+        window.closeStudentAuthModal = () => {
+            const modal = document.getElementById('student-auth-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('student-auth-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.openGroupInfoModal = () => {
+            const modal = document.getElementById('group-info-modal');
+            const content = document.getElementById('group-info-content');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+        };
+
+        window.closeGroupInfoModal = () => {
+            const modal = document.getElementById('group-info-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('group-info-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.setAuthMode = (mode) => {
+            currentAuthMode = mode;
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+            const membersContainer = document.getElementById('auth-members-container');
+            const btnSubmit = document.getElementById('btn-submit-auth');
+
+            if (mode === 'login') {
+                tabLogin.className = "w-1/2 py-2 text-center font-bold text-green-600 border-b-2 border-green-600 transition-colors";
+                tabRegister.className = "w-1/2 py-2 text-center font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition-colors";
+                membersContainer.classList.add('hidden');
+                btnSubmit.innerText = "เข้าสู่ระบบ";
+            } else {
+                tabRegister.className = "w-1/2 py-2 text-center font-bold text-green-600 border-b-2 border-green-600 transition-colors";
+                tabLogin.className = "w-1/2 py-2 text-center font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition-colors";
+                membersContainer.classList.remove('hidden');
+                btnSubmit.innerText = "สร้างกลุ่มเข้าเรียน";
+            }
+        };
+
+        window.switchView = async (viewName) => {
+            if (viewName === 'teacher' && sessionStorage.getItem('teacherAuth') !== 'true') {
+                openPasswordModal(); return;
+            }
+            if (viewName === 'student' && !myGroupId) {
+                openStudentAuthModal(); return;
+            }
+            if (viewName !== 'student') {
+                document.getElementById('btn-show-group-info').classList.add('hidden');
+                document.getElementById('btn-show-group-info').classList.remove('flex');
+                document.getElementById('header-task-info').classList.add('hidden');
+                document.getElementById('header-task-info').classList.remove('flex');
+            } else if (myGroupId) {
+                document.getElementById('btn-show-group-info').classList.remove('hidden');
+                document.getElementById('btn-show-group-info').classList.add('flex');
+                document.getElementById('header-task-info').classList.remove('hidden');
+                document.getElementById('header-task-info').classList.add('flex');
+            }
+
+            const btnText = document.getElementById('text-home-logout');
+            const btnIcon = document.getElementById('icon-home-logout');
+            if (viewName === 'home') {
+                btnText.innerText = 'หน้าแรก'; btnIcon.className = 'fa-solid fa-house mr-1';
+            } else {
+                btnText.innerText = 'ออกจากระบบ'; btnIcon.className = 'fa-solid fa-right-from-bracket mr-1 text-red-500';
+            }
+
+            ['home', 'student', 'teacher'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+            if (viewName === 'home') closeStudentAuthModal();
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+            if (viewName === 'student') {
+                if (teacherPollingInterval) clearInterval(teacherPollingInterval);
+                await loadAppConfig(); updateWaitingOverlay();
+                if (myGroupId) startStudentPolling();
+            } else {
+                if (studentPollingInterval) clearInterval(studentPollingInterval);
+                if (teacherPollingInterval) clearInterval(teacherPollingInterval);
+            }
+        };
+
+        window.switchTeacherTab = (tab) => {
+            document.getElementById('tab-groups').classList.toggle('hidden', tab !== 'groups');
+            document.getElementById('tab-submissions').classList.toggle('hidden', tab !== 'submissions');
+            document.getElementById('tab-config').classList.toggle('hidden', tab !== 'config');
+            
+            const btns = { 'groups': 'tab-btn-groups', 'submissions': 'tab-btn-subs', 'config': 'tab-btn-config' };
+            Object.keys(btns).forEach(k => {
+                const b = document.getElementById(btns[k]);
+                if(k === tab) b.className = "px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow transition";
+                else b.className = "px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50 transition";
+            });
+        };
+
+        window.verifyTeacherPassword = async () => {
+            const pwd = document.getElementById('teacher-password').value;
+            if(!pwd) return;
+            const btn = document.getElementById('btn-verify-pwd');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+            try {
+                await fetchGAS('verifyPassword', { password: pwd });
+                closePasswordModal();
+                sessionStorage.setItem('teacherAuth', 'true');
+                ['home', 'student'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+                document.getElementById('view-teacher').classList.remove('hidden');
+                if (studentPollingInterval) clearInterval(studentPollingInterval);
+                await loadAppConfig();
+                loadTeacherData();
+            } catch(e) { showModal('รหัสผ่านไม่ถูกต้อง', e.message, 'error'); } 
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
+        };
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        window.openAnswerKeyModal = (taskNum) => {
+            editingTaskNum = taskNum;
+            const task = appConfig.tasks.find(t => t.taskNumber === taskNum);
+            tempAnswerKey = task.answerKey ? [...task.answerKey] : [];
+            document.getElementById('answer-key-title').innerHTML = `<i class="fa-solid fa-key text-yellow-500"></i> กำหนดเฉลยข้อ ${taskNum}`;
+
+            const tb = document.getElementById('ak-toolbox');
+            tb.innerHTML = '';
+            tb.className = 'overflow-y-auto pr-2 max-h-[350px] space-y-4';
+
+            BLOCK_GROUPS.forEach(group => {
+                const title = document.createElement('div');
+                title.className = 'text-xs font-bold text-gray-500 mb-1 border-b pb-1 mt-2';
+                title.innerText = group.title;
+                tb.appendChild(title);
+
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-3 gap-2';
+
+                group.keys.forEach(type => {
+                    const def = BLOCK_DEF[type];
+                    if(def) {
+                        const btn = document.createElement('button');
+                        btn.className = `flex flex-col items-center justify-center w-full py-3 ${def.color} ${def.border} border-b-4 rounded-xl text-white shadow-sm hover:shadow-md transition-transform active:scale-95`;
+                        const labelHtml = def.label ? `<span class="text-[10px] font-bold">${def.label}</span>` : '';
+                        const iconMargin = def.label ? 'mb-1' : '';
+                        const iconSize = def.label ? 'text-xl' : 'text-3xl';
+                        btn.innerHTML = `<i class="fa-solid ${def.icon} ${iconSize} ${iconMargin}"></i>${labelHtml}`;
+                        btn.onclick = () => { tempAnswerKey.push(type); renderAkWorkspace(); };
+                        grid.appendChild(btn);
+                    }
+                });
+                tb.appendChild(grid);
+            });
+
+            renderAkWorkspace();
+            const modal = document.getElementById('answer-key-modal');
+            const content = document.getElementById('answer-key-content');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+        };
+
+        window.closeAnswerKeyModal = () => {
+            const modal = document.getElementById('answer-key-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('answer-key-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.renderAkWorkspace = () => {
+            const ws = document.getElementById('ak-workspace');
+            ws.innerHTML = '';
+            if (tempAnswerKey.length === 0) {
+                ws.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400 text-sm">คลิกเลือกบล็อกจากกล่องเครื่องมือด้านซ้าย<br>(ถ้าไม่กำหนดเฉลย ระบบจะรอให้ครูตรวจเอง)</div>';
+                return;
+            }
+            tempAnswerKey.forEach((type, index) => {
+                const def = BLOCK_DEF[type];
+                const div = document.createElement('div');
+                div.className = `relative flex flex-col items-center justify-center w-12 h-12 ${def.color} ${def.border} border-b-2 rounded-lg text-white group`;
+                const labelHtml = def.label ? `<span class="text-[8px] font-bold">${def.label}</span>` : '';
+                const iconMargin = def.label ? 'mb-0.5' : '';
+                const iconSize = def.label ? 'text-sm' : 'text-xl';
+                div.innerHTML = `
+                    <i class="fa-solid ${def.icon} ${iconSize} ${iconMargin}"></i>${labelHtml}
+                    <button onclick="tempAnswerKey.splice(${index}, 1); renderAkWorkspace()" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"><i class="fa-solid fa-xmark"></i></button>
+                `;
+                ws.appendChild(div);
+            });
+        };
+
+        window.saveAnswerKey = async () => {
+            const btn = document.getElementById('btn-save-ak');
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...';
+            btn.disabled = true;
+            try {
+                await fetchGAS('updateAnswerKey', { taskNumber: editingTaskNum, answerKey: tempAnswerKey });
+                const tIndex = appConfig.tasks.findIndex(t => t.taskNumber === editingTaskNum);
+                if (tIndex > -1) appConfig.tasks[tIndex].answerKey = [...tempAnswerKey];
+                updateConfigUI();
+                closeAnswerKeyModal();
+                showModal('สำเร็จ', 'บันทึกเฉลยเรียบร้อยแล้ว', 'success');
+            } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+            finally { btn.innerHTML = oldHtml; btn.disabled = false; }
+        };
+
+        window.manualGrade = async (subId, groupId, taskNum, isPass) => {
+            const confirmMsg = isPass ? `ยืนยันให้ "ผ่าน" สำหรับโจทย์ข้อ ${taskNum} ใช่หรือไม่?` : `ยืนยันให้ "กลับไปแก้ไขใหม่" สำหรับโจทย์ข้อ ${taskNum} ใช่หรือไม่?`;
+            openConfirmModal('ยืนยันการตรวจ', confirmMsg, async () => {
+                showLoading(true, "กำลังบันทึกผลตรวจ...");
+                try {
+                    await fetchGAS('manualGrade', { subId, groupId, taskNumber: taskNum, isPass });
+                    const data = await fetchGAS('getTeacherData');
+                    renderTeacherGroups(data.groups);
+                    renderTeacherSubmissions(data.submissions);
+                    showModal('สำเร็จ', 'บันทึกผลการตรวจเรียบร้อยแล้ว', 'success');
+                } catch (e) {
+                    showModal('ข้อผิดพลาด', e.message, 'error');
+                } finally {
+                    showLoading(false);
+                }
+            });
+        };
+
+        function renderMiniBlocks(keyArr) {
+            if(!keyArr || keyArr.length === 0) return '<span class="text-gray-400 text-xs">ไม่มีเฉลย (รอครูตรวจเอง)</span>';
+            let html = '<div class="flex flex-wrap gap-1 mt-1">';
+            keyArr.forEach(b => {
+                const d = BLOCK_DEF[b];
+                if(d) html += `<div class="w-6 h-6 ${d.color} rounded flex items-center justify-center text-white text-[10px]" title="${d.label}"><i class="fa-solid ${d.icon}"></i></div>`;
+            });
+            html += '</div>';
+            return html;
+        }
+
+        function updateConfigUI() {
+            if(appConfig.mapUrl) {
+                document.getElementById('teacher-preview-map').src = appConfig.mapUrl;
+                document.getElementById('student-map-img').src = appConfig.mapUrl;
+            }
+            const tContainer = document.getElementById('teacher-tasks-list');
+            if(appConfig.tasks.length === 0) {
+                tContainer.innerHTML = '<div class="col-span-full py-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-300">ยังไม่มีโจทย์ในระบบ กดปุ่ม "เพิ่มโจทย์ใหม่" ด้านบน</div>';
+            } else {
+                tContainer.innerHTML = '';
+                appConfig.tasks.forEach(t => {
+                    tContainer.innerHTML += `
+                        <div class="border rounded-lg overflow-hidden shadow-sm relative group bg-white flex flex-col">
+                            <div class="bg-gray-100 p-2 flex justify-between items-center border-b">
+                                <span class="font-bold text-gray-700">ข้อที่ ${t.taskNumber}</span>
+                                <div class="flex gap-1">
+                                    <button onclick="openAnswerKeyModal(${t.taskNumber})" class="text-yellow-600 hover:text-yellow-800 bg-white rounded p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition" title="ตั้งเฉลยข้อนี้"><i class="fa-solid fa-key"></i></button>
+                                    <input type="file" id="edit-task-${t.taskNumber}" accept="image/*" class="hidden" onchange="editTask(event, ${t.taskNumber})">
+                                    <button onclick="document.getElementById('edit-task-${t.taskNumber}').click()" class="text-blue-500 hover:text-blue-700 bg-white rounded p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition" title="แก้ไขรูปโจทย์"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="deleteTask(${t.taskNumber})" class="text-red-500 hover:text-red-700 bg-white rounded p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition" title="ลบโจทย์"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <div class="p-2 flex justify-center bg-gray-50 cursor-pointer" onclick="openImageModal('${t.imageUrl}')">
+                                <img src="${t.imageUrl}" class="h-24 object-contain" onerror="this.src='https://placehold.co/200x100?text=Error'">
+                            </div>
+                            <div class="p-2 border-t bg-white flex-1">
+                                <div class="text-xs font-bold text-gray-500 mb-1">เฉลย:</div>
+                                ${renderMiniBlocks(t.answerKey)}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        window.uploadMap = async () => {
+            const fileInput = document.getElementById('file-map');
+            if(!fileInput.files[0]) return showModal('คำเตือน', 'กรุณาเลือกไฟล์ภาพแผนที่', 'error');
+            showLoading(true, "กำลังอัปโหลดแผนที่...");
+            try {
+                const file = fileInput.files[0];
+                const base64Data = await fileToBase64(file);
+                const result = await fetchGAS('uploadMap', { base64: base64Data.split(',')[1], mimeType: file.type, filename: file.name });
+                appConfig.mapUrl = result.mapUrl; updateConfigUI();
+                showModal('สำเร็จ', 'อัปโหลดแผนที่เรียบร้อยแล้ว', 'success'); fileInput.value = '';
+            } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+            finally { showLoading(false); }
+        };
+
+        window.uploadTask = async (event) => {
+            const file = event.target.files[0]; if(!file) return;
+            showLoading(true, "กำลังอัปโหลดโจทย์ใหม่...");
+            try {
+                const base64Data = await fileToBase64(file);
+                const result = await fetchGAS('uploadTask', { base64: base64Data.split(',')[1], mimeType: file.type, filename: file.name });
+                appConfig.tasks.push({ taskNumber: result.taskNumber, imageUrl: result.imageUrl, answerKey: [] });
+                updateConfigUI(); showModal('สำเร็จ', `สร้างโจทย์ข้อ ${result.taskNumber} เรียบร้อยแล้ว`, 'success');
+            } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+            finally { showLoading(false); event.target.value = ''; }
+        };
+
+        window.editTask = async (event, taskNumber) => {
+            const file = event.target.files[0]; if(!file) return;
+            showLoading(true, `กำลังอัปเดตโจทย์ข้อ ${taskNumber}...`);
+            try {
+                const base64Data = await fileToBase64(file);
+                const result = await fetchGAS('updateTask', { taskNumber: taskNumber, base64: base64Data.split(',')[1], mimeType: file.type, filename: file.name });
+                const tIndex = appConfig.tasks.findIndex(t => t.taskNumber === taskNumber);
+                if(tIndex > -1) appConfig.tasks[tIndex].imageUrl = result.imageUrl;
+                updateConfigUI(); showModal('สำเร็จ', `อัปเดตโจทย์ข้อ ${taskNumber} เรียบร้อยแล้ว`, 'success');
+            } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+            finally { showLoading(false); event.target.value = ''; }
+        };
+
+        window.deleteTask = (taskNumber) => {
+            openConfirmModal('ยืนยันการลบโจทย์', `ต้องการลบโจทย์ข้อที่ ${taskNumber} ใช่หรือไม่?\n(รูปภาพจะถูกลบออกจาก Google Drive ด้วย)`, async () => {
+                showLoading(true, "กำลังลบโจทย์...");
+                try {
+                    await fetchGAS('deleteTask', { taskNumber });
+                    appConfig.tasks = appConfig.tasks.filter(t => t.taskNumber !== taskNumber);
+                    updateConfigUI(); showModal('สำเร็จ', 'ลบโจทย์เรียบร้อยแล้ว', 'success');
+                } catch(e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+                finally { showLoading(false); }
+            });
+        };
+
+        window.submitStudentAuth = async () => {
+            const name = document.getElementById('auth-group-name').value.trim();
+            const gClass = document.getElementById('auth-group-class').value.trim();
+            const members = currentAuthMode === 'register' ? document.getElementById('auth-group-members').value.trim() : '';
+
+            if (!name || !gClass) return showModal('ข้อมูลไม่ครบถ้วน', 'กรุณากรอก "ชื่อกลุ่ม" และ "ชั้นเรียน" ให้ครบ', 'error');
+            if (currentAuthMode === 'register' && !members) return showModal('ข้อมูลไม่ครบถ้วน', 'กรุณากรอก "รายชื่อสมาชิก" ด้วยครับ', 'error');
+
+            const btn = document.getElementById('btn-submit-auth');
+            const originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ...'; btn.disabled = true;
+
+            try {
+                const groupId = btoa(encodeURIComponent(`${name}-${gClass}`)).replace(/[/+=]/g, '');
+                const responseData = await fetchGAS('registerGroup', { groupId, groupName: name, classLevel: gClass, members });
+
+                myGroupId = responseData.groupId; myGroupData = responseData;
+                sessionStorage.setItem('studentData', JSON.stringify(responseData));
+                
+                document.getElementById('display-group-name').innerText = responseData.groupName;
+                document.getElementById('display-group-class').innerText = responseData.classLevel;
+                document.getElementById('display-group-members').innerText = responseData.members;
+                document.getElementById('btn-group-name-text').innerText = responseData.groupName;
+                document.getElementById('btn-show-group-info').classList.remove('hidden');
+                document.getElementById('btn-show-group-info').classList.add('flex');
+                document.getElementById('header-task-info').classList.remove('hidden');
+                document.getElementById('header-task-info').classList.add('flex');
+
+                if(responseData.isExisting) showModal('ล็อกอินสำเร็จ', `ยินดีต้อนรับกลับมาครับกลุ่ม ${name} !\n\nคุณทำโจทย์สำเร็จไปแล้วทั้งหมด ${responseData.completedTasks.length} ข้อ ลุยต่อได้เลย!`, 'success');
+                else showModal('สร้างกลุ่มสำเร็จ', `บันทึกข้อมูลกลุ่ม ${name} เรียบร้อยแล้ว\nกรุณารอรับโจทย์จากคุณครูครับ`, 'success');
+
+                closeStudentAuthModal();
+                ['home', 'teacher'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+                document.getElementById('view-student').classList.remove('hidden');
+                
+                if (teacherPollingInterval) clearInterval(teacherPollingInterval);
+                await loadAppConfig(); processGroupStatus(responseData); startStudentPolling();
+            } catch (error) { showModal('ไม่สามารถเข้าสู่ระบบได้', error.message, 'error'); } 
+            finally { btn.innerHTML = originalBtnHtml; btn.disabled = false; }
+        };
+
+        function startStudentPolling() {
+            if (studentPollingInterval) clearInterval(studentPollingInterval);
+            studentPollingInterval = setInterval(async () => {
+                try {
+                    const status = await fetchGAS('getGroupStatus', { groupId: myGroupId });
+                    processGroupStatus(status);
+                } catch (e) {}
+            }, 4000);
+        }
+
+        function processGroupStatus(status) {
+            const completed = status.completedTasks || [];
+            const badge = document.getElementById('task-completed-badge');
+            if (completed.length > 0) {
+                badge.classList.remove('hidden');
+                document.getElementById('completed-tasks-list').innerText = completed.join(', ');
+            } else badge.classList.add('hidden');
+
+            // 🌟 เพิ่มใหม่: เคลียร์ความจำทิ้ง ถ้าข้อนั้นตรวจผ่านไปแล้ว (ป้องกันบั๊กเวลาครูกด "สั่งซ้ำ" ในอนาคต)
+            const lastSub = sessionStorage.getItem('lastSubmittedTask');
+            if (lastSub && completed.includes(parseInt(lastSub))) {
+                sessionStorage.removeItem('lastSubmittedTask');
+            }
+
+            if (status.currentTask !== null && status.currentTask !== currentTask) {
+                currentTask = status.currentTask; 
+                clearWorkspace();
+                
+                // 🌟 เพิ่มใหม่: เช็คว่าเป็นข้อเดิมที่เพิ่งส่งไปหรือไม่
+                const currentLastSub = sessionStorage.getItem('lastSubmittedTask');
+                if (currentLastSub && parseInt(currentLastSub) === currentTask) {
+                    showModal('คุณครูให้แก้ไขใหม่ ⚠️', `โจทย์ข้อที่ ${currentTask} ยังไม่ถูกต้องครับ\nคุณครูส่งกลับมาให้กลุ่มของเราช่วยกันแก้ไขใหม่อีกครั้ง!`, 'error');
+                    sessionStorage.removeItem('lastSubmittedTask'); // ล้างความจำเมื่อเตือนแล้ว
+                } else {
+                    showModal('โจทย์ใหม่มาแล้ว!', `คุณครูกำหนดโจทย์ข้อที่ ${currentTask} ให้แล้วครับ ลงมือได้เลย!`, 'success');
+                }
+                
+            } else if (status.currentTask === null) {
+                currentTask = null;
+            }
+            updateWaitingOverlay();
+        }
+
+        function updateWaitingOverlay() {
+            const overlay = document.getElementById('waiting-overlay');
+            const icon = document.getElementById('waiting-icon'), title = document.getElementById('waiting-title'), msg = document.getElementById('waiting-message');
+            const taskDisplay = document.getElementById('current-task-display');
+
+            if (!myGroupId) {
+                overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                icon.innerHTML = '<i class="fa-solid fa-address-card text-blue-400"></i>';
+                title.innerText = 'กรุณาลงทะเบียนกลุ่ม'; msg.innerText = 'กรอกข้อมูลซ้ายมือเพื่อเข้าห้องเรียน';
+                taskDisplay.innerText = 'ยังไม่ลงทะเบียน'; taskDisplay.className = "px-4 py-1.5 rounded-full text-sm font-bold bg-gray-100 text-gray-500 border border-gray-300";
+            } else if (currentTask === null) {
+                overlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                icon.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-blue-500"></i>';
+                title.innerText = 'รอคุณครูกำหนดโจทย์...'; msg.innerText = 'กลุ่มของคุณพร้อมแล้ว กรุณารอโจทย์ในระบบ';
+                taskDisplay.innerText = 'รอรับโจทย์'; taskDisplay.className = "px-4 py-1.5 rounded-full text-sm font-bold bg-yellow-100 text-yellow-700 border border-yellow-400 animate-pulse";
+            } else {
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+                const taskObj = appConfig.tasks.find(t => t.taskNumber === currentTask);
+                document.getElementById('current-task-img').src = taskObj ? taskObj.imageUrl : 'https://placehold.co/800x400/e2e8f0/64748b?text=ไม่พบรูปโจทย์ข้อนี้';
+                taskDisplay.innerText = `ข้อที่ ${currentTask}`; taskDisplay.className = "px-4 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-700 border border-green-500";
+            }
+        }
+
+        function createBlockElement(type, isDraggable = true) {
+            const def = BLOCK_DEF[type]; if (!def) return null;
+            const div = document.createElement('div');
+            div.className = `code-block flex flex-col items-center justify-center w-full aspect-square ${def.color} ${def.border} border-b-4 rounded-xl text-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden select-none`;
+            if (isDraggable) {
+                div.draggable = true; div.dataset.type = type;
+                div.addEventListener('dragstart', e => {
+                    if(currentTask === null) return e.preventDefault();
+                    e.dataTransfer.setData('text/plain', type);
+                    setTimeout(() => e.target.style.opacity = '0.5', 0);
+                });
+                div.addEventListener('dragend', e => e.target.style.opacity = '1');
+            }
+            const labelHtml = def.label ? `<span class="text-xs font-bold drop-shadow-md">${def.label}</span>` : '';
+            const iconMargin = def.label ? 'mb-1' : '';
+            const iconSize = def.label ? 'text-2xl lg:text-3xl' : 'text-3xl lg:text-5xl';
+            div.innerHTML = `<i class="fa-solid ${def.icon} ${iconSize} ${iconMargin} drop-shadow-md"></i>${labelHtml}`;
+            return div;
+        }
+
+        function initToolbox() {
+            const tb = document.getElementById('toolbox'); 
+            tb.innerHTML = '';
+            tb.className = 'overflow-y-auto pr-2 max-h-[350px] space-y-4';
+            BLOCK_GROUPS.forEach(group => {
+                const title = document.createElement('div');
+                title.className = 'text-xs font-bold text-gray-500 mb-1 border-b pb-1 mt-2';
+                title.innerText = group.title;
+                tb.appendChild(title);
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-3 gap-2';
+                group.keys.forEach(type => {
+                    const block = createBlockElement(type);
+                    if(block) {
+                        block.addEventListener('click', () => {
+                            if(currentTask === null) return;
+                            const emptyIndex = workspaceBlocks.findIndex(b => b === null);
+                            if (emptyIndex !== -1) { workspaceBlocks[emptyIndex] = type; renderWorkspace(); }
+                            else showModal('กระดานเต็ม', 'กรุณาลบบล็อกออกก่อน', 'info');
+                        });
+                        grid.appendChild(block);
+                    }
+                });
+                tb.appendChild(grid);
+            });
+        }
+
+        function renderWorkspace() {
+            const grid = document.getElementById('workspace-grid'); grid.innerHTML = '';
+            for (let i = 0; i < 24; i++) {
+                const slot = document.createElement('div');
+                slot.className = `drop-slot aspect-square rounded-xl border-2 border-dashed border-gray-300 bg-white flex items-center justify-center relative overflow-hidden`;
+                slot.dataset.index = i;
+                if (workspaceBlocks[i]) {
+                    slot.classList.remove('border-dashed', 'border-gray-300'); slot.classList.add('border-solid', 'border-transparent', 'p-1');
+                    const block = createBlockElement(workspaceBlocks[i], false);
+                    block.addEventListener('dblclick', () => {
+                        block.classList.add('scale-50', 'opacity-0');
+                        setTimeout(() => { workspaceBlocks[i] = null; renderWorkspace(); }, 150);
+                    });
+                    block.title = "ดับเบิ้ลคลิกเพื่อลบทิ้ง";
+                    slot.appendChild(block);
+                } else slot.innerHTML = `<span class="text-gray-200 text-2xl font-bold">${i+1}</span>`;
+
+                slot.addEventListener('dragover', e => { e.preventDefault(); if(currentTask !== null) slot.classList.add('drag-over'); });
+                slot.addEventListener('dragleave', e => slot.classList.remove('drag-over'));
+                slot.addEventListener('drop', e => {
+                    e.preventDefault(); slot.classList.remove('drag-over');
+                    if(currentTask === null) return;
+                    const type = e.dataTransfer.getData('text/plain');
+                    if (type) { workspaceBlocks[i] = type; renderWorkspace(); }
+                });
+                grid.appendChild(slot);
+            }
+        }
+
+        window.clearWorkspace = () => { workspaceBlocks = Array(24).fill(null); renderWorkspace(); };
+
+        window.submitWork = async () => {
+            if (!myGroupId || currentTask === null) return;
+            if (!workspaceBlocks.some(b => b !== null)) return showModal('ข้อมูลไม่ครบ', 'กรุณาวางโค้ดอย่างน้อย 1 บล็อก', 'error');
+
+            const btn = document.querySelector('button[onclick="submitWork()"]');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...'; btn.disabled = true;
+
+            try {
+                let cleanBlocks = [...workspaceBlocks];
+                while(cleanBlocks.length > 0 && cleanBlocks[cleanBlocks.length - 1] === null) cleanBlocks.pop();
+
+                const result = await fetchGAS('submitWork', { groupId: myGroupId, groupName: myGroupData.groupName, classLevel: myGroupData.classLevel, members: myGroupData.members, taskNumber: currentTask, blocks: cleanBlocks });
+                
+                if (result.hasKey) {
+                    if (!result.isCorrect) {
+                        showModal('คำตอบยังไม่ถูกต้อง ❌', 'เส้นทางที่ส่งไปยังไม่ตรงกับเฉลยครับ\nลองตรวจสอบและแก้ไขโค้ดใหม่อีกครั้งนะ สู้ๆ!', 'error');
+                    } else {
+                        showModal('ส่งงานสำเร็จ! ✅', 'เยี่ยมมาก! ผลงานของคุณถูกต้องและถูกบันทึกแล้ว\nกรุณารอรับโจทย์ข้อต่อไปครับ', 'success');
+                        currentTask = null; clearWorkspace(); updateWaitingOverlay();
+                    }
+                } else {
+                    showModal('ส่งงานเรียบร้อย! ⏳', 'ระบบบันทึกผลงานแล้ว\nกรุณารอคุณครูตรวจสอบความถูกต้องครับ', 'info');
+                    
+                    // 🌟 เพิ่มบรรทัดนี้: เพื่อจำว่าเพิ่งส่งข้อไหนไปให้ครูตรวจ
+                    sessionStorage.setItem('lastSubmittedTask', currentTask); 
+                    
+                    currentTask = null; clearWorkspace(); updateWaitingOverlay();
+                }
+            } catch (error) { showModal('ผิดพลาด', error.message, 'error'); } 
+            finally { btn.innerHTML = originalHTML; btn.disabled = false; }
+        };
+
+        function loadTeacherData() {
+            const fetchData = async () => {
+                try {
+                    const data = await fetchGAS('getTeacherData');
+                    renderTeacherGroups(data.groups); renderTeacherSubmissions(data.submissions);
+                } catch (e) { console.error(e); }
+            };
+            fetchData();
+            if (teacherPollingInterval) clearInterval(teacherPollingInterval);
+            teacherPollingInterval = setInterval(fetchData, 5000);
+        }
+
+        window.assignTaskToGroup = async (groupId, taskNum) => {
+            try {
+                document.querySelectorAll(`button[onclick="assignTaskToGroup('${groupId}', ${taskNum})"]`).forEach(b => {
+                    b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; b.disabled = true;
+                });
+                await fetchGAS('assignTask', { groupId, taskNumber: taskNum });
+                const data = await fetchGAS('getTeacherData');
+                renderTeacherGroups(data.groups);
+            } catch (error) { showModal("เกิดข้อผิดพลาด", error.message, 'error'); }
+        };
+
+        window.cancelTaskForGroup = async (groupId) => {
+            openConfirmModal('ยืนยันการยกเลิก', 'ต้องการยกเลิกโจทย์ที่กำลังทำอยู่ของกลุ่มนี้ ใช่หรือไม่?', async () => {
+                try {
+                    await fetchGAS('cancelTask', { groupId });
+                    const data = await fetchGAS('getTeacherData');
+                    renderTeacherGroups(data.groups);
+                    showModal('ยกเลิกสำเร็จ', 'ระบบได้ยกเลิกโจทย์ของกลุ่มนี้แล้ว', 'success');
+                } catch (error) { showModal("เกิดข้อผิดพลาด", error.message, 'error'); }
+            });
+        };
+
+        window.deleteGroup = (groupId) => {
+            openConfirmModal('ยืนยันการลบกลุ่ม 🗑️', 'ต้องการลบกลุ่มนี้ออกจากระบบใช่หรือไม่?\n(ข้อมูลของกลุ่มนี้จะถูกซ่อนออกจากหน้าครูทันที)', async () => {
+                showLoading(true, "กำลังลบกลุ่ม...");
+                try {
+                    await fetchGAS('deleteGroup', { groupId });
+                    const data = await fetchGAS('getTeacherData');
+                    renderTeacherGroups(data.groups);
+                    showModal('สำเร็จ', 'ลบกลุ่มเรียบร้อยแล้ว', 'success');
+                } catch (e) { showModal('ข้อผิดพลาด', e.message, 'error'); } 
+                finally { showLoading(false); }
+            });
+        };
+
+        function renderTeacherGroups(groups) {
+            const container = document.getElementById('tab-groups');
+            if (groups.length === 0) return container.innerHTML = `<div class="text-center py-12 text-gray-400">ยังไม่มีกลุ่มลงทะเบียน</div>`;
+            container.innerHTML = '';
+            groups.forEach(g => {
+                const completed = g.completedTasks || [];
+                const isWorking = g.currentTask !== null;
+                const membersHtml = escapeHtml(g.members || '').replace(/\n/g, '<br>');
+
+                let taskButtonsHtml = '';
+                if(appConfig.tasks.length === 0) taskButtonsHtml = '<span class="text-xs text-red-500">ครูต้องเพิ่มโจทย์ในแท็บตั้งค่าก่อน</span>';
+                else {
+                    appConfig.tasks.forEach(t => {
+                        const i = t.taskNumber; const isDone = completed.includes(i); const isCurrent = g.currentTask === i;
+                        let btnClass = "border border-gray-300 text-gray-600 hover:bg-gray-50"; let btnText = `สั่งข้อ ${i}`; let disabled = false;
+                        if (isDone) { btnClass = "bg-green-100 text-green-700 border-green-300 hover:bg-green-200 shadow-sm"; btnText = `<i class="fa-solid fa-rotate-right"></i> สั่งข้อ ${i} ซ้ำ`; disabled = false; }
+                        else if (isCurrent) { btnClass = "bg-blue-100 text-blue-700 border-blue-400 font-bold animate-pulse"; btnText = `กำลังทำข้อ ${i}`; disabled = true; } 
+                        else if (isWorking) { disabled = true; btnClass = "border border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed"; }
+                        taskButtonsHtml += `<button ${disabled?'disabled':`onclick="assignTaskToGroup('${g.id}', ${i})"`} class="px-3 py-1.5 rounded-lg text-sm transition-all ${btnClass}">${btnText}</button>`;
+                    });
+                }
+                container.innerHTML += `
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWorking ? 'border-blue-500' : 'border-yellow-400'} p-5 flex flex-col md:flex-row justify-between gap-4">
+                        <div class="w-full md:w-1/3">
+                            <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-users text-blue-500"></i> ${escapeHtml(g.groupName)}</h3>
+                            <p class="text-sm font-medium text-gray-500 mb-2">ชั้น: ${escapeHtml(g.classLevel)}</p>
+                            <div class="text-xs text-gray-600 bg-gray-50 p-2 rounded border max-h-24 overflow-y-auto"><strong>สมาชิก:</strong><br>${membersHtml}</div>
+                            <button onclick="deleteGroup('${g.id}')" class="text-xs text-red-500 hover:text-red-700 underline font-bold mt-3 transition"><i class="fa-solid fa-trash-can"></i> ลบกลุ่มนี้</button>
+                        </div>
+                        <div class="w-full md:w-2/3 flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6">
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="text-sm font-bold text-gray-700">สถานะ:</span>
+                                ${isWorking ? `<div class="flex items-center gap-2"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold border border-blue-200">กำลังทำข้อ ${g.currentTask}</span> <button onclick="cancelTaskForGroup('${g.id}')" class="text-xs text-red-500 hover:text-red-700 underline font-bold transition"><i class="fa-solid fa-circle-xmark"></i> ยกเลิก</button></div>` : `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold border border-yellow-300">รอรับโจทย์</span>`}
+                            </div>
+                            <div><span class="text-xs font-bold text-gray-500 block mb-1">กำหนดภารกิจ:</span><div class="flex flex-wrap gap-2">${taskButtonsHtml}</div></div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderTeacherSubmissions(subs) {
+            const container = document.getElementById('tab-submissions');
+            if (subs.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-gray-400">ยังไม่มีการส่งงาน</div>`;
+                return;
+            }
+            container.innerHTML = '';
+
+            const groupedSubs = {};
+            subs.forEach(sub => {
+                if (!groupedSubs[sub.groupId]) {
+                    groupedSubs[sub.groupId] = { groupName: sub.groupName, classLevel: sub.classLevel, submissions: [] };
+                }
+                groupedSubs[sub.groupId].submissions.push(sub);
+            });
+
+            for (const groupId in groupedSubs) {
+                const group = groupedSubs[groupId];
+                let groupHtml = `
+                <div class="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden mb-6">
+                    <div class="bg-blue-50 px-5 py-3 border-b border-blue-200 flex justify-between items-center cursor-pointer hover:bg-blue-100 transition" onclick="toggleSubmissions('${groupId}')">
+                        <div class="flex items-center gap-3">
+                            <i id="chevron-${groupId}" class="fa-solid fa-chevron-down text-blue-500 transition-transform duration-300"></i>
+                            <h3 class="text-lg font-bold text-blue-800"><i class="fa-solid fa-users mr-2"></i> กลุ่ม: ${escapeHtml(group.groupName)} <span class="text-sm font-normal text-gray-500 ml-2">(${escapeHtml(group.classLevel)})</span></h3>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full border border-blue-300">ส่ง ${group.submissions.length} ครั้ง</span>
+                            <button onclick="event.stopPropagation(); promptClearSubmissions('${groupId}')" class="text-xs bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1.5 rounded border border-red-200 transition font-bold"><i class="fa-solid fa-trash-can"></i> เคลียร์งาน</button>
+                        </div>
+                    </div>
+                    <div id="subs-container-${groupId}" class="p-4 space-y-4 bg-gray-50">
+                `;
+
+                group.submissions.forEach((sub, index) => {
+                    const timeString = new Date(sub.timestamp).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
+                    
+                    let statusBadge = '';
+                    let actionBtns = '';
+
+                    if (sub.grading === 'รอตรวจ') {
+                        statusBadge = `<span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded border border-yellow-300 ml-2"><i class="fa-solid fa-hourglass-half"></i> รอตรวจ</span>`;
+                        actionBtns = `
+                            <div class="mt-2 flex gap-2">
+                                <button onclick="manualGrade('${sub.id}', '${sub.groupId}', ${sub.taskNumber}, true)" class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1 rounded shadow-sm transition"><i class="fa-solid fa-check"></i> ให้ผ่าน</button>
+                                <button onclick="manualGrade('${sub.id}', '${sub.groupId}', ${sub.taskNumber}, false)" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-sm transition"><i class="fa-solid fa-xmark"></i> ให้แก้ใหม่</button>
+                            </div>
+                        `;
+                    } else if (sub.grading && sub.grading.includes('ถูกต้อง') || sub.grading === 'ผ่าน (ไม่ตั้งเฉลย)') {
+                        statusBadge = `<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded border border-green-300 ml-2"><i class="fa-solid fa-check"></i> ถูกต้อง</span>`;
+                    } else if (sub.grading && sub.grading.includes('ผิดพลาด')) {
+                        statusBadge = `<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded border border-red-300 ml-2"><i class="fa-solid fa-xmark"></i> ผิดพลาด</span>`;
+                    }
+
+                    let blocksHtml = '<div class="mt-3 flex flex-wrap gap-2">';
+                    (sub.blocks && sub.blocks.length > 0 ? sub.blocks : []).forEach((bType, idx) => {
+                        if (bType && BLOCK_DEF[bType]) {
+                            const def = BLOCK_DEF[bType];
+                            const labelHtml = def.label ? `<span class="text-[9px]">${def.label}</span>` : '';
+                            const iconMargin = def.label ? 'mb-0.5' : '';
+                            const iconSize = def.label ? 'text-lg' : 'text-2xl';
+                            blocksHtml += `<div class="flex flex-col items-center justify-center w-10 h-10 md:w-12 md:h-12 ${def.color} rounded-lg text-white border-b-2 ${def.border} shrink-0 shadow-sm"><i class="fa-solid ${def.icon} ${iconSize} ${iconMargin}"></i>${labelHtml}</div>`;
+                        } else {
+                            blocksHtml += `<div class="w-10 h-10 md:w-12 md:h-12 border border-dashed border-gray-300 bg-white rounded-lg flex items-center justify-center text-gray-300 text-[10px]">${idx+1}</div>`;
+                        }
+                    });
+                    blocksHtml += '</div>';
+
+                    const isLatest = index === 0 ? 'border-2 border-green-400 shadow-md' : 'border border-gray-200 shadow-sm opacity-80';
+                    const latestBadge = index === 0 ? `<span class="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full absolute -top-2 -right-2 shadow">ล่าสุด</span>` : '';
+
+                    groupHtml += `
+                        <div class="bg-white rounded-xl p-4 relative transition-all hover:opacity-100 ${isLatest}">
+                            ${latestBadge}
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <div>
+                                    <span class="font-bold text-gray-800">โจทย์ข้อ ${sub.taskNumber}</span>
+                                    ${statusBadge}
+                                </div>
+                                <div class="text-xs font-bold text-gray-400"><i class="fa-regular fa-clock"></i> ${timeString}</div>
+                            </div>
+                            ${blocksHtml}
+                            ${actionBtns}
+                        </div>`;
+                });
+
+                groupHtml += `</div></div>`; 
+                container.innerHTML += groupHtml;
+            }
+        }
+
+
+        // ฟังก์ชันพับ/กาง แถบส่งงาน
+        window.toggleSubmissions = (groupId) => {
+            const container = document.getElementById(`subs-container-${groupId}`);
+            const chevron = document.getElementById(`chevron-${groupId}`);
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                chevron.classList.remove('-rotate-90');
+            } else {
+                container.classList.add('hidden');
+                chevron.classList.add('-rotate-90');
+            }
+        };
+
+        // ฟังก์ชันเปิดหน้าต่างถามรหัสผ่านเคลียร์งาน
+        let targetClearGroupId = null;
+        window.promptClearSubmissions = (groupId) => {
+            targetClearGroupId = groupId;
+            const modal = document.getElementById('clear-sub-modal');
+            const content = document.getElementById('clear-sub-content');
+            document.getElementById('clear-sub-password').value = '';
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+            setTimeout(() => document.getElementById('clear-sub-password').focus(), 300);
+        };
+
+        // ฟังก์ชันปิดหน้าต่างเคลียร์งาน
+        window.closeClearSubModal = () => {
+            const modal = document.getElementById('clear-sub-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('clear-sub-content').classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        // ฟังก์ชันยืนยันการเคลียร์งานไปยังหลังบ้าน
+        window.executeClearSubmissions = async () => {
+            const pwd = document.getElementById('clear-sub-password').value;
+            if(!pwd) return;
+            const btn = document.getElementById('btn-confirm-clear');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังลบ...'; 
+            btn.disabled = true;
+
+            try {
+                await fetchGAS('clearGroupSubmissions', { groupId: targetClearGroupId, password: pwd });
+                closeClearSubModal();
+                showModal('สำเร็จ', 'เคลียร์ประวัติการส่งงานของกลุ่มนี้เรียบร้อยแล้ว', 'success');
+                
+                // โหลดข้อมูลครูใหม่เพื่ออัปเดตหน้าจอให้กล่องหายไป
+                const data = await fetchGAS('getTeacherData');
+                renderTeacherGroups(data.groups);
+                renderTeacherSubmissions(data.submissions);
+            } catch(e) {
+                showModal('รหัสผ่านไม่ถูกต้อง', e.message, 'error');
+            } finally {
+                btn.innerHTML = originalText; 
+                btn.disabled = false;
+            }
+        };
+
+
+        function escapeHtml(unsafe) { return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initToolbox(); renderWorkspace();
+            document.getElementById('view-home').innerHTML = '<div class="flex items-center justify-center h-full"><i class="fa-solid fa-spinner fa-spin text-4xl text-green-500"></i></div>';
+            await loadAppConfig();
+            document.getElementById('view-home').innerHTML = `
+                <div class="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border-4 border-green-100">
+                    <i class="fa-solid fa-map-location-dot text-6xl text-green-500 mb-6"></i>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">ยินดีต้อนรับ</h2>
+                    <p class="text-gray-500 mb-8">เลือกบทบาทของคุณเพื่อเข้าสู่ระบบ</p>
+                    <div class="space-y-4">
+                        <button onclick="switchView('student')" class="w-full py-4 px-6 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3"><i class="fa-solid fa-users"></i> เข้าเรียน (นักเรียน)</button>
+                        <button onclick="switchView('teacher')" class="w-full py-4 px-6 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-3"><i class="fa-solid fa-chalkboard-user"></i> ห้องพักครู</button>
+                    </div>
+                </div>
+            `;
+            const savedStudent = sessionStorage.getItem('studentData');
+            const savedTeacher = sessionStorage.getItem('teacherAuth');
+            if (savedTeacher === 'true') {
+                switchView('teacher'); loadTeacherData();
+            } else if (savedStudent) {
+                const data = JSON.parse(savedStudent);
+                myGroupId = data.groupId; myGroupData = data;
+                document.getElementById('display-group-name').innerText = data.groupName;
+                document.getElementById('display-group-class').innerText = data.classLevel;
+                document.getElementById('display-group-members').innerText = data.members;
+                document.getElementById('btn-group-name-text').innerText = data.groupName;
+                switchView('student');
+            } else { switchView('home'); }
+        });
+    </script>
+</body>
+</html>
