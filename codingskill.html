@@ -1033,28 +1033,32 @@
 
             const btn = document.querySelector('button[onclick="submitWork()"]');
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเข้าคิว...'; 
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่ง...'; 
             btn.disabled = true;
 
+            let isSubmitting = true;
+
             try {
-                // 🌟 ระบบเข้าคิวจำลอง (ช่วยกระจาย Load ไม่ให้ยิง Server พร้อมกัน)
-                // สุ่มคิวให้เด็กแต่ละคนไม่เท่ากัน (เช่น ได้คิวที่ 2 ถึง 6)
-                let queueNumber = Math.floor(Math.random() * 5) + 2; 
-                showLoading(true, `กำลังเข้าคิวส่งงาน... (รออีก ${queueNumber} คิว)`);
+                showLoading(true, "กำลังตรวจสอบคิว...");
 
-                // วนลูปนับถอยหลังคิวทีละ 1 วินาที
-                while (queueNumber > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    queueNumber--;
-                    if (queueNumber > 0) {
-                        document.getElementById('loading-title').innerText = `กำลังเข้าคิวส่งงาน... (รออีก ${queueNumber} คิว)`;
-                    } else {
-                        document.getElementById('loading-title').innerText = `ถึงคิวของคุณแล้ว! กำลังส่งข้อมูล...`;
+                // 🌟 ระบบเช็คคิวจริง: จะดึงค่าจาก Server ทุกๆ 2 วินาที
+                const pollQueue = async () => {
+                    if (!isSubmitting) return;
+                    try {
+                        const qCount = await fetchGAS('getQueueCount');
+                        if (isSubmitting && qCount > 0) {
+                            document.getElementById('loading-title').innerText = `ระบบกำลังประมวลผล...\n(มีนักเรียนกลุ่มอื่นส่งงานพร้อมกัน ${qCount} คิว)`;
+                        } else if (isSubmitting && qCount === 0) {
+                            document.getElementById('loading-title').innerText = `ถึงคิวของคุณแล้ว! กำลังบันทึกข้อมูล...`;
+                        }
+                    } catch(e) {}
+                    
+                    if (isSubmitting) {
+                        setTimeout(pollQueue, 2000);
                     }
-                }
-
-                // สุ่มดีเลย์เพิ่มเล็กน้อย (0-1 วินาที) เพื่อกันไม่ให้คิวที่หลุดพร้อมกันชนกันเป๊ะๆ
-                await new Promise(resolve => setTimeout(resolve, Math.random() * 1000));
+                };
+                
+                pollQueue(); // เริ่มเช็คคิว
 
                 // เคลียร์ช่องว่างท้ายๆ ออกก่อนส่ง
                 let cleanBlocks = [...workspaceBlocks];
@@ -1070,7 +1074,8 @@
                     blocks: cleanBlocks 
                 });
                 
-                showLoading(false); // ปิดหน้าต่างโหลด (คิว) เมื่อส่งเสร็จ
+                isSubmitting = false; // ปิดการเช็คคิว
+                showLoading(false); // ปิดหน้าต่างโหลด
 
                 // ตรวจสอบสถานะการตรวจ
                 if (result.hasKey) {
@@ -1086,6 +1091,7 @@
                     currentTask = null; clearWorkspace(); updateWaitingOverlay();
                 }
             } catch (error) { 
+                isSubmitting = false;
                 showLoading(false);
                 showModal('ผิดพลาด', error.message, 'error'); 
             } finally { 
