@@ -656,16 +656,18 @@
       <div class="text-5xl text-[#93c5fd] mb-4">
         <i class="fa-solid fa-pen-to-square"></i>
       </div>
-      <h3 class="text-xl font-black mb-2 uppercase">เปลี่ยนชื่อกลุ่ม</h3>
-      <input type="text" id="edit-group-name-input" class="neo-input w-full px-4 py-3 mb-4 text-center font-bold"
-        placeholder="ชื่อใหม่" onkeypress="if (event.key === 'Enter') executeEditGroupName();" />
+      <h3 class="text-xl font-black mb-2 uppercase">แก้ไขข้อมูลกลุ่ม</h3>
+      
+      <!-- เพิ่มช่องกรอกข้อมูลให้ครบ -->
+      <input type="text" id="edit-group-name-input" class="neo-input w-full px-4 py-2 mb-3 text-center font-bold" placeholder="ชื่อกลุ่ม" />
+      <select id="edit-group-class-input" class="neo-input w-full px-4 py-2 mb-3 text-center font-bold bg-white">
+        <option value="" disabled>เลือกชั้นเรียน</option>
+      </select>
+      <textarea id="edit-group-members-input" class="neo-input w-full px-4 py-2 mb-4 text-sm resize-none" rows="3" placeholder="รายชื่อสมาชิก"></textarea>
+
       <div class="flex gap-3">
-        <button onclick="closeEditGroupModal()" class="neo-btn w-1/3 py-3">
-          ยกเลิก
-        </button>
-        <button id="btn-confirm-edit-group" onclick="executeEditGroupName()" class="neo-btn neo-btn-primary w-2/3 py-3">
-          บันทึก
-        </button>
+        <button onclick="closeEditGroupModal()" class="neo-btn w-1/3 py-3">ยกเลิก</button>
+        <button id="btn-confirm-edit-group" onclick="executeEditGroupName()" class="neo-btn neo-btn-primary w-2/3 py-3">บันทึก</button>
       </div>
     </div>
   </div>
@@ -1423,10 +1425,14 @@
         clearWorkspace();
 
         // 🌟 อัปเดตแผนที่ของนักเรียนอัตโนมัติตามด่านที่สั่ง
-        if (status.mapUrl) {
-          document.getElementById("student-map-img").src = status.mapUrl;
-          const mainId = currentTask.split(".")[0];
-          const mainTaskObj = appConfig.mainTasks.find((m) => m.id == mainId);
+        const mainId = currentTask.split(".")[0];
+        const mainTaskObj = appConfig.mainTasks.find((m) => m.id == mainId);
+        
+        // ดึงลิงก์รูปแผนที่จาก appConfig โดยตรง (ถ้าไม่มีค่อยดึงจาก status)
+        const mapUrlToUse = (mainTaskObj && mainTaskObj.mapUrl) ? mainTaskObj.mapUrl : status.mapUrl;
+
+        if (mapUrlToUse) {
+          document.getElementById("student-map-img").src = mapUrlToUse;
           document.getElementById("student-map-title").innerText = mainTaskObj
             ? mainTaskObj.title
             : `ด่าน ${mainId}`;
@@ -2023,7 +2029,7 @@
         container.innerHTML += `
                     <div class="neo-box bg-white p-5 flex flex-col md:flex-row gap-4 mb-4 ${isWorking ? "border-b-8 border-b-[#fde047]" : ""}">
                         <div class="w-full md:w-1/3">
-                            <h3 class="text-xl font-black uppercase flex items-center gap-2 mb-1"><i class="fa-solid fa-users text-[#93c5fd]"></i> ${g.groupName} <button onclick="promptEditGroupName('${g.id}','${g.groupName}')" class="text-xs bg-black text-white px-1 rounded hover:scale-110"><i class="fa-solid fa-pen"></i></button></h3>
+                            <h3 class="text-xl font-black uppercase flex items-center gap-2 mb-1"><i class="fa-solid fa-users text-[#93c5fd]"></i> ${g.groupName} <button onclick="promptEditGroupName('${g.id}','${g.groupName}','${g.classLevel}','${encodeURIComponent(g.members || '')}')" class="text-xs bg-black text-white px-1 rounded hover:scale-110"><i class="fa-solid fa-pen"></i></button></h3>
                             <p class="font-bold text-sm bg-[#d8b4fe] inline-block px-2 border-2 border-black rounded mb-2">ชั้น: ${g.classLevel}</p>
                             <div class="text-xs bg-gray-100 border-2 border-black rounded p-2 max-h-24 overflow-y-auto mb-2"><strong class="uppercase">สมาชิก:</strong><br>${membersHtml}</div>
                             <button onclick="deleteGroup('${g.id}')" class="text-xs text-red-600 hover:underline font-black"><i class="fa-solid fa-trash"></i> ลบกลุ่ม</button>
@@ -2311,30 +2317,53 @@
     };
 
     let tEditId = null;
-    window.promptEditGroupName = (id, old) => {
+    window.promptEditGroupName = (id, oldName, oldClass, oldMembers) => {
       tEditId = id;
       const m = document.getElementById("edit-group-modal"),
         c = document.getElementById("edit-group-content"),
-        i = document.getElementById("edit-group-name-input");
-      i.value = old;
+        iName = document.getElementById("edit-group-name-input"),
+        iClass = document.getElementById("edit-group-class-input"),
+        iMembers = document.getElementById("edit-group-members-input");
+      
+      // --- เพิ่มส่วนนี้: นำรายชื่อชั้นเรียนมาใส่ใน Dropdown ---
+      iClass.innerHTML = '<option value="" disabled>เลือกชั้นเรียน</option>';
+      if (appConfig.classes && appConfig.classes.length > 0) {
+        // เรียงลำดับชื่อชั้นเรียน
+        const sortedClasses = [...appConfig.classes].sort((a, b) => a.localeCompare(b, "th", { numeric: true }));
+        sortedClasses.forEach(cls => {
+          iClass.innerHTML += `<option value="${cls}">${cls}</option>`;
+        });
+      }
+      // ------------------------------------------------
+
+      // นำข้อมูลเดิมมาใส่ในช่อง
+      iName.value = oldName;
+      iClass.value = oldClass || "";
+      iMembers.value = oldMembers ? decodeURIComponent(oldMembers) : "";
+
       m.classList.remove("hidden");
       void m.offsetWidth;
       m.classList.remove("opacity-0", "pointer-events-none");
       c.classList.remove("scale-95");
       setTimeout(() => {
-        i.focus();
-        i.select();
+        iName.focus();
+        iName.select();
       }, 200);
     };
+
     window.closeEditGroupModal = () => {
       const m = document.getElementById("edit-group-modal");
       m.classList.add("opacity-0", "pointer-events-none");
       document.getElementById("edit-group-content").classList.add("scale-95");
       setTimeout(() => m.classList.add("hidden"), 200);
     };
+
     window.executeEditGroupName = async () => {
-      const n = document.getElementById("edit-group-name-input").value.trim();
-      if (!n) return;
+      const nName = document.getElementById("edit-group-name-input").value.trim();
+      const nClass = document.getElementById("edit-group-class-input").value.trim();
+      const nMembers = document.getElementById("edit-group-members-input").value.trim();
+      
+      if (!nName) return;
       const b = document.getElementById("btn-confirm-edit-group");
       const o = b.innerHTML;
       b.innerHTML = "บันทึก...";
@@ -2342,7 +2371,9 @@
       try {
         await fetchGAS("editGroupName", {
           groupId: tEditId,
-          newGroupName: n,
+          newGroupName: nName,
+          newClassLevel: nClass,
+          newMembers: nMembers
         });
         closeEditGroupModal();
         const d = await fetchGAS("getTeacherData");
