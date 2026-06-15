@@ -111,12 +111,18 @@
       padding-right: 2.5rem;
     }
 
-    /* ปรับแต่งตอนคลิก (Focus) ให้ดูมีมิติการกด */
+    /* ปรับแต่งตอนคลิก (Focus) ให้เด้งขึ้นมา (ไม่ให้จมค้าง) */
     select.neo-input:focus {
       outline: none;
-      box-shadow: inset 3px 3px 0px 0px rgba(0,0,0,0.1); /* เปลี่ยนจากเงาด้านนอกเป็นเงาด้านใน */
-      transform: translate(2px, 2px); /* ทำให้ปุ่มดูถูกกดลงไป */
-      background-color: #fde047; /* เปลี่ยนสีพื้นหลังตอนเลือกให้เด่นขึ้น (สีเหลือง) */
+      box-shadow: 5px 5px 0px 0px var(--border-dark); /* เด้งขึ้นมาเหมือน input ปกติ */
+      transform: translate(-2px, -2px); /* ลอยขึ้นเล็กน้อย */
+      background-color: #fde047; /* เปลี่ยนสีพื้นหลังให้เด่นขึ้น */
+    }
+    
+    /* เพิ่มคลาสนี้ เพื่อให้กล่องจมลงไปเฉพาะ 'จังหวะที่กดคลิก' เท่านั้น */
+    select.neo-input:active {
+      box-shadow: inset 3px 3px 0px 0px rgba(0,0,0,0.1);
+      transform: translate(2px, 2px);
     }
     
     /* ซ่อนลูกศรเริ่มต้นของ IE/Edge */
@@ -127,9 +133,9 @@
     /* Radio button custom styling */
     .radio-card input:checked + div {
       background-color: #fde047;
-      box-shadow: inset 3px 3px 0px 0px rgba(0,0,0,0.1);
-      transform: translate(2px, 2px);
-      box-shadow: 0px 0px 0px 0px var(--border-dark);
+      /* แก้ไขเงาและ transform เพื่อให้ปุ่มเด้งกลับขึ้นมา */
+      box-shadow: 3px 3px 0px 0px var(--border-dark); 
+      transform: none; 
     }
     
     .drink-card.ordered {
@@ -287,7 +293,7 @@
 
         <div>
           <label class="block font-black text-sm mb-2 uppercase"><i class="fa-solid fa-spoon"></i> ความหวาน</label>
-          <select id="input-sweetness" class="neo-input w-full px-4 py-3 font-bold text-lg bg-white">
+          <select id="input-sweetness" class="neo-input w-full px-4 py-3 font-bold text-lg bg-white" onchange="this.blur()">
             <option value="0%">0% (ไม่หวานเลย)</option>
             <option value="25%">25% (หวานน้อยมาก)</option>
             <option value="50%">50% (หวานน้อย)</option>
@@ -502,13 +508,18 @@
       }
     }
 
-    // เรียกใช้ตอนโหลดหน้าเว็บเสร็จ
-    window.addEventListener('DOMContentLoaded', () => {
-      // (โค้ดเดิมของคุณที่อยู่ในบล็อกนี้ปล่อยไว้ตามปกติ...)
-      
-      // หน่วงเวลาเล็กน้อยก่อนใส่ State หลัก เพื่อให้เบราว์เซอร์จัดการ History เริ่มต้นให้เสร็จก่อน
-      setTimeout(pushMainStateIfNeeded, 500); 
-    });
+    // ใส่ State หลักเพื่อกันการออกจากเว็บ เมื่อผู้ใช้สัมผัสหรือคลิกหน้าจอครั้งแรก 
+    // (เบราว์เซอร์บังคับว่าต้องมีการตอบสนองจากผู้ใช้ก่อน ถึงจะดักปุ่ม Back ได้)
+    const initHistoryState = () => {
+      pushMainStateIfNeeded();
+      // เมื่อเรียกใช้สำเร็จครั้งแรก ให้ยกเลิกตัวดักจับทันทีเพื่อไม่ให้เปลืองทรัพยากร
+      document.removeEventListener('click', initHistoryState);
+      document.removeEventListener('touchstart', initHistoryState);
+    };
+
+    // รอรับการคลิกหรือสัมผัสหน้าจอครั้งแรกจากผู้ใช้ในจุดใดก็ได้ของเว็บ
+    document.addEventListener('click', initHistoryState);
+    document.addEventListener('touchstart', initHistoryState);
 
     // แก้ไข Event Listener ของ popstate เดิม หรือสร้างใหม่ทับของเดิม
     window.addEventListener('popstate', (e) => {
@@ -551,17 +562,6 @@
         e.returnValue = '';
     });
 
-    // ดักจับเวลากดปุ่มย้อนกลับ (Back) บนมือถือ
-    window.addEventListener('popstate', (e) => {
-      const m = document.getElementById('order-modal');
-      // ถ้าหน้าต่างออเดอร์กำลังเปิดอยู่ ให้ทำการปิดหน้าต่าง
-      if (m && !m.classList.contains('hidden')) {
-        const c = document.getElementById('order-modal-content');
-        m.classList.add('opacity-0', 'pointer-events-none');
-        c.classList.add('scale-95');
-        setTimeout(() => m.classList.add('hidden'), 300);
-      }
-    });
 
     function showLoading(show, text = "กำลังประมวลผล...") {
       const m = document.getElementById('loading-modal');
