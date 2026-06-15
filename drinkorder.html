@@ -493,73 +493,25 @@
       }
     });
 
-    // ==========================================
-    // ระบบดักจับการกดปุ่ม Back เพื่อถามก่อนออกจากเว็บ
-    // ==========================================
-    
-    // สถานะเพื่อเช็คว่าเราได้ทำการ Push State หลักสำหรับกันการออกจากเว็บไปหรือยัง
-    let hasMainHistoryState = false;
 
-    // ฟังก์ชันสำหรับใส่ State หลักเพื่อกันการออกจากเว็บ
-    function pushMainStateIfNeeded() {
-      if (!hasMainHistoryState) {
-        history.pushState({ page: 'main' }, '', window.location.href);
-        hasMainHistoryState = true;
-      }
-    }
-
-    // ใส่ State หลักเพื่อกันการออกจากเว็บ เมื่อผู้ใช้สัมผัสหรือคลิกหน้าจอครั้งแรก 
-    // (เบราว์เซอร์บังคับว่าต้องมีการตอบสนองจากผู้ใช้ก่อน ถึงจะดักปุ่ม Back ได้)
-    const initHistoryState = () => {
-      pushMainStateIfNeeded();
-      // เมื่อเรียกใช้สำเร็จครั้งแรก ให้ยกเลิกตัวดักจับทันทีเพื่อไม่ให้เปลืองทรัพยากร
-      document.removeEventListener('click', initHistoryState);
-      document.removeEventListener('touchstart', initHistoryState);
-    };
-
-    // รอรับการคลิกหรือสัมผัสหน้าจอครั้งแรกจากผู้ใช้ในจุดใดก็ได้ของเว็บ
-    document.addEventListener('click', initHistoryState);
-    document.addEventListener('touchstart', initHistoryState);
-
-    // แก้ไข Event Listener ของ popstate เดิม หรือสร้างใหม่ทับของเดิม
+    // ดักจับการกดปุ่มย้อนกลับ (Back) บนมือถือ เพื่อปิดหน้าต่างต่างๆ แทนการออกจากเว็บทันที (ถ้ามีหน้าต่างเปิดอยู่)
     window.addEventListener('popstate', (e) => {
       const m = document.getElementById('order-modal');
       const pm = document.getElementById('profile-modal');
-      const am = document.getElementById('custom-modal'); // Alert/Confirm Modal
+      const am = document.getElementById('custom-modal'); 
       
-      // 1. ถ้ามีหน้าต่างอะไรเปิดอยู่ ให้ทำการปิดหน้าต่างนั้น
       if (m && !m.classList.contains('hidden')) {
-        closeOrderModal();
-        return; // ปิด Modal แล้วจบการทำงานรอบนี้
+        const c = document.getElementById('order-modal-content');
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => m.classList.add('hidden'), 300);
       }
       if (pm && !pm.classList.contains('hidden')) {
         closeProfileModal();
-        return;
       }
       if (am && !am.classList.contains('hidden')) {
         closeCustomModal();
-        return;
       }
-
-      // 2. ถ้าไม่มีหน้าต่างใดเปิดอยู่ แสดงว่าผู้ใช้พยายามจะออกจากแอป (Back จากหน้าหลัก)
-      if (hasMainHistoryState) {
-        // ใช้ Custom Confirm Modal ของระบบเราเพื่อความสวยงาม
-        showConfirm('ยืนยันการออกจากระบบ', 'คุณแน่ใจหรือไม่ว่าต้องการออกจากแอปพลิเคชันนี้?', () => {
-          // ถ้าผู้ใช้กด "ยืนยัน" (ตกลงจะออก)
-          hasMainHistoryState = false; // ปลดล็อก
-          history.back(); // สั่งให้ย้อนกลับเพื่อออกไปจริงๆ
-        });
-
-        // สำคัญมาก: เนื่องจากเบราว์เซอร์ได้ทำ Pop State ออกไปแล้วเมื่อผู้ใช้กด Back
-        // เราต้องรีบ Push State กลับเข้าไปใหม่ทันที เพื่อให้อยู่ในหน้าเดิมตอนที่กำลังถาม
-        history.pushState({ page: 'main' }, '', window.location.href);
-      }
-    });
-
-    // ดักจับอีกชั้นเผื่อผู้ใช้กด Refresh หรือปิดแท็บตรงๆ (ทำงานได้ดีบนคอมพิวเตอร์ บางเบราว์เซอร์บนมือถืออาจไม่รองรับ)
-    window.addEventListener('beforeunload', function (e) {
-        e.preventDefault();
-        e.returnValue = '';
     });
 
 
