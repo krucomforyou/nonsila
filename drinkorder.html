@@ -1151,15 +1151,25 @@
       
       if (myOrders.length > 0 && GAS_WEB_APP_URL !== "ใส่_URL_WEB_APP_ของคุณที่นี่") {
         showLoading(true, "อัปเดตชื่อในระบบ...");
-        for (let order of myOrders) {
-           await fetch(GAS_WEB_APP_URL, {
+        try {
+          // เปลี่ยนจากการส่ง action: 'order' (ที่ทำให้เกิดการเบิ้ล) เป็น action: 'updateProfile' เพื่อแก้ข้อมูลเดิม
+          await fetch(GAS_WEB_APP_URL, {
             method: 'POST',
-            body: JSON.stringify({ action: 'order', orderId: order.id, userId: currentUser.id, userName: currentUser.name, userIcon: currentUser.icon, userColor: currentUser.color, drinkId: order.drinkId, drinkName: order.drinkName, type: order.type, sweetness: order.sweetness, note: order.note }),
+            body: JSON.stringify({ 
+              action: 'updateProfile', 
+              userId: currentUser.id, 
+              userName: currentUser.name, 
+              userIcon: currentUser.icon, 
+              userColor: currentUser.color 
+            }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
           });
+          await loadOrdersFromSheet();
+        } catch (error) {
+          console.error(error);
+          showNotification('เกิดข้อผิดพลาด', 'อัปเดตชื่อบนระบบส่วนกลางไม่สำเร็จ', 'error');
         }
         showLoading(false);
-        loadOrdersFromSheet();
       } else {
         if(isViewingSummary) renderSummary(); 
       }
