@@ -468,6 +468,70 @@
       }
     });
 
+    // ==========================================
+    // ระบบดักจับการกดปุ่ม Back เพื่อถามก่อนออกจากเว็บ
+    // ==========================================
+    
+    // สถานะเพื่อเช็คว่าเราได้ทำการ Push State หลักสำหรับกันการออกจากเว็บไปหรือยัง
+    let hasMainHistoryState = false;
+
+    // ฟังก์ชันสำหรับใส่ State หลักเพื่อกันการออกจากเว็บ
+    function pushMainStateIfNeeded() {
+      if (!hasMainHistoryState) {
+        history.pushState({ page: 'main' }, '', window.location.href);
+        hasMainHistoryState = true;
+      }
+    }
+
+    // เรียกใช้ตอนโหลดหน้าเว็บเสร็จ
+    window.addEventListener('DOMContentLoaded', () => {
+      // (โค้ดเดิมของคุณที่อยู่ในบล็อกนี้ปล่อยไว้ตามปกติ...)
+      
+      // หน่วงเวลาเล็กน้อยก่อนใส่ State หลัก เพื่อให้เบราว์เซอร์จัดการ History เริ่มต้นให้เสร็จก่อน
+      setTimeout(pushMainStateIfNeeded, 500); 
+    });
+
+    // แก้ไข Event Listener ของ popstate เดิม หรือสร้างใหม่ทับของเดิม
+    window.addEventListener('popstate', (e) => {
+      const m = document.getElementById('order-modal');
+      const pm = document.getElementById('profile-modal');
+      const am = document.getElementById('custom-modal'); // Alert/Confirm Modal
+      
+      // 1. ถ้ามีหน้าต่างอะไรเปิดอยู่ ให้ทำการปิดหน้าต่างนั้น
+      if (m && !m.classList.contains('hidden')) {
+        closeOrderModal();
+        return; // ปิด Modal แล้วจบการทำงานรอบนี้
+      }
+      if (pm && !pm.classList.contains('hidden')) {
+        closeProfileModal();
+        return;
+      }
+      if (am && !am.classList.contains('hidden')) {
+        closeCustomModal();
+        return;
+      }
+
+      // 2. ถ้าไม่มีหน้าต่างใดเปิดอยู่ แสดงว่าผู้ใช้พยายามจะออกจากแอป (Back จากหน้าหลัก)
+      if (hasMainHistoryState) {
+        // ใช้ Custom Confirm Modal ของระบบเราเพื่อความสวยงาม
+        showConfirm('ยืนยันการออกจากระบบ', 'คุณแน่ใจหรือไม่ว่าต้องการออกจากแอปพลิเคชันนี้?', () => {
+          // ถ้าผู้ใช้กด "ยืนยัน" (ตกลงจะออก)
+          hasMainHistoryState = false; // ปลดล็อก
+          history.back(); // สั่งให้ย้อนกลับเพื่อออกไปจริงๆ
+        });
+
+        // สำคัญมาก: เนื่องจากเบราว์เซอร์ได้ทำ Pop State ออกไปแล้วเมื่อผู้ใช้กด Back
+        // เราต้องรีบ Push State กลับเข้าไปใหม่ทันที เพื่อให้อยู่ในหน้าเดิมตอนที่กำลังถาม
+        history.pushState({ page: 'main' }, '', window.location.href);
+      }
+    });
+
+    // ดักจับอีกชั้นเผื่อผู้ใช้กด Refresh หรือปิดแท็บตรงๆ (ทำงานได้ดีบนคอมพิวเตอร์ บางเบราว์เซอร์บนมือถืออาจไม่รองรับ)
+    window.addEventListener('beforeunload', function (e) {
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
     // ดักจับเวลากดปุ่มย้อนกลับ (Back) บนมือถือ
     window.addEventListener('popstate', (e) => {
       const m = document.getElementById('order-modal');
