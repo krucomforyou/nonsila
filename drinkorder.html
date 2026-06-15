@@ -417,6 +417,18 @@
       }
     });
 
+    // ดักจับเวลากดปุ่มย้อนกลับ (Back) บนมือถือ
+    window.addEventListener('popstate', (e) => {
+      const m = document.getElementById('order-modal');
+      // ถ้าหน้าต่างออเดอร์กำลังเปิดอยู่ ให้ทำการปิดหน้าต่าง
+      if (m && !m.classList.contains('hidden')) {
+        const c = document.getElementById('order-modal-content');
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => m.classList.add('hidden'), 300);
+      }
+    });
+
     function showLoading(show, text = "กำลังประมวลผล...") {
       const m = document.getElementById('loading-modal');
       document.getElementById('loading-title').innerText = text;
@@ -977,17 +989,22 @@
       c.classList.remove('scale-95');
       
       if(drinkId === 'custom') setTimeout(() => nameInput.focus(), 300);
+      // จำลองการสร้างประวัติหน้าเว็บ เพื่อหลอกให้มือถือรู้ว่ามีการเปิดหน้าใหม่
+      history.pushState({ modal: 'order' }, '', window.location.href);
     }
 
     function closeOrderModal() {
-      const m = document.getElementById('order-modal');
-      const c = document.getElementById('order-modal-content');
-      m.classList.add('opacity-0', 'pointer-events-none');
-      
-      // เปลี่ยนเป็นคำสั่งนี้คำสั่งเดียว
-      c.classList.add('scale-95');
-      
-      setTimeout(() => m.classList.add('hidden'), 300);
+      // เช็คว่ามีประวัติการเปิด Modal ค้างอยู่หรือไม่ ถ้ามีให้สั่งย้อนกลับ (มันจะไปเรียกการปิดผ่าน popstate เอง)
+      if (history.state && history.state.modal === 'order') {
+        history.back(); 
+      } else {
+        // ถ้าไม่มีประวัติ (เช่น เผลอปิดเอง) ก็ให้ปิดหน้าต่างไปตามปกติ
+        const m = document.getElementById('order-modal');
+        const c = document.getElementById('order-modal-content');
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => m.classList.add('hidden'), 300);
+      }
     }
 
     async function submitOrder() {
