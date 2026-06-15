@@ -124,6 +124,16 @@
 
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* สไตล์สำหรับปุ่มรูปแบบที่กดไม่ได้ (เมนูนั้นไม่มีขาย) */
+    .radio-card input:disabled + div {
+      background-color: #f3f4f6;
+      color: #9ca3af;
+      border-color: #d1d5db;
+      box-shadow: none;
+      transform: translate(2px, 2px);
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -239,15 +249,18 @@
           <label class="block font-black text-sm mb-2 uppercase"><i class="fa-solid fa-temperature-half"></i> รูปแบบ</label>
           <div class="grid grid-cols-3 gap-2">
             <label class="radio-card cursor-pointer relative">
-              <input type="radio" name="drink_type" value="ร้อน" class="sr-only">
+              <!-- เพิ่ม id="type-hot" -->
+              <input type="radio" id="type-hot" name="drink_type" value="ร้อน" class="sr-only">
               <div class="neo-btn w-full py-3 text-sm font-bold border-2 border-black bg-white">♨️ ร้อน</div>
             </label>
             <label class="radio-card cursor-pointer relative">
-              <input type="radio" name="drink_type" value="เย็น" class="sr-only" checked>
+              <!-- เพิ่ม id="type-iced" -->
+              <input type="radio" id="type-iced" name="drink_type" value="เย็น" class="sr-only" checked>
               <div class="neo-btn w-full py-3 text-sm font-bold border-2 border-black bg-white">🧊 เย็น</div>
             </label>
             <label class="radio-card cursor-pointer relative">
-              <input type="radio" name="drink_type" value="ปั่น" class="sr-only">
+              <!-- เพิ่ม id="type-frappe" -->
+              <input type="radio" id="type-frappe" name="drink_type" value="ปั่น" class="sr-only">
               <div class="neo-btn w-full py-3 text-sm font-bold border-2 border-black bg-white">🌪️ ปั่น</div>
             </label>
           </div>
@@ -313,7 +326,15 @@
       </div>
       
       <div class="text-left mb-6">
-        <label class="block font-black text-xs text-gray-500 uppercase mb-1">ชื่อของคุณ</label>
+        <!-- จัดกลุ่ม Label และ ปุ่มให้อยู่บรรทัดเดียวกัน -->
+        <div class="flex justify-between items-end mb-1">
+          <label class="block font-black text-xs text-gray-500 uppercase">ชื่อของคุณ</label>
+          <!-- ปุ่มล้างข้อความ สีเหลือง นูนๆ -->
+          <button type="button" onclick="document.getElementById('edit-profile-name').value = ''; document.getElementById('edit-profile-name').focus();" class="bg-[#fde047] border-2 border-black text-black text-[10px] font-black px-2 py-0.5 rounded shadow-[2px_2px_0_0_#000] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer">
+            <i class="fa-solid fa-eraser mr-1"></i>ล้าง
+          </button>
+        </div>
+        
         <input type="text" id="edit-profile-name" class="neo-input w-full px-4 py-2 font-bold text-center text-lg" placeholder="ใส่ชื่อของคุณ">
         <p class="text-[10px] font-medium text-gray-500 mt-2 text-center">ระบบสุ่มรูปประจำตัวและสีให้ตามอุปกรณ์ อัปเดตชื่อเพื่อหาออเดอร์ง่ายขึ้น</p>
       </div>
@@ -339,34 +360,64 @@
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx85Rz3TBcN6R2JwoDP7qGFSjucMLy60W3A0TBUkB-kT-QBbPfuA-6b4KQYERPd2HE/exec";
 
     const MENU_ITEMS = [
-      { id: 'm1', name: 'เอสเปรสโซ่ (Espresso)', type: 'coffee', price: 55, icon: 'fa-mug-hot', color: 'bg-orange-700 text-white' },
-      { id: 'm2', name: 'อเมริกาโน่ (Americano)', type: 'coffee', price: 55, icon: 'fa-mug-saucer', color: 'bg-amber-900 text-white' },
-      { id: 'm3', name: 'แบล็คคอฟฟี่ (Black Coffee)', type: 'coffee', price: 50, icon: 'fa-mug-hot', color: 'bg-stone-800 text-white' },
-      { id: 'm4', name: 'แบล็คคอฟฟี่น้ำผึ้ง (Honey Black Coffee)', type: 'coffee', price: 65, icon: 'fa-mug-hot', color: 'bg-amber-600 text-white' },
-      { id: 'm5', name: 'คาปูชิโน่ (Cappuccino)', type: 'coffee', price: 60, icon: 'fa-mug-saucer', color: 'bg-amber-100' },
-      { id: 'm6', name: 'ลาเต้อเมซอน (Latte Amazon)', type: 'coffee', price: 65, icon: 'fa-glass-water', color: 'bg-yellow-100' },
-      { id: 'm7', name: 'มอคค่า (Mocha)', type: 'coffee', price: 65, icon: 'fa-mug-hot', color: 'bg-yellow-800 text-white' },
-      { id: 'm8', name: 'คาราเมลมัคคิอาโต้ (Caramel Macchiato)', type: 'coffee', price: 75, icon: 'fa-glass-water', color: 'bg-yellow-200' },
-      { id: 'm9', name: 'ไวท์ช็อคมัคคิอาโต้ (White Choc Macchiato)', type: 'coffee', price: 75, icon: 'fa-glass-water', color: 'bg-orange-100' },
+      // ชา (Tea) - ย้ายมาไว้หมวดแรกสุด
+      { id: 'm10', name: 'ชาเขียวนม (Green Tea with Milk)', type: 'tea', icon: 'fa-leaf', color: 'bg-green-300', opts: {h:1, i:1, f:1} },
+      { id: 'm12', name: 'ชานม (Thai Milk Tea)', type: 'tea', icon: 'fa-glass-water', color: 'bg-orange-300', opts: {h:1, i:1, f:1} },
+      { id: 'm11', name: 'มัทฉะลาเต้ (Matcha Latte)', type: 'tea', icon: 'fa-leaf', color: 'bg-green-600 text-white', opts: {h:1, i:1, f:1} },
+      { id: 'm13', name: 'ชาดำ (Black Tea)', type: 'tea', icon: 'fa-glass-water', color: 'bg-red-800 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm14', name: 'ชามะนาว (Lemon Tea)', type: 'tea', icon: 'fa-lemon', color: 'bg-yellow-400', opts: {h:0, i:1, f:0} },
+      { id: 'm15', name: 'ชาเขียวน้ำผึ้งมะนาวเจลลี่ (Green Tea Honey Lime with Jelly)', type: 'tea', icon: 'fa-lemon', color: 'bg-lime-300', opts: {h:0, i:1, f:0} },
+      { id: 'm_new4', name: 'มัทฉะเรดบีน (Matcha Red Bean)', type: 'tea', icon: 'fa-leaf', color: 'bg-green-700 text-white', opts: {h:0, i:0, f:1} },
+      { id: 'm_new5', name: 'โฮจิฉะบราวน์ชูการ์ลาเต้ (Hojicha Brown Sugar Latte)', type: 'tea', icon: 'fa-leaf', color: 'bg-orange-400', opts: {h:0, i:1, f:0} },
+      { id: 'm_new6', name: 'โฮจิฉะเรดบีน (Hojicha Red Bean)', type: 'tea', icon: 'fa-leaf', color: 'bg-orange-500 text-white', opts: {h:0, i:0, f:1} },
+
+      // กาแฟดำ (Black Coffee)
+      { id: 'm1', name: 'เอสเปรสโซ่ (Espresso)', type: 'coffee_black', icon: 'fa-mug-hot', color: 'bg-stone-800 text-white', opts: {h:1, i:1, f:1} },
+      { id: 'm2', name: 'อเมริกาโน่ (Americano)', type: 'coffee_black', icon: 'fa-mug-saucer', color: 'bg-stone-800 text-white', opts: {h:1, i:1, f:0} },
+      { id: 'm3', name: 'แบล็คคอฟฟี่ (Black Coffee)', type: 'coffee_black', icon: 'fa-mug-hot', color: 'bg-stone-800 text-white', opts: {h:1, i:1, f:0} },
+      { id: 'm4', name: 'ฮันนี่แบล็คคอฟฟี่ (Honey Black Coffee)', type: 'coffee_black', icon: 'fa-mug-hot', color: 'bg-amber-600 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm_new1', name: 'แบล็คคอฟฟี่น้ำผึ้งมะนาว (Black Coffee Honey Lemon)', type: 'coffee_black', icon: 'fa-lemon', color: 'bg-amber-700 text-white', opts: {h:0, i:1, f:0} },
+
+      // กาแฟนม (Milk Coffee)
+      { id: 'm_new2', name: 'อเมซอน (Amazon Signature)', type: 'coffee_milk', icon: 'fa-mug-saucer', color: 'bg-amber-800 text-white', opts: {h:1, i:1, f:1} },
+      { id: 'm_new3', name: 'อเมซอน เอ็กซ์ตร้า (Amazon Extra)', type: 'coffee_milk', icon: 'fa-mug-saucer', color: 'bg-amber-900 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm5', name: 'คาปูชิโน่ (Cappuccino)', type: 'coffee_milk', icon: 'fa-mug-saucer', color: 'bg-amber-100', opts: {h:1, i:1, f:1} },
+      { id: 'm6', name: 'คาเฟ่ลาเต้ (Café Latte)', type: 'coffee_milk', icon: 'fa-glass-water', color: 'bg-yellow-100', opts: {h:1, i:1, f:1} },
+      { id: 'm7', name: 'มอคค่า (Mocha)', type: 'coffee_milk', icon: 'fa-mug-hot', color: 'bg-yellow-800 text-white', opts: {h:1, i:1, f:1} },
+      { id: 'm8', name: 'คาราเมลมัคคิอาโต้ (Caramel Macchiato)', type: 'coffee_milk', icon: 'fa-glass-water', color: 'bg-yellow-200', opts: {h:1, i:1, f:1} },
+      { id: 'm9', name: 'ไวท์ช็อกมัคคิอาโต้ (White Choc Macchiato)', type: 'coffee_milk', icon: 'fa-glass-water', color: 'bg-orange-100', opts: {h:1, i:1, f:1} },
+
+      // นมและช็อกโกแลต (Milk & Chocolate)
+      { id: 'm18', name: 'นมสด (Fresh Milk)', type: 'milk', icon: 'fa-glass-water', color: 'bg-blue-50', opts: {h:1, i:1, f:1} },
+      { id: 'm19', name: 'นมชมพู (Pink Milk)', type: 'milk', icon: 'fa-glass-water', color: 'bg-pink-300', opts: {h:1, i:1, f:1} },
+      { id: 'm16', name: 'ช็อกโกแลต (Chocolate)', type: 'milk', icon: 'fa-mug-hot', color: 'bg-amber-800 text-white', opts: {h:1, i:1, f:1} },
+      { id: 'm17', name: 'เฟรชดาร์กช็อกโกแลต (Fresh Dark Chocolate)', type: 'milk', icon: 'fa-mug-hot', color: 'bg-stone-800 text-white', opts: {h:0, i:1, f:0} },
+
+      // ผลไม้และสมูทตี้ (Fruit & Smoothies)
+      { id: 'm24', name: 'น้ำลิ้นจี่ (Lychee Juice)', type: 'smoothie', icon: 'fa-glass-water', color: 'bg-rose-100', opts: {h:0, i:1, f:1} },
+      { id: 'm_new7', name: 'สตรอว์เบอร์รี่แฟรปเป้ (Strawberry Frappe)', type: 'smoothie', icon: 'fa-blender', color: 'bg-red-400 text-white', opts: {h:0, i:0, f:1} },
+      { id: 'm_new8', name: 'กีวีแฟรปเป้ (Kiwi Frappe)', type: 'smoothie', icon: 'fa-blender', color: 'bg-green-400 text-white', opts: {h:0, i:0, f:1} },
+      { id: 'm_new9', name: 'มิกซ์เบอร์รี่แฟรปเป้ (Mixed Berry Frappe)', type: 'smoothie', icon: 'fa-blender', color: 'bg-purple-400 text-white', opts: {h:0, i:0, f:1} },
+      { id: 'm_new10', name: 'สตรอว์เบอร์รี่โยเกิร์ตสมูทตี้ (Strawberry Yogurt Smoothie)', type: 'smoothie', icon: 'fa-blender', color: 'bg-red-300', opts: {h:0, i:0, f:1} },
+      { id: 'm_new11', name: 'มิกซ์เบอร์รี่โยเกิร์ตสมูทตี้ (Mixed Berry Yogurt Smoothie)', type: 'smoothie', icon: 'fa-blender', color: 'bg-purple-300', opts: {h:0, i:0, f:1} },
+      { id: 'm20', name: 'สตรอเบอร์รี่ชีสเค้ก (Strawberry Cheesecake)', type: 'smoothie', icon: 'fa-ice-cream', color: 'bg-pink-200', opts: {h:0, i:0, f:1} },
+      { id: 'm23', name: 'สตรอเบอร์รี่สควอช (Strawberry Squash)', type: 'smoothie', icon: 'fa-glass-water', color: 'bg-red-200', opts: {h:0, i:1, f:0} },
+      { id: 'm25', name: 'ยูซุสปาร์คกลิ้ง (Yuzu Sparkling)', type: 'smoothie', icon: 'fa-lemon', color: 'bg-yellow-300', opts: {h:0, i:1, f:0} },
+
+      // กลุ่ม Light / Fresh
+      { id: 'm_new12', name: 'ไลท์คอฟฟี่ฮันนี่ (Light Coffee Honey)', type: 'light', icon: 'fa-mug-hot', color: 'bg-amber-600 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm_new13', name: 'เฟรชคาเฟ่ลาเต้ (Fresh Café Latte)', type: 'light', icon: 'fa-glass-water', color: 'bg-yellow-100', opts: {h:0, i:1, f:0} },
+      { id: 'm_new14', name: 'ไลท์แบล็คทีฮันนี่ (Light Black Tea Honey)', type: 'light', icon: 'fa-glass-water', color: 'bg-red-700 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm_new15', name: 'ไลท์มัทฉะฮันนี่ (Light Matcha Honey)', type: 'light', icon: 'fa-leaf', color: 'bg-green-500 text-white', opts: {h:0, i:1, f:0} },
+      { id: 'm_new16', name: 'เฟรชมิลค์ที (Fresh Milk Tea)', type: 'light', icon: 'fa-glass-water', color: 'bg-orange-300', opts: {h:0, i:1, f:0} },
       
-      { id: 'm10', name: 'ชาเขียวนม (Green Tea)', type: 'tea', price: 50, icon: 'fa-leaf', color: 'bg-green-300' },
-      { id: 'm11', name: 'มัทฉะลาเต้ (Matcha Latte)', type: 'tea', price: 65, icon: 'fa-leaf', color: 'bg-green-600 text-white' },
-      { id: 'm12', name: 'ชานม (Thai Tea)', type: 'tea', price: 45, icon: 'fa-glass-water', color: 'bg-orange-300' },
-      { id: 'm13', name: 'ชาดำ (Black Tea)', type: 'tea', price: 40, icon: 'fa-glass-water', color: 'bg-red-800 text-white' },
-      { id: 'm14', name: 'ชามะนาว (Lemon Tea)', type: 'tea', price: 45, icon: 'fa-lemon', color: 'bg-yellow-400' },
-      { id: 'm15', name: 'ชาเขียวน้ำผึ้งมะนาวเจลลี่ (Honey Lime Green Tea)', type: 'tea', price: 55, icon: 'fa-lemon', color: 'bg-lime-300' },
-      
-      { id: 'm16', name: 'ช็อคโกแลต (Chocolate)', type: 'milk', price: 50, icon: 'fa-mug-hot', color: 'bg-amber-800 text-white' },
-      { id: 'm17', name: 'ดาร์คช็อคโกแลต (Dark Chocolate)', type: 'milk', price: 55, icon: 'fa-mug-hot', color: 'bg-stone-800 text-white' },
-      { id: 'm18', name: 'เฟรชมิลค์ / นมสด (Fresh Milk)', type: 'milk', price: 45, icon: 'fa-glass-water', color: 'bg-blue-50' },
-      { id: 'm19', name: 'นมชมพู / นมสดสตรอเบอร์รี่ (Pink Milk)', type: 'milk', price: 50, icon: 'fa-glass-water', color: 'bg-pink-300' },
-      
-      { id: 'm20', name: 'สตรอเบอร์รี่ชีสเค้ก (Strawberry Cheesecake)', type: 'light', price: 70, icon: 'fa-ice-cream', color: 'bg-pink-200' },
-      { id: 'm21', name: 'สตรอเบอร์รี่สมูทตี้ (Strawberry Smoothie)', type: 'light', price: 60, icon: 'fa-blender', color: 'bg-red-400 text-white' },
-      { id: 'm22', name: 'มิกซ์เบอร์รี่สมูทตี้ (Mixed Berry Smoothie)', type: 'light', price: 60, icon: 'fa-blender', color: 'bg-purple-400 text-white' },
-      { id: 'm23', name: 'สตรอเบอร์รี่สควอช (Strawberry Squash)', type: 'light', price: 50, icon: 'fa-glass-water', color: 'bg-red-200' },
-      { id: 'm24', name: 'น้ำลิ้นจี่ (Lychee Juice)', type: 'light', price: 45, icon: 'fa-glass-water', color: 'bg-rose-100' },
-      { id: 'm25', name: 'ยูซุสปาร์คกลิ้ง (Yuzu Sparkling)', type: 'light', price: 55, icon: 'fa-lemon', color: 'bg-yellow-300' }
+      // Amazon Selected (Premium)
+      { id: 'm_new17', name: 'เอสเปรสโซ พรีเมียม (Espresso : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:1, i:0, f:0} },
+      { id: 'm_new18', name: 'อเมริกาโน่ พรีเมียม (Americano : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:1, i:1, f:0} },
+      { id: 'm_new19', name: 'คาเฟ่ลาเต้ พรีเมียม (Café Latte : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:1, i:1, f:0} },
+      { id: 'm_new20', name: 'คาปูชิโน่ พรีเมียม (Cappuccino : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:1, i:1, f:0} },
+      { id: 'm_new21', name: 'คาราเมลมัคคิอาโต้ พรีเมียม (Caramel Macchiato : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:1, i:1, f:1} },
+      { id: 'm_new22', name: 'คอฟฟี่มาร์เบิล พรีเมียม (Coffee Marble : Premium)', type: 'premium', icon: 'fa-crown', color: 'bg-gray-800 text-yellow-400', opts: {h:0, i:1, f:0} }
     ];
 
     const AVATAR_ICONS = ['fa-user-astronaut', 'fa-user-ninja', 'fa-ghost', 'fa-robot', 'fa-cat', 'fa-dog', 'fa-frog', 'fa-dragon', 'fa-hippo', 'fa-spider'];
@@ -445,11 +496,17 @@
         const rColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
         const rId = 'u_' + Math.random().toString(36).substr(2, 9);
         
-        currentUser = { id: rId, name: 'คนแปลกหน้า_' + Math.floor(Math.random() * 100), icon: rIcon, color: rColor };
+        // สุ่มชื่อคนแปลกหน้าพร้อมตัวเลข 0-99
+        const randomName = 'คนแปลกหน้า_' + Math.floor(Math.random() * 100);
+        
+        // กำหนดชื่อเริ่มต้นเป็นคนแปลกหน้า
+        currentUser = { id: rId, name: randomName, icon: rIcon, color: rColor };
         localStorage.setItem('amazon_user', JSON.stringify(currentUser));
         
         setTimeout(() => {
-          showNotification('ยินดีต้อนรับ!', 'ระบบสุ่มอวตารให้คุณแล้ว เปลี่ยนชื่อได้โดยกดที่ไอคอนมุมขวาบนนะครับ', 'info');
+          // สั่งเปิดหน้าต่างโปรไฟล์ขึ้นมาทันทีที่เข้าเว็บครั้งแรก
+          openProfileModal(); 
+          showNotification('ยินดีต้อนรับ!', 'ระบบสุ่มอวตารและชื่อให้คุณแล้ว สามารถเปลี่ยนชื่อของคุณก่อนเริ่มสั่งได้เลยนะครับ', 'info');
         }, 500);
       }
     }
@@ -558,10 +615,13 @@
       grid.innerHTML = '';
 
       const CATEGORY_NAMES = {
-        coffee: '<i class="fa-solid fa-mug-hot text-amber-800 mr-2"></i> กาแฟ (Coffee)',
+        coffee_black: '<i class="fa-solid fa-mug-hot text-stone-800 mr-2"></i> กาแฟดำ (Black Coffee)',
+        coffee_milk: '<i class="fa-solid fa-mug-saucer text-amber-800 mr-2"></i> กาแฟนม (Milk Coffee)',
         tea: '<i class="fa-solid fa-leaf text-green-600 mr-2"></i> ชา (Tea)',
-        milk: '<i class="fa-solid fa-cow text-blue-500 mr-2"></i> นม & ช็อคโกแลต (Milk)',
-        light: '<i class="fa-solid fa-blender text-pink-500 mr-2"></i> สมูทตี้ & น้ำผลไม้ (Light)'
+        milk: '<i class="fa-solid fa-cow text-blue-500 mr-2"></i> นมและช็อกโกแลต (Milk & Chocolate)',
+        smoothie: '<i class="fa-solid fa-blender text-pink-500 mr-2"></i> ผลไม้และสมูทตี้ (Fruit & Smoothies)',
+        light: '<i class="fa-solid fa-seedling text-green-500 mr-2"></i> กลุ่ม Light / Fresh',
+        premium: '<i class="fa-solid fa-crown text-yellow-500 mr-2"></i> Amazon Selected (Premium)'
       };
 
       let currentCategory = '';
@@ -590,13 +650,21 @@
           ? `<div class="absolute -top-3 -right-3 bg-black text-[#fde047] text-[10px] font-black px-2 py-1 rounded-md border-2 border-white shadow-sm z-10"><i class="fa-solid fa-star"></i> สั่ง ${myOrderedCount} แก้ว</div>` 
           : '';
 
+        // จัดรูปแบบแยกชื่อภาษาไทยและภาษาอังกฤษให้อยู่คนละบรรทัด
+        let displayName = drink.name;
+        if (displayName.includes(' (')) {
+          let parts = displayName.split(' (');
+          // parts[0] คือชื่อไทย, parts[1] คือชื่ออังกฤษ (เอาวงเล็บกลับมาใส่ด้วย)
+          displayName = `${parts[0]}<br><span class="text-[10px] font-bold text-gray-500 block mt-1 leading-tight">(${parts[1]}</span>`;
+        }
+
         card.innerHTML = `
           ${myBadge}
           <div class="relative flex-1 flex flex-col items-center text-center">
             <div class="w-16 h-16 rounded-full border-3 border-black flex items-center justify-center text-3xl mb-3 shadow-[2px_2px_0_0_#000] ${drink.color}">
               <i class="fa-solid ${drink.icon}"></i>
             </div>
-            <h3 class="font-black text-sm leading-tight mb-2">${drink.name}</h3>
+            <h3 class="font-black text-sm leading-tight mb-2">${displayName}</h3>
           </div>
           <button class="neo-btn ${isOrdered ? 'bg-white' : 'neo-btn-primary'} w-full py-2 text-xs mt-2">
             <i class="fa-solid fa-plus"></i> เพิ่มแก้วนี้
@@ -948,7 +1016,10 @@
       const nameInput = document.getElementById('modal-drink-name-input');
       const cupCountText = document.getElementById('modal-cup-count-info');
       
-      document.querySelector(`input[name="drink_type"][value="เย็น"]`).checked = true;
+      const optHot = document.getElementById('type-hot');
+      const optIced = document.getElementById('type-iced');
+      const optFrappe = document.getElementById('type-frappe');
+
       document.getElementById('input-sweetness').value = '100%';
       document.getElementById('input-note').value = '';
       document.getElementById('input-quantity').value = 1;
@@ -959,6 +1030,10 @@
         nameInput.classList.remove('hidden');
         nameInput.value = '';
         if(cupCountText) cupCountText.classList.add('hidden');
+        
+        // ถ้าพิมพ์เอง ให้กดได้ทุกปุ่ม และติ๊กเย็นเป็นค่าเริ่มต้น
+        optHot.disabled = false; optIced.disabled = false; optFrappe.disabled = false;
+        optIced.checked = true;
       } else {
         const drink = MENU_ITEMS.find(m => m.id === drinkId);
         if (!drink) return;
@@ -966,6 +1041,16 @@
         nameInput.classList.add('hidden');
         nameText.innerText = drink.name;
         document.getElementById('input-drink-name').value = drink.name;
+        
+        // ปิดการกด (Disable) ปุ่มที่เมนูนั้นไม่มี
+        optHot.disabled = !drink.opts.h;
+        optIced.disabled = !drink.opts.i;
+        optFrappe.disabled = !drink.opts.f;
+
+        // เลือกปุ่มให้ล่วงหน้า (พยายามเลือก เย็น -> ร้อน -> ปั่น ตามลำดับที่มีขาย)
+        if (drink.opts.i) optIced.checked = true;
+        else if (drink.opts.h) optHot.checked = true;
+        else if (drink.opts.f) optFrappe.checked = true;
         
         if(cupCountText) {
           let allOrders = getAllOrders();
