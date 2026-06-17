@@ -794,6 +794,73 @@
       qtyDisplay.innerText = newVal;
     }
 
+    // ฟังก์ชันใหม่สำหรับแสดงรายชื่อคนสั่งตามระดับความหวาน
+    window.showDrinkers = function(drinkInfoJson, usersJson) {
+      try {
+        const info = JSON.parse(decodeURIComponent(drinkInfoJson));
+        const users = JSON.parse(decodeURIComponent(usersJson));
+        
+        // 1. จัดกลุ่มผู้สั่งที่ชื่อเหมือนกันเข้าด้วยกัน
+        let groupedUsers = {};
+        users.forEach(u => {
+            if (!groupedUsers[u.name]) {
+                groupedUsers[u.name] = {
+                    name: u.name,
+                    icon: u.icon,
+                    color: u.color,
+                    count: 0
+                };
+            }
+            groupedUsers[u.name].count++;
+        });
+        
+        // 2. นำรายชื่อที่จัดกลุ่มแล้วมาสร้างเป็นหน้าต่าง (พร้อมป้าย x2, x3 ถ้ามี)
+        let userListHtml = Object.values(groupedUsers).map(u => {
+          let countBadge = u.count > 1 ? `<span class="text-[10px] bg-black text-[#fde047] font-black px-1.5 py-0.5 rounded-full ml-1 shadow-[1px_1px_0_0_#ccc]">x${u.count}</span>` : '';
+          return `
+            <div class="flex items-center gap-3 p-2 bg-white border-2 border-black rounded-lg mb-2 shadow-[2px_2px_0_0_#000]">
+              <div class="w-10 h-10 rounded-full border-2 border-black flex items-center justify-center shrink-0 ${u.color}">
+                <i class="fa-solid ${u.icon}"></i>
+              </div>
+              <div class="font-bold text-left flex-1">${u.name} ${countBadge}</div>
+            </div>
+          `;
+        }).join('');
+        
+        // กำหนดสีป้าย (Badge) ตามประเภทเครื่องดื่ม
+        let tColor = 'bg-gray-200 text-gray-800';
+        if (info.type === 'ร้อน') tColor = 'bg-red-100 text-red-800 border-red-300';
+        else if (info.type === 'เย็น') tColor = 'bg-blue-100 text-blue-800 border-blue-300';
+        else if (info.type === 'ปั่น') tColor = 'bg-purple-100 text-purple-800 border-purple-300';
+
+        // สร้างการ์ดรายละเอียดเมนู
+        let infoHtml = `
+          <div class="bg-gray-100 p-3 rounded-lg border-2 border-black mb-4 text-left shadow-[2px_2px_0_0_#000]">
+            <div class="font-black text-base leading-tight mb-2">${info.name}</div>
+            <div class="flex flex-wrap gap-1">
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black ${tColor}">${info.type}</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black bg-white">${info.sweetness}</span>
+            </div>
+            ${info.note ? `<div class="text-xs font-medium text-red-600 mt-2 bg-red-50 p-1.5 rounded border border-red-200"><i class="fa-solid fa-comment-dots"></i> <b>หมายเหตุ:</b> ${info.note}</div>` : ''}
+          </div>
+        `;
+
+        // แสดง Modal โดยให้ Title หลักเป็นคำว่า "รายละเอียดออเดอร์"
+        showNotification('รายละเอียดออเดอร์', '', 'info');
+        
+        // นำการ์ดเมนู และ รายชื่อ มาจัดเรียงต่อกัน
+        document.getElementById('custom-modal-message').innerHTML = `
+          ${infoHtml}
+          <div class="text-xs font-bold text-gray-600 mb-2 text-left uppercase"><i class="fa-solid fa-users"></i> ผู้สั่งแก้วนี้ (${users.length} คน)</div>
+          <div class="max-h-40 overflow-y-auto pr-2 no-scrollbar text-left">
+            ${userListHtml}
+          </div>
+        `;
+      } catch(e) {
+        console.error("Error showing drinkers", e);
+      }
+    }
+
     function renderSummary() {
       const list = document.getElementById('summary-list');
       list.innerHTML = '';
@@ -837,16 +904,15 @@
                     
         let grouped = {};
         orders.forEach(order => {
-            let drinkKey = order.drinkId === 'custom' ? `custom_${order.drinkName.trim().toLowerCase()}` : order.drinkId;
-            // แยกกลุ่มด้วย Status เพื่อไม่ให้แก้วปกติและแก้วที่ถูกยกเลิกไปรวมกัน
-            let key = `${drinkKey}_${order.type}_${order.sweetness}_${order.note || ''}_${order.status || 'ACTIVE'}`;
+            // เพิ่ม String() ป้องกันกรณีชื่อเมนูเป็นตัวเลขล้วน
+            let drinkKey = order.drinkId === 'custom' ? `custom_${String(order.drinkName).trim().toLowerCase()}` : order.drinkId;
+            
+            // ลบ order.note ออกจาก key เพื่อให้รวมเมนูเดียวกันได้ 100%
+            let key = `${drinkKey}_${order.status || 'ACTIVE'}`;
             
             if (!grouped[key]) {
                 grouped[key] = {
                     drinkName: order.drinkName,
-                    type: order.type,
-                    sweetness: order.sweetness,
-                    note: order.note,
                     status: order.status || 'ACTIVE',
                     orders: []
                 };
@@ -899,7 +965,74 @@
              `;
           }).join('<div class="h-1"></div>');
 
-          const displaySweetness = formatSweetness(group.sweetness);
+          // นับแยกจำนวนแก้วตามแต่ละระดับความหวาน
+          let typeAndSweetnessGroups = {};
+          group.orders.forEach(o => {
+              if(!typeAndSweetnessGroups[o.type]) typeAndSweetnessGroups[o.type] = {};
+              
+              // เพิ่ม String() ป้องกันกรณีหมายเหตุเป็นตัวเลขล้วน
+              let noteText = o.note ? String(o.note).trim() : '';
+              let swAndNoteKey = `${o.sweetness}_${noteText}`; // ใช้ความหวาน+โน้ต เป็นคีย์แยกบรรทัด
+              
+              if(!typeAndSweetnessGroups[o.type][swAndNoteKey]) {
+                  typeAndSweetnessGroups[o.type][swAndNoteKey] = {
+                      sweetness: o.sweetness,
+                      note: noteText,
+                      orders: []
+                  };
+              }
+              typeAndSweetnessGroups[o.type][swAndNoteKey].orders.push(o);
+          });
+
+          let drinkDetailsHtml = Object.keys(typeAndSweetnessGroups).map(type => {
+              let tColor = 'bg-gray-200 text-gray-800';
+              if (type === 'ร้อน') tColor = 'bg-red-100 text-red-800 border-red-300';
+              else if (type === 'เย็น') tColor = 'bg-blue-100 text-blue-800 border-blue-300';
+              else if (type === 'ปั่น') tColor = 'bg-purple-100 text-purple-800 border-purple-300';
+              
+              let swHtml = Object.keys(typeAndSweetnessGroups[type]).map(key => {
+                  let groupData = typeAndSweetnessGroups[type][key];
+                  let ordersInThisSw = groupData.orders;
+                  let count = ordersInThisSw.length;
+                  let swFormatted = formatSweetness(groupData.sweetness);
+                  
+                  let usersData = ordersInThisSw.map(o => ({
+                      name: o.user.name,
+                      icon: o.user.icon,
+                      color: o.user.color
+                  }));
+                  
+                  // เพิ่ม .replace(/'/g, "%27") เพื่อแปลงเครื่องหมาย ' ไม่ให้ HTML พัง
+                  let usersJson = encodeURIComponent(JSON.stringify(usersData)).replace(/'/g, "%27");
+                  
+                  // สร้าง Object เก็บข้อมูลเมนูแยกส่วนกัน
+                  let drinkInfo = {
+                      name: group.drinkName,
+                      type: type,
+                      sweetness: swFormatted,
+                      note: groupData.note || ''
+                  };
+                  let drinkInfoJson = encodeURIComponent(JSON.stringify(drinkInfo)).replace(/'/g, "%27");
+
+                  // เพิ่ม Tag หมายเหตุ ต่อท้ายความหวานถ้ามีโน้ต
+                  let noteHtml = groupData.note ? `<span class="text-[9px] font-medium text-gray-500 ml-1 px-1 bg-gray-100 border border-gray-300 rounded"><i class="fa-solid fa-comment-dots"></i> ${groupData.note}</span>` : '';
+
+                  // เปลี่ยน parameter ที่ส่งไปใน showDrinkers
+                  return `<div onclick="showDrinkers('${drinkInfoJson}', '${usersJson}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black bg-white flex-shrink-0 w-max mb-1 shadow-sm cursor-pointer hover:bg-gray-100 active:translate-y-[2px] active:shadow-none transition-all" title="คลิกดูรายชื่อคนสั่ง">
+                            ${swFormatted} <span class="text-[var(--brand-color)] font-black mx-1">(x${count})</span>${noteHtml}
+                          </div>`;
+              }).join('');
+
+              return `
+                <div class="flex flex-col mt-1 ${isCancelled ? 'opacity-50 grayscale' : ''}">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black w-max mb-1 shadow-sm ${tColor}">${type}</span>
+                  <div class="flex flex-col ml-2 border-l-2 border-gray-300 pl-2">
+                     ${swHtml}
+                  </div>
+                </div>
+              `;
+          }).join('');
+
           const strikeClass = isCancelled ? 'line-through text-red-500 opacity-60' : '';
           const cancelBadge = isCancelled ? '<span class="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0_0_#000] ml-2">ยกเลิกแล้ว</span>' : '';
 
@@ -914,11 +1047,9 @@
               <div class="flex-1 border-l-2 border-gray-200 pl-4 flex items-center justify-between">
                 <div class="flex-1 pr-2">
                   <div class="font-black text-sm mb-1 leading-tight flex items-center ${strikeClass}">${group.drinkName} ${cancelBadge}</div>
-                  <div class="flex flex-wrap gap-1 mb-1 ${isCancelled ? 'opacity-50 grayscale' : ''}">
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black ${typeColor}">${group.type}</span>
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border border-black bg-white">${displaySweetness}</span>
-                  </div>
-                  ${group.note ? `<div class="text-xs font-medium text-gray-500 ${isCancelled ? 'opacity-50 line-through' : ''}"><i class="fa-solid fa-comment-dots text-[10px]"></i> ${group.note}</div>` : ''}
+                  
+                  ${drinkDetailsHtml}
+                  
                 </div>
                 
                 <div class="w-10 h-10 ${isCancelled ? 'bg-red-200 text-red-500 line-through' : 'bg-[var(--brand-color)] text-white'} border-2 border-black rounded-xl flex items-center justify-center font-black text-xl shadow-[2px_2px_0_0_#000] shrink-0">
