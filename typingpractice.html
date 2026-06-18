@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เกมฝึกพิมพ์ ก-ฮ และ A-Z สำหรับเด็ก ป.1</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
     <style>
@@ -167,14 +168,15 @@
         .reset-btn:active { transform: translateY(2px); }
 
         /* Modal styling */
-        #celebration-modal {
+        .modal-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
             justify-content: center;
             align-items: center;
             z-index: 100;
+            backdrop-filter: blur(3px);
         }
 
         .modal-content {
@@ -182,8 +184,10 @@
             padding: 40px;
             border-radius: 20px;
             text-align: center;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             animation: slideDown 0.5s ease-out;
+            max-width: 90%;
+            width: 400px;
         }
         
         .modal-content h2 {
@@ -192,14 +196,49 @@
             margin-bottom: 10px;
         }
 
+        #login-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.5rem;
+            font-family: 'Itim', cursive;
+            border: 3px solid #93c5fd;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #login-input:focus {
+            border-color: #3b82f6;
+        }
+
+        .player-name-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.2rem;
+            color: #1e40af;
+            background: white;
+            padding: 5px 15px;
+            border-radius: 999px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: none;
+        }
+
         @media (max-width: 600px) {
             .grid-container { grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)); gap: 8px; }
             .letter-box { font-size: 1.8rem; border-width: 2px; }
             .current-target { font-size: 1.2rem; }
+            .player-name-display { top: 10px; right: 10px; font-size: 1rem; }
         }
     </style>
 </head>
 <body>
+
+    <div class="player-name-display" id="player-info">
+        ผู้เล่น: <span id="display-name"></span>
+    </div>
 
     <h1 class="text-3xl md:text-5xl font-bold mt-4">📝 เกมฝึกพิมพ์ ป.1</h1>
     
@@ -222,16 +261,32 @@
         <!-- Letter boxes will be generated here by JavaScript -->
     </div>
 
+    <!-- Login Modal (แก้ไขเป็นชื่อเล่น) -->
+    <div id="login-modal" class="modal-overlay" style="display: flex;">
+        <div class="modal-content">
+            <h2 style="color: #2563eb;">ยินดีต้อนรับ! 👋</h2>
+            <p class="text-xl text-gray-600">บอกชื่อเล่นของน้องก่อนเริ่มเล่นเกมนะครับ</p>
+            <input type="text" id="login-input" placeholder="พิมพ์ชื่อเล่น" autocomplete="off">
+            <button class="reset-btn" style="background-color: #3b82f6; width: 100%;" onclick="startPlayer()">เริ่มเล่นเลย!</button>
+        </div>
+    </div>
+
     <!-- Celebration Modal -->
-    <div id="celebration-modal">
+    <div id="celebration-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>เก่งมาก! 🎉</h2>
-            <p class="text-xl mb-6 text-gray-600">น้องพิมพ์ได้ครบทุกตัวแล้ว</p>
+            <p class="text-xl mb-6 text-gray-600">น้อง <span id="celeb-name" class="font-bold text-blue-600"></span> พิมพ์ได้ครบทุกตัวแล้ว</p>
+            <p id="saving-status" class="text-sm text-green-600 mb-4" style="display: none;">กำลังบันทึกข้อมูล...</p>
             <button class="reset-btn" style="background-color: #10b981;" onclick="closeModalAndReset()">เล่นอีกครั้ง</button>
         </div>
     </div>
 
     <script>
+        // ---------------------------------------------------------
+        // ⚠️ สำคัญมาก: ให้นำ URL ของ Web App ที่ได้จาก Google Apps Script มาใส่ตรงนี้
+        // ---------------------------------------------------------
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygzmeBPqlza37q9IM21h0A2Kgk6oNT4X8yCzPOp2qm_K4Axxps1olvW04k2a1ZmwNRBQ/exec'; 
+
         const thaiConsonants = [
             'ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 
             'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 
@@ -243,15 +298,93 @@
             'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
         ];
 
-        let currentMode = 'TH'; // เริ่มต้นที่หมวดภาษาไทย
+        let currentMode = 'TH';
         let currentArray = thaiConsonants;
         let currentIndex = 0;
-        let isLocked = false; // สำหรับหน่วงเวลาเวลากดผิด
+        let isLocked = false;
+        let playerName = ''; 
+        
+        // ตัวแปรสำหรับระบบคิวการส่งข้อมูล
+        let saveQueue = [];
+        let isSavingBackground = false;
 
         const gameBoard = document.getElementById('game-board');
         const nextLetterText = document.getElementById('next-letter-text');
         const targetDisplay = document.getElementById('target-display');
-        const modal = document.getElementById('celebration-modal');
+        const loginModal = document.getElementById('login-modal');
+        const celebrationModal = document.getElementById('celebration-modal');
+
+        // ฟังก์ชันจัดการคิวและส่งข้อมูลเบื้องหลัง
+        function enqueueSave(letter) {
+            saveQueue.push({
+                name: playerName,
+                mode: currentMode === 'TH' ? 'หมวด ก-ฮ' : 'หมวด A-Z',
+                letter: letter
+            });
+            processQueue(); // เรียกฟังก์ชันจัดการคิวทุกครั้งที่มีตัวอักษรใหม่
+        }
+
+        function processQueue() {
+            // ถ้าระบบกำลังส่งข้อมูลอยู่ หรือไม่มีคิวเหลือ ให้หยุดทำก่อน
+            if (isSavingBackground || saveQueue.length === 0) return;
+            
+            isSavingBackground = true;
+
+            // ตรวจสอบว่าได้ตั้ง URL หรือยัง ถ้ายังไม่ตั้ง ให้เคลียร์คิวทิ้งไปเลย
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'ใส่_URL_WEB_APP_ของคุณที่นี่') {
+                saveQueue.shift(); 
+                isSavingBackground = false;
+                processQueue();
+                return;
+            }
+
+            // อ่านค่าตัวแรกของคิว (ยังไม่ลบ จนกว่าจะสำเร็จ)
+            const payload = saveQueue[0];
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // หากส่งข้อมูลสำเร็จ ให้ลบข้อมูลคิวตัวแรกออก
+                saveQueue.shift();
+            })
+            .catch(error => {
+                console.error('Save Queue Error:', error);
+                // หากส่งไม่สำเร็จ ไม่ต้องลบคิว เดี๋ยวระบบจะวนซ้ำส่งใหม่เองในรอบถัดไป
+            })
+            .finally(() => {
+                // หน่วงเวลา 0.5 วินาที ก่อนปลดล็อคและเรียกคิวถัดไป (ป้องกัน Rate Limit จาก Google)
+                setTimeout(() => {
+                    isSavingBackground = false;
+                    processQueue();
+                }, 500);
+            });
+        }
+
+
+        // ฟังก์ชันจัดการชื่อผู้เล่น
+        function startPlayer() {
+            const nameInput = document.getElementById('login-input').value.trim();
+            if (nameInput === '') {
+                alert('กรุณาพิมพ์ชื่อเล่นของน้องก่อนนะครับ 😊');
+                return;
+            }
+            playerName = nameInput;
+            document.getElementById('display-name').textContent = playerName;
+            document.getElementById('player-info').style.display = 'block';
+            loginModal.style.display = 'none';
+            initGame();
+        }
+
+        // กด Enter ตอนพิมพ์ชื่อได้
+        document.getElementById('login-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') startPlayer();
+        });
 
         function switchMode(mode) {
             currentMode = mode;
@@ -275,18 +408,16 @@
             currentIndex = 0;
             isLocked = false;
             gameBoard.innerHTML = '';
-            modal.style.display = 'none';
+            celebrationModal.style.display = 'none';
+            document.getElementById('saving-status').style.display = 'none';
 
-            // รีเซ็ตการแสดงผล
             targetDisplay.innerHTML = `พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl text-blue-600 ml-2"></span>`;
 
-            // สร้างกล่องตัวอักษร
             currentArray.forEach((letter, index) => {
                 const box = document.createElement('div');
                 box.classList.add('letter-box');
                 box.id = `box-${index}`;
                 box.textContent = letter;
-                
                 gameBoard.appendChild(box);
             });
 
@@ -294,46 +425,42 @@
         }
 
         function handleInput(inputLetter) {
-            if (currentIndex >= currentArray.length || isLocked) return; // ถ้าจบเกมหรือติดล็อคเวลาอยู่ ให้ข้ามไป
+            if (currentIndex >= currentArray.length || isLocked || playerName === '') return; 
 
             const expectedLetter = currentArray[currentIndex];
-
-            // เช็คว่าพิมพ์ถูกไหม (ถ้าเป็น EN ให้เช็คแบบไม่สนใจตัวพิมพ์เล็กพิมพ์ใหญ่)
             const isMatch = (currentMode === 'EN') 
                 ? inputLetter.toUpperCase() === expectedLetter.toUpperCase() 
                 : inputLetter === expectedLetter;
 
             if (isMatch) {
-                // พิมพ์ถูกต้อง!
                 const currentBox = document.getElementById(`box-${currentIndex}`);
                 currentBox.classList.remove('active');
                 currentBox.classList.add('completed');
+
+                // เข้าคิวส่งข้อมูลว่าพิมพ์ตัวอักษรนี้เสร็จแล้ว
+                enqueueSave(expectedLetter);
 
                 currentIndex++;
 
                 if (currentIndex < currentArray.length) {
                     updateStatus();
                 } else {
-                    // จบเกม
                     targetDisplay.innerHTML = "🎉 เก่งมาก! พิมพ์ครบแล้ว 🎉";
                     showCelebration();
                 }
             } else {
-                // พิมพ์ผิด: ล็อคการพิมพ์ และแสดงเอฟเฟกต์สีแดง
                 isLocked = true;
                 const currentBox = document.getElementById(`box-${currentIndex}`);
                 currentBox.classList.add('error');
                 
-                // เอฟเฟกต์สั่น
                 currentBox.style.transform = 'translateX(-5px) scale(1.1)';
                 setTimeout(() => currentBox.style.transform = 'translateX(5px) scale(1.1)', 50);
                 setTimeout(() => currentBox.style.transform = 'translateX(-5px) scale(1.1)', 100);
                 
-                // หน่วงเวลาไม่ให้กดมั่ว 0.8 วินาที
                 setTimeout(() => {
-                    currentBox.style.transform = 'scale(1.1)'; // รีเซ็ตขนาด
-                    currentBox.classList.remove('error'); // ลบสีแดงออก
-                    isLocked = false; // ปลดล็อค
+                    currentBox.style.transform = 'scale(1.1)';
+                    currentBox.classList.remove('error');
+                    isLocked = false;
                 }, 800);
             }
         }
@@ -346,39 +473,51 @@
                     nextLetterEl.textContent = nextLetter;
                 }
 
-                // ลบ active จากกล่องเก่าและใส่ให้กล่องถัดไป
                 document.querySelectorAll('.letter-box').forEach(box => box.classList.remove('active'));
                 const nextBox = document.getElementById(`box-${currentIndex}`);
                 if (nextBox) {
                     nextBox.classList.add('active');
-                    // เลื่อนหน้าจอให้พอดีกับกล่องที่กำลังจะพิมพ์
                     nextBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
         }
 
         function showCelebration() {
+            document.getElementById('celeb-name').textContent = playerName;
+            
+            // ส่งข้อมูลแจ้งสถานะว่า "จบเกม" เข้าคิว
+            enqueueSave('จบเกม');
+
+            const savingText = document.getElementById('saving-status');
+            savingText.style.display = 'block';
+            
+            // วนลูปเช็คสถานะว่าคิวเคลียร์หมดหรือยัง
+            const checkQueue = setInterval(() => {
+                if (saveQueue.length > 0 || isSavingBackground) {
+                    savingText.textContent = `กำลังบันทึกข้อมูลเบื้องหลัง... (รอคิวอีก ${saveQueue.length} ตัวอักษร) ⏳`;
+                    savingText.className = 'text-sm text-yellow-600 mb-4';
+                } else {
+                    savingText.textContent = 'บันทึกข้อมูลลง Sheet ครบถ้วน! ✅';
+                    savingText.className = 'text-sm text-green-600 font-bold mb-4';
+                    clearInterval(checkQueue);
+                }
+            }, 500);
+
             setTimeout(() => {
-                modal.style.display = 'flex';
+                celebrationModal.style.display = 'flex';
                 createConfetti();
             }, 500);
         }
 
         function closeModalAndReset() {
-            modal.style.display = 'none';
-            // เคลียร์พลุกระดาษของเก่าออก
+            celebrationModal.style.display = 'none';
             document.querySelectorAll('.confetti').forEach(e => e.remove());
             initGame();
         }
 
-        // รับค่าจากการกดคีย์บอร์ด
         document.addEventListener('keydown', (event) => {
             const key = event.key;
-            
-            // ป้องกันการตรวจจับปุ่ม Shift, Ctrl, Alt ต่างๆ
             if (key.length > 1) return;
-
-            // ตรวจสอบว่าปุ่มที่กดอยู่ในชุดตัวอักษรปัจจุบันหรือไม่ (สำหรับ EN ให้ครอบคลุมทั้งเล็ก-ใหญ่)
             const isValidKey = (currentMode === 'EN')
                 ? /^[a-zA-Z]$/.test(key)
                 : thaiConsonants.includes(key);
@@ -388,7 +527,6 @@
             }
         });
 
-        // เอฟเฟกต์พลุกระดาษตอนจบเกม
         function createConfetti() {
             const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
             for (let i = 0; i < 50; i++) {
@@ -417,9 +555,6 @@
                 });
             }
         }
-
-        // เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
-        window.onload = initGame;
     </script>
 </body>
 </html>
