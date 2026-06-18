@@ -3,721 +3,1351 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เกมฝึกพิมพ์ ก-ฮ และ A-Z สำหรับเด็ก ป.1</title>
+    <title>เกมฝึกพิมพ์ พร้อมระบบครูและผู้ดูแล</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Itim', cursive;
-            background-color: #f0fdf4; /* Light green background */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
+        body { font-family: 'Itim', cursive; background-color: #f0fdf4; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;}
+        
+        /* สไตล์ Modal โค้งมนน่ารัก */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(4px); }
+        .modal-content { 
+            background-color: #ffffff;
+            background-image: radial-gradient(#eff6ff 10%, transparent 10%);
+            background-size: 20px 20px;
+            padding: 30px; 
+            border-radius: 30px; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+            border: 5px solid #bfdbfe;
+            width: 420px; 
+            max-width: 90%; 
+            max-height: 90vh; 
+            overflow-y: auto;
         }
 
-        h1 {
-            color: #166534;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
+        .login-field { width: 100%; padding: 12px 16px; font-size: 1.1rem; font-family: 'Itim', cursive; border: 2px solid #bae6fd; border-radius: 99px; margin: 8px 0; outline: none; transition: all 0.2s; background: white;}
+        .login-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+        
+        .btn-action { color: white; border: none; padding: 12px 20px; font-size: 1.1rem; font-family: 'Itim', cursive; border-radius: 99px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; margin-top: 10px; display: flex; justify-content: center; align-items: center;}
+        .btn-action:hover:not(:disabled) { transform: translateY(-3px) scale(1.02); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .btn-action:active:not(:disabled) { transform: translateY(0); }
+        .btn-action:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none;}
+        
+        .role-tabs { display: flex; width: 100%; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px;}
+        .role-tab { flex: 1; padding: 15px 0; text-align: center; cursor: pointer; font-size: 1.1rem; color: #9ca3af; border-bottom: 4px solid transparent; transition: all 0.3s; }
+        .role-tab:hover { color: #60a5fa; }
+        .role-tab.active { color: #3b82f6; font-weight: bold; border-bottom-color: #3b82f6; }
+        
+        /* สไตล์หน้า Dashboard ครู และ แอดมิน */
+        #teacher-dashboard, #admin-dashboard { display: none; width: 100%; max-width: 1200px; padding: 20px; flex-direction: column; height: 100vh; }
+        .track-container { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); flex: 1; overflow-y: auto; margin-top: 20px; border: 3px solid #e2e8f0; overflow-x: hidden; }
+        .race-track { width: 100%; height: 60px; border-bottom: 2px dashed #cbd5e1; position: relative; margin-bottom: 10px; display: flex; align-items: center; transition: height 0.3s ease;}
+        .race-track:nth-child(even) { background-color: #f8fafc; }
+        
+        .runner { position: absolute; left: 0%; transition: left 1s ease-in-out; display: flex; align-items: center; z-index: 10; } 
+        
+        .avatar { font-size: 2.5rem; filter: drop-shadow(0 4px 3px rgba(0,0,0,0.1)); transition: font-size 0.3s ease; }
+        .runner-name { background: rgba(255,255,255,0.95); padding: 2px 10px; border-radius: 99px; font-size: 0.9rem; font-weight: bold; border: 2px solid #e2e8f0; margin-left: -10px; z-index: -1; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #475569; transition: all 0.3s ease; display: flex; align-items: center;}
+        .finish-line { position: absolute; right: 0; top: 0; bottom: 0; width: 25px; background: repeating-linear-gradient(45deg, #334155, #334155 10px, #fff 10px, #fff 20px); opacity: 0.8; border-radius: 0 10px 10px 0; z-index: 5;}
+        .track-info { position: absolute; left: 10px; font-size: 0.8rem; font-weight: bold; color: #94a3b8; background: #f1f5f9; padding: 2px 8px; border-radius: 10px; transition: font-size 0.3s ease;}
+        .class-tag { display: inline-flex; align-items: center; background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 99px; font-size: 0.9rem; margin: 4px; border: 1px solid #bfdbfe; font-weight: bold; transition: all 0.2s;}
+        .del-class-btn { color: #ef4444; margin-left: 6px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 20px; height: 20px; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.5); transition: background 0.2s;}
+        .del-class-btn:hover { background: #fecaca; }
+
+        /* ========================================================
+           สไตล์หน้านักเรียน (หมวดตัวอักษร) 
+           ======================================================== */
+        #student-view { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; max-width: 800px; }
+        
+        .mode-buttons { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; margin-bottom: 20px; width: 100%; justify-content: center; }
+        .mode-btn { padding: 10px 25px; border-radius: 999px; font-size: 1.2rem; font-weight: bold; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; font-family: 'Itim', cursive;}
+        .mode-btn:hover { transform: scale(1.05); }
+        .mode-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);}
+        .mode-btn.inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
+        
+        .status-panel { display: flex; gap: 15px; align-items: center; justify-content: center; margin-bottom: 20px; width: 100%; flex-wrap: wrap;}
+        .current-target { font-size: 1.5rem; font-weight: bold; color: #1e40af; background: #dbeafe; padding: 10px 25px; border-radius: 999px; border: 2px solid #bfdbfe; text-align: center; }
+        .reset-btn { background-color: #ef4444; color: white; border: none; padding: 10px 20px; font-size: 1.2rem; font-family: 'Itim', cursive; border-radius: 999px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); font-weight: bold;}
+        .reset-btn:hover { background-color: #dc2626; transform: translateY(-2px); box-shadow: 0 6px 8px rgba(239, 68, 68, 0.4);}
+        .reset-btn:active { transform: translateY(0); }
+
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 15px; width: 100%; max-width: 800px; background: white; padding: 25px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 3px solid #e2e8f0; }
+        
+        .letter-box { 
+            aspect-ratio: 1; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 2.5rem; font-weight: normal; 
+            border: 3px dashed #cbd5e1; border-radius: 12px; 
+            color: #cbd5e1; transition: all 0.3s ease; position: relative; background-color: #f8fafc; 
         }
         
-        .instructions {
-            color: #15803d;
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .mode-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-            margin-bottom: 10px;
-            width: 100%;
-            justify-content: center;
-        }
-
-        .mode-btn {
-            padding: 10px 25px;
-            border-radius: 999px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            font-family: 'Itim', cursive;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 2px solid transparent;
-        }
-
-        .mode-btn.active {
-            background-color: #3b82f6;
-            color: white;
-            border-color: #3b82f6;
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
-        }
-
-        .mode-btn.inactive {
-            background-color: white;
-            color: #6b7280;
-            border-color: #e5e7eb;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .mode-btn:hover {
-            transform: scale(1.05);
-        }
+        .letter-box.active { border-color: #3b82f6; background-color: #eff6ff; color: #93c5fd; transform: scale(1.1); box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); z-index: 10; font-weight: bold;}
+        .letter-box.error { border-color: #ef4444 !important; background-color: #fef2f2 !important; color: #f87171 !important; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2) !important; animation: shake 0.4s;}
         
-        .mode-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .letter-box.completed { border: 3px solid transparent; color: #ffffff; transform: scale(1); }
+        .letter-box.just-completed { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-            gap: 15px;
-            width: 100%;
-            max-width: 800px;
-            background: white;
-            padding: 20px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        }
+        .letter-box.completed:nth-child(4n+1) { background-color: #ef4444; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4); } 
+        .letter-box.completed:nth-child(4n+2) { background-color: #f59e0b; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); } 
+        .letter-box.completed:nth-child(4n+3) { background-color: #10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); } 
+        .letter-box.completed:nth-child(4n+4) { background-color: #3b82f6; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4); } 
 
-        .letter-box {
-            aspect-ratio: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2.5rem;
-            font-weight: normal; 
-            border: 3px dashed #cbd5e1;
-            border-radius: 12px;
-            color: #cbd5e1;
-            transition: all 0.3s ease;
-            position: relative;
-            background-color: #f8fafc;
-        }
-
-        .letter-box.active {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
-            color: #93c5fd; 
-            transform: scale(1.1);
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
-            z-index: 10;
-        }
-
-        .letter-box.error {
-            border-color: #ef4444 !important;
-            background-color: #fef2f2 !important;
-            color: #f87171 !important;
-            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2) !important;
-        }
-
-        .letter-box.completed {
-            border: 3px solid transparent;
-            color: #ffffff;
-            transform: scale(1);
-        }
-        
-        .letter-box.just-completed {
-            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .letter-box.completed:nth-child(4n+1) { background-color: #ef4444; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4); }
-        .letter-box.completed:nth-child(4n+2) { background-color: #f59e0b; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); }
-        .letter-box.completed:nth-child(4n+3) { background-color: #10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); }
-        .letter-box.completed:nth-child(4n+4) { background-color: #3b82f6; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4); }
-
-        @keyframes pop {
-            0% { transform: scale(0.8); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
-
-        .status-panel {
-            margin-top: 10px;
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-
-        .current-target {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #1e40af;
-            background: #dbeafe;
-            padding: 10px 20px;
-            border-radius: 999px;
-            border: 2px solid #bfdbfe;
-            min-width: 200px;
-            text-align: center;
-        }
-
-        .reset-btn {
-            background-color: #ef4444;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 1.2rem;
-            font-family: 'Itim', cursive;
-            border-radius: 999px;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
-        }
-
-        .reset-btn:hover { background-color: #dc2626; }
-        .reset-btn:active { transform: translateY(2px); }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(3px);
-        }
-
-        .modal-content {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            animation: slideDown 0.5s ease-out;
-            max-width: 90%;
-            width: 400px;
-        }
-        
-        .modal-content h2 {
-            color: #059669;
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-
-        #login-input {
-            width: 100%;
-            padding: 12px;
-            font-size: 1.5rem;
-            font-family: 'Itim', cursive;
-            border: 3px solid #93c5fd;
-            border-radius: 12px;
-            margin: 20px 0;
-            text-align: center;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        #login-input:focus { border-color: #3b82f6; }
-
-        .player-name-display {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 1.2rem;
-            color: #1e40af;
-            background: white;
-            padding: 5px 15px;
-            border-radius: 999px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: none; /* Changed dynamically to flex */
-            align-items: center;
-            z-index: 50;
-        }
-        
-        /* Loading overlay for fetching data */
-        #global-loading {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-            flex-direction: column;
-            font-size: 1.5rem;
-            color: #1d4ed8;
-        }
-        
-        /* Small background save indicator */
-        .save-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: white;
-            padding: 8px 15px;
-            border-radius: 999px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            font-size: 1rem;
-            display: none;
-            color: #15803d;
-            border: 1px solid #bbf7d0;
-            z-index: 50;
-        }
+        @keyframes pop { 0% { transform: scale(0.8); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
         @media (max-width: 600px) {
             .grid-container { grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)); gap: 8px; }
             .letter-box { font-size: 1.8rem; border-width: 2px; }
-            .current-target { font-size: 1.2rem; }
-            .player-name-display { top: 10px; right: 10px; font-size: 1rem; }
         }
+
+        /* ========================================================
+           สไตล์หน้านักเรียน (หมวดไต่ระดับ) 
+           ======================================================== */
+        #word-mode-ui { width: 100%; display: none; flex-direction: column; align-items: center;}
+        .level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 15px; width: 100%; }
+        .level-card { background: white; border-radius: 20px; padding: 15px; text-align: center; border: 3px solid #e5e7eb; cursor: pointer; transition: all 0.2s;}
+        .level-card.unlocked { border-color: #34d399; background: #ecfdf5; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);}
+        .level-card.locked { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; border-style: dashed;}
+        .game-area { background: white; border-radius: 30px; padding: 30px; width: 100%; box-shadow: 0 15px 30px rgba(0,0,0,0.1); display: none; flex-direction: column; align-items: center; border-top: 8px solid #8b5cf6; }
+        .word-display { font-size: 3.5rem; letter-spacing: 2px; margin: 20px 0; font-family: 'Sarabun', 'Itim', sans-serif; text-align: center; }
+        .char-typed { color: #10b981; } .char-current { color: #3b82f6; text-decoration: underline; text-decoration-thickness: 4px; } .char-error { color: #ef4444; background: #fee2e2; border-radius: 5px;} .char-pending { color: #9ca3af; }
+        .timer-bar-container { width: 100%; height: 18px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin-bottom: 15px; border: 2px solid #d1d5db; }
+        .timer-bar { height: 100%; background: #10b981; width: 100%; transition: width 1s linear; }
+
+        #global-loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); justify-content: center; align-items: center; z-index: 200; flex-direction: column; font-size: 1.5rem; color: #3b82f6; backdrop-filter: blur(2px);}
+        .player-bar { width: 100%; background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 50; border-bottom: 2px solid #f1f5f9;}
     </style>
 </head>
 <body>
 
-    <div class="player-name-display" id="player-info">
-        ผู้เล่น: <span id="display-name" class="ml-1 font-bold"></span>
-        <button onclick="logout()" class="ml-3 px-3 py-1 bg-red-100 text-red-600 rounded-full text-sm hover:bg-red-200 transition-colors">ออกจากระบบ</button>
-    </div>
-    
-    <div class="save-indicator" id="save-indicator">
-        กำลังบันทึกข้อมูล... ⏳
-    </div>
-
     <div id="global-loading">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
-        กำลังโหลดข้อมูลการพิมพ์ของน้อง...
-    </div>
-
-    <h1 class="text-3xl md:text-5xl font-bold mt-4">📝 เกมฝึกพิมพ์ ป.1</h1>
-    
-    <div class="mode-buttons">
-        <button id="btn-th" class="mode-btn active" onclick="switchMode('TH')">หมวด ก-ฮ</button>
-        <button id="btn-en" class="mode-btn inactive" onclick="switchMode('EN')">หมวด A-Z</button>
-    </div>
-
-    <p class="instructions">พิมพ์ตัวอักษรตามลำดับ เพื่อระบายสีให้สวยงาม!</p>
-
-    <div class="status-panel">
-        <div class="current-target" id="target-display">
-            พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl ml-2">ก</span>
-        </div>
-        <button class="reset-btn" onclick="resetCurrentMode()">เริ่มใหม่หมวดนี้</button>
-    </div>
-
-    <div class="grid-container mt-6" id="game-board">
-        <!-- Letter boxes will be generated here -->
+        <div class="animate-spin rounded-full h-14 w-14 border-b-4 border-blue-500 mb-4"></div>
+        <span id="loading-text" class="font-bold">กำลังโหลด...</span>
     </div>
 
     <!-- Login Modal -->
-    <div id="login-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <h2 style="color: #2563eb;">ยินดีต้อนรับ! 👋</h2>
-            <p class="text-xl text-gray-600">บอกชื่อเล่นของน้องก่อนเริ่มเล่นเกมนะครับ</p>
-            <input type="text" id="login-input" placeholder="พิมพ์ชื่อเล่น" autocomplete="off">
-            <p id="login-error" class="text-red-500 text-lg mb-4" style="display: none; margin-top: -10px;">กรุณาพิมพ์ชื่อเล่นก่อนนะครับ 😊</p>
-            <button id="login-btn" class="reset-btn" style="background-color: #3b82f6; width: 100%;" onclick="startPlayer()">เริ่มเล่นเลย!</button>
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content text-left relative">
+            <div class="text-center mb-6">
+                <div class="text-7xl mb-2 drop-shadow-md hover:rotate-12 transition-transform cursor-pointer">⌨️✨</div>
+                <h2 class="text-3xl text-blue-600 font-bold drop-shadow-sm">พิมพ์สนุก!</h2>
+                <p class="text-gray-400 text-sm mt-1">เข้าสู่ระบบเพื่อเริ่มการผจญภัย</p>
+            </div>
+            
+            <div class="role-tabs">
+                <div class="role-tab active" onclick="switchLoginTab('student')" id="tab-student">🧑‍🎓 นักเรียน</div>
+                <div class="role-tab" onclick="switchLoginTab('teacher')" id="tab-teacher">👩‍🏫 คุณครู</div>
+                <div class="role-tab" onclick="switchLoginTab('admin')" id="tab-admin">⚙️ แอดมิน</div>
+            </div>
+
+            <!-- Form นักเรียน -->
+            <div id="form-student">
+                <label class="text-sm text-gray-500 ml-4 font-bold">ชื่อผู้เล่น</label>
+                <input type="text" id="s-name" class="login-field" placeholder="👤 พิมพ์ชื่อ-สกุล ของคุณ" autocomplete="off" onkeydown="if(event.key === 'Enter') studentLogin()">
+                
+                <label class="text-sm text-gray-500 ml-4 mt-2 font-bold">โรงเรียน</label>
+                <select id="s-school" class="login-field text-gray-600" onchange="updateClassDropdown()" onkeydown="if(event.key === 'Enter') studentLogin()"><option value="">🏫 -- กำลังโหลดรายชื่อโรงเรียน --</option></select>
+                
+                <label class="text-sm text-gray-500 ml-4 mt-2 font-bold">ชั้นเรียน</label>
+                <select id="s-class" class="login-field text-gray-600" onkeydown="if(event.key === 'Enter') studentLogin()">
+                    <option value="" disabled selected>🎒 -- เลือกโรงเรียนก่อน --</option>
+                </select>
+                
+                <button class="btn-action bg-blue-500 hover:bg-blue-600 mt-6 h-[48px]" onclick="studentLogin()">🚀 เริ่มเล่นเลย!</button>
+            </div>
+
+            <!-- Form ครู -->
+            <div id="form-teacher" style="display: none;">
+                <label class="text-sm text-gray-500 ml-4 font-bold">โรงเรียนของคุณ</label>
+                <select id="t-school" class="login-field text-gray-600" onkeydown="if(event.key === 'Enter') teacherLogin()"><option value="">🏫 -- กำลังโหลดรายชื่อโรงเรียน --</option></select>
+                
+                <label class="text-sm text-gray-500 ml-4 mt-2 font-bold">รหัสผ่านสำหรับครู</label>
+                <input type="password" id="t-pwd" class="login-field" placeholder="••••••••" onkeydown="if(event.key === 'Enter') teacherLogin()">
+                
+                <button class="btn-action bg-green-500 hover:bg-green-600 mt-6 h-[48px]" onclick="teacherLogin()">📋 เข้าสู่ระบบ Dashboard</button>
+            </div>
+
+            <!-- Form แอดมิน -->
+            <div id="form-admin" style="display: none;">
+                <div id="admin-login-section">
+                    <label class="text-sm text-gray-500 ml-4 font-bold">รหัสผ่านผู้ดูแลระบบ</label>
+                    <input type="password" id="a-pwd" class="login-field" placeholder="••••••••" onkeydown="if(event.key === 'Enter') adminLogin()">
+                    <button id="admin-login-btn" class="btn-action bg-red-500 hover:bg-red-600 mt-4 h-[48px]" onclick="adminLogin()">🛠️ เข้าสู่ระบบจัดการ</button>
+                </div>
+            </div>
+            
+            <p id="login-msg" class="text-red-500 text-center mt-4 text-sm font-bold bg-red-50 p-2 rounded-lg" style="display: none;"></p>
         </div>
     </div>
 
-    <!-- Celebration Modal -->
-    <div id="celebration-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>เก่งมาก! 🎉</h2>
-            <p class="text-xl mb-6 text-gray-600">น้อง <span id="celeb-name" class="font-bold text-blue-600"></span> พิมพ์ได้ครบทุกตัวแล้ว</p>
-            <button class="reset-btn" style="background-color: #10b981;" onclick="closeModal()">ตกลง</button>
+    <!-- หน้า Dashboard สำหรับแอดมิน -->
+    <div id="admin-dashboard">
+        <div class="player-bar rounded-3xl mb-4">
+            <div class="flex items-center gap-3">
+                <div class="text-4xl">⚙️</div>
+                <div>
+                    <div class="text-2xl font-bold text-red-600">Admin Dashboard</div>
+                    <div class="text-gray-500 font-bold text-sm">ผู้ดูแลระบบสูงสุด</div>
+                </div>
+            </div>
+            <button class="px-5 py-2 bg-gray-100 text-gray-600 rounded-full font-bold hover:bg-gray-200 transition" onclick="logout()">ออกจากระบบ 🚪</button>
+        </div>
+
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-2xl mx-auto w-full mt-6">
+            
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl text-purple-600">🏫</span>
+                <h3 class="font-bold text-gray-700 text-xl">จัดการโรงเรียน</h3>
+            </div>
+            
+            <div class="bg-purple-50 p-5 rounded-2xl border border-purple-100 mb-6">
+                <label class="text-sm text-purple-800 font-bold ml-2">เพิ่มโรงเรียนใหม่</label>
+                <input type="text" id="new-school-name" class="login-field text-md bg-white mt-2" placeholder="ชื่อโรงเรียน" onkeydown="if(event.key === 'Enter') createSchool()">
+                <input type="text" id="new-teacher-pwd" class="login-field text-md bg-white mt-2" placeholder="ตั้งรหัสผ่านให้ครูโรงเรียนนี้" onkeydown="if(event.key === 'Enter') createSchool()">
+                <button id="btn-add-school" class="btn-action bg-purple-500 hover:bg-purple-600 text-md mt-4 h-[48px]" onclick="createSchool()">บันทึกโรงเรียนใหม่</button>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 min-h-[120px]">
+                <label class="text-sm text-gray-500 font-bold ml-2 mb-3 block">รายชื่อโรงเรียนปัจจุบัน</label>
+                <div id="admin-school-list-container" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+                    <span class="text-sm text-gray-400">กำลังโหลด...</span>
+                </div>
+            </div>
+
+            <hr class="my-8 border-t-2 border-dashed border-gray-200">
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl text-orange-500">🔑</span>
+                <h3 class="font-bold text-gray-700 text-xl">เปลี่ยนรหัสแอดมิน</h3>
+            </div>
+            <input type="password" id="new-admin-pwd" class="login-field text-md bg-gray-50" placeholder="ตั้งรหัสผ่านแอดมินใหม่" onkeydown="if(event.key === 'Enter') changeAdminPassword()">
+            <button class="btn-action bg-orange-500 hover:bg-orange-600 text-md mt-4 h-[48px]" onclick="changeAdminPassword()">อัปเดตรหัสผ่าน</button>
         </div>
     </div>
 
-    <!-- Logout Confirm Modal -->
-    <div id="logout-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <h2 style="color: #ef4444;">ออกจากระบบ? 👋</h2>
-            <p class="text-xl text-gray-600 mb-6">น้องๆ ต้องการเปลี่ยนชื่อผู้เล่นใช่ไหมครับ?</p>
-            <div style="display: flex; gap: 15px; justify-content: center;">
-                <button class="reset-btn" style="background-color: #9ca3af; flex: 1;" onclick="cancelLogout()">ยกเลิก</button>
-                <button class="reset-btn" style="background-color: #ef4444; flex: 1;" onclick="confirmLogout()">ยืนยัน</button>
+    <!-- หน้า Dashboard ของคุณครู -->
+    <div id="teacher-dashboard">
+        <div class="player-bar rounded-3xl mb-4">
+            <div class="flex items-center gap-3">
+                <div class="text-4xl">👩‍🏫</div>
+                <div>
+                    <div class="text-2xl font-bold text-blue-600">Dashboard คุณครู</div>
+                    <div id="t-display-school" class="text-gray-500 font-bold text-sm"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="px-5 py-2 bg-blue-100 text-blue-700 rounded-full font-bold hover:bg-blue-200 transition shadow-sm" onclick="openClassModal()">⚙️ จัดการชั้นเรียน</button>
+                <button class="px-5 py-2 bg-red-100 text-red-600 rounded-full font-bold hover:bg-red-200 transition" onclick="logout()">ออกจากระบบ 🚪</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 mb-4">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap gap-3 items-center w-full">
+                <span class="font-bold text-gray-600">📊 ติดตามคะแนน:</span>
+                
+                <select id="filter-mode" class="login-field w-auto m-0 py-1 px-3 text-sm" onchange="renderTeacherDashboard()">
+                    <option value="หมวด ก-ฮ">แข่งขันปัจจุบัน: หมวด ก-ฮ</option>
+                    <option value="หมวด A-Z">แข่งขันปัจจุบัน: หมวด A-Z</option>
+                    <option value="หมวดพิมพ์คำ">แข่งขันปัจจุบัน: โหมดไต่ระดับ (พิมพ์เป็นคำ)</option>
+                    <option value="ดูสถิติสูงสุด" class="bg-gray-100 text-purple-700 font-bold">🏆 ดูสถิติสูงสุด: โหมดไต่ระดับ</option>
+                </select>
+
+                <select id="filter-level" class="login-field w-auto m-0 py-1 px-3 text-sm" style="display: none;" onchange="renderTeacherDashboard()">
+                </select>
+                
+                <div class="ml-auto flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
+                    <span class="text-xs text-gray-500 font-bold" id="last-sync">กำลังซิงค์...</span>
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="track-container" id="track-container">
+            <div class="text-center text-gray-400 mt-10 text-lg font-bold">กำลังรอข้อมูลนักเรียน...</div>
+        </div>
+    </div>
+    
+    <!-- Modal จัดการชั้นเรียน (ครู) -->
+    <div id="class-manage-modal" class="modal-overlay">
+        <div class="modal-content text-left relative">
+            <button class="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition" onclick="closeClassModal()">✕</button>
+            
+            <div class="text-center mb-6 mt-2">
+                <div class="text-7xl mx-auto mb-2 drop-shadow-sm">🎒</div>
+                <h2 class="text-3xl text-blue-600 font-bold">จัดการชั้นเรียน</h2>
+                <p class="text-gray-400 text-sm mt-1">เพิ่มหรือลบชั้นเรียน เพื่อให้นักเรียนเลือก</p>
+            </div>
+
+            <div class="bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4">
+                <label class="text-sm text-blue-800 font-bold ml-2">เพิ่มชั้นเรียนใหม่</label>
+                <div class="flex gap-2 mt-1">
+                    <input type="text" id="new-class-input" class="login-field m-0 text-md" placeholder="เช่น ป.1/1" onkeydown="if(event.key === 'Enter') addNewClass()">
+                    <button id="btn-add-class" class="bg-blue-500 text-white px-6 rounded-full font-bold hover:bg-blue-600 transition shadow-sm flex items-center justify-center min-w-[80px]" onclick="addNewClass()">เพิ่ม</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 min-h-[120px]">
+                <label class="text-sm text-gray-500 font-bold ml-2 mb-3 block">รายชื่อชั้นเรียนปัจจุบัน</label>
+                <div id="class-list-container" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2">
+                    <span class="text-sm text-gray-400">กำลังโหลดชั้นเรียน...</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Reset Confirm Modal -->
-    <div id="reset-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <h2 style="color: #f59e0b;">เริ่มใหม่? 🔄</h2>
-            <p class="text-xl text-gray-600 mb-6">ต้องการลบที่พิมพ์ไว้แล้วเริ่มใหม่ใช่ไหมครับ?</p>
-            <div style="display: flex; gap: 15px; justify-content: center;">
-                <button class="reset-btn" style="background-color: #9ca3af; flex: 1;" onclick="cancelReset()">ยกเลิก</button>
-                <button class="reset-btn" style="background-color: #f59e0b; flex: 1;" onclick="confirmReset()">เริ่มใหม่</button>
+    <!-- หน้าเล่นเกมของนักเรียน -->
+    <div id="student-view">
+        <div class="player-bar rounded-full w-full max-w-4xl mb-6">
+            <div class="flex items-center gap-3">
+                <span id="s-display-avatar" class="text-4xl bg-blue-50 w-12 h-12 flex items-center justify-center rounded-full border-2 border-blue-100"></span>
+                <div>
+                    <div id="s-display-name" class="font-bold text-blue-800 text-xl"></div>
+                    <div id="s-display-class" class="text-sm text-gray-500 font-bold bg-gray-100 inline-block px-2 rounded-md"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="save-indicator" class="text-xs text-green-600 opacity-0 transition-opacity font-bold bg-green-50 px-2 py-1 rounded-full">✅ บันทึกแล้ว</span>
+                <button class="px-5 py-2 bg-red-100 text-red-600 rounded-full text-sm font-bold hover:bg-red-200 transition" onclick="logout()">ออกจากระบบ 🚪</button>
+            </div>
+        </div>
+
+        <h1 class="text-4xl font-bold text-green-800 mb-2 drop-shadow-sm text-center w-full" id="main-title">📝 เกมฝึกพิมพ์ ป.1</h1>
+        
+        <div class="mode-buttons">
+            <button id="btn-th" class="mode-btn active" onclick="switchMode('TH')">หมวด ก-ฮ</button>
+            <button id="btn-en" class="mode-btn inactive" onclick="switchMode('EN')">หมวด A-Z</button>
+            <button id="btn-words" class="mode-btn inactive" onclick="switchMode('WORDS')">🚀 โหมดไต่ระดับ (ป.1-ม.6)</button>
+        </div>
+
+        <div id="letter-mode-ui" class="w-full flex flex-col items-center">
+            <p class="text-green-700 text-lg mb-4 font-bold text-center w-full">พิมพ์ตัวอักษรตามลำดับ เพื่อระบายสีให้สวยงาม!</p>
+            
+            <div class="status-panel">
+                <div class="current-target flex items-center justify-center min-w-[200px]" id="target-display">
+                    พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl ml-2 font-black text-blue-600">ก</span>
+                </div>
+                <div class="text-xl font-bold text-blue-800 bg-blue-100 px-6 py-3 rounded-full border-2 border-blue-200 text-center shadow-sm flex items-center gap-2">
+                    🏆 สูงสุด: <span id="th-en-best-score">0</span>/<span id="th-en-max-score">44</span>
+                </div>
+                <button class="reset-btn" onclick="resetCurrentMode()">🔄 เริ่มใหม่</button>
+            </div>
+
+            <div class="grid-container" id="game-board"></div>
+        </div>
+
+        <div id="word-mode-ui">
+            <div id="level-selection" class="w-full">
+                <p class="text-center text-green-700 mb-6 font-bold bg-green-50 py-2 rounded-full border border-green-200 max-w-md mx-auto">⭐️ เลือกด่านที่ต้องการท้าทาย (ต้องเล่นผ่านทีละด่าน)</p>
+                <div class="level-grid" id="level-grid"></div>
+            </div>
+
+            <div id="word-game-area" class="game-area">
+                <div class="flex justify-between w-full mb-4 font-bold text-2xl border-b-2 border-gray-100 pb-2 flex-wrap gap-2">
+                    <div class="text-gray-700 flex items-center gap-2"><span>🎯</span> <span id="game-level-title">ด่าน ป.1</span></div>
+                    
+                    <div class="flex gap-2 flex-wrap">
+                        <div class="text-blue-600 bg-blue-50 px-4 py-1 rounded-full shadow-sm text-xl flex items-center gap-2">คะแนน: <span id="game-score">0</span> <span class="text-sm text-gray-500">/ <span id="game-target">15</span></span></div>
+                        <div class="text-green-600 bg-green-50 px-4 py-1 rounded-full shadow-sm text-xl flex items-center gap-2">🏆 สูงสุด: <span id="game-best-score">0</span></div>
+                    </div>
+                </div>
+                
+                <div class="timer-bar-container"><div class="timer-bar" id="timer-bar"></div></div>
+                <div class="text-gray-500 mb-6 font-bold bg-gray-100 px-4 py-1 rounded-full" id="timer-text">⏳ เหลือเวลา: 60 วินาที</div>
+                <div class="word-display" id="word-display"></div>
+                <p class="text-gray-400 mb-8 font-bold">พิมพ์ให้ตรงกับคำด้านบนแป๊ะๆ เลย!</p>
+                
+                <div class="flex gap-3 flex-wrap justify-center">
+                    <button class="px-8 py-3 bg-red-500 text-white rounded-full font-bold text-lg hover:bg-red-600 transition shadow-lg" onclick="exitWordGame()">🛑 กลับหน้าเลือกด่าน</button>
+                    <button class="px-8 py-3 bg-yellow-500 text-white rounded-full font-bold text-lg hover:bg-yellow-600 transition shadow-lg" onclick="resetWordGame()">🔄 เริ่มใหม่ด่านนี้</button>
+                </div>
             </div>
         </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
-        // ---------------------------------------------------------
-        // ⚠️ สำคัญมาก: ให้นำ URL ของ Web App ที่ได้จาก Google Apps Script มาใส่ตรงนี้
-        // ---------------------------------------------------------
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygzmeBPqlza37q9IM21h0A2Kgk6oNT4X8yCzPOp2qm_K4Axxps1olvW04k2a1ZmwNRBQ/exec'; 
 
-        const thaiConsonants = [
-            'ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 
-            'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 
-            'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'
+        const cuteAlert = (title, text, icon = 'info') => {
+            return Swal.fire({
+                title: title, text: text, icon: icon,
+                confirmButtonColor: '#3b82f6', confirmButtonText: 'ตกลงจ้า', backdrop: `rgba(0,0,0,0.4)`,
+                customClass: { popup: 'rounded-[30px] border-4 border-blue-200 shadow-2xl', title: 'text-2xl text-blue-700 font-[Itim]', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-8 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]' }
+            });
+        };
+
+        const cuteConfirm = (title, text) => {
+            return Swal.fire({
+                title: title, text: text, icon: 'question', showCancelButton: true,
+                confirmButtonColor: '#ef4444', cancelButtonColor: '#e5e7eb', confirmButtonText: 'ใช่, ลบเลย!', cancelButtonText: 'ยกเลิก', backdrop: `rgba(0,0,0,0.4)`,
+                customClass: { popup: 'rounded-[30px] border-4 border-red-200 shadow-2xl', title: 'text-2xl text-red-600 font-[Itim]', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-6 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]', cancelButton: 'rounded-full px-6 py-2 text-lg text-gray-700 shadow-md hover:scale-105 transition-transform font-[Itim]' }
+            });
+        };
+
+        function fireTeacherWinnerPopup(name, scoreText) {
+            Swal.fire({
+                title: '🏆 มีผู้ชนะเข้าเส้นชัย!',
+                html: `<div style="font-size: 1.5rem; color: #1e40af; margin-bottom: 10px;">น้อง <b style="color:#ef4444;">${name}</b></div><div style="font-size: 1.2rem; color: #6b7280; font-weight:bold;">ทำคะแนนได้: ${scoreText}</div><div style="font-size: 80px; text-align: center; margin-top: 10px;" class="animate-bounce">🎉</div>`,
+                confirmButtonColor: '#10b981',
+                confirmButtonText: 'สุดยอดไปเลย!',
+                backdrop: `rgba(0,0,0,0.5)`,
+                customClass: { popup: 'rounded-[30px] border-4 border-yellow-300 shadow-2xl', title: 'text-3xl text-yellow-600 font-[Itim] font-black', htmlContainer: 'font-[Itim]', confirmButton: 'rounded-full px-8 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]' }
+            });
+        }
+
+        let apiQueue = [];
+        let isProcessingQueue = false;
+
+        async function processApiQueue() {
+            if (isProcessingQueue || apiQueue.length === 0) return;
+            isProcessingQueue = true;
+            
+            while (apiQueue.length > 0) {
+                const { payload, resolve, reject } = apiQueue[0];
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    const data = await res.json();
+                    resolve(data);
+                } catch (error) { reject(error); }
+                apiQueue.shift();
+            }
+            isProcessingQueue = false;
+        }
+
+        function apiCall(payload) {
+            return new Promise((resolve, reject) => {
+                apiQueue.push({ payload, resolve, reject });
+                processApiQueue();
+            });
+        }
+
+        const thaiConsonants = ['ก','ข','ฃ','ค','ฅ','ฆ','ง','จ','ฉ','ช','ซ','ฌ','ญ','ฎ','ฏ','ฐ','ฑ','ฒ','ณ','ด','ต','ถ','ท','ธ','น','บ','ป','ผ','ฝ','พ','ฟ','ภ','ม','ย','ร','ล','ว','ศ','ษ','ส','ห','ฬ','อ','ฮ'];
+        const englishAlphabets = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+        const levelData = [
+            { id: 1, name: 'ป.1', target: 20, baseTime: 30, words: ['กา', 'มา', 'ตา', 'ดู', 'ปู', 'ดี', 'ใจ', 'ไป', 'ครู', 'ปลา', 'แมว', 'หมา', 'นก', 'หมู', 'ช้าง', 'ม้า', 'วัว', 'ควาย', 'ไก่', 'เป็ด', 'งู', 'หนู', 'เสือ', 'สิงโต', 'ลิง', 'กุ้ง', 'หอย', 'ปู', 'ปลา', 'ข้าว', 'น้ำ', 'นม', 'ไข่', 'ผัก', 'ผลไม้', 'เนื้อ', 'ขนม', 'นม', 'ของเล่น', 'เสื้อ', 'กางเกง', 'รองเท้า', 'หมวก', 'ถุงเท้า', 'กระเป๋า', 'ดินสอ', 'ยางลบ', 'ไม้บรรทัด', 'หนังสือ', 'สมุด', 'สี', 'กรรไกร', 'กาว', 'โต๊ะ', 'เก้าอี้', 'กระดาน', 'ชอล์ก', 'แปรงลบกระดาน', 'พัดลม', 'หลอดไฟ', 'หน้าต่าง', 'ประตู', 'พื้น', 'หลังคา', 'บ้าน', 'โรงเรียน', 'วัด', 'ตลาด', 'โรงพยาบาล', 'สถานีตำรวจ', 'ที่ทำการไปรษณีย์', 'สวนสาธารณะ', 'สนามเด็กเล่น', 'ถนน', 'รถยนต์', 'รถจักรยานยนต์', 'รถจักรยาน', 'รถไฟ', 'เครื่องบิน', 'เรือ'] },
+            { id: 2, name: 'ป.2', target: 20, baseTime: 30, words: ['กระเป๋า', 'ดินสอ', 'ยางลบ', 'หนังสือ', 'ทำการบ้าน', 'ร้องเพลง', 'โรงเรียน', 'คุณครู', 'เพื่อน', 'กระดานดำ', 'สมุดจด', 'สีเทียน', 'กรรไกร', 'ไม้บรรทัด', 'กบเหลาดินสอ', 'วิชาภาษาไทย', 'วิชาคณิตศาสตร์', 'วิชาวิทยาศาสตร์', 'วิชาภาษาอังกฤษ', 'วิชาศิลปะ', 'พักกลางวัน', 'รับประทานอาหาร', 'เล่นฟุตบอล', 'กระโดดเชือก', 'วิ่งไล่จับ', 'ห้องสมุด', 'อ่านนิทาน', 'ยืมหนังสือ', 'คืนหนังสือ', 'ห้องคอมพิวเตอร์', 'เรียนพิมพ์ดีด', 'วาดรูป', 'ร้องเพลงชาติ', 'เคารพธงชาติ', 'สวดมนต์', 'ทำความสะอาดห้องเรียน', 'จัดบอร์ด', 'รดน้ำต้นไม้', 'ทิ้งขยะ', 'แยกขยะ', 'ช่วยคุณครูถือของ', 'เข้าแถวให้เป็นระเบียบ', 'เดินเรียงหนึ่ง', 'พูดจาไพเราะ', 'มีน้ำใจ', 'แบ่งปัน', 'ขอโทษ', 'ขอบคุณ', 'สวัสดี', 'ลาก่อน', 'พรุ่งนี้เจอกันใหม่', 'วันหยุด', 'วันเสาร์', 'วันอาทิตย์', 'ไปเที่ยว', 'ไปสวนสัตว์', 'ไปทะเล', 'ภูเขา', 'น้ำตก', 'ป่าไม้', 'ต้นไม้', 'ดอกไม้', 'ผีเสื้อ', 'นกบิน', 'ปลาว่ายน้ำ', 'ท้องฟ้า', 'ก้อนเมฆ', 'ดวงอาทิตย์', 'ดวงจันทร์', 'ดวงดาว', 'กลางวัน', 'กลางคืน', 'ตื่นนอน', 'อาบน้ำ', 'แปรงฟัน', 'แต่งตัว', 'กินข้าวเช้า', 'ไปโรงเรียน'] },
+            { id: 3, name: 'ป.3', target: 20, baseTime: 30, words: ['พระอาทิตย์', 'ดวงจันทร์', 'ก้อนเมฆ', 'สายรุ้ง', 'ธรรมชาติ', 'สนุกสนาน', 'ปรากฏการณ์', 'ฤดูกาล', 'ฤดูร้อน', 'ฤดูฝน', 'ฤดูหนาว', 'อากาศ', 'อุณหภูมิ', 'ลมพัด', 'ฝนตก', 'แดดออก', 'ฟ้าร้อง', 'ฟ้าผ่า', 'ฟ้าแลบ', 'พายุ', 'น้ำท่วม', 'แผ่นดินไหว', 'ภูเขาไฟระเบิด', 'สึนามิ', 'ภัยพิบัติ', 'สิ่งแวดล้อม', 'การอนุรักษ์', 'การปลูกต้นไม้', 'การลดขยะ', 'การรีไซเคิล', 'พลังงาน', 'ไฟฟ้า', 'น้ำประปา', 'ทรัพยากรธรรมชาติ', 'ป่าไม้', 'สัตว์ป่า', 'สัตว์น้ำ', 'สัตว์บก', 'สัตว์ครึ่งบกครึ่งน้ำ', 'สัตว์ปีก', 'แมลง', 'วัฏจักรชีวิต', 'ห่วงโซ่อาหาร', 'ระบบนิเวศ', 'ความหลากหลายทางชีวภาพ', 'โลกของเรา', 'ทวีปเอเชีย', 'ประเทศไทย', 'กรุงเทพมหานคร', 'จังหวัด', 'อำเภอ', 'ตำบล', 'หมู่บ้าน', 'ชุมชน', 'ประเพณี', 'วัฒนธรรม', 'วันสำคัญ', 'วันสงกรานต์', 'วันลอยกระทง', 'วันเข้าพรรษา', 'วันออกพรรษา', 'วันมาฆบูชา', 'วันวิสาขบูชา', 'วันอาสาฬหบูชา', 'วันพ่อแห่งชาติ', 'วันแม่แห่งชาติ', 'วันเด็กแห่งชาติ', 'วันครูแห่งชาติ', 'ศาสนา', 'ศาสนาพุทธ', 'ศาสนาอิสลาม', 'ศาสนาคริสต์', 'ศาสนาพราหมณ์-ฮินดู', 'ศาสนาซิกข์', 'พระมหากษัตริย์', 'ประชาธิปไตย', 'รัฐธรรมนูญ', 'กฎหมาย', 'สิทธิ', 'หน้าที่', 'พลเมืองดี'] },
+            { id: 4, name: 'ป.4', target: 30, baseTime: 30, words: ['คอมพิวเตอร์', 'วิทยาศาสตร์', 'คณิตศาสตร์', 'ภาษาไทย', 'ประวัติศาสตร์', 'ภูมิศาสตร์', 'สังคมศึกษา', 'ศิลปะ', 'ดนตรี', 'พลศึกษา', 'การงานอาชีพ', 'เทคโนโลยี', 'การเขียนโปรแกรม', 'การแก้ปัญหา', 'อัลกอริทึม', 'การคิดเชิงตรรกะ', 'การทดลอง', 'การสังเกต', 'สมมติฐาน', 'สรุปผล', 'เซลล์', 'พืช', 'สัตว์', 'มนุษย์', 'ระบบร่างกาย', 'ระบบย่อยอาหาร', 'ระบบหายใจ', 'ระบบหมุนเวียนเลือด', 'ระบบขับถ่าย', 'ระบบประสาท', 'สสาร', 'สถานะของสสาร', 'ของแข็ง', 'ของเหลว', 'ก๊าซ', 'การเปลี่ยนแปลงสถานะ', 'แรง', 'การเคลื่อนที่', 'แรงโน้มถ่วง', 'แรงเสียดทาน', 'แรงแม่เหล็ก', 'แรงไฟฟ้า', 'เสียง', 'แสง', 'การสะท้อน', 'การหักเห', 'อวกาศ', 'ระบบสุริยะ', 'ดาวเคราะห์', 'ดาวฤกษ์', 'ดวงอาทิตย์', 'โลก', 'ดวงจันทร์', 'อุกกาบาต', 'ดาวหาง', 'กาแล็กซี', 'เอกภพ', 'ประวัติศาสตร์ไทย', 'สุโขทัย', 'อยุธยา', 'ธนบุรี', 'รัตนโกสินทร์', 'บุคคลสำคัญ', 'วีรบุรุษ', 'วีรสตรี', 'วัฒนธรรมไทย', 'มารยาทไทย', 'ภาษาถิ่น', 'ภูมิปัญญาท้องถิ่น', 'แผนที่', 'ลูกโลก', 'ทิศ', 'มาตราส่วน', 'สัญลักษณ์', 'ภูมิประเทศ', 'ภูมิอากาศ', 'เศรษฐกิจ', 'การผลิต', 'การบริโภค', 'สินค้า', 'บริการ', 'สกุลเงิน'] },
+            { id: 5, name: 'ป.5', target: 30, baseTime: 30, words: ['สิ่งแวดล้อม', 'ทรัพยากรธรรมชาติ', 'เทคโนโลยี', 'อินเทอร์เน็ต', 'แอปพลิเคชัน', 'ซอฟต์แวร์', 'ฮาร์ดแวร์', 'เครือข่าย', 'การสื่อสารข้อมูล', 'ความปลอดภัยไซเบอร์', 'จริยธรรมคอมพิวเตอร์', 'การรู้เท่าทันสื่อ', 'การสร้างสรรค์ผลงาน', 'นวัตกรรม', 'สิ่งประดิษฐ์', 'พันธุกรรม', 'การถ่ายทอดลักษณะทางพันธุกรรม', 'ดีเอ็นเอ', 'ยีน', 'โครโมโซม', 'การดัดแปรพันธุกรรม', 'ความหลากหลายทางพันธุกรรม', 'วิวัฒนาการ', 'การคัดเลือกโดยธรรมชาติ', 'ระบบนิเวศ', 'ความสัมพันธ์ของสิ่งมีชีวิต', 'ภาวะพึ่งพาอาศัย', 'ภาวะอิงอาศัย', 'ภาวะปรสิต', 'ภาวะการล่าเหยื่อ', 'การถ่ายทอดพลังงาน', 'วัฏจักรของสาร', 'วัฏจักรน้ำ', 'วัฏจักรคาร์บอน', 'วัฏจักรไนโตรเจน', 'ปัญหาสิ่งแวดล้อม', 'มลพิษทางอากาศ', 'มลพิษทางน้ำ', 'มลพิษทางดิน', 'มลพิษทางเสียง', 'ภาวะโลกร้อน', 'การเปลี่ยนแปลงสภาพภูมิอากาศ', 'การอนุรักษ์สิ่งแวดล้อม', 'การพัฒนาที่ยั่งยืน', 'เศรษฐกิจพอเพียง', 'เกษตรทฤษฎีใหม่', 'ภูมิปัญญาไทย', 'การเมืองการปกครอง', 'ระบอบประชาธิปไตย', 'รัฐสภา', 'คณะรัฐมนตรี', 'ศาล', 'สิทธิมนุษยชน', 'ความเสมอภาค', 'เสรีภาพ', 'กฎหมาย', 'กฎหมายรัฐธรรมนูญ', 'กฎหมายแพ่ง', 'กฎหมายอาญา', 'กระบวนการยุติธรรม', 'การเลือกตั้ง', 'พรรคการเมือง', 'การมีส่วนร่วมทางการเมือง', 'อาเซียน', 'สมาคมประชาชาติแห่งเอเชียตะวันออกเฉียงใต้', 'ประชาคมอาเซียน', 'ความร่วมมือระหว่างประเทศ', 'องค์การสหประชาชาติ', 'เศรษฐกิจโลก', 'การค้าระหว่างประเทศ', 'การลงทุนระหว่างประเทศ', 'การรวมกลุ่มทางเศรษฐกิจ'] },
+            { id: 6, name: 'ป.6', target: 30, baseTime: 30, words: ['ประชาธิปไตย', 'รัฐธรรมนูญ', 'การเลือกตั้ง', 'สิทธิมนุษยชน', 'เศรษฐกิจพอเพียง', 'การเงิน', 'การธนาคาร', 'ดอกเบี้ย', 'เงินเฟ้อ', 'เงินฝืด', 'ภาษี', 'งบประมาณแผ่นดิน', 'นโยบายการคลัง', 'นโยบายการเงิน', 'การค้าระหว่างประเทศ', 'ดุลการค้า', 'ดุลการชำระเงิน', 'อัตราแลกเปลี่ยน', 'โลกาภิวัตน์', 'บรรษัทข้ามชาติ', 'องค์การการค้าโลก', 'กองทุนการเงินระหว่างประเทศ', 'ธนาคารโลก', 'ภูมิศาสตร์', 'ทวีปเอเชีย', 'ทวีปยุโรป', 'ทวีปแอฟริกา', 'ทวีปอเมริกาเหนือ', 'ทวีปอเมริกาใต้', 'ทวีปออสเตรเลีย', 'ทวีปแอนตาร์กติกา', 'มหาสมุทรแปซิฟิก', 'มหาสมุทรแอตแลนติก', 'มหาสมุทรอินเดีย', 'มหาสมุทรอาร์กติก', 'มหาสมุทรใต้', 'ประวัติศาสตร์สากล', 'อารยธรรมตะวันออก', 'อารยธรรมตะวันตก', 'ยุคโบราณ', 'ยุคกลาง', 'ยุคฟื้นฟูศิลปวิทยาการ', 'ยุคปฏิวัติอุตสาหกรรม', 'ยุคปฏิวัติวิทยาศาสตร์', 'สงครามโลกครั้งที่ 1', 'สงครามโลกครั้งที่ 2', 'สงครามเย็น', 'วิทยาศาสตร์', 'ฟิสิกส์', 'เคมี', 'ชีววิทยา', 'ดาราศาสตร์', 'ธรณีวิทยา', 'อุตุนิยมวิทยา', 'วิทยาศาสตร์สิ่งแวดล้อม', 'วิทยาศาสตร์การอาหาร', 'วิทยาศาสตร์การแพทย์', 'วิศวกรรมศาสตร์', 'คณิตศาสตร์', 'พีชคณิต', 'เรขาคณิต', 'ตรีโกณมิติ', 'แคลคูลัส', 'สถิติ', 'ความน่าจะเป็น', 'เทคโนโลยีสารสนเทศ', 'ปัญญาประดิษฐ์', 'ปัญญาประดิษฐ์เชิงรู้สร้าง', 'การเรียนรู้ของเครื่อง', 'การเรียนรู้เชิงลึก', 'วิทยาการข้อมูล', 'บิ๊กดาต้า', 'อินเทอร์เน็ตของสรรพสิ่ง', 'บล็อกเชน', 'คลาวด์คอมพิวติง', 'ความเป็นจริงเสมือน', 'ความเป็นจริงเสริม'] },
+            { id: 7, name: 'ม.1', target: 50, baseTime: 30, words: ['ปรากฏการณ์', 'อุณหภูมิ', 'บรรยากาศ', 'พันธุกรรม', 'สมการเชิงเส้น', 'ตัวแปร', 'ค่าคงที่', 'พหุนาม', 'การแยกตัวประกอบ', 'เศษส่วนพหุนาม', 'อสมการเชิงเส้น', 'ระบบสมการเชิงเส้น', 'กราฟของฟังก์ชันเชิงเส้น', 'เรขาคณิต', 'เส้นขนาน', 'มุม', 'รูปสามเหลี่ยม', 'ความเท่ากันทุกประการ', 'ทฤษฎีบทพีทาโกรัส', 'พื้นที่ผิว', 'ปริมาตร', 'สถิติ', 'การนำเสนอข้อมูล', 'ค่ากลางของข้อมูล', 'ความน่าจะเป็น', 'เซลล์', 'โครงสร้างของเซลล์', 'หน้าที่ของเซลล์', 'การลำเลียงสารเข้าออกเซลล์', 'การแบ่งเซลล์', 'เนื้อเยื่อ', 'อวัยวะ', 'ระบบอวัยวะ', 'การสังเคราะห์ด้วยแสง', 'การหายใจระดับเซลล์', 'การสืบพันธุ์ของพืช', 'การเจริญเติบโตของพืช', 'การตอบสนองต่อสิ่งเร้าของพืช', 'ธาตุ', 'สารประกอบ', 'สารผสม', 'โครงสร้างอะตอม', 'ตารางธาตุ', 'พันธะเคมี', 'ปฏิกิริยาเคมี', 'สารละลาย', 'กรด-เบส', 'แรง', 'กฎการเคลื่อนที่ของนิวตัน', 'งาน', 'พลังงาน', 'เครื่องกลอย่างง่าย', 'ความร้อน', 'อุณพลศาสตร์', 'ประวัติศาสตร์', 'อารยธรรมเอเชีย', 'อารยธรรมตะวันออกกลาง', 'อารยธรรมจีน', 'อารยธรรมอินเดีย', 'อารยธรรมกรีก', 'อารยธรรมโรมัน', 'ภูมิศาสตร์', 'เครื่องมือทางภูมิศาสตร์', 'ระบบสารสนเทศภูมิศาสตร์', 'ละติจูด', 'ลองจิจูด', 'เขตเวลา', 'ลักษณะทางกายภาพของทวีปเอเชีย', 'ลักษณะทางกายภาพของทวีปออสเตรเลียและโอเชียเนีย', 'เศรษฐกิจ', 'ความหมายของเศรษฐศาสตร์', 'ระบบเศรษฐกิจ', 'อุปสงค์', 'อุปทาน', 'กลไกราคา', 'สถาบันการเงิน', 'การคุ้มครองผู้บริโภค', 'สิทธิมนุษยชน', 'อนุสิทธิมนุษยชน', 'การละเมิดสิทธิมนุษยชน'] },
+            { id: 8, name: 'ม.2', target: 50, baseTime: 30, words: ['ปฏิกิริยาเคมี', 'ระบบสุริยะ', 'แรงโน้มถ่วง', 'พลังงานทดแทน', 'สถิติและความน่าจะเป็น', 'เลขยกกำลัง', 'พหุนาม', 'การแยกตัวประกอบของพหุนามดีกรีสอง', 'สมการกำลังสองตัวแปรเดียว', 'การแปรผัน', 'เรขาคณิต', 'ความคล้าย', 'ทฤษฎีบทพีทาโกรัสและบทกลับ', 'พื้นที่ผิวและปริมาตรของปริซึมและทรงกระบอก', 'สถิติ', 'แผนภาพจุด', 'แผนภาพต้น-ใบ', 'ฮิสโทแกรม', 'ค่ากลางของข้อมูล', 'ระบบร่างกายมนุษย์', 'ระบบย่อยอาหาร', 'ระบบหายใจ', 'ระบบหมุนเวียนเลือด', 'ระบบขับถ่าย', 'ระบบสืบพันธุ์', 'ระบบประสาท', 'ระบบต่อมไร้ท่อ', 'พฤติกรรมของสัตว์', 'การตอบสนองต่อสิ่งเร้าของสัตว์', 'สารละลาย', 'ความเข้มข้นของสารละลาย', 'สมบัติของกรด-เบส', 'ปฏิกิริยาระหว่างกรดกับเบส', 'อินดิเคเตอร์', 'แรงและการเคลื่อนที่', 'การกระจัด', 'ความเร็ว', 'ความเร่ง', 'แรงเสียดทาน', 'โมเมนต์ของแรง', 'งานและพลังงาน', 'กฎการอนุรักษ์พลังงาน', 'โลกและการเปลี่ยนแปลง', 'โครงสร้างของโลก', 'การเปลี่ยนแปลงทางธรณีวิทยา', 'ทรัพยากรธรณี', 'ภัยพิบัติทางธรรมชาติ', 'ประวัติศาสตร์', 'อยุธยา', 'การสถาปนาอาณาจักรอยุธยา', 'พัฒนาการทางการเมืองการปกครอง', 'เศรษฐกิจและสังคม', 'ความสัมพันธ์ระหว่างประเทศ', 'การเสียกรุงศรีอยุธยา', 'ภูมิศาสตร์', 'ลักษณะทางกายภาพของทวีปยุโรป', 'ลักษณะทางกายภาพของทวีปแอฟริกา', 'ประชากร สังคม และวัฒนธรรม', 'เศรษฐกิจและการคมนาคมขนส่ง', 'สิ่งแวดล้อมทางทรัพยากรธรรมชาติ', 'เศรษฐศาสตร์', 'การออมและการลงทุน', 'การบริหารจัดการทรัพยากร', 'การแข่งขันทางเศรษฐกิจ', 'สหกรณ์', 'การพึ่งพาอาศัยกันทางเศรษฐกิจ', 'กฎหมายแพ่ง', 'กฎหมายอาญา', 'กระบวนการยุติธรรมทางแพ่ง', 'กระบวนการยุติธรรมทางอาญา'] },
+            { id: 9, name: 'ม.3', target: 50, baseTime: 30, words: ['การเปลี่ยนแปลงสภาพภูมิอากาศ', 'ภาวะเรือนกระจก', 'พันธุวิศวกรรม', 'ตรีโกณมิติ', 'อสมการเชิงเส้นตัวแปรเดียว', 'สมการกำลังสองตัวแปรเดียว', 'ฟังก์ชันกำลังสอง', 'กราฟของฟังก์ชันกำลังสอง', 'ระบบสมการเชิงเส้นสองตัวแปร', 'ความคล้าย', 'อัตราส่วนตรีโกณมิติ', 'วงกลม', 'ทฤษฎีบทเกี่ยวกับวงกลม', 'พื้นที่ผิวและปริมาตรของพีระมิด กรวย และทรงกลม', 'ความน่าจะเป็น', 'สถิติ', 'แผนภาพกล่อง', 'การกระจายของข้อมูล', 'ระบบนิเวศ', 'ความสัมพันธ์ของสิ่งมีชีวิตในระบบนิเวศ', 'การถ่ายทอดพลังงานในระบบนิเวศ', 'วัฏจักรของสารในระบบนิเวศ', 'ประชากร', 'พันธุกรรม', 'ยีนและโครโมโซม', 'การถ่ายทอดลักษณะทางพันธุกรรม', 'ความผิดปกติทางพันธุกรรม', 'เทคโนโลยีทางดีเอ็นเอ', 'วิวัฒนาการของสิ่งมีชีวิต', 'ปฏิกิริยาเคมี', 'สมการเคมี', 'อัตราการเกิดปฏิกิริยาเคมี', 'พลังงานกับปฏิกิริยาเคมี', 'ไฟฟ้า', 'วงจรไฟฟ้า', 'ปริมาณทางไฟฟ้า', 'กฎของโอห์ม', 'กำลังไฟฟ้าและพลังงานไฟฟ้า', 'อิเล็กทรอนิกส์เบื้องต้น', 'คลื่น', 'คลื่นกล', 'คลื่นแม่เหล็กไฟฟ้า', 'แสง', 'การสะท้อนและการหักเหของแสง', 'เลนส์และกระจก', 'ทัศนอุปกรณ์', 'เอกภพ', 'ระบบสุริยะ', 'ดาวฤกษ์', 'เทคโนโลยีอวกาศ', 'ประวัติศาสตร์ไทย', 'ธนบุรี', 'รัตนโกสินทร์', 'บทบาทของพระมหากษัตริย์ในราชวงศ์จักรี', 'พัฒนาการทางการเมืองการปกครอง', 'การปฏิรูปประเทศในสมัยรัชกาลที่ 5', 'การเปลี่ยนแปลงการปกครอง พ.ศ. 2475', 'บทบาทของไทยในสมัยสงครามโลก', 'ภูมิศาสตร์', 'ลักษณะทางกายภาพของทวีปอเมริกาเหนือ', 'ลักษณะทางกายภาพของทวีปอเมริกาใต้', 'ปฏิสัมพันธ์ระหว่างมนุษย์กับสิ่งแวดล้อม', 'วิกฤตการณ์ด้านสิ่งแวดล้อมและทรัพยากรธรรมชาติ', 'การจัดการทรัพยากรธรรมชาติและสิ่งแวดล้อม', 'เศรษฐศาสตร์', 'กลไกราคา', 'ปัญหาเศรษฐกิจในระดับประเทศ', 'บทบาทของรัฐบาลในการพัฒนาประเทศ', 'การรวมกลุ่มทางเศรษฐกิจระหว่างประเทศ', 'กฎหมายระหว่างประเทศ', 'องค์การสหประชาชาติ', 'สิทธิมนุษยชนสากล'] },
+            { id: 10, name: 'ม.4', target: 50, baseTime: 30, words: ['อเนกประสงค์', 'สมรรถภาพ', 'ตรรกศาสตร์', 'เซตและฟังก์ชัน', 'โครงสร้างอะตอม', 'ระบบจำนวนจริง', 'ความสัมพันธ์และฟังก์ชัน', 'ฟังก์ชันเอกซ์โพเนนเชียล', 'ฟังก์ชันลอการิทึม', 'เรขาคณิตวิเคราะห์', 'ภาคตัดกรวย', 'ระบบสมการเชิงเส้นและเมทริกซ์', 'กลศาสตร์', 'การเคลื่อนที่แนวตรง', 'แรงและกฎการเคลื่อนที่', 'การเคลื่อนที่แบบต่างๆ', 'งานและพลังงาน', 'โมเมนตัมและการชน', 'การเคลื่อนที่แบบหมุน', 'เคมีพื้นฐาน', 'อะตอมและตารางธาตุ', 'พันธะเคมี', 'ปริมาณสัมพันธ์', 'สถานะของสสาร', 'ของแข็ง', 'ของเหลว', 'แก๊ส', 'ชีววิทยาพื้นฐาน', 'ธรรมชาติของสิ่งมีชีวิต', 'เคมีที่เป็นพื้นฐานของสิ่งมีชีวิต', 'เซลล์ของสิ่งมีชีวิต', 'การรักษาดุลยภาพของสิ่งมีชีวิต', 'การสืบพันธุ์และการเจริญเติบโต', 'การถ่ายทอดทางพันธุกรรม', 'วิทยาศาสตร์โลกและอวกาศ', 'โครงสร้างและวิวัฒนาการของเอกภพ', 'ระบบสุริยะ', 'โครงสร้างโลก', 'ธรณีประวัติ', 'กระบวนการเปลี่ยนแปลงทางธรณีวิทยา', 'บรรยากาศ', 'ภูมิอากาศ', 'ประวัติศาสตร์สากล', 'อารยธรรมตะวันออกโบราณ', 'อารยธรรมตะวันตกโบราณ', 'ยุคกลาง', 'การฟื้นฟูศิลปวิทยาการ', 'การปฏิวัติทางวิทยาศาสตร์', 'การปฏิวัติอุตสาหกรรม', 'ยุคภูมิธรรม', 'การปฏิวัติฝรั่งเศส', 'การปฏิวัติอเมริกา', 'รัฐศาสตร์', 'รัฐและรูปแบบของรัฐ', 'ระบอบการปกครอง', 'อุดมการณ์ทางการเมือง', 'สถาบันทางการเมือง', 'กระบวนการทางการเมือง', 'การเมืองเปรียบเทียบ', 'ภูมิศาสตร์มนุษย์', 'ประชากร', 'การตั้งถิ่นฐาน', 'กิจกรรมทางเศรษฐกิจ', 'ปฏิสัมพันธ์ระหว่างมนุษย์กับสิ่งแวดล้อม', 'การจัดการทรัพยากรธรรมชาติและสิ่งแวดล้อม', 'เศรษฐศาสตร์จุลภาค', 'ทฤษฎีอุปสงค์และอุปทาน', 'ความยืดหยุ่น', 'ทฤษฎีพฤติกรรมผู้บริโภค', 'ทฤษฎีการผลิต', 'ต้นทุนการผลิต', 'โครงสร้างตลาด', 'ตลาดแข่งขันสมบูรณ์', 'ตลาดแข่งขันไม่สมบูรณ์', 'การแจกแจงรายได้'] },
+            { id: 11, name: 'ม.5', target: 50, baseTime: 30, words: ['ลำดับและอนุกรม', 'แคลคูลัสเบื้องต้น', 'ไฟฟ้าและแม่เหล็ก', 'คลื่นกลและเสียง', 'ฟังก์ชันตรีโกณมิติ', 'จำนวนเชิงซ้อน', 'ความน่าจะเป็น', 'การวิเคราะห์ข้อมูลเบื้องต้น', 'สถิติ', 'สมบัติเชิงกลของสาร', 'ความร้อนและอุณหพลศาสตร์', 'คลื่น', 'แสงเชิงฟิสิกส์', 'แสงเชิงรังสี', 'เสียง', 'ไฟฟ้าสถิต', 'ไฟฟ้ากระแส', 'แม่เหล็กไฟฟ้า', 'อัตราการเกิดปฏิกิริยาเคมี', 'สมดุลเคมี', 'กรด-เบส', 'ไฟฟ้าเคมี', 'อุตสาหกรรมเคมี', 'โครงสร้างและหน้าที่ของพืชดอก', 'เนื้อเยื่อพืช', 'การสืบพันธุ์และการเจริญเติบโตของพืชดอก', 'การสังเคราะห์ด้วยแสง', 'การตอบสนองของพืช', 'ระบบย่อยอาหารของสัตว์', 'ระบบหายใจของสัตว์', 'ระบบหมุนเวียนเลือดของสัตว์', 'ระบบภูมิคุ้มกัน', 'ระบบขับถ่ายของสัตว์', 'ระบบประสาทของสัตว์', 'อวัยวะรับความรู้สึก', 'ระบบต่อมไร้ท่อ', 'การสืบพันธุ์และการเจริญเติบโตของสัตว์', 'พฤติกรรมของสัตว์', 'ประวัติศาสตร์ไทย', 'การสถาปนากรุงรัตนโกสินทร์', 'พัฒนาการทางเศรษฐกิจและสังคมสมัยรัตนโกสินทร์', 'การปฏิรูปประเทศในสมัยรัชกาลที่ 5', 'การเปลี่ยนแปลงการปกครอง พ.ศ. 2475', 'บทบาทของไทยในเวทีระหว่างประเทศ', 'สังคมวิทยา', 'โครงสร้างทางสังคม', 'การจัดระเบียบทางสังคม', 'การเปลี่ยนแปลงทางสังคม', 'วัฒนธรรม', 'ความเชื่อและศาสนา', 'ปัญหาสังคม', 'ภูมิศาสตร์กายภาพ', 'ธรณีภาค', 'อุทกภาค', 'บรรยากาศภาค', 'ชีวภาค', 'ภัยพิบัติทางธรรมชาติ', 'การจัดการทรัพยากรธรรมชาติและสิ่งแวดล้อม', 'เศรษฐศาสตร์มหภาค', 'รายได้ประชาชาติ', 'การเงินและการธนาคาร', 'นโยบายการเงิน', 'นโยบายการคลัง', 'ปัญหาเศรษฐกิจมหภาค', 'การค้าระหว่างประเทศ', 'การเงินระหว่างประเทศ', 'การพัฒนาเศรษฐกิจ', 'บูรณาการความรู้', 'โครงงานวิทยาศาสตร์', 'โครงงานคณิตศาสตร์', 'การวิจัยเบื้องต้น', 'การคิดเชิงวิพากษ์', 'การแก้ปัญหาเชิงสร้างสรรค์', 'การสื่อสารอย่างมีประสิทธิภาพ'] },
+            { id: 12, name: 'ม.6', target: 50, baseTime: 30, words: ['สถิติประยุกต์', 'ฟิสิกส์อะตอมและนิวเคลียร์', 'เคมีอินทรีย์', 'สารชีวโมเลกุล', 'แคลคูลัส', 'ลิมิตและความต่อเนื่อง', 'อนุพันธ์ของฟังก์ชัน', 'ปริพันธ์ของฟังก์ชัน', 'เวกเตอร์ในสามมิติ', 'สถิติและการวิเคราะห์ข้อมูล', 'การแจกแจงความน่าจะเป็น', 'ฟิสิกส์ยุคใหม่', 'ทฤษฎีสัมพัทธภาพภาพพิเศษ', 'กลศาสตร์ควอนตัม', 'ฟิสิกส์อนุภาค', 'เคมีอินทรีย์เบื้องต้น', 'สารประกอบไฮโดรคาร์บอน', 'สารประกอบอินทรีย์ที่มีธาตุออกซิเจนเป็นองค์ประกอบ', 'สารประกอบอินทรีย์ที่มีธาตุไนโตรเจนเป็นองค์ประกอบ', 'พอลิเมอร์', 'ชีววิทยาประยุกต์', 'เทคโนโลยีชีวภาพ', 'วิวัฒนาการ', 'นิเวศวิทยา', 'ความหลากหลายทางชีวภาพ', 'ดาราศาสตร์และอวกาศ', 'เอกภพวิทยา', 'ดาวฤกษ์และกาแล็กซี', 'เทคโนโลยีอวกาศ', 'โลกศึกษา', 'ธรณีวิทยา', 'อุตุนิยมวิทยา', 'สมุทรศาสตร์', 'ประวัติศาสตร์โลกร่วมสมัย', 'สงครามเย็น', 'การล่มสลายของสหภาพโซเวียต', 'ระเบียบโลกใหม่', 'ความขัดแย้งในภูมิภาคต่างๆ', 'การก่อการร้ายสากล', 'ปัญหาสิ่งแวดล้อมโลก', 'โลกในศตวรรษที่ 21', 'หน้าที่พลเมือง', 'รัฐธรรมนูญแห่งราชอาณาจักรไทย', 'สถาบันการเมืองการปกครอง', 'กระบวนการยุติธรรม', 'สิทธิมนุษยชน', 'การมีส่วนร่วมทางการเมือง', 'ภูมิศาสตร์ประเทศไทย', 'ลักษณะทางกายภาพ', 'ประชากรและสังคม', 'เศรษฐกิจ', 'การจัดการทรัพยากรธรรมชาติและสิ่งแวดล้อม', 'เศรษฐศาสตร์ระหว่างประเทศ', 'ทฤษฎีการค้าระหว่างประเทศ', 'นโยบายการค้าระหว่างประเทศ', 'การรวมกลุ่มทางเศรษฐกิจ', 'องค์การการค้าโลก', 'ระบบการเงินระหว่างประเทศ', 'ปัญหาเศรษฐกิจโลก', 'การเตรียมตัวสู่อุดมศึกษา', 'การแนะแนวการศึกษาต่อ', 'การสำรวจอาชีพ', 'การพัฒนาทักษะทางวิชาการ', 'การพัฒนาทักษะชีวิต', 'การเตรียมตัวสอบ', 'การเขียน Portfolio', 'การสอบสัมภาษณ์'] }
         ];
 
-        const englishAlphabets = [
-            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
-            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-        ];
-
-        let currentMode = 'TH';
-        let currentArray = thaiConsonants;
-        let currentIndex = 0;
+        let role = ''; 
+        let currentSchool = '';
+        let s_name = '', s_class = '', s_avatar = '';
+        let currentMode = 'TH', currentArray = thaiConsonants, currentIndex = 0;
         let isLocked = false;
-        let playerName = ''; 
         
-        let typedProgress = []; // Array เก็บข้อมูลตัวอักษรที่พิมพ์ผ่านแล้ว
+        let letterProgress = []; 
+        let letterBestScore = 0; 
         
-        // ระบบจัดการคิวเซฟหลังบ้านแบบฉลาด (เก็บ State ล่าสุดไว้เซฟทีเดียว)
-        let latestSavePayload = null;
-        let isSavingBackground = false;
+        let wordProgress = { unlockedLevel: 1, bestScores: {} };
+        let w_levelId = null, w_score = 0, w_timeLeft = 0, w_timerInterval = null;
+        let w_targetWord = "", w_typedIndex = 0, w_isPlaying = false, w_availableWords = [];
+        let isSaving = false, saveTimeout = null;
+        
+        let t_studentsData = [];
+        let t_pollingInterval = null;
+        let t_password_cache = ""; 
+        let loggedInAdminPwd = ""; 
+        let globalSchoolData = []; 
 
-        const gameBoard = document.getElementById('game-board');
-        const nextLetterText = document.getElementById('next-letter-text');
-        const targetDisplay = document.getElementById('target-display');
-        const loginModal = document.getElementById('login-modal');
-        const celebrationModal = document.getElementById('celebration-modal');
-        const globalLoading = document.getElementById('global-loading');
-        const saveIndicator = document.getElementById('save-indicator');
-
-        // ฟังก์ชันดึงข้อมูลจากหลังบ้าน
-        async function loadProgressFromServer(modeStr) {
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('ใส่_URL')) return [];
+        window.onload = async () => {
+            initTeacherFilterLevel();
+            showLoading("กำลังเตรียมระบบ...");
+            
             try {
-                const res = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'load', name: playerName, mode: modeStr })
-                });
-                const data = await res.json();
-                return data.progress || []; // จะได้ค่า Array กลับมา
-            } catch (error) {
-                console.error("Load Error:", error);
-                return [];
+                const data = await apiCall({ action: 'getSchools' });
+                if(data.result === 'success' && data.schoolData) {
+                    globalSchoolData = data.schoolData; 
+                    
+                    let options = '<option value="" disabled selected>🏫 -- เลือกโรงเรียนของคุณ --</option>';
+                    globalSchoolData.forEach(s => options += `<option value="${s.name}">${s.name}</option>`);
+                    document.getElementById('s-school').innerHTML = options;
+                    document.getElementById('t-school').innerHTML = options;
+                } else {
+                    document.getElementById('s-school').innerHTML = '<option value="">ยังไม่มีโรงเรียนในระบบ (ให้แอดมินสร้างก่อน)</option>';
+                }
+            } catch (e) {
+                console.error("Fetch Error:", e);
+                showMsg("การเชื่อมต่อมีปัญหา กรุณาตรวจสอบ URL หรืออินเทอร์เน็ต");
+            }
+            hideLoading();
+            checkSession();
+        };
+
+        window.addEventListener('beforeunload', () => {
+            if (role === 'student' && s_name && currentSchool && s_class) {
+                const payload = JSON.stringify({ action: 'logout', name: s_name, school: currentSchool, className: s_class });
+                navigator.sendBeacon(GOOGLE_SCRIPT_URL, payload);
+            }
+        });
+
+        function saveSession(roleName, dataObj) { localStorage.setItem('typing_game_session', JSON.stringify({ role: roleName, data: dataObj })); }
+        function clearSession() { localStorage.removeItem('typing_game_session'); }
+
+        function checkSession() {
+            const sessionStr = localStorage.getItem('typing_game_session');
+            if (sessionStr) {
+                try {
+                    const session = JSON.parse(sessionStr);
+                    if (session.role === 'student') {
+                        document.getElementById('s-name').value = session.data.name;
+                        document.getElementById('s-school').value = session.data.school;
+                        updateClassDropdown(session.data.className); 
+                        document.getElementById('s-class').value = session.data.className;
+                        studentLogin();
+                    } else if (session.role === 'teacher') {
+                        document.getElementById('t-school').value = session.data.school;
+                        document.getElementById('t-pwd').value = session.data.password;
+                        teacherLogin();
+                    } else if (session.role === 'admin') {
+                        document.getElementById('a-pwd').value = session.data.password;
+                        adminLogin();
+                    }
+                } catch(e) {
+                    clearSession(); 
+                    document.getElementById('login-modal').style.display = 'flex';
+                }
+            } else {
+                document.getElementById('login-modal').style.display = 'flex';
             }
         }
 
-        // ฟังก์ชันจัดการคิวเซฟหลังบ้าน
-        function triggerBackgroundSave(isFinished = false) {
-            latestSavePayload = {
-                action: 'save',
-                name: playerName,
-                mode: currentMode === 'TH' ? 'หมวด ก-ฮ' : 'หมวด A-Z',
-                progress: [...typedProgress], // บันทึก State ของ Array ณ ปัจจุบัน
-                isFinished: isFinished
-            };
-            processSaveQueue();
+        function updateClassDropdown(autoSelectClass = null) {
+            const selectedSchool = document.getElementById('s-school').value;
+            const classDropdown = document.getElementById('s-class');
+            const schoolInfo = globalSchoolData.find(s => s.name === selectedSchool);
+            
+            if(schoolInfo && schoolInfo.classes && schoolInfo.classes.length > 0) {
+                let opts = '<option value="" disabled selected>🎒 -- คลิกเพื่อเลือกชั้นเรียน --</option>';
+                schoolInfo.classes.forEach(c => opts += `<option value="${c}">${c}</option>`);
+                classDropdown.innerHTML = opts;
+                
+                if(autoSelectClass) classDropdown.value = autoSelectClass;
+            } else {
+                classDropdown.innerHTML = '<option value="" disabled selected>⚠️ (ยังไม่มีชั้นเรียน ให้คุณครูเพิ่มให้ก่อนนะ)</option>';
+            }
         }
 
-        function processSaveQueue() {
-            // ถ้าระบบกำลังบันทึกอยู่ หรือไม่มีข้อมูลใหม่ ให้รอไปก่อน
-            if (isSavingBackground || !latestSavePayload) return;
+        function switchLoginTab(tab) {
+            document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById('form-student').style.display = tab === 'student' ? 'block' : 'none';
+            document.getElementById('form-teacher').style.display = tab === 'teacher' ? 'block' : 'none';
+            document.getElementById('form-admin').style.display = tab === 'admin' ? 'block' : 'none';
+            document.getElementById('login-msg').style.display = 'none';
+        }
+
+        function showMsg(msg, isError = true) {
+            const el = document.getElementById('login-msg');
+            if(!msg) { el.style.display = 'none'; return; }
+            el.textContent = msg;
+            el.className = isError ? "text-red-500 text-center mt-4 text-sm font-bold bg-red-50 p-2 rounded-lg border border-red-100" : "text-green-600 text-center mt-4 text-sm font-bold bg-green-50 p-2 rounded-lg border border-green-100";
+            el.style.display = 'block';
+        }
+        
+        function showLoading(text) { document.getElementById('loading-text').textContent = text; document.getElementById('global-loading').style.display = 'flex'; }
+        function hideLoading() { document.getElementById('global-loading').style.display = 'none'; }
+        
+        async function logout() { 
+            if (role === 'student' && s_name && currentSchool && s_class) {
+                showLoading("กำลังออกจากระบบ...");
+                try {
+                    await apiCall({ action: 'logout', name: s_name, school: currentSchool, className: s_class });
+                } catch (e) { console.error("Logout error", e); }
+            }
+            clearSession(); 
+            location.reload(); 
+        }
+
+        function openClassModal() { document.getElementById('class-manage-modal').style.display = 'flex'; }
+        function closeClassModal() { document.getElementById('class-manage-modal').style.display = 'none'; }
+
+        // ======================= ระบบ Admin =======================
+        async function adminLogin() {
+            const pwd = document.getElementById('a-pwd').value;
+            if(!pwd) return showMsg("กรุณาใส่รหัสผ่าน");
+            showLoading("กำลังเข้าสู่ระบบแอดมิน...");
+            try {
+                const data = await apiCall({ action: 'adminLogin', password: pwd });
+                if(data.result === 'success') {
+                    loggedInAdminPwd = pwd; 
+                    saveSession('admin', { password: pwd }); 
+                    document.getElementById('login-modal').style.display = 'none';
+                    document.getElementById('admin-dashboard').style.display = 'flex';
+                    renderAdminSchoolList(); 
+                    showMsg("", false); 
+                } else { showMsg(data.message); clearSession(); }
+            } catch (e) { showMsg("เกิดข้อผิดพลาดในการเชื่อมต่อ"); }
+            hideLoading();
+        }
+
+        function renderAdminSchoolList() {
+            const container = document.getElementById('admin-school-list-container');
+            if (!globalSchoolData || globalSchoolData.length === 0) {
+                container.innerHTML = '<span class="text-sm text-gray-400 mt-2">ยังไม่มีโรงเรียนในระบบ</span>';
+                return;
+            }
+            container.innerHTML = '';
+            globalSchoolData.forEach(s => {
+                const span = document.createElement('span');
+                span.className = 'class-tag';
+                span.innerHTML = `${s.name} <div class="del-class-btn" title="ลบโรงเรียนนี้" onclick="deleteSchool('${s.name}')">✕</div>`;
+                container.appendChild(span);
+            });
+        }
+
+        async function deleteSchool(schoolName) {
+            const result = await cuteConfirm('ยืนยันการลบโรงเรียน', `คุณแน่ใจหรือไม่ว่าต้องการลบโรงเรียน "${schoolName}" ออกจากระบบ?\n⚠️ ข้อมูลนักเรียนทั้งหมดในโรงเรียนนี้จะหายไปทันที!`);
+            if(!result.isConfirmed) return;
             
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('ใส่_URL')) {
-                latestSavePayload = null; 
+            showLoading("กำลังลบโรงเรียน...");
+            try {
+                const data = await apiCall({ action: 'deleteSchool', adminPassword: loggedInAdminPwd, schoolName: schoolName });
+                hideLoading(); 
+                if(data.result === 'success') {
+                    await cuteAlert('สำเร็จ', 'ลบโรงเรียนเรียบร้อยแล้ว', 'success');
+                    location.reload(); 
+                } else { cuteAlert('พบปัญหา', "ข้อผิดพลาด: " + data.message, 'error'); }
+            } catch (e) { hideLoading(); cuteAlert('ข้อผิดพลาด', "การเชื่อมต่อมีปัญหา ไม่สามารถลบได้", 'error'); }
+        }
+
+        async function createSchool() {
+            if(!loggedInAdminPwd) return showMsg("เซสชั่นหมดอายุ โปรดโหลดหน้าเว็บใหม่");
+            const newSchool = document.getElementById('new-school-name').value.trim();
+            const teacherPwd = document.getElementById('new-teacher-pwd').value.trim();
+            if(!newSchool || !teacherPwd) return cuteAlert("เดี๋ยวก่อน!", "กรอกข้อมูลโรงเรียนและรหัสให้ครบด้วยน้า", "warning");
+            
+            const btnEl = document.getElementById('btn-add-school');
+            const origHTML = btnEl.innerHTML;
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
+            try {
+                const data = await apiCall({ action: 'createSchool', adminPassword: loggedInAdminPwd, schoolName: newSchool, teacherPassword: teacherPwd });
+                if(data.result === 'success') {
+                    await cuteAlert('สำเร็จ!', 'สร้างโรงเรียนเสร็จสิ้น! ระบบจะโหลดหน้าเว็บใหม่เพื่ออัปเดตข้อมูล', 'success');
+                    location.reload();
+                } else { cuteAlert('พบปัญหา', data.message, 'error'); }
+            } catch (e) { cuteAlert('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการส่งข้อมูล', 'error'); }
+            
+            btnEl.disabled = false; btnEl.innerHTML = origHTML;
+        }
+
+        async function changeAdminPassword() {
+            if(!loggedInAdminPwd) return showMsg("เซสชั่นหมดอายุ โปรดโหลดหน้าเว็บใหม่");
+            const newPwd = document.getElementById('new-admin-pwd').value.trim();
+            if(!newPwd) return cuteAlert("แจ้งเตือน", "กรุณากรอกรหัสผ่านใหม่", "warning");
+
+            showLoading("กำลังเปลี่ยนรหัสผ่านแอดมิน...");
+            try {
+                const data = await apiCall({ action: 'changeAdminPassword', adminPassword: loggedInAdminPwd, newPassword: newPwd });
+                hideLoading();
+                if(data.result === 'success') {
+                    cuteAlert('สำเร็จ!', 'เปลี่ยนรหัสผ่านแอดมินเรียบร้อยแล้วจ้า!', 'success');
+                    loggedInAdminPwd = newPwd; 
+                    saveSession('admin', { password: newPwd }); 
+                    document.getElementById('new-admin-pwd').value = "";
+                } else { cuteAlert('พบปัญหา', data.message, 'error'); }
+            } catch (e) { hideLoading(); cuteAlert('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error'); }
+        }
+
+        // ======================= ระบบ Teacher =======================
+        function initTeacherFilterLevel() {
+            const select = document.getElementById('filter-level');
+            let html = '';
+            levelData.forEach(l => html += `<option value="${l.id}">ดูคะแนนด่าน ${l.name} (เป้าหมาย ${l.target})</option>`);
+            select.innerHTML = html;
+            
+            document.getElementById('filter-mode').addEventListener('change', (e) => {
+                const val = e.target.value;
+                document.getElementById('filter-level').style.display = (val === 'หมวดพิมพ์คำ' || val === 'ดูสถิติสูงสุด') ? 'block' : 'none';
+            });
+        }
+
+        function getStudentScore(student, mode, levelId) {
+            if(mode === 'หมวด ก-ฮ') {
+                let progData = null; try { progData = JSON.parse(student.th); } catch(e){}
+                if(Array.isArray(progData)) return progData.length;
+                if(progData && typeof progData === 'object') return progData.current ? progData.current.length : 0;
+                return 0;
+            }
+            if(mode === 'หมวด A-Z') {
+                let progData = null; try { progData = JSON.parse(student.en); } catch(e){}
+                if(Array.isArray(progData)) return progData.length;
+                if(progData && typeof progData === 'object') return progData.current ? progData.current.length : 0;
+                return 0;
+            }
+            if(mode === 'หมวดพิมพ์คำ') {
+                let progObj = null; try { progObj = JSON.parse(student.words); } catch(e){}
+                if(progObj && progObj.currentScores) return progObj.currentScores[levelId] || 0;
+                return 0;
+            }
+            return 0;
+        }
+
+        function checkForNewWinners(oldData, newData) {
+            const mode = document.getElementById('filter-mode').value;
+            const levelFilter = document.getElementById('filter-level').value;
+
+            if (mode === 'ดูสถิติสูงสุด') return;
+
+            let target = 0;
+            if (mode === 'หมวด ก-ฮ') target = 44;
+            else if (mode === 'หมวด A-Z') target = 26;
+            else if (mode === 'หมวดพิมพ์คำ') {
+                const lvl = levelData.find(l => l.id == levelFilter);
+                if(lvl) target = lvl.target;
+            }
+            
+            if (target === 0) return;
+
+            let potentialWinners = [];
+
+            for (let newStu of newData) {
+                if (!newStu.status || newStu.status === 'ออฟไลน์') continue;
+                if (mode === 'หมวด ก-ฮ' && !newStu.status.includes('หมวด ก-ฮ')) continue;
+                if (mode === 'หมวด A-Z' && !newStu.status.includes('หมวด A-Z')) continue;
+                if (mode === 'หมวดพิมพ์คำ' && !newStu.status.includes('หมวดพิมพ์คำ')) continue;
+
+                if (mode === 'หมวดพิมพ์คำ' && parseInt(newStu.currentLevel) !== parseInt(levelFilter)) continue;
+
+                let currentScore = getStudentScore(newStu, mode, levelFilter);
+                if (currentScore >= target) {
+                    let oldStu = oldData.find(s => s.name === newStu.name && s.class === newStu.class);
+                    let oldScore = oldStu ? getStudentScore(oldStu, mode, levelFilter) : 0;
+
+                    if (oldScore < target) {
+                        potentialWinners.push({
+                            name: newStu.name,
+                            scoreText: mode === 'หมวดพิมพ์คำ' ? `${currentScore}/${target} คำ` : `${currentScore}/${target} ตัว`,
+                            time: newStu.lastUpdate || Date.now() 
+                        });
+                    }
+                }
+            }
+
+            if (potentialWinners.length > 0) {
+                potentialWinners.sort((a, b) => a.time - b.time);
+                let winner = potentialWinners[0];
+                fireTeacherWinnerPopup(winner.name, winner.scoreText);
+            }
+        }
+
+        async function teacherLogin() {
+            const school = document.getElementById('t-school').value;
+            const pwd = document.getElementById('t-pwd').value;
+            if(!school || !pwd) return showMsg("เลือกโรงเรียนและใส่รหัสผ่าน");
+            
+            showLoading("กำลังเข้าสู่ระบบ...");
+            try {
+                const data = await apiCall({ action: 'teacherLogin', school: school, password: pwd });
+                if(data.result === 'success') {
+                    role = 'teacher'; currentSchool = school; t_password_cache = pwd; 
+                    saveSession('teacher', { school: school, password: pwd }); 
+                    document.getElementById('login-modal').style.display = 'none';
+                    document.getElementById('teacher-dashboard').style.display = 'flex';
+                    document.getElementById('t-display-school').textContent = school;
+                    fetchTeacherData(); 
+                    t_pollingInterval = setInterval(fetchTeacherData, 5000); 
+                } else { showMsg(data.message); clearSession(); }
+            } catch (e) { showMsg("เกิดข้อผิดพลาดในการเชื่อมต่อ"); }
+            hideLoading();
+        }
+
+        async function fetchTeacherData() {
+            if(role !== 'teacher') return;
+            try {
+                const data = await apiCall({ action: 'getTeacherDashboard', school: currentSchool });
+                if(data.result === 'success') {
+                    if (t_studentsData && t_studentsData.length > 0) {
+                        checkForNewWinners(t_studentsData, data.data);
+                    }
+
+                    t_studentsData = data.data;
+                    document.getElementById('last-sync').textContent = 'ซิงค์ล่าสุด: ' + new Date().toLocaleTimeString('th-TH');
+                    renderTeacherDashboard();
+                    if(data.classes) renderTeacherClassList(data.classes);
+                }
+            } catch (e) {}
+        }
+
+        function renderTeacherClassList(classesArr) {
+            const container = document.getElementById('class-list-container');
+            if (!classesArr || classesArr.length === 0) {
+                container.innerHTML = '<span class="text-sm text-gray-400 mt-2">ยังไม่มีชั้นเรียน (พิมพ์เพิ่มด้านบนเลย)</span>';
+                return;
+            }
+            container.innerHTML = '';
+            classesArr.forEach(c => {
+                if(c.trim() !== '') {
+                    const span = document.createElement('span');
+                    span.className = 'class-tag';
+                    span.innerHTML = `${c} <div class="del-class-btn" title="ลบชั้นเรียนนี้" onclick="deleteClass('${c}')">✕</div>`;
+                    container.appendChild(span);
+                }
+            });
+        }
+
+        async function addNewClass() {
+            const inputEl = document.getElementById('new-class-input');
+            const btnEl = document.getElementById('btn-add-class');
+            const newClassName = inputEl.value.trim();
+            if(!newClassName) return cuteAlert('แจ้งเตือน', 'กรุณาพิมพ์ชื่อชั้นเรียนก่อนนะ เช่น ป.1/1', 'warning');
+            
+            inputEl.disabled = true;
+            const originalHTML = btnEl.innerHTML;
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
+            try {
+                const data = await apiCall({ action: 'addClass', school: currentSchool, password: t_password_cache, className: newClassName });
+                if(data.result === 'success') {
+                    inputEl.value = '';
+                    renderTeacherClassList(data.classes);
+                } else { cuteAlert('พบปัญหา', "ข้อผิดพลาด: " + data.message, 'error'); }
+            } catch (e) { cuteAlert('ข้อผิดพลาด', "การเชื่อมต่อมีปัญหา ไม่สามารถเพิ่มชั้นเรียนได้", 'error'); }
+            
+            inputEl.disabled = false; btnEl.disabled = false; btnEl.innerHTML = originalHTML; inputEl.focus();
+        }
+
+        async function deleteClass(className) {
+            const result = await cuteConfirm('ยืนยันการลบ', `คุณแน่ใจหรือไม่ว่าต้องการลบชั้นเรียน "${className}" ออกจากระบบ? \n(นักเรียนจะไม่สามารถเลือกชั้นนี้ได้อีก)`);
+            if(!result.isConfirmed) return;
+            try {
+                const data = await apiCall({ action: 'removeClass', school: currentSchool, password: t_password_cache, className: className });
+                if(data.result === 'success') { renderTeacherClassList(data.classes); } 
+                else { cuteAlert('พบปัญหา', "ข้อผิดพลาด: " + data.message, 'error'); }
+            } catch (e) { cuteAlert('ข้อผิดพลาด', "การเชื่อมต่อมีปัญหา ไม่สามารถลบชั้นเรียนได้", 'error'); }
+        }
+
+        function renderTeacherDashboard() {
+            const mode = document.getElementById('filter-mode').value;
+            const levelFilter = document.getElementById('filter-level').value;
+            const container = document.getElementById('track-container');
+            container.innerHTML = '';
+            
+            let activeStudents = t_studentsData;
+            if (t_studentsData && t_studentsData.length > 0) {
+                 activeStudents = t_studentsData.filter(student => {
+                     if (mode === 'ดูสถิติสูงสุด') return true; 
+                     if (!student.status || student.status === 'ออฟไลน์') return false;
+                     if (mode === 'หมวด ก-ฮ' && student.status.includes('หมวด ก-ฮ')) return true;
+                     if (mode === 'หมวด A-Z' && student.status.includes('หมวด A-Z')) return true;
+                     
+                     if (mode === 'หมวดพิมพ์คำ' && student.status.includes('หมวดพิมพ์คำ')) {
+                         return parseInt(student.currentLevel) === parseInt(levelFilter);
+                     }
+                     return false;
+                 });
+            }
+
+            if(!activeStudents || activeStudents.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 mt-10 text-lg font-bold">ยังไม่มีข้อมูลนักเรียนในโหมดนี้</div>';
                 return;
             }
 
-            isSavingBackground = true;
-            const payloadToSend = latestSavePayload;
-            latestSavePayload = null; // เคลียร์รอรับข้อมูลกดรัวๆ ระหว่างส่ง
+            const numStudents = activeStudents.length;
+            let trackHeight = '60px';
+            let avatarSize = '2.5rem';
+            let nameSize = '0.9rem';
+            let namePadding = '2px 10px';
+            let trackInfoSize = '0.8rem';
+            let nameMargin = '-10px';
 
-            saveIndicator.style.display = 'block';
-            saveIndicator.textContent = 'กำลังบันทึกข้อมูล... ⏳';
-            saveIndicator.style.color = '#15803d';
+            if (numStudents > 30) {
+                trackHeight = '24px'; avatarSize = '1.2rem'; nameSize = '0.6rem'; namePadding = '0px 4px'; trackInfoSize = '0.6rem'; nameMargin = '-5px';
+            } else if (numStudents > 15) {
+                trackHeight = '36px'; avatarSize = '1.8rem'; nameSize = '0.75rem'; namePadding = '1px 6px'; trackInfoSize = '0.7rem'; nameMargin = '-8px';
+            } else if (numStudents > 8) {
+                trackHeight = '48px'; avatarSize = '2.2rem'; nameSize = '0.85rem'; namePadding = '2px 8px'; trackInfoSize = '0.75rem'; nameMargin = '-10px';
+            }
 
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payloadToSend)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (!latestSavePayload) {
-                    saveIndicator.textContent = 'บันทึกเรียบร้อย ✅';
-                    setTimeout(() => { 
-                        if(!isSavingBackground && !latestSavePayload) saveIndicator.style.display = 'none'; 
-                    }, 2000);
+            activeStudents.forEach(student => {
+                let progressPercent = 0; 
+                let displayScore = '';
+
+                if(mode === 'หมวด ก-ฮ') {
+                    let progData = null; try { progData = JSON.parse(student.th); } catch(e){}
+                    let current = 0;
+                    if(Array.isArray(progData)) { current = progData.length; }
+                    else if(progData && typeof progData === 'object') { current = progData.current ? progData.current.length : 0; }
+                    
+                    progressPercent = Math.min(100, (current / 44) * 100); 
+                    displayScore = `${current}/44 ตัว`;
+                } 
+                else if(mode === 'หมวด A-Z') {
+                    let progData = null; try { progData = JSON.parse(student.en); } catch(e){}
+                    let current = 0;
+                    if(Array.isArray(progData)) { current = progData.length; }
+                    else if(progData && typeof progData === 'object') { current = progData.current ? progData.current.length : 0; }
+                    
+                    progressPercent = Math.min(100, (current / 26) * 100); 
+                    displayScore = `${current}/26 ตัว`;
+                } 
+                else if(mode === 'หมวดพิมพ์คำ') {
+                    let progObj = { bestScores: {}, currentScores: {} }; 
+                    try { let parsed = JSON.parse(student.words); if(parsed) progObj = parsed; } catch(e){}
+                    
+                    let target = levelData.find(l => l.id == levelFilter).target;
+                    let current = progObj.currentScores ? (progObj.currentScores[levelFilter] || 0) : 0;
+                    
+                    progressPercent = Math.min(100, (current / target) * 100); 
+                    displayScore = `${current}/${target} คำ`;
                 }
-            })
-            .catch(error => {
-                console.error('Save Error:', error);
-                // ถ้าพังให้ดึง payload กลับมาเผื่อส่งใหม่
-                if (!latestSavePayload) latestSavePayload = payloadToSend;
-                saveIndicator.textContent = 'บันทึกพลาด กำลังลองใหม่ ⚠️';
-                saveIndicator.style.color = '#dc2626';
-            })
-            .finally(() => {
-                // หน่วงเวลา 0.8 วิ ก่อนอนุญาตให้บันทึกรอบใหม่ เพื่อไม่ให้ยิงรัวเกินไป (Rate Limit)
-                setTimeout(() => {
-                    isSavingBackground = false;
-                    processSaveQueue(); // หากมีการพิมพ์เพิ่มระหว่างนั้น มันจะเรียกตัวเองใหม่
-                }, 800);
+                else if(mode === 'ดูสถิติสูงสุด') {
+                    let progObj = { bestScores: {} }; 
+                    try { let parsed = JSON.parse(student.words); if(parsed && parsed.bestScores) progObj = parsed; } catch(e){}
+                    let target = levelData.find(l => l.id == levelFilter).target;
+                    let best = progObj.bestScores[levelFilter] || 0;
+                    
+                    progressPercent = Math.min(100, (best / target) * 100); 
+                    displayScore = `สูงสุด ${best} คำ`;
+                }
+
+                const track = document.createElement('div'); 
+                track.className = 'race-track';
+                track.style.height = trackHeight; 
+                
+                let safePercent = progressPercent > 90 ? 90 : progressPercent;
+                
+                track.innerHTML = `
+                    <div class="track-info" style="font-size: ${trackInfoSize};">${student.class}</div>
+                    <div class="runner" style="left: ${safePercent}%;">
+                        <div class="avatar" style="font-size: ${avatarSize};">${student.avatar || '👤'}</div>
+                        <div class="runner-name" style="font-size: ${nameSize}; padding: ${namePadding}; margin-left: ${nameMargin};">${student.name} <span class="font-normal text-blue-500 ml-1" style="font-size: 0.9em;">(${displayScore})</span></div>
+                    </div>
+                    <div class="finish-line"></div>
+                `;
+                container.appendChild(track);
             });
         }
 
-        // เริ่มเกมตอนกดปุ่มในหน้า Login หรือโหลดอัตโนมัติ
-        async function startPlayer(isAutoLogin = false) {
-            if (!isAutoLogin) {
-                const nameInput = document.getElementById('login-input').value.trim();
-                if (nameInput === '') {
-                    const errorMsg = document.getElementById('login-error');
-                    errorMsg.style.display = 'block';
-                    setTimeout(() => errorMsg.style.display = 'none', 3000);
-                    return;
+        // ======================= ระบบ Student =======================
+        async function studentLogin() {
+            s_name = document.getElementById('s-name').value.trim();
+            currentSchool = document.getElementById('s-school').value;
+            s_class = document.getElementById('s-class').value; 
+            
+            if(!s_name || !currentSchool || !s_class) return showMsg("กรุณากรอกข้อมูลและเลือกให้ครบทุกช่อง");
+            
+            showLoading("กำลังค้นหาโปรไฟล์นักเรียน...");
+            try {
+                const data = await apiCall({ action: 'load', name: s_name, school: currentSchool, className: s_class, mode: 'หมวดพิมพ์คำ' });
+                if(data.result === 'success') {
+                    s_avatar = data.avatar || '👤';
+                    wordProgress = (data.progress && data.progress.unlockedLevel) ? data.progress : { unlockedLevel: 1, bestScores: {} };
+                    
+                    role = 'student';
+                    saveSession('student', { name: s_name, school: currentSchool, className: s_class });
+
+                    document.getElementById('login-modal').style.display = 'none';
+                    document.getElementById('student-view').style.display = 'flex';
+                    
+                    document.getElementById('s-display-name').textContent = s_name;
+                    document.getElementById('s-display-class').textContent = s_class;
+                    document.getElementById('s-display-avatar').textContent = s_avatar;
+                    
+                    switchMode('TH');
+                } else { showMsg(data.message); clearSession(); }
+            } catch (e) { showMsg("ระบบขัดข้อง กรุณาลองใหม่"); }
+            hideLoading();
+        }
+
+        function autoSaveStudent(isFinished = false, immediate = false) {
+            clearTimeout(saveTimeout);
+            const ind = document.getElementById('save-indicator');
+            ind.style.opacity = '1'; ind.textContent = '⏳ กำลังส่งข้อมูล...'; ind.className = "text-xs text-orange-500 transition-opacity font-bold bg-orange-50 px-2 py-1 rounded-full border border-orange-100";
+            
+            const performSave = async () => {
+                let pData;
+                if (currentMode === 'WORDS') {
+                    if (!wordProgress.currentScores) wordProgress.currentScores = {};
+                    if (w_isPlaying && w_levelId) {
+                        wordProgress.currentScores[w_levelId] = w_score;
+                    }
+                    pData = wordProgress;
+                } else {
+                    pData = { current: letterProgress, best: letterBestScore };
                 }
-                playerName = nameInput;
-                localStorage.setItem('typingGamePlayerName', playerName); // บันทึกชื่อลง LocalStorage
-            }
-            
-            document.getElementById('display-name').textContent = playerName;
-            const loginBtn = document.getElementById('login-btn');
-            if (loginBtn) {
-                loginBtn.textContent = "กำลังโหลดข้อมูล...";
-                loginBtn.disabled = true;
-            }
+                
+                let modeName = currentMode === 'TH' ? 'หมวด ก-ฮ' : (currentMode === 'EN' ? 'หมวด A-Z' : 'หมวดพิมพ์คำ');
+                
+                let exactTime = Date.now();
+                
+                try {
+                    await apiCall({ action: 'save', name: s_name, school: currentSchool, className: s_class, avatar: s_avatar, mode: modeName, progress: pData, isFinished: isFinished, exactTime: exactTime, currentLevelId: w_levelId });
+                    ind.textContent = '✅ บันทึกแล้ว'; ind.className = "text-xs text-green-600 transition-opacity font-bold bg-green-50 px-2 py-1 rounded-full border border-green-100";
+                    setTimeout(() => ind.style.opacity = '0', 2000);
+                } catch(e) { ind.textContent = '❌ รอส่งใหม่...'; ind.className = "text-xs text-red-600 transition-opacity font-bold bg-red-50 px-2 py-1 rounded-full border border-red-100"; }
+            };
 
-            let modeStr = 'หมวด ก-ฮ';
-            typedProgress = await loadProgressFromServer(modeStr);
-
-            document.getElementById('player-info').style.display = 'flex';
-            loginModal.style.display = 'none';
-            initGame();
+            if (immediate) performSave();
+            else saveTimeout = setTimeout(performSave, 1000);
         }
 
-        // กด Enter ตอนพิมพ์ชื่อได้
-        document.getElementById('login-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') startPlayer();
-        });
-
-        // ฟังก์ชันออกจากระบบแบบน่ารัก
-        function logout() {
-            document.getElementById('logout-modal').style.display = 'flex';
-        }
-
-        function confirmLogout() {
-            localStorage.removeItem('typingGamePlayerName'); // ลบชื่อออกจากระบบ
-            location.reload(); // รีเฟรชหน้าเว็บกลับไปเริ่มต้น
-        }
-
-        function cancelLogout() {
-            document.getElementById('logout-modal').style.display = 'none';
-        }
-
-        // สลับหมวดหมู่
         async function switchMode(mode) {
-            if (currentMode === mode || playerName === '') return;
-            
+            if(currentMode === 'WORDS' && w_isPlaying) exitWordGame();
             currentMode = mode;
-            currentArray = mode === 'TH' ? thaiConsonants : englishAlphabets;
+            w_levelId = null; 
             
-            document.getElementById('btn-th').className = mode === 'TH' ? "mode-btn active" : "mode-btn inactive";
-            document.getElementById('btn-en').className = mode === 'EN' ? "mode-btn active" : "mode-btn inactive";
+            document.querySelectorAll('.mode-btn').forEach(btn => { btn.classList.remove('active'); btn.classList.add('inactive'); });
+            document.getElementById('btn-' + mode.toLowerCase()).classList.remove('inactive');
+            document.getElementById('btn-' + mode.toLowerCase()).classList.add('active');
             
-            // โหลดข้อมูลเก่าของหมวดใหม่
-            globalLoading.style.display = 'flex';
-            let modeStr = mode === 'TH' ? 'หมวด ก-ฮ' : 'หมวด A-Z';
-            typedProgress = await loadProgressFromServer(modeStr);
-            globalLoading.style.display = 'none';
-            
-            initGame();
+            showLoading("กำลังโหลดโหมดการเล่น...");
+            try {
+                let modeName = mode === 'TH' ? 'หมวด ก-ฮ' : (mode === 'EN' ? 'หมวด A-Z' : 'หมวดพิมพ์คำ');
+                const data = await apiCall({ action: 'load', name: s_name, school: currentSchool, className: s_class, mode: modeName });
+                
+                if (!data || data.result === 'error') {
+                    console.warn("Backend load warning:", data ? data.message : "No data");
+                    if (!data) data = {};
+                    data.progress = mode === 'WORDS' ? { unlockedLevel: 1, bestScores: {}, currentScores: {} } : { current: [], best: 0 };
+                }
+                
+                if (mode === 'TH' || mode === 'EN') {
+                    document.getElementById('letter-mode-ui').style.display = 'flex';
+                    document.getElementById('word-mode-ui').style.display = 'none';
+                    currentArray = mode === 'TH' ? thaiConsonants : englishAlphabets;
+                    
+                    document.getElementById('main-title').textContent = '📝 เกมฝึกพิมพ์ ป.1';
+                    
+                    let p = data.progress;
+                    if (Array.isArray(p)) { 
+                        letterProgress = p; 
+                        letterBestScore = p.length; 
+                    } else if (p && typeof p === 'object' && p.current !== undefined) {
+                        letterProgress = p.current;
+                        letterBestScore = p.best || p.current.length;
+                    } else {
+                        letterProgress = [];
+                        letterBestScore = 0;
+                    }
+                    
+                    initLetterGame();
+                    autoSaveStudent(false, true); 
+                    
+                } else {
+                    document.getElementById('letter-mode-ui').style.display = 'none';
+                    document.getElementById('word-mode-ui').style.display = 'flex';
+                    document.getElementById('main-title').textContent = '📝 เกมฝึกพิมพ์ ป.1';
+                    
+                    let p = data.progress;
+                    wordProgress = (p && p.unlockedLevel) ? p : { unlockedLevel: 1, bestScores: {}, currentScores: {} };
+                    if(!wordProgress.currentScores) wordProgress.currentScores = {};
+                    
+                    showLevelSelection();
+                    autoSaveStudent(false, true); 
+                }
+            } catch (e) { 
+                console.warn("SwitchMode Network/Parse fallback:", e);
+                
+                if (mode === 'TH' || mode === 'EN') {
+                    document.getElementById('letter-mode-ui').style.display = 'flex';
+                    document.getElementById('word-mode-ui').style.display = 'none';
+                    currentArray = mode === 'TH' ? thaiConsonants : englishAlphabets;
+                    document.getElementById('main-title').textContent = '📝 เกมฝึกพิมพ์ ป.1';
+                    letterProgress = [];
+                    letterBestScore = 0;
+                    initLetterGame();
+                    autoSaveStudent(false, true); 
+                } else {
+                    document.getElementById('letter-mode-ui').style.display = 'none';
+                    document.getElementById('word-mode-ui').style.display = 'flex';
+                    document.getElementById('main-title').textContent = '📝 เกมฝึกพิมพ์ ป.1';
+                    wordProgress = { unlockedLevel: 1, bestScores: {}, currentScores: {} };
+                    showLevelSelection();
+                    autoSaveStudent(false, true); 
+                }
+            }
+            hideLoading();
         }
 
-        // รีเซ็ตเพื่อเริ่มพิมพ์หมวดนี้ใหม่ตั้งแต่ต้น
         function resetCurrentMode() {
-            document.getElementById('reset-modal').style.display = 'flex';
+            Swal.fire({
+                title: 'เริ่มใหม่? 🔄', 
+                text: 'ต้องการเริ่มพิมพ์ใหม่ตั้งแต่ตัวแรกไหมครับ? (สถิติสูงสุดจะยังอยู่นะ!)', 
+                icon: 'question', showCancelButton: true,
+                confirmButtonColor: '#f59e0b', cancelButtonColor: '#9ca3af', confirmButtonText: 'เริ่มใหม่เลย', cancelButtonText: 'ยกเลิก', backdrop: `rgba(0,0,0,0.4)`,
+                customClass: { popup: 'rounded-[30px] border-4 border-yellow-200 shadow-2xl', title: 'text-2xl text-yellow-600 font-[Itim]', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-6 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]', cancelButton: 'rounded-full px-6 py-2 text-lg text-white shadow-md hover:scale-105 transition-transform font-[Itim]' }
+            }).then((result) => {
+                if(result.isConfirmed) {
+                    letterProgress = []; 
+                    autoSaveStudent(false, true); 
+                    initLetterGame(); 
+                }
+            });
         }
 
-        function confirmReset() {
-            document.getElementById('reset-modal').style.display = 'none';
-            typedProgress = [];
-            triggerBackgroundSave();
-            initGame();
-        }
-
-        function cancelReset() {
-            document.getElementById('reset-modal').style.display = 'none';
-        }
-
-        // สร้างกระดานเกมตาม Progress ที่มี
-        function initGame() {
-            gameBoard.innerHTML = '';
-            celebrationModal.style.display = 'none';
-            isLocked = false;
-
-            // คืนค่า Index กลับไปตามความยาวของ Array ที่โหลดมาได้
-            currentIndex = typedProgress.length;
+        function initLetterGame() {
+            const board = document.getElementById('game-board');
+            board.innerHTML = '';
+            currentIndex = letterProgress.length;
             
-            // สร้างกล่องทั้งหมด
+            document.getElementById('th-en-best-score').textContent = letterBestScore;
+            document.getElementById('th-en-max-score').textContent = currentArray.length;
+            
             currentArray.forEach((letter, index) => {
                 const box = document.createElement('div');
-                box.classList.add('letter-box');
-                box.id = `box-${index}`;
+                box.className = 'letter-box'; 
+                box.id = `box-${index}`; 
                 box.textContent = letter;
                 
-                // ถ้ากล่องไหนพิมพ์ผ่านไปแล้วในคาบที่แล้ว ให้ใส่สีไว้เลย
                 if (index < currentIndex) {
                     box.classList.add('completed');
                 }
-                
-                gameBoard.appendChild(box);
+                board.appendChild(box);
             });
-
-            if (currentIndex >= currentArray.length) {
-                targetDisplay.innerHTML = "🎉 พิมพ์ครบหมดแล้ว 🎉";
-            } else {
-                updateStatus();
-            }
+            updateLetterStatus();
         }
 
-        function handleInput(inputLetter) {
-            if (currentIndex >= currentArray.length || isLocked || playerName === '') return; 
-
-            const expectedLetter = currentArray[currentIndex];
-            const isMatch = (currentMode === 'EN') 
-                ? inputLetter.toUpperCase() === expectedLetter.toUpperCase() 
-                : inputLetter === expectedLetter;
-
-            if (isMatch) {
-                const currentBox = document.getElementById(`box-${currentIndex}`);
-                currentBox.classList.remove('active');
-                currentBox.classList.add('completed');
-                currentBox.classList.add('just-completed'); // เพิ่มแอนิเมชันเด้งเฉพาะตอนเพิ่งกดถูก
-
-                // บันทึกตัวที่ถูกลง Array
-                typedProgress.push(expectedLetter);
-                currentIndex++;
-
-                if (currentIndex < currentArray.length) {
-                    updateStatus();
-                    triggerBackgroundSave(); // ยิงเซฟพื้นหลัง
-                } else {
-                    targetDisplay.innerHTML = "🎉 เก่งมาก! พิมพ์ครบแล้ว 🎉";
-                    triggerBackgroundSave(true); // ยิงเซฟจบเกม
-                    showCelebration();
-                }
-            } else {
-                // กดผิด
-                isLocked = true;
-                const currentBox = document.getElementById(`box-${currentIndex}`);
-                currentBox.classList.add('error');
-                
-                currentBox.style.transform = 'translateX(-5px) scale(1.1)';
-                setTimeout(() => currentBox.style.transform = 'translateX(5px) scale(1.1)', 50);
-                setTimeout(() => currentBox.style.transform = 'translateX(-5px) scale(1.1)', 100);
-                
-                setTimeout(() => {
-                    currentBox.style.transform = 'scale(1.1)';
-                    currentBox.classList.remove('error');
-                    isLocked = false;
-                }, 800);
-            }
-        }
-
-        function updateStatus() {
+        function updateLetterStatus() {
+            const targetDisplay = document.getElementById('target-display');
             if (currentIndex < currentArray.length) {
-                const nextLetter = currentArray[currentIndex];
-                const nextLetterEl = document.getElementById('next-letter-text');
-                if (nextLetterEl) {
-                    nextLetterEl.textContent = nextLetter;
-                }
-
+                targetDisplay.innerHTML = `พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl ml-2 font-black text-blue-600">${currentArray[currentIndex]}</span>`;
+                
                 document.querySelectorAll('.letter-box').forEach(box => box.classList.remove('active'));
                 const nextBox = document.getElementById(`box-${currentIndex}`);
-                if (nextBox) {
-                    nextBox.classList.add('active');
-                    nextBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (nextBox) { 
+                    nextBox.classList.add('active'); 
+                    nextBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+                }
+            } else {
+                targetDisplay.innerHTML = "🎉 <span class='text-green-600'>พิมพ์ครบหมดแล้ว เก่งมาก!</span> 🎉";
+            }
+        }
+
+        function showLevelSelection() {
+            w_levelId = null; 
+            document.getElementById('level-selection').style.display = 'block';
+            document.getElementById('word-game-area').style.display = 'none';
+            const grid = document.getElementById('level-grid');
+            grid.innerHTML = '';
+
+            levelData.forEach(level => {
+                const isUnlocked = level.id <= wordProgress.unlockedLevel;
+                const bestScore = wordProgress.bestScores[level.id] || 0;
+                const card = document.createElement('div');
+                
+                card.className = `level-card unlocked hover:-translate-y-1 hover:shadow-md border-blue-200`;
+                
+                let content = `<h3 class="text-xl font-bold mb-2">${level.name}</h3>`;
+                content += `<p class="text-sm text-gray-500 font-bold mb-1">เป้าหมาย: ${level.target} คำ</p>`;
+                content += `<p class="text-sm ${bestScore >= level.target ? 'text-green-600 font-bold bg-green-100 rounded-full inline-block px-2' : 'text-blue-600'}">สถิติสูงสุด: ${bestScore}</p>`;
+                card.onclick = () => startWordGame(level.id);
+                
+                card.innerHTML = content; 
+                grid.appendChild(card);
+            });
+        }
+
+        function startWordGame(levelId) {
+            w_levelId = levelId;
+            const config = levelData.find(l => l.id === levelId);
+            w_score = 0; w_timeLeft = config.baseTime; w_isPlaying = true;
+            
+            w_availableWords = [...config.words].sort(() => Math.random() - 0.5);
+            
+            if (!wordProgress.currentScores) wordProgress.currentScores = {};
+            wordProgress.currentScores[levelId] = 0;
+            autoSaveStudent(false, true); 
+            
+            document.getElementById('level-selection').style.display = 'none';
+            document.getElementById('word-game-area').style.display = 'flex';
+            document.getElementById('game-level-title').textContent = `ด่าน ${config.name}`;
+            document.getElementById('game-target').textContent = config.target;
+            document.getElementById('game-score').textContent = w_score;
+            
+            document.getElementById('game-best-score').textContent = wordProgress.bestScores[levelId] || 0;
+            
+            pickNewWord();
+            
+            // 💡 เริ่มต้นเวลาด้วยการเซ็ตเวลาเต็ม แล้วเริ่มนับถอยหลัง
+            updateTimerDisplay(config.baseTime, config.baseTime);
+            startTimer(config.baseTime);
+        }
+
+        function resetWordGame() {
+            Swal.fire({
+                title: 'เริ่มใหม่ด่านนี้? 🔄', 
+                text: 'คะแนนในรอบนี้จะเริ่มใหม่ที่ 0 แต่สถิติสูงสุดจะยังคงอยู่', 
+                icon: 'question', 
+                showCancelButton: true,
+                confirmButtonColor: '#f59e0b', cancelButtonColor: '#9ca3af', confirmButtonText: 'เริ่มใหม่', cancelButtonText: 'ยกเลิก', backdrop: `rgba(0,0,0,0.4)`,
+                customClass: { popup: 'rounded-[30px] border-4 border-yellow-200 shadow-2xl', title: 'text-2xl text-yellow-600 font-[Itim]', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-6 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]', cancelButton: 'rounded-full px-6 py-2 text-lg text-white shadow-md hover:scale-105 transition-transform font-[Itim]' }
+            }).then((result) => {
+                if(result.isConfirmed) {
+                    w_isPlaying = false; 
+                    clearInterval(w_timerInterval); 
+                    startWordGame(w_levelId); 
+                }
+            });
+        }
+
+        function pickNewWord() {
+            if (w_availableWords.length === 0) w_availableWords = [...levelData.find(l => l.id === w_levelId).words].sort(() => Math.random() - 0.5);
+            w_targetWord = w_availableWords.pop(); w_typedIndex = 0;
+            renderWord();
+        }
+
+        function renderWord(err = false) {
+            const container = document.getElementById('word-display');
+            container.innerHTML = '';
+            for (let i = 0; i < w_targetWord.length; i++) {
+                const span = document.createElement('span'); span.textContent = w_targetWord[i];
+                if (i < w_typedIndex) span.className = 'char-typed drop-shadow-sm';
+                else if (i === w_typedIndex) span.className = err ? 'char-error' : 'char-current';
+                else span.className = 'char-pending';
+                container.appendChild(span);
+            }
+        }
+
+        // 💡 สร้างฟังก์ชันแยกสำหรับอัปเดตหน้าตาหลอดเวลา
+        function updateTimerDisplay(current, max) {
+            const bar = document.getElementById('timer-bar');
+            const txt = document.getElementById('timer-text');
+            let p = Math.max(0, (current / max) * 100);
+            bar.style.width = p + '%';
+            bar.style.backgroundColor = p < 20 ? '#ef4444' : (p < 50 ? '#f59e0b' : '#10b981');
+            txt.textContent = `⏳ เหลือเวลา: ${current} วิ`;
+        }
+
+        function startTimer(max) {
+            clearInterval(w_timerInterval);
+            w_timeLeft = max; 
+            
+            w_timerInterval = setInterval(() => {
+                w_timeLeft--;
+                updateTimerDisplay(w_timeLeft, max);
+                
+                if (w_timeLeft <= 0) {
+                    endWordGame();
+                }
+            }, 1000);
+        }
+
+        function endWordGame(earlyWin = false) {
+            w_isPlaying = false; clearInterval(w_timerInterval);
+            const config = levelData.find(l => l.id === w_levelId);
+            
+            if (!wordProgress.currentScores) wordProgress.currentScores = {};
+            wordProgress.currentScores[w_levelId] = w_score;
+            
+            const isPassed = w_score >= config.target || earlyWin;
+            
+            if (w_score > (wordProgress.bestScores[w_levelId] || 0)) wordProgress.bestScores[w_levelId] = w_score;
+            if (isPassed && wordProgress.unlockedLevel === w_levelId && w_levelId < levelData.length) wordProgress.unlockedLevel++;
+            
+            autoSaveStudent(isPassed, true);
+            
+            if (isPassed) {
+                Swal.fire({
+                    title: 'เก่งมาก! 🎉', html: 'เป้าหมายสำเร็จแล้ว<br><br><div style="font-size: 80px; text-align: center; line-height: 1.2;" class="animate-bounce">🏆</div>',
+                    confirmButtonColor: '#10b981', confirmButtonText: 'ตกลง', backdrop: `rgba(0,0,0,0.4)`,
+                    customClass: { popup: 'rounded-[30px] border-4 border-green-200 shadow-2xl', title: 'text-4xl text-green-600 font-[Itim] font-black drop-shadow-sm', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-8 py-3 text-xl shadow-md hover:scale-105 transition-transform font-[Itim]' }
+                }).then(() => showLevelSelection());
+            } else {
+                cuteAlert('หมดเวลา! ⏰', `ทำได้ ${w_score} คำ (เป้าหมายคือ ${config.target} คำ)\nลองใหม่อีกครั้งนะ!`, 'warning').then(() => showLevelSelection());
+            }
+        }
+        
+        function exitWordGame() { 
+            w_isPlaying = false; 
+            clearInterval(w_timerInterval); 
+            if(wordProgress.currentScores) wordProgress.currentScores[w_levelId] = 0;
+            w_levelId = null; 
+            autoSaveStudent(false, true); 
+            showLevelSelection(); 
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (role !== 'student' || e.key.length > 1) return;
+
+            if (currentMode === 'TH' || currentMode === 'EN') {
+                if (currentIndex >= currentArray.length || isLocked) return;
+                const expected = currentArray[currentIndex];
+                const match = currentMode === 'EN' ? e.key.toUpperCase() === expected.toUpperCase() : e.key === expected;
+
+                if (match) {
+                    const box = document.getElementById(`box-${currentIndex}`);
+                    if(box) {
+                        box.classList.remove('active'); 
+                        box.classList.add('completed');
+                        box.classList.add('just-completed'); 
+                    }
+                    letterProgress.push(expected); currentIndex++;
+                    
+                    if (currentIndex > letterBestScore) {
+                        letterBestScore = currentIndex;
+                        document.getElementById('th-en-best-score').textContent = letterBestScore;
+                    }
+                    
+                    updateLetterStatus();
+                    autoSaveStudent(currentIndex >= currentArray.length);
+                    
+                    if (currentIndex >= currentArray.length) {
+                        Swal.fire({
+                            title: 'เก่งมาก! 🎉', html: 'ระบายสีครบหมดแล้ว เยี่ยมไปเลย<br><br><div style="font-size: 80px; text-align: center; line-height: 1.2;" class="animate-bounce">🌟</div>',
+                            confirmButtonColor: '#10b981', confirmButtonText: 'ตกลง', backdrop: `rgba(0,0,0,0.4)`,
+                            customClass: { popup: 'rounded-[30px] border-4 border-green-200 shadow-2xl', title: 'text-4xl text-green-600 font-[Itim] font-black drop-shadow-sm', htmlContainer: 'text-gray-600 font-bold font-[Itim]', confirmButton: 'rounded-full px-8 py-3 text-xl shadow-md hover:scale-105 transition-transform font-[Itim]' }
+                        });
+                    }
+                } else {
+                    isLocked = true;
+                    const box = document.getElementById(`box-${currentIndex}`);
+                    if(box) {
+                        box.classList.add('error');
+                        setTimeout(() => { box.classList.remove('error'); isLocked = false; }, 400);
+                    }
+                }
+            } 
+            else if (currentMode === 'WORDS' && w_isPlaying) {
+                if (e.key.toLowerCase() === w_targetWord[w_typedIndex].toLowerCase()) {
+                    w_typedIndex++; renderWord();
+                    if (w_typedIndex >= w_targetWord.length) {
+                        w_score++; 
+                        
+                        const config = levelData.find(l => l.id === w_levelId);
+                        
+                        // 💡 แก้ไข: รีเซ็ตเวลาเต็มพิกัดทันทีเมื่อพิมพ์ถูก (แทนการบวกเพิ่มทีละนิด)
+                        updateTimerDisplay(config.baseTime, config.baseTime);
+                        startTimer(config.baseTime);
+
+                        document.getElementById('game-score').textContent = w_score;
+                        
+                        if (!wordProgress.currentScores) wordProgress.currentScores = {};
+                        wordProgress.currentScores[w_levelId] = w_score;
+                        
+                        if (w_score > (wordProgress.bestScores[w_levelId] || 0)) {
+                            wordProgress.bestScores[w_levelId] = w_score;
+                            document.getElementById('game-best-score').textContent = w_score; 
+                        }
+                        
+                        if (w_score >= config.target) { 
+                            endWordGame(true); 
+                            return; 
+                        }
+                        
+                        autoSaveStudent(false);
+                        
+                        document.getElementById('word-display').style.color = '#10b981';
+                        setTimeout(() => { document.getElementById('word-display').style.color = ''; pickNewWord(); }, 150);
+                    }
+                } else {
+                    renderWord(true); setTimeout(() => renderWord(), 200);
                 }
             }
-        }
-
-        function showCelebration() {
-            document.getElementById('celeb-name').textContent = playerName;
-            setTimeout(() => {
-                celebrationModal.style.display = 'flex';
-                createConfetti();
-            }, 500);
-        }
-
-        function closeModal() {
-            celebrationModal.style.display = 'none';
-            document.querySelectorAll('.confetti').forEach(e => e.remove());
-        }
-
-        document.addEventListener('keydown', (event) => {
-            const key = event.key;
-            if (key.length > 1) return;
-            const isValidKey = (currentMode === 'EN')
-                ? /^[a-zA-Z]$/.test(key)
-                : thaiConsonants.includes(key);
-
-            if (isValidKey) {
-                handleInput(key);
-            }
         });
-
-        function createConfetti() {
-            const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
-            for (let i = 0; i < 50; i++) {
-                const confetti = document.createElement('div');
-                confetti.classList.add('confetti');
-                confetti.style.position = 'fixed';
-                confetti.style.width = '10px';
-                confetti.style.height = '10px';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.top = '-10px';
-                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                confetti.style.zIndex = '1000';
-                confetti.style.pointerEvents = 'none';
-                
-                document.body.appendChild(confetti);
-
-                const duration = Math.random() * 3 + 2;
-                confetti.animate([
-                    { transform: `translate3d(0,0,0) rotate(0deg)`, opacity: 1 },
-                    { transform: `translate3d(${Math.random()*200 - 100}px, 100vh, 0) rotate(${Math.random()*720}deg)`, opacity: 0 }
-                ], {
-                    duration: duration * 1000,
-                    easing: 'cubic-bezier(.37,0,.63,1)',
-                    fill: 'forwards'
-                });
-            }
-        }
-
-        // ทำงานเมื่อโหลดหน้าเว็บ
-        window.onload = () => {
-            const savedName = localStorage.getItem('typingGamePlayerName');
-            if (savedName) {
-                // ถ้าระบบจำชื่อไว้ได้
-                playerName = savedName;
-                
-                // แปลงหน้าจอเข้าเกมให้เป็นหน้าต่างโหลดข้อมูลอัตโนมัติ
-                document.getElementById('login-input').style.display = 'none';
-                loginModal.querySelector('h2').textContent = `สวัสดีครับน้อง ${playerName} 👋`;
-                loginModal.querySelector('p').textContent = "กำลังโหลดข้อมูลการพิมพ์ของน้อง...";
-                
-                const loginBtn = document.getElementById('login-btn');
-                loginBtn.textContent = "กำลังเข้าเกม...";
-                loginBtn.disabled = true;
-                
-                loginModal.style.display = 'flex';
-                
-                // เข้าเกมอัตโนมัติ
-                startPlayer(true);
-            } else {
-                // ถ้าไม่มีประวัติจำไว้ ให้แสดงหน้ากรอกชื่อปกติ
-                loginModal.style.display = 'flex';
-            }
-        };
     </script>
 </body>
 </html>
