@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมฝึกพิมพ์ ก-ฮ และ A-Z สำหรับเด็ก ป.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Itim', cursive;
+            background-color: #f0fdf4; /* Light green background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #166534;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        
+        .instructions {
+            color: #15803d;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .mode-btn {
+            padding: 10px 25px;
+            border-radius: 999px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: 'Itim', cursive;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .mode-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+        }
+
+        .mode-btn.inactive {
+            background-color: white;
+            color: #6b7280;
+            border-color: #e5e7eb;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .mode-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        .letter-box {
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            font-weight: normal; 
+            border: 3px dashed #cbd5e1; /* กรอบเส้นประสีเทา */
+            border-radius: 12px;
+            color: #cbd5e1; /* เส้นบางสีเทาอ่อน */
+            transition: all 0.3s ease;
+            position: relative;
+            background-color: #f8fafc;
+        }
+
+        .letter-box.active {
+            border-color: #3b82f6; /* กรอบสีฟ้าเพื่อบอกว่าต้องพิมพ์ตัวนี้ */
+            background-color: #eff6ff;
+            color: #93c5fd; 
+            transform: scale(1.1);
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+            z-index: 10;
+        }
+
+        .letter-box.error {
+            border-color: #ef4444 !important; /* กรอบสีแดงเมื่อพิมพ์ผิด */
+            background-color: #fef2f2 !important;
+            color: #f87171 !important;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2) !important;
+        }
+
+        .letter-box.completed {
+            border: 3px solid transparent; /* เอากรอบเส้นประออก */
+            color: #ffffff; /* ตัวอักษรเปลี่ยนเป็นสีขาวทึบ */
+            transform: scale(1);
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* สีสันสดใสสำหรับตัวที่พิมพ์เสร็จแล้ว */
+        .letter-box.completed:nth-child(4n+1) { background-color: #ef4444; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4); } /* แดง */
+        .letter-box.completed:nth-child(4n+2) { background-color: #f59e0b; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); } /* ส้ม */
+        .letter-box.completed:nth-child(4n+3) { background-color: #10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); } /* เขียว */
+        .letter-box.completed:nth-child(4n+4) { background-color: #3b82f6; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4); } /* ฟ้า */
+
+        @keyframes pop {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .status-panel {
+            margin-top: 10px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .current-target {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1e40af;
+            background: #dbeafe;
+            padding: 10px 20px;
+            border-radius: 999px;
+            border: 2px solid #bfdbfe;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .reset-btn {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-family: 'Itim', cursive;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+        }
+
+        .reset-btn:hover { background-color: #dc2626; }
+        .reset-btn:active { transform: translateY(2px); }
+
+        /* Modal styling */
+        #celebration-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            animation: slideDown 0.5s ease-out;
+        }
+        
+        .modal-content h2 {
+            color: #059669;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .grid-container { grid-template-columns: repeat(auto-fit, minmax(45px, 1fr)); gap: 8px; }
+            .letter-box { font-size: 1.8rem; border-width: 2px; }
+            .current-target { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="text-3xl md:text-5xl font-bold mt-4">📝 เกมฝึกพิมพ์ ป.1</h1>
+    
+    <div class="mode-buttons">
+        <button id="btn-th" class="mode-btn active" onclick="switchMode('TH')">หมวด ก-ฮ</button>
+        <button id="btn-en" class="mode-btn inactive" onclick="switchMode('EN')">หมวด A-Z</button>
+    </div>
+
+    <p class="instructions">พิมพ์ตัวอักษรตามลำดับ เพื่อระบายสีให้สวยงาม!</p>
+
+    <div class="status-panel">
+        <div class="current-target" id="target-display">
+            พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl ml-2">ก</span>
+        </div>
+        <button class="reset-btn" onclick="initGame()">เริ่มใหม่</button>
+    </div>
+
+    <!-- Container for the grid of letters -->
+    <div class="grid-container mt-6" id="game-board">
+        <!-- Letter boxes will be generated here by JavaScript -->
+    </div>
+
+    <!-- Celebration Modal -->
+    <div id="celebration-modal">
+        <div class="modal-content">
+            <h2>เก่งมาก! 🎉</h2>
+            <p class="text-xl mb-6 text-gray-600">น้องพิมพ์ได้ครบทุกตัวแล้ว</p>
+            <button class="reset-btn" style="background-color: #10b981;" onclick="closeModalAndReset()">เล่นอีกครั้ง</button>
+        </div>
+    </div>
+
+    <script>
+        const thaiConsonants = [
+            'ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 
+            'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 
+            'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'
+        ];
+
+        const englishAlphabets = [
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
+            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
+        ];
+
+        let currentMode = 'TH'; // เริ่มต้นที่หมวดภาษาไทย
+        let currentArray = thaiConsonants;
+        let currentIndex = 0;
+        let isLocked = false; // สำหรับหน่วงเวลาเวลากดผิด
+
+        const gameBoard = document.getElementById('game-board');
+        const nextLetterText = document.getElementById('next-letter-text');
+        const targetDisplay = document.getElementById('target-display');
+        const modal = document.getElementById('celebration-modal');
+
+        function switchMode(mode) {
+            currentMode = mode;
+            currentArray = mode === 'TH' ? thaiConsonants : englishAlphabets;
+            
+            const btnTh = document.getElementById('btn-th');
+            const btnEn = document.getElementById('btn-en');
+            
+            if (mode === 'TH') {
+                btnTh.className = "mode-btn active";
+                btnEn.className = "mode-btn inactive";
+            } else {
+                btnTh.className = "mode-btn inactive";
+                btnEn.className = "mode-btn active";
+            }
+            
+            initGame();
+        }
+
+        function initGame() {
+            currentIndex = 0;
+            isLocked = false;
+            gameBoard.innerHTML = '';
+            modal.style.display = 'none';
+
+            // รีเซ็ตการแสดงผล
+            targetDisplay.innerHTML = `พิมพ์ตัวต่อไป: <span id="next-letter-text" class="text-3xl text-blue-600 ml-2"></span>`;
+
+            // สร้างกล่องตัวอักษร
+            currentArray.forEach((letter, index) => {
+                const box = document.createElement('div');
+                box.classList.add('letter-box');
+                box.id = `box-${index}`;
+                box.textContent = letter;
+                
+                gameBoard.appendChild(box);
+            });
+
+            updateStatus();
+        }
+
+        function handleInput(inputLetter) {
+            if (currentIndex >= currentArray.length || isLocked) return; // ถ้าจบเกมหรือติดล็อคเวลาอยู่ ให้ข้ามไป
+
+            const expectedLetter = currentArray[currentIndex];
+
+            // เช็คว่าพิมพ์ถูกไหม (ถ้าเป็น EN ให้เช็คแบบไม่สนใจตัวพิมพ์เล็กพิมพ์ใหญ่)
+            const isMatch = (currentMode === 'EN') 
+                ? inputLetter.toUpperCase() === expectedLetter.toUpperCase() 
+                : inputLetter === expectedLetter;
+
+            if (isMatch) {
+                // พิมพ์ถูกต้อง!
+                const currentBox = document.getElementById(`box-${currentIndex}`);
+                currentBox.classList.remove('active');
+                currentBox.classList.add('completed');
+
+                currentIndex++;
+
+                if (currentIndex < currentArray.length) {
+                    updateStatus();
+                } else {
+                    // จบเกม
+                    targetDisplay.innerHTML = "🎉 เก่งมาก! พิมพ์ครบแล้ว 🎉";
+                    showCelebration();
+                }
+            } else {
+                // พิมพ์ผิด: ล็อคการพิมพ์ และแสดงเอฟเฟกต์สีแดง
+                isLocked = true;
+                const currentBox = document.getElementById(`box-${currentIndex}`);
+                currentBox.classList.add('error');
+                
+                // เอฟเฟกต์สั่น
+                currentBox.style.transform = 'translateX(-5px) scale(1.1)';
+                setTimeout(() => currentBox.style.transform = 'translateX(5px) scale(1.1)', 50);
+                setTimeout(() => currentBox.style.transform = 'translateX(-5px) scale(1.1)', 100);
+                
+                // หน่วงเวลาไม่ให้กดมั่ว 0.8 วินาที
+                setTimeout(() => {
+                    currentBox.style.transform = 'scale(1.1)'; // รีเซ็ตขนาด
+                    currentBox.classList.remove('error'); // ลบสีแดงออก
+                    isLocked = false; // ปลดล็อค
+                }, 800);
+            }
+        }
+
+        function updateStatus() {
+            if (currentIndex < currentArray.length) {
+                const nextLetter = currentArray[currentIndex];
+                const nextLetterEl = document.getElementById('next-letter-text');
+                if (nextLetterEl) {
+                    nextLetterEl.textContent = nextLetter;
+                }
+
+                // ลบ active จากกล่องเก่าและใส่ให้กล่องถัดไป
+                document.querySelectorAll('.letter-box').forEach(box => box.classList.remove('active'));
+                const nextBox = document.getElementById(`box-${currentIndex}`);
+                if (nextBox) {
+                    nextBox.classList.add('active');
+                    // เลื่อนหน้าจอให้พอดีกับกล่องที่กำลังจะพิมพ์
+                    nextBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+
+        function showCelebration() {
+            setTimeout(() => {
+                modal.style.display = 'flex';
+                createConfetti();
+            }, 500);
+        }
+
+        function closeModalAndReset() {
+            modal.style.display = 'none';
+            // เคลียร์พลุกระดาษของเก่าออก
+            document.querySelectorAll('.confetti').forEach(e => e.remove());
+            initGame();
+        }
+
+        // รับค่าจากการกดคีย์บอร์ด
+        document.addEventListener('keydown', (event) => {
+            const key = event.key;
+            
+            // ป้องกันการตรวจจับปุ่ม Shift, Ctrl, Alt ต่างๆ
+            if (key.length > 1) return;
+
+            // ตรวจสอบว่าปุ่มที่กดอยู่ในชุดตัวอักษรปัจจุบันหรือไม่ (สำหรับ EN ให้ครอบคลุมทั้งเล็ก-ใหญ่)
+            const isValidKey = (currentMode === 'EN')
+                ? /^[a-zA-Z]$/.test(key)
+                : thaiConsonants.includes(key);
+
+            if (isValidKey) {
+                handleInput(key);
+            }
+        });
+
+        // เอฟเฟกต์พลุกระดาษตอนจบเกม
+        function createConfetti() {
+            const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                confetti.style.zIndex = '1000';
+                confetti.style.pointerEvents = 'none';
+                
+                document.body.appendChild(confetti);
+
+                const duration = Math.random() * 3 + 2;
+                confetti.animate([
+                    { transform: `translate3d(0,0,0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate3d(${Math.random()*200 - 100}px, 100vh, 0) rotate(${Math.random()*720}deg)`, opacity: 0 }
+                ], {
+                    duration: duration * 1000,
+                    easing: 'cubic-bezier(.37,0,.63,1)',
+                    fill: 'forwards'
+                });
+            }
+        }
+
+        // เริ่มเกมเมื่อหน้าเว็บโหลดเสร็จ
+        window.onload = initGame;
+    </script>
+</body>
+</html>
