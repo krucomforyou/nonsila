@@ -1481,17 +1481,36 @@
             const container = document.getElementById('word-display');
             container.innerHTML = '';
             
+            // 💡 1. เช็คว่าตัวอักษร "คิวต่อไป" ที่รอพิมพ์ เป็นสระหรือวรรณยุกต์หรือไม่
+            let currentIsCombining = false;
+            if (w_typedIndex < w_targetWord.length) {
+                currentIsCombining = /[\u0E31\u0E33\u0E34-\u0E3A\u0E47-\u0E4E]/.test(w_targetWord[w_typedIndex]);
+            }
+            
             for (let i = 0; i < w_targetWord.length; i++) {
                 const span = document.createElement('span'); 
                 let charToDisplay = w_targetWord[i];
                 
+                const isCombining = /[\u0E31\u0E33\u0E34-\u0E3A\u0E47-\u0E4E]/.test(charToDisplay);
+                
                 span.textContent = charToDisplay;
 
                 if (i < w_typedIndex) {
+                    // พิมพ์ผ่านไปแล้ว -> สีเขียว
                     span.className = 'char-typed drop-shadow-sm';
+                    
+                    // 💡 2. ถ้าตัวที่รอพิมพ์อยู่เป็นสระ/วรรณยุกต์ ให้วาดเส้นใต้สีฟ้าค้างไว้ที่พยัญชนะก่อนหน้า
+                    if (currentIsCombining && i === w_typedIndex - 1) {
+                        span.style.textDecoration = 'underline';
+                        span.style.textDecorationThickness = '4px';
+                        span.style.textDecorationColor = '#3b82f6';
+                    }
+                    
                 } else if (i === w_typedIndex) {
-                    span.className = err ? 'char-error' : 'char-current';
+                    // ตัวที่กำลังจะต้องพิมพ์ 
+                    span.className = err ? 'char-error' : (isCombining ? 'char-pending' : 'char-current');
                 } else {
+                    // ยังไปไม่ถึง -> สีเทา
                     span.className = 'char-pending';
                 }
                 
