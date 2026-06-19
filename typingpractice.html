@@ -48,7 +48,7 @@
         .avatar { font-size: 2.5rem; filter: drop-shadow(0 4px 3px rgba(0,0,0,0.1)); transition: font-size 0.3s ease; }
         .runner-name { background: rgba(255,255,255,0.95); padding: 2px 10px; border-radius: 99px; font-size: 0.9rem; font-weight: bold; border: 2px solid #e2e8f0; margin-left: -10px; z-index: -1; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #475569; transition: all 0.3s ease; display: flex; align-items: center;}
         .finish-line { position: absolute; right: 0; top: 0; bottom: 0; width: 25px; background: repeating-linear-gradient(45deg, #334155, #334155 10px, #fff 10px, #fff 20px); opacity: 0.8; border-radius: 0 10px 10px 0; z-index: 5;}
-        .rank-badge { position: absolute; right: 35px; top: 50%; transform: translateY(-50%); color: white; font-weight: bold; padding: 2px 10px; border-radius: 99px; font-size: 0.85rem; z-index: 20; box-shadow: 0 2px 5px rgba(0,0,0,0.2); animation: pop 0.4s ease-out; border: 2px solid white; }
+        .rank-badge { position: absolute; top: -20px; left: 15px; transform: translateX(-50%); color: white; font-weight: bold; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; z-index: 20; box-shadow: 0 2px 5px rgba(0,0,0,0.2); animation: pop 0.4s ease-out; border: 2px solid white; white-space: nowrap; }
         .track-info { position: absolute; left: 10px; font-size: 0.8rem; font-weight: bold; color: #94a3b8; background: #f1f5f9; padding: 2px 8px; border-radius: 10px; transition: font-size 0.3s ease;}
         .class-tag { display: inline-flex; align-items: center; background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 99px; font-size: 0.9rem; margin: 4px; border: 1px solid #bfdbfe; font-weight: bold; transition: all 0.2s;}
         .del-class-btn { color: #ef4444; margin-left: 6px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 20px; height: 20px; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.5); transition: background 0.2s;}
@@ -523,6 +523,7 @@
         
         let letterProgress = []; 
         let letterBestScore = 0; 
+        let letterFinishTime = null;
         
         let wordProgress = { unlockedLevel: 1, bestScores: {} };
         let w_levelId = null, w_score = 0, w_timeLeft = 0, w_timerInterval = null;
@@ -1054,14 +1055,32 @@
                 activeStudents.forEach(student => {
                     let currentScore = getStudentScore(student, mode, levelFilter);
                     if (currentScore >= target) {
+                        // ดึงเวลาเข้าเส้นชัยจาก JSON ของแต่ละโหมดแทนการใช้ lastUpdate รวม
+                        let fTime = Number.MAX_SAFE_INTEGER;
+                        try {
+                            if (mode === 'หมวด ก-ฮ' && student.th) {
+                                let p = JSON.parse(student.th);
+                                if (p && p.finishTime) fTime = p.finishTime;
+                                else fTime = parseInt(student.lastUpdate) || Number.MAX_SAFE_INTEGER;
+                            } else if (mode === 'หมวด A-Z' && student.en) {
+                                let p = JSON.parse(student.en);
+                                if (p && p.finishTime) fTime = p.finishTime;
+                                else fTime = parseInt(student.lastUpdate) || Number.MAX_SAFE_INTEGER;
+                            } else if (mode === 'หมวดพิมพ์คำ' && student.words) {
+                                let p = JSON.parse(student.words);
+                                if (p && p.finishTimes && p.finishTimes[levelFilter]) fTime = p.finishTimes[levelFilter];
+                                else fTime = parseInt(student.lastUpdate) || Number.MAX_SAFE_INTEGER;
+                            }
+                        } catch(e) {}
+
                         winners.push({
                             id: `${student.name}_${student.class}`,
-                            time: parseInt(student.lastUpdate) || Number.MAX_SAFE_INTEGER
+                            time: fTime
                         });
                     }
                 });
 
-                // เรียงลำดับตามเวลาที่บันทึก (น้อยไปมาก = เข้าเส้นชัยก่อน)
+                // เรียงลำดับตามเวลาที่บันทึกไว้เป๊ะๆ (น้อยไปมาก = เข้าเส้นชัยก่อน)
                 winners.sort((a, b) => a.time - b.time);
                 winners.forEach((w, index) => {
                     rankings[w.id] = index + 1; // ให้ลำดับ 1, 2, 3...
@@ -1149,11 +1168,11 @@
                 track.innerHTML = `
                     <div class="track-info" style="font-size: ${trackInfoSize};">${student.class}</div>
                     <div class="runner" style="left: ${safePercent}%;">
+                        ${rankHtml} <!-- 💡 ป้ายเหรียญรางวัลจะลอยอยู่บนหัวตัวละครพอดี -->
                         <div class="avatar" style="font-size: ${avatarSize};">${student.avatar || '👤'}</div>
                         <div class="runner-name" style="font-size: ${nameSize}; padding: ${namePadding}; margin-left: ${nameMargin};">${student.name} <span class="font-normal text-blue-500 ml-1" style="font-size: 0.9em;">(${displayScore})</span></div>
                     </div>
                     <div class="finish-line"></div>
-                    ${rankHtml}
                 `;
                 container.appendChild(track);
             });
@@ -1200,19 +1219,29 @@
             
             const performSave = async () => {
                 let pData;
+                let exactTime = Date.now();
+
                 if (currentMode === 'WORDS') {
                     if (!wordProgress.currentScores) wordProgress.currentScores = {};
+                    if (!wordProgress.finishTimes) wordProgress.finishTimes = {};
+
                     if (w_isPlaying && w_levelId) {
                         wordProgress.currentScores[w_levelId] = w_score;
                     }
+                    // บันทึกเวลาเฉพาะตอนที่ผ่านด่านครั้งแรกเท่านั้น
+                    if (isFinished && w_levelId && !wordProgress.finishTimes[w_levelId]) {
+                        wordProgress.finishTimes[w_levelId] = exactTime;
+                    }
                     pData = wordProgress;
                 } else {
-                    pData = { current: letterProgress, best: letterBestScore };
+                    // บันทึกเวลาที่พิมพ์ครบตัวสุดท้าย
+                    if (isFinished && !letterFinishTime) {
+                        letterFinishTime = exactTime;
+                    }
+                    pData = { current: letterProgress, best: letterBestScore, finishTime: letterFinishTime };
                 }
                 
                 let modeName = currentMode === 'TH' ? 'หมวด ก-ฮ' : (currentMode === 'EN' ? 'หมวด A-Z' : 'หมวดพิมพ์คำ');
-                
-                let exactTime = Date.now();
                 
                 try {
                     await apiCall({ action: 'save', name: s_name, school: currentSchool, className: s_class, avatar: s_avatar, mode: modeName, progress: pData, isFinished: isFinished, exactTime: exactTime, currentLevelId: w_levelId });
@@ -1258,12 +1287,15 @@
                     if (Array.isArray(p)) { 
                         letterProgress = p; 
                         letterBestScore = p.length; 
+                        letterFinishTime = null; // <-- เพิ่ม
                     } else if (p && typeof p === 'object' && p.current !== undefined) {
                         letterProgress = p.current;
                         letterBestScore = p.best || p.current.length;
+                        letterFinishTime = p.finishTime || null; // <-- เพิ่ม
                     } else {
                         letterProgress = [];
                         letterBestScore = 0;
+                        letterFinishTime = null; // <-- เพิ่ม
                     }
                     
                     initLetterGame();
@@ -1277,6 +1309,7 @@
                     let p = data.progress;
                     wordProgress = (p && p.unlockedLevel) ? p : { unlockedLevel: 1, bestScores: {}, currentScores: {} };
                     if(!wordProgress.currentScores) wordProgress.currentScores = {};
+                    if(!wordProgress.finishTimes) wordProgress.finishTimes = {};
                     
                     showLevelSelection();
                     autoSaveStudent(false, true); 
