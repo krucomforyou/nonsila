@@ -48,6 +48,7 @@
         .avatar { font-size: 2.5rem; filter: drop-shadow(0 4px 3px rgba(0,0,0,0.1)); transition: font-size 0.3s ease; }
         .runner-name { background: rgba(255,255,255,0.95); padding: 2px 10px; border-radius: 99px; font-size: 0.9rem; font-weight: bold; border: 2px solid #e2e8f0; margin-left: -10px; z-index: -1; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #475569; transition: all 0.3s ease; display: flex; align-items: center;}
         .finish-line { position: absolute; right: 0; top: 0; bottom: 0; width: 25px; background: repeating-linear-gradient(45deg, #334155, #334155 10px, #fff 10px, #fff 20px); opacity: 0.8; border-radius: 0 10px 10px 0; z-index: 5;}
+        .rank-badge { position: absolute; right: 35px; top: 50%; transform: translateY(-50%); color: white; font-weight: bold; padding: 2px 10px; border-radius: 99px; font-size: 0.85rem; z-index: 20; box-shadow: 0 2px 5px rgba(0,0,0,0.2); animation: pop 0.4s ease-out; border: 2px solid white; }
         .track-info { position: absolute; left: 10px; font-size: 0.8rem; font-weight: bold; color: #94a3b8; background: #f1f5f9; padding: 2px 8px; border-radius: 10px; transition: font-size 0.3s ease;}
         .class-tag { display: inline-flex; align-items: center; background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 99px; font-size: 0.9rem; margin: 4px; border: 1px solid #bfdbfe; font-weight: bold; transition: all 0.2s;}
         .del-class-btn { color: #ef4444; margin-left: 6px; font-weight: bold; cursor: pointer; border-radius: 50%; width: 20px; height: 20px; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.5); transition: background 0.2s;}
@@ -249,7 +250,6 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <!-- 💡 ปุ่มเพิ่มเติมสำหรับครู -->
                 <button class="px-5 py-2 bg-purple-100 text-purple-700 rounded-full font-bold hover:bg-purple-200 transition shadow-sm text-sm" onclick="openTimerModal()">⏱️ ตั้งค่าเวลา</button>
                 <button class="px-5 py-2 bg-blue-100 text-blue-700 rounded-full font-bold hover:bg-blue-200 transition shadow-sm text-sm" onclick="openClassModal()">⚙️ จัดการชั้นเรียน</button>
                 <button class="px-5 py-2 bg-orange-100 text-orange-700 rounded-full font-bold hover:bg-orange-200 transition shadow-sm text-sm" onclick="openTeacherPwdModal()">🔑 เปลี่ยนรหัสผ่าน</button>
@@ -1039,6 +1039,36 @@
                 return;
             }
 
+            // --- ส่วนที่เพิ่มใหม่: คำนวณหาผู้ชนะและจัดอันดับ ---
+            let target = 0;
+            if (mode === 'หมวด ก-ฮ') target = 44;
+            else if (mode === 'หมวด A-Z') target = 26;
+            else if (mode === 'หมวดพิมพ์คำ') {
+                const lvl = levelData.find(l => l.id == levelFilter);
+                if(lvl) target = lvl.target;
+            }
+
+            let rankings = {};
+            if (mode !== 'ดูสถิติสูงสุด' && target > 0) {
+                let winners = [];
+                activeStudents.forEach(student => {
+                    let currentScore = getStudentScore(student, mode, levelFilter);
+                    if (currentScore >= target) {
+                        winners.push({
+                            id: `${student.name}_${student.class}`,
+                            time: parseInt(student.lastUpdate) || Number.MAX_SAFE_INTEGER
+                        });
+                    }
+                });
+
+                // เรียงลำดับตามเวลาที่บันทึก (น้อยไปมาก = เข้าเส้นชัยก่อน)
+                winners.sort((a, b) => a.time - b.time);
+                winners.forEach((w, index) => {
+                    rankings[w.id] = index + 1; // ให้ลำดับ 1, 2, 3...
+                });
+            }
+            // -------------------------------------------
+
             const numStudents = activeStudents.length;
             let trackHeight = '60px';
             let avatarSize = '2.5rem';
@@ -1081,21 +1111,34 @@
                     let progObj = { bestScores: {}, currentScores: {} }; 
                     try { let parsed = JSON.parse(student.words); if(parsed) progObj = parsed; } catch(e){}
                     
-                    let target = levelData.find(l => l.id == levelFilter).target;
+                    let targetWord = levelData.find(l => l.id == levelFilter).target;
                     let current = progObj.currentScores ? (progObj.currentScores[levelFilter] || 0) : 0;
                     
-                    progressPercent = Math.min(100, (current / target) * 100); 
-                    displayScore = `${current}/${target} คำ`;
+                    progressPercent = Math.min(100, (current / targetWord) * 100); 
+                    displayScore = `${current}/${targetWord} คำ`;
                 }
                 else if(mode === 'ดูสถิติสูงสุด') {
                     let progObj = { bestScores: {} }; 
                     try { let parsed = JSON.parse(student.words); if(parsed && parsed.bestScores) progObj = parsed; } catch(e){}
-                    let target = levelData.find(l => l.id == levelFilter).target;
+                    let targetWord = levelData.find(l => l.id == levelFilter).target;
                     let best = progObj.bestScores[levelFilter] || 0;
                     
-                    progressPercent = Math.min(100, (best / target) * 100); 
+                    progressPercent = Math.min(100, (best / targetWord) * 100); 
                     displayScore = `สูงสุด ${best} คำ`;
                 }
+
+                // --- ส่วนที่เพิ่มใหม่: ตรวจสอบลำดับเพื่อแสดงป้ายอันดับ ---
+                let rankHtml = '';
+                let studentId = `${student.name}_${student.class}`;
+                if (rankings[studentId]) {
+                    let rank = rankings[studentId];
+                    // กำหนดสี: อันดับ 1 สีทองแดง, 2 สีเงิน, 3 สีทองแดง, ที่เหลือสีฟ้า
+                    let badgeColor = rank === 1 ? '#f59e0b' : (rank === 2 ? '#9ca3af' : (rank === 3 ? '#b45309' : '#3b82f6'));
+                    let badgeIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : '🎖️'));
+                    
+                    rankHtml = `<div class="rank-badge" style="background-color: ${badgeColor};">${badgeIcon} อันดับ ${rank}</div>`;
+                }
+                // ----------------------------------------------------
 
                 const track = document.createElement('div'); 
                 track.className = 'race-track';
@@ -1110,6 +1153,7 @@
                         <div class="runner-name" style="font-size: ${nameSize}; padding: ${namePadding}; margin-left: ${nameMargin};">${student.name} <span class="font-normal text-blue-500 ml-1" style="font-size: 0.9em;">(${displayScore})</span></div>
                     </div>
                     <div class="finish-line"></div>
+                    ${rankHtml}
                 `;
                 container.appendChild(track);
             });
@@ -1398,14 +1442,40 @@
             renderWord();
         }
 
+        // ==========================================
+        // 💡 แก้ไขฟังก์ชันนี้ เพื่อแยกสระออกจากพยัญชนะ
+        // ==========================================
         function renderWord(err = false) {
             const container = document.getElementById('word-display');
             container.innerHTML = '';
+            
             for (let i = 0; i < w_targetWord.length; i++) {
-                const span = document.createElement('span'); span.textContent = w_targetWord[i];
-                if (i < w_typedIndex) span.className = 'char-typed drop-shadow-sm';
-                else if (i === w_typedIndex) span.className = err ? 'char-error' : 'char-current';
-                else span.className = 'char-pending';
+                const span = document.createElement('span'); 
+                let charToDisplay = w_targetWord[i];
+                
+                // ตรวจสอบว่าเป็น สระบน/ล่าง หรือวรรณยุกต์ (รวมถึงสระอำ) หรือไม่
+                // \u0E31 = ไม้หันอากาศ
+                // \u0E33 = สระอำ
+                // \u0E34-\u0E3A = อิ อี อึ อื อุ อู พินทุ
+                // \u0E47-\u0E4E = ไม้ไต่คู้, วรรณยุกต์, การันต์
+                const isCombining = /[\u0E31\u0E33\u0E34-\u0E3A\u0E47-\u0E4E]/.test(charToDisplay);
+                
+                // ถ้าเป็นตัวที่ยังไม่ได้พิมพ์ และเป็นสระ/วรรณยุกต์ ให้ใส่ "วงกลมประ" (◌) ไว้ข้างหน้า
+                // เพื่อแยกมันออกจากพยัญชนะให้เด็กๆ เห็นชัดเจนว่านี่คืออีก 1 ตัวอักษรที่ต้องกด
+                if (i >= w_typedIndex && isCombining) {
+                    charToDisplay = '\u25CC' + charToDisplay;
+                }
+                
+                span.textContent = charToDisplay;
+
+                if (i < w_typedIndex) {
+                    span.className = 'char-typed drop-shadow-sm';
+                } else if (i === w_typedIndex) {
+                    span.className = err ? 'char-error' : 'char-current';
+                } else {
+                    span.className = 'char-pending';
+                }
+                
                 container.appendChild(span);
             }
         }
