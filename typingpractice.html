@@ -456,14 +456,21 @@
             });
         };
 
-        function fireTeacherWinnerPopup(name, scoreText) {
+        function fireTeacherWinnerPopup(name, scoreText, rank) {
+            // กำหนดสีและไอคอนเหรียญตามลำดับ
+            let badgeColor = rank === 1 ? '#f59e0b' : (rank === 2 ? '#9ca3af' : (rank === 3 ? '#b45309' : '#3b82f6'));
+            let badgeIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : '🎖️'));
+            
             Swal.fire({
                 title: '🏆 มีผู้ชนะเข้าเส้นชัย!',
-                html: `<div style="font-size: 1.5rem; color: #1e40af; margin-bottom: 10px;">น้อง <b style="color:#ef4444;">${name}</b></div><div style="font-size: 1.2rem; color: #6b7280; font-weight:bold;">ทำคะแนนได้: ${scoreText}</div><div style="font-size: 80px; text-align: center; margin-top: 10px;" class="animate-bounce">🎉</div>`,
-                confirmButtonColor: '#10b981',
-                confirmButtonText: 'สุดยอดไปเลย!',
+                html: `<div style="font-size: 1.5rem; color: #1e40af; margin-bottom: 10px;">น้อง <b style="color:#ef4444;">${name}</b></div>
+                       <div style="font-size: 1.2rem; color: #6b7280; font-weight:bold; margin-bottom: 5px;">ทำคะแนนได้: ${scoreText}</div>
+                       <div style="display: inline-block; background-color: ${badgeColor}; color: white; padding: 5px 20px; border-radius: 99px; font-size: 1.2rem; font-weight: bold; margin-top: 10px; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${badgeIcon} อันดับที่ ${rank}</div>
+                       <div style="font-size: 80px; text-align: center; margin-top: 15px;" class="animate-bounce">🎉</div>`,
+                showConfirmButton: false, // ซ่อนปุ่มกดตกลง
+                timer: 3000, // ตั้งเวลาปิดอัตโนมัติ 3 วินาที (3000 มิลลิวินาที)
                 backdrop: `rgba(0,0,0,0.5)`,
-                customClass: { popup: 'rounded-[30px] border-4 border-yellow-300 shadow-2xl', title: 'text-3xl text-yellow-600 font-[Itim] font-black', htmlContainer: 'font-[Itim]', confirmButton: 'rounded-full px-8 py-2 text-lg shadow-md hover:scale-105 transition-transform font-[Itim]' }
+                customClass: { popup: 'rounded-[30px] border-4 border-yellow-300 shadow-2xl', title: 'text-3xl text-yellow-600 font-[Itim] font-black', htmlContainer: 'font-[Itim]' }
             });
         }
 
@@ -885,35 +892,48 @@
             
             if (target === 0) return;
 
-            let potentialWinners = [];
+            // 1. ดึงข้อมูลทุกคนที่ "ผ่านด่าน" แล้วในรอบนี้ เพื่อมาจัดอันดับ
+            let allFinished = [];
+            for (let stu of newData) {
+                if (!stu.status || stu.status === 'ออฟไลน์') continue;
+                if (mode === 'หมวด ก-ฮ' && !stu.status.includes('หมวด ก-ฮ')) continue;
+                if (mode === 'หมวด A-Z' && !stu.status.includes('หมวด A-Z')) continue;
+                if (mode === 'หมวดพิมพ์คำ' && !stu.status.includes('หมวดพิมพ์คำ')) continue;
 
-            for (let newStu of newData) {
-                if (!newStu.status || newStu.status === 'ออฟไลน์') continue;
-                if (mode === 'หมวด ก-ฮ' && !newStu.status.includes('หมวด ก-ฮ')) continue;
-                if (mode === 'หมวด A-Z' && !newStu.status.includes('หมวด A-Z')) continue;
-                if (mode === 'หมวดพิมพ์คำ' && !newStu.status.includes('หมวดพิมพ์คำ')) continue;
+                if (mode === 'หมวดพิมพ์คำ' && parseInt(stu.currentLevel) !== parseInt(levelFilter)) continue;
 
-                if (mode === 'หมวดพิมพ์คำ' && parseInt(newStu.currentLevel) !== parseInt(levelFilter)) continue;
-
-                let currentScore = getStudentScore(newStu, mode, levelFilter);
+                let currentScore = getStudentScore(stu, mode, levelFilter);
                 if (currentScore >= target) {
-                    let oldStu = oldData.find(s => s.name === newStu.name && s.class === newStu.class);
-                    let oldScore = oldStu ? getStudentScore(oldStu, mode, levelFilter) : 0;
-
-                    if (oldScore < target) {
-                        potentialWinners.push({
-                            name: newStu.name,
-                            scoreText: mode === 'หมวดพิมพ์คำ' ? `${currentScore}/${target} คำ` : `${currentScore}/${target} ตัว`,
-                            time: newStu.lastUpdate || Date.now() 
-                        });
-                    }
+                    let fTime = Number.MAX_SAFE_INTEGER;
+                    try {
+                        if (mode === 'หมวด ก-ฮ' && stu.th) { let p = JSON.parse(stu.th); fTime = (p && p.finishTime) ? p.finishTime : (parseInt(stu.lastUpdate) || Number.MAX_SAFE_INTEGER); }
+                        else if (mode === 'หมวด A-Z' && stu.en) { let p = JSON.parse(stu.en); fTime = (p && p.finishTime) ? p.finishTime : (parseInt(stu.lastUpdate) || Number.MAX_SAFE_INTEGER); }
+                        else if (mode === 'หมวดพิมพ์คำ' && stu.words) { let p = JSON.parse(stu.words); fTime = (p && p.finishTimes && p.finishTimes[levelFilter]) ? p.finishTimes[levelFilter] : (parseInt(stu.lastUpdate) || Number.MAX_SAFE_INTEGER); }
+                    } catch(e) {}
+                    
+                    allFinished.push({
+                        name: stu.name, 
+                        class: stu.class,
+                        scoreText: mode === 'หมวดพิมพ์คำ' ? `${currentScore}/${target} คำ` : `${currentScore}/${target} ตัว`, 
+                        time: fTime
+                    });
                 }
             }
 
-            if (potentialWinners.length > 0) {
-                potentialWinners.sort((a, b) => a.time - b.time);
-                let winner = potentialWinners[0];
-                fireTeacherWinnerPopup(winner.name, winner.scoreText);
+            // 2. เรียงลำดับจากคนที่ทำเวลาได้น้อยที่สุด (เข้าเส้นชัยก่อน)
+            allFinished.sort((a, b) => a.time - b.time);
+
+            // 3. ตรวจสอบว่าในคนที่เข้าเส้นชัยทั้งหมด มีใครเพิ่งเคยเข้าเส้นชัยครั้งแรกบ้าง
+            for (let i = 0; i < allFinished.length; i++) {
+                let finishedStu = allFinished[i];
+                let oldStu = oldData.find(s => s.name === finishedStu.name && s.class === finishedStu.class);
+                let oldScore = oldStu ? getStudentScore(oldStu, mode, levelFilter) : 0;
+
+                if (oldScore < target) {
+                    // ถ้าในข้อมูลเก่ายังไม่ผ่าน แสดงว่าเพิ่งผ่าน ส่งอันดับ (i + 1) ไปแสดงใน Pop-up
+                    fireTeacherWinnerPopup(finishedStu.name, finishedStu.scoreText, i + 1);
+                    break; // โชว์ Pop-up แค่คนแรกที่เจอเพื่อไม่ให้จอเด้งรัวๆ
+                }
             }
         }
 
