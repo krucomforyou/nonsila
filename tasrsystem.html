@@ -366,6 +366,10 @@
                                     <span class="flex items-center gap-2"><i class="fa-solid fa-calendar-days text-zinc-400 group-hover:text-zinc-600 transition-colors"></i> ตั้งค่าโรงเรียน / ภาคเรียน / งานที่ต้องส่ง</span>
                                     <i class="fa-solid fa-chevron-right text-zinc-300 text-xs"></i>
                                 </button>
+                                <button onclick="openChangeDirPwdModal()" class="w-full text-left px-4 py-3 border border-zinc-200 hover:bg-zinc-50 rounded-lg text-sm font-medium text-zinc-700 transition-colors flex items-center justify-between group">
+                                    <span class="flex items-center gap-2"><i class="fa-solid fa-key text-zinc-400 group-hover:text-zinc-600 transition-colors"></i> เปลี่ยนรหัสผ่านผู้อำนวยการ</span>
+                                    <i class="fa-solid fa-chevron-right text-zinc-300 text-xs"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -594,6 +598,22 @@
 
                     </div>
 
+                    <!-- พื้นที่สำหรับเปลี่ยนรหัสผ่านผู้อำนวยการ -->
+                    <div id="blocks-alert-pwd-area" class="w-full mt-4 space-y-3 hidden text-left">
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-700 mb-1">รหัสผ่านปัจจุบัน</label>
+                            <input type="password" id="blocks-pwd-old" class="modern-input text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-700 mb-1">รหัสผ่านใหม่</label>
+                            <input type="password" id="blocks-pwd-new" class="modern-input text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-700 mb-1">ยืนยันรหัสผ่านใหม่</label>
+                            <input type="password" id="blocks-pwd-confirm" class="modern-input text-sm">
+                        </div>
+                    </div>
+
                     <div class="flex gap-2 w-full mt-6">
                         <button type="button" id="blocks-alert-cancel-btn" class="hidden flex-1 py-2.5 bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 rounded-xl text-sm font-medium transition-all outline-none">ยกเลิก</button>
                         <button type="button" id="blocks-alert-btn" class="flex-1 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm outline-none">ตกลง</button>
@@ -625,12 +645,14 @@
             const cancelBtn = document.getElementById('blocks-alert-cancel-btn');
             const inputArea = document.getElementById('blocks-alert-input-area');
             const settingsArea = document.getElementById('blocks-alert-settings-area');
-
-            document.getElementById('blocks-alert-title').innerText = title;
-            document.getElementById('blocks-alert-text').innerText = text;
+            const pwdArea = document.getElementById('blocks-alert-pwd-area');
 
             inputArea.classList.add('hidden');
             settingsArea.classList.add('hidden');
+            pwdArea.classList.add('hidden');
+
+            document.getElementById('blocks-alert-title').innerText = title;
+            document.getElementById('blocks-alert-text').innerText = text;
 
             if (type === 'settings') {
                 iconWrap.className = 'w-14 h-14 rounded-full mb-4 flex items-center justify-center border border-blue-100 bg-blue-50 text-blue-500';
@@ -659,6 +681,15 @@
                     document.getElementById('blocks-label-1').innerText = inputs.lbl1 || 'ชื่อ - นามสกุล';
                     document.getElementById('blocks-label-2').innerText = inputs.lbl2 || 'เบอร์โทรศัพท์';
                  }
+            } else if (type === 'changepwd') {
+                 iconWrap.className = 'w-14 h-14 rounded-full mb-4 flex items-center justify-center border border-orange-100 bg-orange-50 text-orange-500';
+                 icon.className = 'fa-solid fa-key';
+                 btn.style.display = 'block'; btn.innerText = 'เปลี่ยนรหัสผ่าน';
+                 btn.className = 'flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-medium transition-all shadow-sm outline-none';
+                 pwdArea.classList.remove('hidden');
+                 document.getElementById('blocks-pwd-old').value = '';
+                 document.getElementById('blocks-pwd-new').value = '';
+                 document.getElementById('blocks-pwd-confirm').value = '';
             } else if (type === 'success') {
                 iconWrap.className = 'w-14 h-14 rounded-full mb-4 flex items-center justify-center border border-zinc-200 bg-zinc-50 text-zinc-900';
                 icon.className = 'fa-solid fa-check';
@@ -712,6 +743,13 @@
                         schoolName: schoolName, directorName: directorName,
                         terms: currentTempTerms, currentTerm: activeTerm
                     };
+                } else if (type === 'changepwd') {
+                    const o = document.getElementById('blocks-pwd-old').value;
+                    const n = document.getElementById('blocks-pwd-new').value;
+                    const c = document.getElementById('blocks-pwd-confirm').value;
+                    if(!o || !n || !c) return showBlocksToast('กรุณากรอกข้อมูลให้ครบ', 'warning');
+                    if(n !== c) return showBlocksToast('รหัสผ่านใหม่ไม่ตรงกัน', 'error');
+                    inputsData = { oldPwd: o, newPwd: n };
                 }
                 
                 const originalHtml = btn.innerHTML; 
@@ -871,18 +909,17 @@
             }
         }
 
-        // ฟังก์ชันระบบดึงข้อมูลอัตโนมัติ (Auto Polling)
+        // ฟังก์ชันระบบดึงข้อมูลอัตโนมัติ (Auto Polling) - สามารถอัปเดตรายชื่อครูตอนจัดการได้
         function startAutoPolling() {
             if (pollingInterval) clearInterval(pollingInterval);
             
             // ตั้งเวลาดึงข้อมูลใหม่ทุกๆ 10 วินาที (10000 ms)
             pollingInterval = setInterval(() => {
-                // เช็คว่าระบบโหลดเสร็จแล้ว และผู้ใช้ไม่ได้เปิดหน้าต่างแจ้งเตือนหรือหน้าต่างพริ้นต์ค้างไว้
+                // เช็คว่าระบบไม่ได้เปิดหน้าต่างแจ้งเตือนหรือหน้าต่างพริ้นต์ค้างไว้
                 const isAlertOpen = !document.getElementById('blocks-alert-overlay').classList.contains('hidden');
                 const isPrintOpen = !document.getElementById('print-modal-overlay').classList.contains('hidden');
-                const isTeacherManageOpen = !document.getElementById('manage-teacher-modal').classList.contains('hidden');
 
-                if (isDataFetched && !isAlertOpen && !isPrintOpen && !isTeacherManageOpen) {
+                if (isDataFetched && !isAlertOpen && !isPrintOpen) {
                     // เรียก fetchDataIfNeeded แบบเงียบ (isSilent = true)
                     fetchDataIfNeeded(() => {
                         // เช็คว่าผู้ใช้เปิดหน้าไหนอยู่ ก็ให้ทำการเรนเดอร์หน้านั้นใหม่เพื่ออัปเดตข้อมูล
@@ -890,6 +927,12 @@
                             renderDashboard();
                         } else if (!document.getElementById('view-teacher').classList.contains('hidden') && currentUser) {
                             renderTeacherCheckboxes();
+                        }
+                        
+                        // ถ้าระหว่างนั้นเปิด Modal จัดการรายชื่อครูไว้ ให้วาดตารางครูใหม่แบบเรียลไทม์
+                        const isTeacherManageOpen = !document.getElementById('manage-teacher-modal').classList.contains('hidden');
+                        if (isTeacherManageOpen) {
+                            document.getElementById('swal-teacher-list').innerHTML = generateTeacherListHTML();
                         }
                     }, true); 
                 }
@@ -1430,6 +1473,36 @@
             if (newDocInput) { newDocInput.addEventListener("keypress", function(event) { if (event.key === "Enter") { event.preventDefault(); addDocToSettingsList(); } }); }
             const newTermInput = document.getElementById('blocks-settings-new-term');
             if (newTermInput) { newTermInput.addEventListener("keypress", function(event) { if (event.key === "Enter") { event.preventDefault(); addTermToSettingsList(); } }); }
+        }
+
+        // ฟังก์ชันใหม่สำหรับเปลี่ยนรหัสผ่านผู้อำนวยการ
+        function openChangeDirPwdModal() {
+            showBlocksAlert('changepwd', 'เปลี่ยนรหัสผ่านผู้บริหาร', 'ตั้งรหัสผ่านใหม่เพื่อความปลอดภัย', (inputs, done) => {
+                // เช็ครหัสผ่านเดิมในหน้าเครื่อง (ที่โหลดมาจากแผ่นงาน)
+                if (inputs.oldPwd !== db_settings.directorPassword) {
+                    done();
+                    showBlocksToast('รหัสผ่านปัจจุบันไม่ถูกต้อง', 'error');
+                    return;
+                }
+                
+                const formData = new URLSearchParams();
+                formData.append('action', 'changeDirectorPassword');
+                formData.append('newPassword', inputs.newPwd);
+                
+                fetch(SCRIPT_URL, { method: 'POST', body: formData })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status !== 'success') throw new Error('Failed');
+                        // อัปเดตข้อมูลเงียบเพื่อดึงค่ารหัสผ่านใหม่มาเก็บในเครื่อง
+                        fetchDataIfNeeded(() => {
+                            done();
+                            showBlocksToast('เปลี่ยนรหัสผ่านสำเร็จ', 'success');
+                        }, true);
+                    }).catch(error => {
+                        done();
+                        showBlocksToast('บันทึกล้มเหลว โปรดลองอีกครั้ง', 'error');
+                    });
+            }, true);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
