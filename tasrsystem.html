@@ -101,6 +101,10 @@
         }
 
         .custom-checkbox { accent-color: #18181b; width: 1.25rem; height: 1.25rem; cursor: pointer; }
+        
+        /* สไตล์พิเศษสำหรับ Scrollbar พื้นที่แสดงสถิติ */
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-zinc-800 bg-zinc-50">
@@ -189,26 +193,18 @@
                         <div class="relative w-32 h-32">
                             <canvas id="submissionChart"></canvas>
                         </div>
+                        <p class="text-xs text-zinc-400 mt-4 text-center">สัดส่วนรวมจากทุกชิ้นงาน</p>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-zinc-200 md:col-span-2 flex flex-col justify-center">
-                        <h3 class="text-sm font-semibold text-zinc-900 mb-4">ภาพรวมสถิติประจำสัปดาห์</h3>
-                        <div class="grid grid-cols-3 gap-3 text-center">
-                            <div class="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex flex-col items-center justify-center">
-                                <i class="fa-solid fa-circle-check text-emerald-500 mb-1"></i>
-                                <div class="text-2xl font-bold text-emerald-600" id="stat-approved">0</div>
-                                <div class="text-xs text-emerald-800 mt-1 font-medium">ตรวจรับแล้ว</div>
-                            </div>
-                            <div class="p-3 bg-amber-50 rounded-lg border border-amber-100 flex flex-col items-center justify-center">
-                                <i class="fa-solid fa-clock text-amber-500 mb-1"></i>
-                                <div class="text-2xl font-bold text-amber-600" id="stat-pending">0</div>
-                                <div class="text-xs text-amber-800 mt-1 font-medium">รอสแกน</div>
-                            </div>
-                            <div class="p-3 bg-zinc-50 rounded-lg border border-zinc-200 flex flex-col items-center justify-center">
-                                <i class="fa-solid fa-file-excel text-zinc-400 mb-1"></i>
-                                <div class="text-2xl font-bold text-zinc-600" id="stat-missing">0</div>
-                                <div class="text-xs text-zinc-500 mt-1 font-medium">ยังไม่ส่ง</div>
-                            </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-zinc-200 md:col-span-2 flex flex-col justify-center">
+                        <h3 class="text-sm font-semibold text-zinc-900 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-zinc-400"></i> ภาพรวมการส่งแยกตามชิ้นงาน
+                        </h3>
+                        
+                        <!-- พื้นที่สำหรับสร้าง Progress Bar สถิติแยกตามชิ้นงาน -->
+                        <div id="dashboard-doc-stats" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-2 scrollbar-thin">
+                            <!-- จะถูกสร้างโดย JavaScript -->
                         </div>
+                        
                     </div>
                 </div>
                 
@@ -1036,11 +1032,21 @@
             db_settings.requiredDocs.forEach(doc => { thHTML += `<th class="py-3 px-4 font-medium text-xs text-zinc-500 text-center uppercase tracking-wider">${doc}</th>`; });
             thead.innerHTML = thHTML; tbody.innerHTML = '';
             
-            let countApproved = 0; let countPending = 0; let countMissing = 0;
+            let totalApproved = 0; let totalPending = 0; let totalMissing = 0;
+            
+            // เตรียมตัวแปรเพื่อเก็บสถิติแยกตามรายเอกสาร
+            let docStats = {};
+            db_settings.requiredDocs.forEach(doc => {
+                docStats[doc] = { approved: 0, pending: 0, missing: 0 };
+            });
 
-            if (db_teachers.length === 0) {
+            const totalTeachers = db_teachers.length;
+
+            if (totalTeachers === 0) {
                 tbody.innerHTML = `<tr><td colspan="${db_settings.requiredDocs.length + 1}" class="py-6 text-center text-zinc-500 text-sm">ไม่มีข้อมูลบุคลากร</td></tr>`;
-                updateChart(0, 0, 0); return;
+                updateChart(0, 0, 0); 
+                document.getElementById('dashboard-doc-stats').innerHTML = '<div class="col-span-full text-center text-sm text-zinc-500 py-4">ไม่มีข้อมูลบุคลากร</div>';
+                return;
             }
 
             db_teachers.forEach(teacher => {
@@ -1050,16 +1056,56 @@
                     let icon = `<div class="flex justify-center text-zinc-200"><i class="fa-solid fa-minus"></i></div>`;
                     
                     if(sub) {
-                        if(sub.status === 'approved') { icon = `<div class="flex justify-center text-emerald-500" title="ตรวจแล้ว"><i class="fa-solid fa-check"></i></div>`; countApproved++; }
-                        else if(sub.status === 'pending') { icon = `<div class="flex justify-center text-amber-500" title="พิมพ์ใบนำส่งแล้ว รอสแกน"><i class="fa-solid fa-clock"></i></div>`; countPending++; }
-                    } else { countMissing++; }
+                        if(sub.status === 'approved') { 
+                            // เปลี่ยนเป็นไอคอนวงกลมสีเขียว
+                            icon = `<div class="flex justify-center text-emerald-500" title="ตรวจแล้ว"><i class="fa-solid fa-circle-check text-lg"></i></div>`; 
+                            totalApproved++; 
+                            if(docStats[docName]) docStats[docName].approved++;
+                        }
+                        else if(sub.status === 'pending') { 
+                            icon = `<div class="flex justify-center text-amber-500" title="พิมพ์ใบนำส่งแล้ว รอสแกน"><i class="fa-solid fa-clock text-lg"></i></div>`; 
+                            totalPending++; 
+                            if(docStats[docName]) docStats[docName].pending++;
+                        }
+                    } else { 
+                        totalMissing++; 
+                        if(docStats[docName]) docStats[docName].missing++;
+                    }
                     row += `<td class="py-3 px-4 text-center">${icon}</td>`;
                 });
                 row += `</tr>`; tbody.innerHTML += row;
             });
 
-            document.getElementById('stat-approved').innerText = countApproved; document.getElementById('stat-pending').innerText = countPending; document.getElementById('stat-missing').innerText = countMissing;
-            updateChart(countApproved, countPending, countMissing);
+            // วาดแถบ Progress Bar สถิติแบบแยกรายชิ้นงาน
+            const statsContainer = document.getElementById('dashboard-doc-stats');
+            let statsHTML = '';
+            Object.keys(docStats).forEach(docName => {
+                const stat = docStats[docName];
+                const percent = totalTeachers > 0 ? Math.round((stat.approved / totalTeachers) * 100) : 0;
+                const pendingPercent = totalTeachers > 0 ? Math.round((stat.pending / totalTeachers) * 100) : 0;
+                
+                statsHTML += `
+                    <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-3">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-xs font-bold text-zinc-800 truncate pr-2" title="${docName}">${docName}</span>
+                            <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shadow-sm">สำเร็จ ${percent}%</span>
+                        </div>
+                        <div class="w-full bg-zinc-200 rounded-full h-1.5 mb-2 overflow-hidden flex shadow-inner">
+                            <div class="bg-emerald-500 h-1.5 transition-all duration-500" style="width: ${percent}%" title="ตรวจแล้ว"></div>
+                            <div class="bg-amber-400 h-1.5 transition-all duration-500" style="width: ${pendingPercent}%" title="รอสแกน"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-zinc-600 font-medium">
+                            <span class="text-emerald-600" title="ตรวจรับแล้ว"><i class="fa-solid fa-circle-check"></i> ${stat.approved}/${totalTeachers}</span>
+                            <span class="text-amber-500" title="รอตรวจรับ"><i class="fa-solid fa-clock"></i> ${stat.pending}</span>
+                            <span class="text-zinc-400" title="ยังไม่ส่ง"><i class="fa-solid fa-minus"></i> ${stat.missing}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            statsContainer.innerHTML = statsHTML;
+
+            // Chart กราฟวงกลมทางซ้าย ยังให้แสดงสัดส่วนรวมของทุกงานอยู่เหมือนเดิม
+            updateChart(totalApproved, totalPending, totalMissing);
         }
 
         function updateChart(approved, pending, missing) {
