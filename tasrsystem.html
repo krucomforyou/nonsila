@@ -1144,21 +1144,14 @@
             });
 
             Promise.all(promises).then(responses => {
-                closeBlocksAlert();
-                weeksArray.forEach(w => {
-                    docsByWeek[w].forEach(doc => {
-                        const existingIdx = db_submissions.findIndex(s => s.teacher_id === currentUser.id && s.week == w && s.doc === doc && s.term === currentTerm);
-                        if (existingIdx > -1) {
-                            db_submissions[existingIdx].token = token; db_submissions[existingIdx].status = 'pending';
-                        } else {
-                            db_submissions.unshift({ teacher_id: currentUser.id, week: w, doc: doc, status: 'pending', token: token, term: currentTerm });
-                        }
-                    });
+                // แก้ไข: ใช้ fetchDataIfNeeded เพื่อดึงข้อมูลใหม่จากฐานข้อมูลทันทีที่บันทึกเสร็จ
+                fetchDataIfNeeded(() => {
+                    closeBlocksAlert();
+                    selectedDocsForSubmission.clear();
+                    renderTeacherCheckboxes(); // สั่งเรนเดอร์หน้าจอใหม่ทันทีด้วยข้อมูลล่าสุด
+                    showPrintCoverSheet(token, weeksArray.length > 1 ? weeksArray.join(',') : weeksArray[0]);
                 });
-                
-                selectedDocsForSubmission.clear();
-                showPrintCoverSheet(token, weeksArray.length > 1 ? weeksArray.join(',') : weeksArray[0]);
-            }).catch(error => { showBlocksAlert('error', 'ขัดข้อง', 'ไม่สามารถเชื่อมต่อระบบได้ในขณะนี้'); });
+            }).catch(error => { closeBlocksAlert(); showBlocksAlert('error', 'ขัดข้อง', 'ไม่สามารถเชื่อมต่อระบบได้ในขณะนี้'); });
         }
 
         function closePrintArea() { document.getElementById('print-modal-overlay').classList.add('hidden'); document.body.classList.remove('overflow-hidden'); renderTeacherCheckboxes(); }
@@ -1260,15 +1253,20 @@
             .then(response => response.json()) 
             .then(data => {
                 if(data.status === 'success') {
+                    // เก็บข้อมูลไว้ก่อนเพื่อนำไปแสดงแจ้งเตือน
                     const pendingDocs = db_submissions.filter(s => s.token === token && s.status === 'pending');
                     let teacherName = 'ไม่ทราบชื่อ', docNames = '-';
                     if(pendingDocs.length > 0) {
                         const teacher = db_teachers.find(t => t.id === pendingDocs[0].teacher_id);
                         if(teacher) teacherName = teacher.name;
                         docNames = pendingDocs.map(d => `${d.doc} (สัปดาห์ที่ ${d.week})`).join(", ");
-                        pendingDocs.forEach(d => d.status = 'approved');
                     }
-                    showBlocksAlert('success', 'ตรวจรับสำเร็จ', `รับเอกสาร: ${docNames}\nของครู ${teacherName} เรียบร้อยแล้ว`);
+                    
+                    // แก้ไข: โหลดข้อมูลใหม่จากเซิร์ฟเวอร์เพื่อให้ Dashboard และสถานะตารางอัปเดตแบบ Real-time
+                    fetchDataIfNeeded(() => {
+                        showBlocksAlert('success', 'ตรวจรับสำเร็จ', `รับเอกสาร: ${docNames}\nของครู ${teacherName} เรียบร้อยแล้ว`);
+                        renderDashboard(); // อัปเดตตารางสรุปหน้าแรกด้วยหากเปิดอยู่
+                    });
                 } else { showBlocksAlert('error', 'ไม่พบข้อมูล!', 'QR Code นี้ถูกตรวจไปแล้ว หรือไม่มีในระบบ'); }
             }).catch(error => { showBlocksAlert('error', 'ขัดข้อง', 'การเชื่อมต่อขัดข้อง'); });
         }
