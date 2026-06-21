@@ -714,11 +714,14 @@
                 
                 const originalHtml = btn.innerHTML; 
                 if(type !== 'success' && type !== 'error' && type !== 'warning') {
-                    btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> รอสักครู่...`;
+                    btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> รอสักครู่...`;
                 }
 
                 if (callback) {
-                    callback(inputsData, () => { btn.disabled = false; btn.innerHTML = originalHtml; closeBlocksAlert(); });
+                    // หน่วงเวลาเล็กน้อยให้เบราว์เซอร์แสดงผลไอคอนหมุนก่อนเริ่มการทำงาน
+                    setTimeout(() => {
+                        callback(inputsData, () => { btn.disabled = false; btn.innerHTML = originalHtml; closeBlocksAlert(); });
+                    }, 50);
                 } else { closeBlocksAlert(); }
             };
 
@@ -1293,13 +1296,21 @@
             const nameInput = document.getElementById('new-t-name'); const phoneInput = document.getElementById('new-t-phone'); const btn = document.getElementById('btn-invite');
             const name = nameInput.value.trim(), phone = phoneInput.value.trim();
             if (!name || !phone) return showBlocksToast('กรุณากรอกข้อมูลให้ครบ', 'warning');
-            const originalBtnText = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i>`;
+            const originalBtnText = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i>`;
             const formData = new URLSearchParams(); formData.append('action', 'addTeacher'); formData.append('name', name); formData.append('phone', phone); formData.append('password', phone);
-            fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
-                    if (data.status !== 'success') throw new Error('Failed');
-                    db_teachers.push({ id: data.newId, name: name, phone: phone, password: phone });
-                    nameInput.value = ''; phoneInput.value = ''; document.getElementById('swal-teacher-list').innerHTML = generateTeacherListHTML(); showBlocksToast('เพิ่มผู้ใช้งานสำเร็จ');
-                }).catch(error => { showBlocksToast('บันทึกล้มเหลว', 'error'); }).finally(() => { btn.disabled = false; btn.innerHTML = originalBtnText; });
+            
+            setTimeout(() => {
+                fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
+                        if (data.status !== 'success') throw new Error('Failed');
+                        // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                        fetchDataIfNeeded(() => {
+                            nameInput.value = ''; phoneInput.value = ''; 
+                            document.getElementById('swal-teacher-list').innerHTML = generateTeacherListHTML(); 
+                            showBlocksToast('เพิ่มผู้ใช้งานสำเร็จ');
+                            btn.disabled = false; btn.innerHTML = originalBtnText;
+                        });
+                    }).catch(error => { showBlocksToast('บันทึกล้มเหลว', 'error'); btn.disabled = false; btn.innerHTML = originalBtnText; });
+            }, 50);
         };
 
         function openManageTeachersModal() { const modal = document.getElementById('manage-teacher-modal'); const box = document.getElementById('manage-teacher-box'); document.getElementById('swal-teacher-list').innerHTML = generateTeacherListHTML(); modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10); }
@@ -1310,8 +1321,11 @@
                 showBlocksAlert('edit', 'แก้ไขข้อมูล', 'อัปเดตชื่อและเบอร์โทรศัพท์ของบุคลากรท่านนี้', (inputs, done) => {
                     const newName = inputs.val1, newPhone = inputs.val2; const formData = new URLSearchParams(); formData.append('action', 'editTeacher'); formData.append('id', id); formData.append('name', newName); formData.append('phone', newPhone); formData.append('password', newPhone); 
                     fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
-                            if (data.status !== 'success') throw new Error('Failed'); const tIndex = db_teachers.findIndex(t => t.id === id); if(tIndex > -1) { db_teachers[tIndex].name = newName; db_teachers[tIndex].phone = newPhone; db_teachers[tIndex].password = newPhone; }
-                            done(); showBlocksToast('อัปเดตข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300); 
+                            if (data.status !== 'success') throw new Error('Failed'); 
+                            // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                            fetchDataIfNeeded(() => {
+                                done(); showBlocksToast('อัปเดตข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300);
+                            }); 
                     }).catch(e => { done(); showBlocksToast('บันทึกล้มเหลว', 'error'); setTimeout(() => openManageTeachersModal(), 300); });
                 }, true, () => { setTimeout(() => openManageTeachersModal(), 300); }, { val1: oldName, val2: oldPhone });
             }, 300); 
@@ -1322,8 +1336,11 @@
                 showBlocksAlert('warning', 'ยืนยันการลบ?', `คุณต้องการลบ "${name}" ออกจากระบบ ใช่หรือไม่?`, (res, done) => {
                     const formData = new URLSearchParams(); formData.append('action', 'deleteTeacher'); formData.append('id', id);
                     fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
-                            if (data.status !== 'success') throw new Error('Failed'); db_teachers = db_teachers.filter(t => t.id !== id);
-                            done(); showBlocksToast('ลบข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300); 
+                            if (data.status !== 'success') throw new Error('Failed'); 
+                            // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                            fetchDataIfNeeded(() => {
+                                done(); showBlocksToast('ลบข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300); 
+                            });
                     }).catch(e => { done(); showBlocksToast('การลบล้มเหลว', 'error'); setTimeout(() => openManageTeachersModal(), 300); });
                 }, true, () => { setTimeout(() => openManageTeachersModal(), 300); });
             }, 300);
@@ -1354,22 +1371,20 @@
                 fetch(SCRIPT_URL, { method: 'POST', body: formData })
                     .then(response => {
                         if (!response.ok) throw new Error(response.statusText);
-                        db_settings.startDate = newDate; 
-                        db_settings.totalWeeks = parseInt(newTotalWeeks); 
-                        db_settings.requiredDocs = inputs.docs; 
-                        db_settings.schoolName = newSchoolName;
-                        db_settings.directorName = newDirectorName;
-                        db_settings.termsList = inputs.terms;
-                        db_settings.currentTerm = newCurrentTerm;
                         
-                        document.getElementById('dash-week-select').value = '';
-                        document.getElementById('teacher-week-select').value = '';
-                        
-                        populateWeekDropdowns(); 
-                        updateAppTexts();
-                        navigate('dashboard');
-                        
-                        done(); showBlocksToast('บันทึกการตั้งค่าเรียบร้อย');
+                        // เรียกอัปเดตข้อมูลแบบเรียลไทม์หลังอัปเดตการตั้งค่าสำเร็จ
+                        fetchDataIfNeeded(() => {
+                            document.getElementById('dash-week-select').value = '';
+                            if (document.getElementById('teacher-week-select')) {
+                                document.getElementById('teacher-week-select').value = '';
+                            }
+                            
+                            populateWeekDropdowns(); 
+                            updateAppTexts();
+                            navigate('dashboard');
+                            
+                            done(); showBlocksToast('บันทึกการตั้งค่าเรียบร้อย');
+                        });
                     }).catch(error => { done(); showBlocksToast('บันทึกการตั้งค่าล้มเหลว', 'error'); });
             }, true, null, { 
                 startDate: db_settings.startDate, 
