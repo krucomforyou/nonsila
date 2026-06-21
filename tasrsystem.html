@@ -505,8 +505,10 @@
         
         // ตัวแปรสำหรับกล้อง
         let html5QrCode = null;
-        
         let submissionChartInstance = null;
+
+        // ตัวแปรสำหรับระบบ Real-time (Auto-polling)
+        let pollingInterval = null;
 
         // UI สำหรับ Settings Modal (สร้าง Alert Boxes)
         document.body.insertAdjacentHTML('beforeend', `
@@ -821,8 +823,11 @@
             }
         }
 
-        async function fetchDataIfNeeded(callback) {
-            document.getElementById('loading-overlay').classList.remove('hidden');
+        // เพิ่มตัวแปร isSilent เพื่อกำหนดว่าดึงข้อมูลเบื้องหลัง (ไม่ต้องมีวงกลมโหลดดิ้ง) หรือดึงข้อมูลปกติ
+        async function fetchDataIfNeeded(callback, isSilent = false) {
+            if (!isSilent) {
+                document.getElementById('loading-overlay').classList.remove('hidden');
+            }
             try {
                 const fetchUrl = SCRIPT_URL + "?action=getDashboard&_t=" + new Date().getTime();
                 const response = await fetch(fetchUrl, { redirect: 'follow', cache: "no-store" });
@@ -858,11 +863,37 @@
                     isDataFetched = true; updateAppTexts();
                 } else { throw new Error(result.message || "Unknown error from server"); }
             } catch (error) {
-                console.error("Fetch Error:", error); showBlocksToast('ไม่สามารถดึงข้อมูลได้ (กรุณาตรวจสอบการเชื่อมต่อ)', 'error');
+                console.error("Fetch Error:", error); 
+                if (!isSilent) showBlocksToast('ไม่สามารถดึงข้อมูลได้ (กรุณาตรวจสอบการเชื่อมต่อ)', 'error');
             } finally {
-                document.getElementById('loading-overlay').classList.add('hidden');
+                if (!isSilent) document.getElementById('loading-overlay').classList.add('hidden');
                 populateWeekDropdowns(); if (callback) callback();
             }
+        }
+
+        // ฟังก์ชันระบบดึงข้อมูลอัตโนมัติ (Auto Polling)
+        function startAutoPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            // ตั้งเวลาดึงข้อมูลใหม่ทุกๆ 10 วินาที (10000 ms)
+            pollingInterval = setInterval(() => {
+                // เช็คว่าระบบโหลดเสร็จแล้ว และผู้ใช้ไม่ได้เปิดหน้าต่างแจ้งเตือนหรือหน้าต่างพริ้นต์ค้างไว้
+                const isAlertOpen = !document.getElementById('blocks-alert-overlay').classList.contains('hidden');
+                const isPrintOpen = !document.getElementById('print-modal-overlay').classList.contains('hidden');
+                const isTeacherManageOpen = !document.getElementById('manage-teacher-modal').classList.contains('hidden');
+
+                if (isDataFetched && !isAlertOpen && !isPrintOpen && !isTeacherManageOpen) {
+                    // เรียก fetchDataIfNeeded แบบเงียบ (isSilent = true)
+                    fetchDataIfNeeded(() => {
+                        // เช็คว่าผู้ใช้เปิดหน้าไหนอยู่ ก็ให้ทำการเรนเดอร์หน้านั้นใหม่เพื่ออัปเดตข้อมูล
+                        if (!document.getElementById('view-dashboard').classList.contains('hidden')) {
+                            renderDashboard();
+                        } else if (!document.getElementById('view-teacher').classList.contains('hidden') && currentUser) {
+                            renderTeacherCheckboxes();
+                        }
+                    }, true); 
+                }
+            }, 10000); 
         }
 
         function toggleSidebar() {
@@ -1031,6 +1062,7 @@
                 const combinedKey = `${week}|${docName}`;
                 
                 if(sub && sub.status === 'approved') {
+                    // หากเอกสารถูกอนุมัติแล้ว จะลบออกจากรายการที่เลือกไว้ (ป้องกันบัค)
                     selectedDocsForSubmission.delete(combinedKey);
                     html += `
                     <div class="flex items-center justify-between p-3.5 border border-emerald-200 bg-emerald-50 rounded-xl cursor-not-allowed opacity-90 shadow-sm col-span-1">
@@ -1144,13 +1176,13 @@
             });
 
             Promise.all(promises).then(responses => {
-                // แก้ไข: ใช้ fetchDataIfNeeded เพื่อดึงข้อมูลใหม่จากฐานข้อมูลทันทีที่บันทึกเสร็จ
+                // อัปเดตข้อมูลเงียบ (isSilent=true) ไม่ต้องโชว์วงกลมโหลดดิ้งกลางจอซ้อน
                 fetchDataIfNeeded(() => {
                     closeBlocksAlert();
                     selectedDocsForSubmission.clear();
-                    renderTeacherCheckboxes(); // สั่งเรนเดอร์หน้าจอใหม่ทันทีด้วยข้อมูลล่าสุด
+                    renderTeacherCheckboxes(); 
                     showPrintCoverSheet(token, weeksArray.length > 1 ? weeksArray.join(',') : weeksArray[0]);
-                });
+                }, true);
             }).catch(error => { closeBlocksAlert(); showBlocksAlert('error', 'ขัดข้อง', 'ไม่สามารถเชื่อมต่อระบบได้ในขณะนี้'); });
         }
 
@@ -1262,11 +1294,11 @@
                         docNames = pendingDocs.map(d => `${d.doc} (สัปดาห์ที่ ${d.week})`).join(", ");
                     }
                     
-                    // แก้ไข: โหลดข้อมูลใหม่จากเซิร์ฟเวอร์เพื่อให้ Dashboard และสถานะตารางอัปเดตแบบ Real-time
+                    // เรียกอัปเดตแบบเงียบ
                     fetchDataIfNeeded(() => {
                         showBlocksAlert('success', 'ตรวจรับสำเร็จ', `รับเอกสาร: ${docNames}\nของครู ${teacherName} เรียบร้อยแล้ว`);
-                        renderDashboard(); // อัปเดตตารางสรุปหน้าแรกด้วยหากเปิดอยู่
-                    });
+                        renderDashboard(); 
+                    }, true);
                 } else { showBlocksAlert('error', 'ไม่พบข้อมูล!', 'QR Code นี้ถูกตรวจไปแล้ว หรือไม่มีในระบบ'); }
             }).catch(error => { showBlocksAlert('error', 'ขัดข้อง', 'การเชื่อมต่อขัดข้อง'); });
         }
@@ -1300,13 +1332,13 @@
             setTimeout(() => {
                 fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
                         if (data.status !== 'success') throw new Error('Failed');
-                        // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                        // เรียกอัปเดตข้อมูลเงียบ
                         fetchDataIfNeeded(() => {
                             nameInput.value = ''; phoneInput.value = ''; 
                             document.getElementById('swal-teacher-list').innerHTML = generateTeacherListHTML(); 
                             showBlocksToast('เพิ่มผู้ใช้งานสำเร็จ');
                             btn.disabled = false; btn.innerHTML = originalBtnText;
-                        });
+                        }, true);
                     }).catch(error => { showBlocksToast('บันทึกล้มเหลว', 'error'); btn.disabled = false; btn.innerHTML = originalBtnText; });
             }, 50);
         };
@@ -1320,10 +1352,10 @@
                     const newName = inputs.val1, newPhone = inputs.val2; const formData = new URLSearchParams(); formData.append('action', 'editTeacher'); formData.append('id', id); formData.append('name', newName); formData.append('phone', newPhone); formData.append('password', newPhone); 
                     fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
                             if (data.status !== 'success') throw new Error('Failed'); 
-                            // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                            // เรียกอัปเดตข้อมูลเงียบ
                             fetchDataIfNeeded(() => {
                                 done(); showBlocksToast('อัปเดตข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300);
-                            }); 
+                            }, true); 
                     }).catch(e => { done(); showBlocksToast('บันทึกล้มเหลว', 'error'); setTimeout(() => openManageTeachersModal(), 300); });
                 }, true, () => { setTimeout(() => openManageTeachersModal(), 300); }, { val1: oldName, val2: oldPhone });
             }, 300); 
@@ -1335,10 +1367,10 @@
                     const formData = new URLSearchParams(); formData.append('action', 'deleteTeacher'); formData.append('id', id);
                     fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
                             if (data.status !== 'success') throw new Error('Failed'); 
-                            // เรียกอัปเดตข้อมูลแบบเรียลไทม์
+                            // เรียกอัปเดตข้อมูลเงียบ
                             fetchDataIfNeeded(() => {
                                 done(); showBlocksToast('ลบข้อมูลสำเร็จ'); setTimeout(() => openManageTeachersModal(), 300); 
-                            });
+                            }, true);
                     }).catch(e => { done(); showBlocksToast('การลบล้มเหลว', 'error'); setTimeout(() => openManageTeachersModal(), 300); });
                 }, true, () => { setTimeout(() => openManageTeachersModal(), 300); });
             }, 300);
@@ -1370,7 +1402,7 @@
                     .then(response => {
                         if (!response.ok) throw new Error(response.statusText);
                         
-                        // เรียกอัปเดตข้อมูลแบบเรียลไทม์หลังอัปเดตการตั้งค่าสำเร็จ
+                        // เรียกอัปเดตข้อมูลเงียบหลังตั้งค่า
                         fetchDataIfNeeded(() => {
                             document.getElementById('dash-week-select').value = '';
                             if (document.getElementById('teacher-week-select')) {
@@ -1382,7 +1414,7 @@
                             navigate('dashboard');
                             
                             done(); showBlocksToast('บันทึกการตั้งค่าเรียบร้อย');
-                        });
+                        }, true);
                     }).catch(error => { done(); showBlocksToast('บันทึกการตั้งค่าล้มเหลว', 'error'); });
             }, true, null, { 
                 startDate: db_settings.startDate, 
@@ -1416,7 +1448,14 @@
             }
 
             updateSidebarProfile();
-            fetchDataIfNeeded(() => { if (currentUser) renderTeacherCheckboxes(); });
+            
+            // โหลดข้อมูลครั้งแรก (มีวงกลมโหลดดิ้งกลางจอ) จากนั้นเริ่มจับเวลาดึงข้อมูลอัตโนมัติ
+            fetchDataIfNeeded(() => { 
+                if (currentUser) renderTeacherCheckboxes(); 
+                
+                // === เริ่มต้นการทำงานของ Auto-polling ===
+                startAutoPolling();
+            });
 
             if (currentUser) navigate('teacher');
             else if (isDirectorLoggedIn) navigate('director');
