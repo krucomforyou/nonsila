@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>เกมเรียงลำดับ: การทำไข่ตุ๋น</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ฟอนต์ Mali สำหรับเด็ก น่ารัก อ่านง่าย -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Libraries ที่จำเป็น -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Tone.js สำหรับสร้างเสียง Effect สดๆ โดยไม่ต้องใช้ไฟล์เสียงภายนอก -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti สำหรับพลุฉลองตอนชนะ -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Mali', cursive;
+            background-color: #fef08a; /* สีเหลืองสดใส */
+            background-image: radial-gradient(#fde047 4px, transparent 4px);
+            background-size: 32px 32px;
+            overflow-x: hidden;
+        }
+
+        /* เอฟเฟกต์การ์ดตอนถูกลาก */
+        .sortable-ghost {
+            opacity: 0.3;
+            background-color: #e2e8f0;
+            border: 4px dashed #94a3b8 !important;
+            transform: scale(0.95);
+        }
+        .sortable-drag {
+            cursor: grabbing !important;
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+            opacity: 0.95;
+            z-index: 50;
+        }
+        
+        .card-item {
+            cursor: grab;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.3s;
+        }
+        .card-item:active {
+            cursor: grabbing;
+        }
+
+        /* Animation สั่นเวลาตอบผิด */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px) rotate(-1deg); }
+            50% { transform: translateX(8px) rotate(1deg); }
+            75% { transform: translateX(-8px) rotate(-1deg); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Animation เด้งดึ๋งเวลาตอบถูก */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        /* ขอบข้อความหนาๆ สำหรับหัวเรื่อง */
+        .text-stroke {
+            -webkit-text-stroke: 2px #334155;
+            color: white;
+            text-shadow: 0 4px 0 #334155;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-6 px-3 flex justify-center items-center relative">
+
+    <!-- หน้าจอเริ่มต้น (บังคับกดเพื่อเปิดระบบเสียง) -->
+    <div id="start-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-sky-300/95 backdrop-blur-sm transition-opacity duration-500">
+        <div class="text-center bg-white p-8 md:p-12 rounded-[3rem] border-[6px] border-sky-500 shadow-[0_15px_0_rgb(14,165,233)] transform transition hover:scale-105 max-w-sm md:max-w-md w-full mx-4">
+            <div class="text-7xl md:text-8xl mb-6 animate-bounce">🧑‍🍳🥚</div>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-800 mb-2 leading-tight">มาทำไข่ตุ๋น<br>กันเถอะ!</h1>
+            <p class="text-slate-500 font-medium mb-8">เรียงลำดับขั้นตอนให้ถูกต้องนะ</p>
+            <button id="start-btn" class="w-full bg-green-500 hover:bg-green-400 text-white text-2xl md:text-3xl font-black py-4 px-8 rounded-full border-b-[6px] border-green-700 active:border-b-0 active:translate-y-[6px] transition-all">
+                เริ่มเล่นเลย! 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- กระดานเกมหลัก -->
+    <div class="max-w-3xl w-full bg-white/95 backdrop-blur-sm p-5 md:p-8 rounded-[2.5rem] shadow-[0_12px_0_rgb(203,213,225)] border-4 border-white mt-4 mb-10">
+        
+        <!-- หัวเรื่อง -->
+        <div class="text-center mb-6 md:mb-10">
+            <h1 class="text-3xl md:text-5xl font-black mb-3 text-stroke tracking-wide">
+                🍳 เกมเรียงลำดับไข่ตุ๋น
+            </h1>
+            <div class="inline-flex items-center bg-yellow-100 text-yellow-700 px-5 py-2 rounded-full border-2 border-yellow-400 shadow-sm">
+                <span class="text-lg md:text-xl font-bold">ลากสลับตำแหน่งให้ถูกต้องนะจ๊ะ 👆</span>
+            </div>
+        </div>
+
+        <!-- พื้นที่เล่นเกม -->
+        <div class="flex items-start">
+            <!-- คอลัมน์ตัวเลขลำดับ (อยู่กับที่) -->
+            <div class="flex flex-col mr-3 md:mr-5" id="numbers-container">
+                <!-- ตัวเลขจะถูกสร้างด้วย JS -->
+            </div>
+
+            <!-- คอลัมน์บัตรคำที่ลากวางได้ -->
+            <ul id="sortable-list" class="flex-1 flex flex-col space-y-3 md:space-y-4">
+                <!-- บัตรคำจะถูกสร้างด้วย JS -->
+            </ul>
+        </div>
+
+        <!-- ปุ่มควบคุม -->
+        <div class="mt-10 flex flex-col sm:flex-row justify-center gap-4">
+            <button onclick="checkAnswer()" class="flex-1 sm:flex-none flex items-center justify-center bg-green-500 text-white text-xl md:text-2xl font-black py-4 px-10 rounded-full border-b-[6px] border-green-700 active:border-b-0 active:translate-y-[6px] transition-all group">
+                <span class="mr-2 group-hover:scale-125 transition-transform">✅</span> ตรวจคำตอบ
+            </button>
+            <button onclick="startGame()" class="flex-1 sm:flex-none flex items-center justify-center bg-sky-400 text-white text-xl md:text-2xl font-black py-4 px-10 rounded-full border-b-[6px] border-sky-600 active:border-b-0 active:translate-y-[6px] transition-all group">
+                <span class="mr-2 group-hover:-rotate-180 transition-transform duration-500">🔄</span> สุ่มใหม่
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // ข้อมูลขั้นตอน พร้อมเพิ่ม Emoji ให้เด็กๆ ดูรูปแล้วเข้าใจง่ายขึ้น
+        const correctSteps = [
+            { id: 1, text: "ตอกไข่ใส่ชามที่สามารถนำเข้าเตาไมโครเวฟได้", emoji: "🥣🥚" },
+            { id: 2, text: "ใส่ซอสปรุงรส", emoji: "🍾✨" },
+            { id: 3, text: "ตีไข่", emoji: "🥢🌪️" },
+            { id: 4, text: "ใส่หมูสับที่สุกแล้ว และโรยผัก", emoji: "🥩🥬" },
+            { id: 5, text: "นำเข้าเตาอบไมโครเวฟ", emoji: "♨️" },
+            { id: 6, text: "ตั้งเวลาอบ 3 นาที", emoji: "⏱️" },
+            { id: 7, text: "นำไข่ตุ๋นออกจากเตาไมโครเวฟ", emoji: "🧤" },
+            { id: 8, text: "จะได้ไข่ตุ๋นที่พร้อมรับประทาน", emoji: "😋✨" }
+        ];
+
+        // ชุดสีสำหรับลูกแก้วตัวเลข
+        const numberColors = [
+            'bg-red-400', 'bg-blue-400', 'bg-green-400', 'bg-purple-400', 
+            'bg-orange-400', 'bg-pink-400', 'bg-teal-400', 'bg-yellow-500'
+        ];
+
+        const listEl = document.getElementById('sortable-list');
+        const numbersEl = document.getElementById('numbers-container');
+        let sortableInstance;
+
+        // ===== ระบบเสียง Tone.js =====
+        let isAudioEnabled = false;
+        const synths = {};
+
+        function initAudio() {
+            if (isAudioEnabled) return;
+            
+            // สร้างเครื่องเสียงต่างๆ
+            synths.pop = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            synths.pop.volume.value = -5;
+
+            synths.drop = new Tone.MembraneSynth().toDestination();
+            synths.drop.volume.value = -10;
+
+            synths.win = new Tone.PolySynth(Tone.Synth).toDestination();
+            synths.win.volume.value = -8;
+
+            synths.wrong = new Tone.Synth({
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.05, decay: 0.2, sustain: 0.1, release: 0.5 }
+            }).toDestination();
+            synths.wrong.volume.value = -5;
+
+            isAudioEnabled = true;
+        }
+
+        function playSound(type) {
+            if (!isAudioEnabled) return;
+            const now = Tone.now();
+            switch(type) {
+                case 'pop': // ตอนหยิบการ์ด
+                    synths.pop.triggerAttackRelease("E5", "16n"); 
+                    break;
+                case 'drop': // ตอนปล่อยการ์ด
+                    synths.drop.triggerAttackRelease("G2", "8n"); 
+                    break;
+                case 'correct': // ตอนเช็คแล้วถูก
+                    synths.win.triggerAttackRelease(["C5", "E5", "G5"], "8n"); 
+                    break;
+                case 'wrong': // ตอนเช็คแล้วผิด
+                    synths.wrong.triggerAttackRelease("C3", "8n"); 
+                    break;
+                case 'tada': // เพลงตอนชนะ
+                    synths.win.triggerAttackRelease("C4", "8n", now);
+                    synths.win.triggerAttackRelease("E4", "8n", now + 0.15);
+                    synths.win.triggerAttackRelease("G4", "8n", now + 0.3);
+                    synths.win.triggerAttackRelease("C5", "2n", now + 0.45);
+                    break;
+            }
+        }
+
+        // ปุ่มเริ่มเกม (เพื่อปลดล็อกระบบเสียง)
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            await Tone.start();
+            initAudio();
+            playSound('correct');
+            
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.opacity = '0';
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                startGame();
+            }, 500);
+        });
+
+        // ฟังก์ชันสุ่มลำดับ
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // สร้าง UI ของเกม
+        function startGame() {
+            listEl.innerHTML = '';
+            numbersEl.innerHTML = '';
+
+            let shuffledSteps = [...correctSteps];
+            shuffleArray(shuffledSteps);
+
+            shuffledSteps.forEach((step, index) => {
+                const stepNum = index + 1;
+                const colorClass = numberColors[index % numberColors.length];
+
+                // 1. สร้างตัวเลขลำดับ (ใส่ใน Wrapper เพื่อจัดกึ่งกลางความสูง)
+                const numWrapper = document.createElement('div');
+                numWrapper.className = 'flex items-center justify-center mb-3 md:mb-4'; // Margin ล่างให้ตรงกับ space-y ของ list
+                
+                const numCircle = document.createElement('div');
+                numCircle.className = `w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center font-black text-white text-xl md:text-3xl border-4 border-white shadow-[0_4px_0_rgba(0,0,0,0.1)] ${colorClass}`;
+                numCircle.innerText = stepNum;
+                
+                numWrapper.appendChild(numCircle);
+                numbersEl.appendChild(numWrapper);
+
+                // 2. สร้างบัตรคำสไตล์ 3D
+                const li = document.createElement('li');
+                li.className = 'card-item bg-white border-[4px] border-slate-700 rounded-3xl p-2 md:p-3 flex items-center shadow-[0_6px_0_rgb(51,65,85)] select-none touch-manipulation relative group w-full';
+                li.dataset.correctId = step.id; 
+                
+                li.innerHTML = `
+                    <div class="w-12 h-12 md:w-16 md:h-16 flex-shrink-0 bg-yellow-100 rounded-2xl flex items-center justify-center text-2xl md:text-3xl border-2 border-yellow-400 group-hover:scale-110 transition-transform">
+                        ${step.emoji}
+                    </div>
+                    <div class="flex-1 ml-3 md:ml-4 text-[15px] md:text-xl font-bold text-slate-700 leading-snug break-words pr-2">
+                        ${step.text}
+                    </div>
+                    <div class="text-slate-300 group-hover:text-slate-500 cursor-grab px-1 md:px-2 flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1.5"></circle><circle cx="9" cy="5" r="1.5"></circle><circle cx="9" cy="19" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="15" cy="5" r="1.5"></circle><circle cx="15" cy="19" r="1.5"></circle></svg>
+                    </div>
+                `;
+                listEl.appendChild(li);
+            });
+
+            syncHeights();
+
+            // เปิดการใช้งานลากวาง
+            if (sortableInstance) sortableInstance.destroy();
+            sortableInstance = new Sortable(listEl, {
+                animation: 250,
+                easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                onStart: function () {
+                    playSound('pop');
+                },
+                onEnd: function (evt) {
+                    playSound('drop');
+                    resetColors();
+                    syncHeights();
+                }
+            });
+        }
+
+        // ปรับความสูง Wrapper ของตัวเลขให้ตรงกับการ์ด (กรณีการ์ดยืดเพราะข้อความยาว)
+        function syncHeights() {
+            setTimeout(() => {
+                const listItems = listEl.children;
+                const numWrappers = numbersEl.children;
+                for (let i = 0; i < listItems.length; i++) {
+                    if(numWrappers[i]) {
+                        // กำหนดความสูงของ wrapper ให้เท่ากับความสูงของ li บวกกับ margin bottom
+                        numWrappers[i].style.height = listItems[i].offsetHeight + 'px';
+                    }
+                }
+            }, 50); 
+        }
+
+        // ล้างสีกรอบบัตรกลับเป็นปกติ
+        function resetColors() {
+            const items = listEl.children;
+            for(let item of items) {
+                item.className = 'card-item bg-white border-[4px] border-slate-700 rounded-3xl p-2 md:p-3 flex items-center shadow-[0_6px_0_rgb(51,65,85)] select-none touch-manipulation relative group w-full';
+            }
+        }
+
+        // ฟังก์ชันตรวจคำตอบ
+        function checkAnswer() {
+            const items = document.querySelectorAll('#sortable-list li');
+            let allCorrect = true;
+            let score = 0;
+
+            items.forEach((item, index) => {
+                const currentExpectedId = index + 1;
+                const itemId = parseInt(item.dataset.correctId);
+
+                // ล้างคลาสแอนิเมชันและสีเก่า
+                item.classList.remove('border-slate-700', 'border-green-500', 'border-red-500', 'bg-green-50', 'bg-red-50', 'bg-white', 'animate-shake', 'animate-pop', 'shadow-[0_6px_0_rgb(51,65,85)]', 'shadow-[0_6px_0_rgb(34,197,94)]', 'shadow-[0_6px_0_rgb(239,68,68)]');
+
+                if (itemId === currentExpectedId) {
+                    // ถูกต้อง (เด้งดึ๋ง + สีเขียว)
+                    item.classList.add('border-green-500', 'bg-green-50', 'shadow-[0_6px_0_rgb(34,197,94)]', 'animate-pop');
+                    score++;
+                } else {
+                    // ผิด (สั่นดุ๊กดิ๊ก + สีแดง)
+                    item.classList.add('border-red-500', 'bg-red-50', 'shadow-[0_6px_0_rgb(239,68,68)]', 'animate-shake');
+                    allCorrect = false;
+                }
+            });
+
+            // แจ้งผลลัพธ์แบบเด็กๆ
+            if (allCorrect) {
+                playSound('tada');
+                
+                // ยิงพลุกระดาษ
+                confetti({
+                    particleCount: 150,
+                    spread: 100,
+                    origin: { y: 0.6 },
+                    colors: ['#FDE047', '#EF4444', '#3B82F6', '#22C55E', '#A855F7']
+                });
+
+                Swal.fire({
+                    title: 'เก่งมากคนเก่ง! 🎉',
+                    html: '<p class="text-xl">หนูเรียงลำดับการทำไข่ตุ๋นได้ถูกต้องเป๊ะเลย!</p><p class="text-3xl mt-4">⭐️ ⭐️ ⭐️</p>',
+                    confirmButtonText: 'เล่นอีกครั้ง 🔄',
+                    buttonsStyling: false,
+                    customClass: {
+                        popup: 'rounded-[3rem] border-8 border-yellow-400 font-mali shadow-2xl',
+                        title: 'text-3xl font-black text-green-600',
+                        confirmButton: 'bg-blue-500 text-white text-xl md:text-2xl font-black py-3 px-8 rounded-full border-b-[6px] border-blue-700 active:border-b-0 active:translate-y-[6px] transition-all outline-none mt-4'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        startGame();
+                    }
+                });
+            } else {
+                playSound('wrong');
+                Swal.fire({
+                    title: 'เกือบแล้วลูก! 😅',
+                    html: `<p class="text-lg">หนูเรียงถูก <b>${score}</b> จาก 8 ขั้นตอน</p><p class="text-sm text-gray-500 mt-3 bg-gray-100 p-2 rounded-xl">💡 อันที่ขอบสีเขียวคือถูกที่แล้วนะ ลองสลับอันสีแดงดูจ้า</p>`,
+                    confirmButtonText: 'ลองใหม่สู้ๆ ✌️',
+                    buttonsStyling: false,
+                    customClass: {
+                        popup: 'rounded-[3rem] border-8 border-slate-300 font-mali',
+                        title: 'text-3xl font-black text-red-500',
+                        confirmButton: 'bg-orange-500 text-white text-xl md:text-2xl font-black py-3 px-8 rounded-full border-b-[6px] border-orange-700 active:border-b-0 active:translate-y-[6px] transition-all outline-none mt-4'
+                    }
+                });
+            }
+        }
+
+        // จัดการเมื่อย่อขยายหน้าจอ
+        window.addEventListener('resize', syncHeights);
+
+        // รอให้ผู้ใช้กดปุ่ม Start เพื่อเริ่มสร้างเกม (และเปิดเสียง)
+    </script>
+</body>
+</html>
