@@ -126,11 +126,12 @@
             <a href="#" onclick="openManageStudentModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-users w-6 text-center mr-2"></i> ฐานข้อมูลนักเรียน
             </a>
-            <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
-                <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
-            </a>
             <a href="#" onclick="openManageTermModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
                 <i class="fas fa-layer-group w-6 text-center mr-2"></i> จัดการภาคเรียน
+            </a>
+            <!-- ย้ายรายงานสถิติมาเป็นอันดับสุดท้ายในส่วนนี้ -->
+            <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
+                <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
         </nav>
 
@@ -193,7 +194,9 @@
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
                                 </select>
                                 <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
-                                <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                                <!-- เพิ่ม Spinner ซ่อนไว้ตรงปุ่มลูกศร -->
+                                <i id="attSubjectSpinner" class="fas fa-circle-notch fa-spin absolute right-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none hidden"></i>
+                                <i id="attSubjectArrow" class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
 
                             <div class="bg-school-bg text-school-navy px-4 py-2.5 rounded-lg text-sm border border-gray-200 font-bold hidden w-full sm:w-auto text-center shadow-inner" id="attClassDisplay">
@@ -417,12 +420,12 @@
                             </h3>
                             <p class="text-xs md:text-sm text-gray-500">ภาคเรียน: <span id="reportDisplayTerm" class="font-bold text-school-blue"></span></p>
                         </div>
-                        <!-- เพิ่มปุ่ม พิมพ์ตารางตรงนี้ -->
+                        <!-- ตั้งค่าเริ่มต้นให้ปุ่มถูก Disable ไว้ -->
                         <div class="flex flex-col sm:flex-row w-full md:w-auto gap-2">
-                            <button onclick="printReport()" class="w-full sm:w-auto bg-school-brass hover:bg-[#b8953d] text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                            <button id="btnPrintBtn" onclick="printReport()" disabled class="w-full sm:w-auto bg-school-brass text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
                                 <i class="fas fa-print"></i> พิมพ์ตาราง
                             </button>
-                            <button onclick="downloadExcel()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                            <button id="btnDownloadBtn" onclick="downloadExcel()" disabled class="w-full sm:w-auto bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
                                 <i class="fas fa-file-excel"></i> ดาวน์โหลด .xlsx
                             </button>
                         </div>
@@ -431,13 +434,13 @@
                     <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-8 bg-school-bg p-4 rounded-xl border border-gray-200 shadow-inner items-end">
                          <div class="w-full md:w-1/2">
                              <label class="block text-xs font-bold text-school-navy mb-1">เลือกห้องเรียน</label>
-                             <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white" onchange="populateSubjectDropdown('reportSubjectSel', null, this.value)">
+                             <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white" onchange="populateSubjectDropdown('reportSubjectSel', null, this.value); resetReportButtons();">
                                  <option value="">-- เลือกห้อง --</option>
                              </select>
                          </div>
                          <div class="w-full md:w-1/2">
                              <label class="block text-xs font-bold text-school-navy mb-1">เลือกวิชาที่สอน</label>
-                             <select id="reportSubjectSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white">
+                             <select id="reportSubjectSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white" onchange="resetReportButtons();">
                                  <option value="">เลือกห้องก่อน...</option>
                              </select>
                          </div>
@@ -446,12 +449,11 @@
 
                     <div id="reportResult" class="hidden">
                          <h4 class="font-bold text-school-navy mb-4 border-l-4 border-school-brass pl-3">ภาพรวมสถิติ (ร้อยละ)</h4>
-                         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-8">
+                         <!-- ลดจำนวนคอลัมน์ เอาสายกับป่วยออก -->
+                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-8">
                              <div class="bg-emerald-50 border border-emerald-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-emerald-600 text-xs md:text-sm font-bold">มาเรียน (ร้อยละ)</div><div id="repPresent" class="text-2xl md:text-3xl font-black mt-2 text-emerald-700">0%</div></div>
-                             <div class="bg-blue-50 border border-blue-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-school-blue text-xs md:text-sm font-bold">ลากิจ (ร้อยละ)</div><div id="repLeave" class="text-2xl md:text-3xl font-black mt-2 text-[#345ba8]">0%</div></div>
+                             <div class="bg-blue-50 border border-blue-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-school-blue text-xs md:text-sm font-bold">ลา (ร้อยละ)</div><div id="repLeave" class="text-2xl md:text-3xl font-black mt-2 text-[#345ba8]">0%</div></div>
                              <div class="bg-red-50 border border-red-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-red-600 text-xs md:text-sm font-bold">ขาดเรียน (ร้อยละ)</div><div id="repAbsent" class="text-2xl md:text-3xl font-black mt-2 text-red-700">0%</div></div>
-                             <div class="bg-orange-50 border border-orange-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-orange-600 text-xs md:text-sm font-bold">สาย (ร้อยละ)</div><div id="repLate" class="text-2xl md:text-3xl font-black mt-2 text-orange-700">0%</div></div>
-                             <div class="bg-purple-50 border border-purple-100 p-4 md:p-5 rounded-2xl text-center col-span-2 md:col-span-1 shadow-sm"><div class="text-purple-600 text-xs md:text-sm font-bold">ป่วย (ร้อยละ)</div><div id="repSick" class="text-2xl md:text-3xl font-black mt-2 text-purple-700">0%</div></div>
                          </div>
                          
                          <h4 class="font-bold text-school-navy mb-4 border-l-4 border-school-blue pl-3">ตารางบันทึกเวลาเรียนรายวัน <span class="text-xs text-gray-400 ml-2 font-normal">(แตะที่ช่องสีเหลืองเพื่อดูหมายเหตุ)</span></h4>
@@ -814,6 +816,7 @@
             document.getElementById('studentCountBadge').innerText = '0 คน';
             
             document.getElementById('reportResult').classList.add('hidden');
+            resetReportButtons();
         }
 
         function openManageTermModal() {
@@ -1023,6 +1026,21 @@
             document.getElementById('headerDateText').innerText = `${day} ${month} ${year}`;
         }
 
+        function resetReportButtons() {
+            const printBtn = document.getElementById('btnPrintBtn');
+            if(printBtn) {
+                printBtn.disabled = true;
+                printBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                printBtn.classList.remove('hover:bg-[#b8953d]', 'transform', 'hover:-translate-y-0.5');
+            }
+            const downBtn = document.getElementById('btnDownloadBtn');
+            if(downBtn) {
+                downBtn.disabled = true;
+                downBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                downBtn.classList.remove('hover:bg-emerald-700', 'transform', 'hover:-translate-y-0.5');
+            }
+        }
+
         function populateSubjectDropdown(selectId, dateStr, classFilter = null) {
             const sel = document.getElementById(selectId);
             if(!sel) return;
@@ -1126,6 +1144,7 @@
             } else {
                 document.getElementById('reportSubjectSel').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
             }
+            resetReportButtons();
         }
 
         function onSubjectSelect(prefix) {
@@ -1191,7 +1210,14 @@
             if(!state.selectedTerm) return;
             try {
                 const attSel = document.getElementById('attSubjectSelector');
-                if(attSel) attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
+                
+                if(attSel) {
+                    attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
+                    if(attArrow) attArrow.classList.add('hidden');
+                    if(attSpinner) attSpinner.classList.remove('hidden');
+                }
 
                 await fetchTimetableSettings();
 
@@ -1210,8 +1236,16 @@
                 } else {
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
+                
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
+
             } catch (e) { 
                 console.error(e); 
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
             }
         }
 
@@ -1913,6 +1947,7 @@
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
+                     resetReportButtons();
                      Swal.close(); return;
                 }
 
@@ -1950,7 +1985,8 @@
                     return pA - pB;
                 });
 
-                let totalStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                // ลบ late และ sick ออกจากการคำนวณสถิติ
+                let totalStats = { present: 0, leave: 0, absent: 0 };
                 let totalRecords = reportData.length; 
                 reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
 
@@ -1958,31 +1994,29 @@
                 document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
                 document.getElementById('repLeave').innerText = calcPercent(totalStats.leave);
                 document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
-                document.getElementById('repLate').innerText = calcPercent(totalStats.late);
-                document.getElementById('repSick').innerText = calcPercent(totalStats.sick);
 
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
-                const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold', 'late': 'text-orange-500 font-bold', 'sick': 'text-purple-600 font-bold' };
+                // ปรับสัญลักษณ์ให้ตรงกับที่ต้องการ
+                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
+                const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold' };
 
                 let tableHtml = `<table class="report-table w-full text-sm text-left border-collapse min-w-max">
                     <thead class="bg-gray-100 text-school-navy"><tr>
                     <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
                     <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
                 
-                // สร้างส่วนหัวตารางของแต่ละวันที่ (รองรับหลายคาบ)
-                sessions.forEach(s => {
+                // สร้างส่วนหัวตารางของแต่ละวันที่ โดยระบุลำดับ (1), (2), (3) แทนการระบุคาบ
+                sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
                     
-                    // เพิ่มตัวบอกคาบ เพื่อไม่ให้หัวตารางดูซ้ำซ้อนในวันเดียวกัน
-                    let match = s.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let periodStr = match ? `<br><span class="text-[10px] text-gray-500 font-normal">(คาบ ${match[1]})</span>` : '';
+                    let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
                     
                     tableHtml += `<th class="border text-center min-w-[50px] leading-tight">${dateStr}${periodStr}</th>`;
                 });
                 
-                tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th><th class="border text-center bg-gray-200">สาย</th><th class="border text-center bg-gray-200">ป่วย</th></tr></thead><tbody>`;
+                // ลบส่วนหัวของสายและป่วยออก
+                tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th></tr></thead><tbody>`;
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
@@ -1990,33 +2024,52 @@
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
-                    let rowStats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                    // เก็บแค่ present, leave, absent
+                    let rowStats = { present: 0, leave: 0, absent: 0 };
                     let rowCells = '';
 
-                    sessions.forEach(s => {
+                    sessions.forEach((s, sIndex) => {
                         const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
                         const status = record ? record.status : null;
                         const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
                         const hasNote = noteStr.trim() !== '';
 
                         if(status && rowStats[status] !== undefined) rowStats[status]++;
-                        const symbol = status ? statusSymbol[status] : '-';
-                        const colorClass = status ? statusColor[status] : 'text-gray-300';
+                        // หากสถานะเป็น sick หรือ late ให้แสดงเป็นขาดหรือให้ข้ามไป (ในที่นี้ข้ามไปแสดงเป็น - หากไม่มีในระบบใหม่)
+                        const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
+                        const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                         
                         if (hasNote) {
                             const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
                             let dObj = new Date(s.date);
                             let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} ${s.subjectPeriod}', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
+                            // แก้ไขข้อความใน Note ไม่ให้แสดงคาบ
+                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${sIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
                         } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
-                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td><td class="border text-center font-bold text-orange-700 bg-gray-50">${rowStats.late}</td><td class="border text-center font-bold text-purple-700 bg-gray-50">${rowStats.sick}</td></tr>`;
+                    // ลบคอลัมน์สายและป่วยออก
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
                 });
 
                 tableHtml += '</tbody></table>';
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
+
+                // ปลดล็อคปุ่มหลังจากสร้างรายงานเสร็จ
+                const printBtn = document.getElementById('btnPrintBtn');
+                if(printBtn) {
+                    printBtn.disabled = false;
+                    printBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    printBtn.classList.add('hover:bg-[#b8953d]', 'transform', 'hover:-translate-y-0.5');
+                }
+                const downBtn = document.getElementById('btnDownloadBtn');
+                if(downBtn) {
+                    downBtn.disabled = false;
+                    downBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    downBtn.classList.add('hover:bg-emerald-700', 'transform', 'hover:-translate-y-0.5');
+                }
+
                 Swal.close();
             } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลรายงานได้'); }
         }
@@ -2123,7 +2176,8 @@
 
                 if(sessions.length === 0) { cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้'); return; }
 
-                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล', 'late': 'ส', 'sick': 'ป' };
+                // ลบ sick และ late ออกจากสัญลักษณ์ที่ใช้ประมวลผลให้ Excel
+                const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
                 const excelData = [];
@@ -2133,11 +2187,12 @@
                 excelData.push(["ครูผู้สอน:", state.user.name]); 
                 excelData.push([]); 
                 
-                let headerRow1 = ["ลำดับ", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "", "", "เดือน"];
-                let headerRow2 = ["", "", "", "", `${sessions.length} ชม.`, "", "", "", "", "", "วันที่"];
-                let headerRow3 = ["", "", "", "", "มาเรียน", "ป่วย", "ลา", "ขาด", "สาย/หนี", "ร้อยละ", "ชั่วโมงที่"];
+                // ปรับ Header ใหม่
+                let headerRow1 = ["ลำดับ", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "เดือน"];
+                let headerRow2 = ["", "", "", "", `${sessions.length} ชม.`, "", "", "", "วันที่"];
+                let headerRow3 = ["", "", "", "", "มาเรียน", "ลา", "ขาด", "ร้อยละ", "ชั่วโมงที่"];
                 
-                sessions.forEach((s) => {
+                sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = "";
                     if(isNaN(dObj.getTime())) { 
@@ -2145,8 +2200,9 @@
                     } else {
                         dateStr = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
                     }
-                    let match = s.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let pStr = match ? `(ค.${match[1]})` : '';
+                    
+                    // เปลี่ยนเป็นเลขลำดับ (1), (2)
+                    let pStr = `(${sIndex + 1})`;
                     
                     headerRow1.push(`${dateStr}\n${pStr}`);
                     headerRow2.push(""); 
@@ -2163,18 +2219,20 @@
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
-                    let stats = { present: 0, leave: 0, absent: 0, late: 0, sick: 0 };
+                    // เก็บแค่ present, leave, absent
+                    let stats = { present: 0, leave: 0, absent: 0 };
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
                     let percent = sessions.length > 0 ? Math.round((stats.present / sessions.length) * 100) : 0;
-                    let rowData = [number, code, fullName, "", stats.present, stats.sick, stats.leave, stats.absent, stats.late, `${percent}%`, ""];
+                    // ปรับ rowData ออกให้ตรงกับคอลัมน์ที่แก้ไข
+                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, `${percent}%`, ""];
 
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
-                        rowData.push(status ? statusSymbol[status] : ''); 
+                        rowData.push(status && statusSymbol[status] ? statusSymbol[status] : ''); 
                     });
                     rowData.push(""); excelData.push(rowData);
                 });
@@ -2182,15 +2240,17 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
+                // ปรับ Merges ใหม่ให้ตรงกับคอลัมน์
                 const merges = [
                     { s: {r:5, c:0}, e: {r:7, c:0} }, { s: {r:5, c:1}, e: {r:7, c:1} }, 
-                    { s: {r:5, c:2}, e: {r:7, c:3} }, { s: {r:5, c:5}, e: {r:5, c:9} }, 
-                    { s: {r:5, c:11+sessions.length}, e: {r:7, c:11+sessions.length} } 
+                    { s: {r:5, c:2}, e: {r:7, c:3} }, { s: {r:5, c:5}, e: {r:5, c:7} }, 
+                    { s: {r:5, c:9+sessions.length}, e: {r:7, c:9+sessions.length} } 
                 ];
-                for(let c = 11; c < 11 + sessions.length; c++) merges.push({ s: {r:5, c:c}, e: {r:7, c:c} });
+                for(let c = 9; c < 9 + sessions.length; c++) merges.push({ s: {r:5, c:c}, e: {r:7, c:c} });
                 ws['!merges'] = merges;
 
-                const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
+                // ปรับความกว้างคอลัมน์
+                const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
                 sessions.forEach(() => wscols.push({wch: 10})); wscols.push({wch: 15}); ws['!cols'] = wscols;
 
                 XLSX.utils.book_append_sheet(wb, ws, "บันทึกเวลาเรียน");
