@@ -88,7 +88,7 @@
     <!-- OVERLAY LOADING -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
         <div class="loader mb-4 w-12 h-12 border-4"></div>
-        <p class="text-school-navy font-bold text-lg animate-pulse" id="loadingText">กำลังเตรียมข้อมูลระบบ...</p>
+        <p class="text-school-navy font-bold text-lg animate-pulse" id="loadingText">กำลังโหลดข้อมูล...</p>
     </div>
 
     <!-- Mobile Overlay -->
@@ -129,6 +129,7 @@
             <a href="#" onclick="openManageTermModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
                 <i class="fas fa-layer-group w-6 text-center mr-2"></i> จัดการภาคเรียน
             </a>
+            <!-- ย้ายรายงานสถิติมาเป็นอันดับสุดท้ายในส่วนนี้ -->
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
@@ -193,6 +194,10 @@
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
                                 </select>
                                 <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
+                                <!-- แก้ไข Spinner โดยใช้ div ครอบเพื่อไม่ให้ชนกับ class หมุนของ tailwind -->
+                                <div id="attSubjectSpinner" class="absolute right-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none hidden">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </div>
                                 <i id="attSubjectArrow" class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
 
@@ -211,7 +216,7 @@
                         <div class="text-sm font-bold text-gray-700 flex items-center whitespace-nowrap mr-4">
                             <i class="fas fa-clipboard-list text-school-brass mr-2 text-lg"></i> รายชื่อนักเรียน 
                             <span id="studentCountBadge" class="bg-white text-school-navy border border-gray-200 py-0.5 px-2 rounded-full text-xs ml-2 shadow-sm">0 คน</span>
-                            <button id="btnRefreshStudents" onclick="loadStudents(true)" class="ml-2 text-school-blue bg-white hover:bg-gray-50 px-2 py-1 rounded border border-gray-200 shadow-sm transition text-[10px] sm:text-xs hidden" title="รีเฟรชข้อมูลล่าสุด">
+                            <button id="btnRefreshStudents" onclick="loadStudents()" class="ml-2 text-school-blue bg-white hover:bg-gray-50 px-2 py-1 rounded border border-gray-200 shadow-sm transition text-[10px] sm:text-xs hidden" title="รีเฟรชข้อมูล">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
@@ -284,7 +289,7 @@
                     <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                         <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 font-bold text-school-navy text-sm flex items-center justify-between">
                             <span><i class="fas fa-list-ul text-school-blue mr-2"></i> รายการคาบสอนวันที่ <span id="overviewDateDisplay" class="text-school-brass">-</span></span>
-                            <button onclick="loadAttendanceOverview(true)" class="text-gray-500 hover:text-school-navy text-xs bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
+                            <button onclick="loadAttendanceOverview()" class="text-gray-500 hover:text-school-navy text-xs bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
                         </div>
                         <div class="overflow-x-auto hide-scrollbar bg-white">
                             <table class="w-full text-sm text-left">
@@ -666,13 +671,6 @@
                     { name: 'คาบ 6', time: '14.30 - 15.30', isBreak: false, customWidth: null },
                     { name: 'คาบ 7', time: '15.30 - 16.00', isBreak: false, customWidth: null }
                 ]
-            },
-            // เพิ่มระบบ Cache เพื่อเก็บข้อมูลใน Memory ไม่ต้องโหลดใหม่เมื่อสลับแท็บ
-            cache: {
-                students: {},     // { 'term_className': [...] }
-                attendance: {},   // { 'term_className_subjectPeriod': [...] }
-                overview: {},     // { 'term_date': [...] }
-                report: {}        // { 'term_className_subjectPeriod': [...] }
             }
         };
 
@@ -705,53 +703,12 @@
             updateHeaderDate(new Date());
             
             if (checkAuth()) {
-                document.getElementById('loadingOverlay').classList.remove('hidden'); // แสดงตอนเปิดเว็บครั้งแรก
-                
                 await fetchTerms();
-                await fetchClasses();
-                await fetchSchedule();
-                
-                prefetchTodayData(); // ดึงข้อมูลของวันนี้ล่วงหน้า (ทำงานเบื้องหลัง)
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                fetchClasses();
+                fetchSchedule();
             }
             switchTab('attendance'); 
         });
-        
-        // ฟังก์ชันสำหรับแอบโหลดข้อมูลที่ต้องใช้ในวันนี้ล่วงหน้า เพื่อให้ไม่ต้องรอตอนกดเปลี่ยนแท็บ
-        async function prefetchTodayData() {
-            if (!state.selectedTerm) return;
-            
-            const todayStr = state.currentDate;
-            const dayOfWeek = DAY_NAMES[new Date(todayStr).getDay()];
-            
-            // 1. แอบโหลดภาพรวม (Overview)
-            const overviewCacheKey = `${state.selectedTerm}_${todayStr}`;
-            if (!state.cache.overview[overviewCacheKey] && state.schedule.length > 0) {
-                fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(todayStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`)
-                .then(res => res.json())
-                .then(json => {
-                    if (json.status === 'success') {
-                        state.cache.overview[overviewCacheKey] = json.data;
-                        if (!document.getElementById('tab-history-overview').classList.contains('hidden') && state.overviewDate === todayStr) {
-                            renderOverviewTable(json.data, todayStr);
-                        }
-                    }
-                }).catch(e => console.error("Prefetch overview error", e));
-            }
-
-            // 2. แอบโหลดรายชื่อนักเรียนเฉพาะห้องที่มีสอนวันนี้
-            const classesToday = [...new Set(state.schedule.filter(s => s.day === dayOfWeek && s.className !== '-').map(s => s.className))];
-            classesToday.forEach(cls => {
-                const stuCacheKey = `${state.selectedTerm}_${cls}`;
-                if(!state.cache.students[stuCacheKey]) {
-                    fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`)
-                    .then(res => res.json())
-                    .then(json => {
-                        if(json.status === 'success') state.cache.students[stuCacheKey] = json.data;
-                    }).catch(e => console.error("Prefetch students error", e));
-                }
-            });
-        }
 
         function checkAuth() {
             const savedUser = localStorage.getItem('school_user_session');
@@ -837,17 +794,14 @@
                 
                 resetUIForNewTerm();
                 
-                document.getElementById('loadingOverlay').classList.remove('hidden');
-                document.getElementById('loadingText').innerText = `กำลังโหลดเทอม ${state.selectedTerm}...`;
-                
+                cuteAlert.loading(`กำลังเปลี่ยนเป็นภาคเรียน ${state.selectedTerm}`);
                 await fetchClasses();
                 await fetchSchedule();
-                prefetchTodayData();
                 
                 const isOverview = !document.getElementById('tab-history-overview').classList.contains('hidden');
                 if(isOverview) loadAttendanceOverview();
 
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                Swal.close();
             }
         }
 
@@ -1000,7 +954,7 @@
                     fpOverview.setDate(today);
                     state.overviewDate = fpOverview.formatDate(today, "Y-m-d");
                 }
-                loadAttendanceOverview(); // เรียกฟังก์ชันเดิม ระบบจะจัดการแคชเองและไม่โหลดใหม่ถ้ามีแคช
+                loadAttendanceOverview();
             }
             if(tabId === 'report') populateReportClassDropdown();
 
@@ -1093,6 +1047,9 @@
             const sel = document.getElementById(selectId);
             if(!sel) return;
             
+            // ==========================================
+            // แก้ไข Dropdown สำหรับเมนูรายงาน (รวมชื่อวิชา)
+            // ==========================================
             if (selectId === 'reportSubjectSel') {
                 if(!classFilter || !state.schedule || state.schedule.length === 0) {
                     sel.innerHTML = '<option value="">เลือกห้องก่อน...</option>';
@@ -1105,8 +1062,9 @@
                     let opts = '<option value="">-- เลือกวิชาที่สอน --</option>';
                     const uniqueSubjects = new Set();
                     classSchedules.forEach(s => {
+                        // แยกเฉพาะชื่อวิชา โดยตัดคำว่า คาบ... ออก
                         let cleanSubj = s.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                        if(!cleanSubj) cleanSubj = s.subjectPeriod; 
+                        if(!cleanSubj) cleanSubj = s.subjectPeriod; // ถ้าไม่ได้ใช้รูปแบบคำว่า "คาบ" ให้ใช้ค่าเดิม
                         uniqueSubjects.add(cleanSubj);
                     });
                     
@@ -1118,6 +1076,7 @@
                 return;
             }
 
+            // สำหรับเมนูเช็คชื่อปกติ (แยกรายคาบ)
             if(!state.schedule || state.schedule.length === 0) {
                 sel.innerHTML = '<option value="">กำลังโหลดวิชาเรียน หรือ ยังไม่มีตารางสอน</option>';
                 return;
@@ -1253,9 +1212,13 @@
             if(!state.selectedTerm) return;
             try {
                 const attSel = document.getElementById('attSubjectSelector');
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
                 
                 if(attSel) {
                     attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
+                    if(attArrow) attArrow.classList.add('hidden');
+                    if(attSpinner) attSpinner.classList.remove('hidden');
                 }
 
                 await fetchTimetableSettings();
@@ -1264,6 +1227,7 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.schedule = json.data;
+                    
                     state.subjects = []; 
                     
                     renderSubjectCards();
@@ -1274,8 +1238,16 @@
                 } else {
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
+                
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
+
             } catch (e) { 
                 console.error(e); 
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
             }
         }
 
@@ -1312,6 +1284,7 @@
                 return;
             }
 
+            // จัดกลุ่มการ์ดวิชาที่มีชื่อและห้องเหมือนกัน
             const grouped = {};
             state.subjects.forEach(sub => {
                 const key = `${sub.name}|${sub.className}`;
@@ -1341,12 +1314,15 @@
             `).join('');
         }
 
+        // ลบการ์ดวิชาทั้งหมดที่อยู่ในกลุ่มเดียวกัน
         function removeAllSubjectCards(name, className) {
             state.subjects = state.subjects.filter(s => !(s.name === name && s.className === className));
             renderSubjectCards();
         }
 
-        function allowDrop(ev) { ev.preventDefault(); }
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
 
         function drag(ev, subjectName, className, id) {
             ev.dataTransfer.setData("text/plain", JSON.stringify({ source: 'sidebar', name: subjectName, class: className, id: id }));
@@ -1670,41 +1646,30 @@
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
 
-        async function loadAttendanceOverview(forceRefresh = false) {
+        async function loadAttendanceOverview() {
             if(!state.overviewDate || !state.selectedTerm) return;
 
             const targetDate = new Date(state.overviewDate);
             const dayOfWeek = DAY_NAMES[targetDate.getDay()];
-            const cacheKey = `${state.selectedTerm}_${state.overviewDate}`;
             
             const displayDateStr = `${targetDate.getDate()} ${THAI_MONTHS[targetDate.getMonth()]} ${targetDate.getFullYear() + 543}`;
             document.getElementById('overviewDateDisplay').innerText = displayDateStr;
 
             const tbody = document.getElementById('overviewTableBody');
-            let overviewData = state.cache.overview[cacheKey];
+            tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
             
-            // แสดง Loader เฉพาะตอนที่แคชว่างเปล่าจริงๆ หรือถูกสั่งโหลดใหม่
-            if (!overviewData || forceRefresh) {
-                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
-                try {
-                    const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
-                    const json = await res.json();
-                    
-                    if (json.status === 'success') {
-                        overviewData = json.data;
-                        state.cache.overview[cacheKey] = overviewData; 
-                    } else {
-                        tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
-                        return;
-                    }
-                } catch (error) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
-                    return;
+            try {
+                const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    renderOverviewTable(json.data, state.overviewDate);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
                 }
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
             }
-            
-            // ถ้าระบบลงมาถึงตรงนี้ แสดงว่ามี overviewData แน่นอน (จากเว็บหรือแคช) วาดตารางได้เลย
-            renderOverviewTable(overviewData, state.overviewDate);
         }
 
         function renderOverviewTable(scheduleData, dateStr) {
@@ -1774,84 +1739,51 @@
             }, 300);
         }
 
-        async function loadStudents(forceRefresh = false) {
+        async function loadStudents() {
             if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-' || !state.selectedTerm) return;
 
-            const cacheKey = `${state.selectedTerm}_${state.currentClass}`;
-            
-            if (forceRefresh) {
-                delete state.cache.students[cacheKey]; 
-                const attCacheKey = `${state.selectedTerm}_${state.currentClass}_${state.currentSubjectPeriod}`;
-                delete state.cache.attendance[attCacheKey]; 
-            }
+            cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
+                const json = await res.json();
 
-            let studentsData = state.cache.students[cacheKey];
-
-            // แสดงหน้าโหลดเฉพาะถ้าแคชไม่มีข้อมูล
-            if (!studentsData) {
-                document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center"><div class="loader mx-auto mb-2"></div></td></tr>`;
-                if(!forceRefresh) cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
-                
-                try {
-                    const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
-                    const json = await res.json();
-
-                    if (json.status === 'success') {
-                        studentsData = json.data;
-                        state.cache.students[cacheKey] = studentsData; 
-                        if(!forceRefresh) Swal.close();
+                if (json.status === 'success') {
+                    if (json.data.length > 1) {
+                        state.headers = json.data[0];
+                        state.students = json.data.slice(1);
+                        document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
+                        await fetchAttendanceHistory(); 
+                        Swal.close();
                     } else {
-                        document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message}</td></tr>`;
+                        document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
                         document.getElementById('studentCountBadge').innerText = '0 คน';
-                        if(!forceRefresh) Swal.close();
-                        return;
+                        Swal.close();
                     }
-                } catch (e) { 
-                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500">เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว</td></tr>`;
-                    if(!forceRefresh) Swal.close();
-                    return;
+                } else {
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message}</td></tr>`;
+                    document.getElementById('studentCountBadge').innerText = '0 คน';
+                    Swal.close();
                 }
-            }
-
-            // ถ้าระบบมีข้อมูลแล้วให้ลุยต่อเลย
-            if (studentsData && studentsData.length > 1) {
-                state.headers = studentsData[0];
-                state.students = studentsData.slice(1);
-                document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
-                await fetchAttendanceHistory(forceRefresh); // ส่งสถานะรีเฟรชให้ประวัติต่อ
-            } else {
-                document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
-                document.getElementById('studentCountBadge').innerText = '0 คน';
-            }
+            } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
         }
 
-        async function fetchAttendanceHistory(forceRefresh = false) {
+        async function fetchAttendanceHistory() {
             if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) return;
-            
-            const cacheKey = `${state.selectedTerm}_${state.currentClass}_${state.currentSubjectPeriod}`;
-            if (forceRefresh) delete state.cache.attendance[cacheKey];
-
-            state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
-            let historyData = state.cache.attendance[cacheKey];
-
             try {
-                if (!historyData) {
-                    const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    const json = await res.json();
-                    
-                    if (json.status === 'success') {
-                        historyData = json.data;
-                        state.cache.attendance[cacheKey] = historyData;
-                    } else {
-                        historyData = [];
-                    }
-                }
+                const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
 
-                if (historyData && historyData.length > 0) {
+                if (json.status === 'success' && json.data && json.data.length > 0) {
                     const targetDateStr = state.currentDate;
+                    
+                    // ==========================================
+                    // กรองข้อมูลประวัติเช็คชื่อให้ตรงกับวันที่ และ ชื่อวิชา+คาบ (ป้องการการดึงข้ามคาบ)
+                    // ==========================================
                     const targetSubjectPeriod = state.currentSubjectPeriod;
                     
-                    const filteredRecords = historyData.filter(r => {
+                    const filteredRecords = json.data.filter(r => {
                         if (!r.date || r.subjectPeriod !== targetSubjectPeriod) return false;
                         try {
                             const d = new Date(r.date);
@@ -1966,17 +1898,8 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
-                    
-                    // เมื่อบันทึกสำเร็จ ให้ล้างแคชที่เกี่ยวข้องเพื่อให้ดึงข้อมูลใหม่เสมอ
-                    const overviewCacheKey = `${state.selectedTerm}_${state.currentDate}`;
-                    delete state.cache.overview[overviewCacheKey];
-                    
-                    const attCacheKey = `${state.selectedTerm}_${state.currentClass}_${state.currentSubjectPeriod}`;
-                    delete state.cache.attendance[attCacheKey];
-                    delete state.cache.report[attCacheKey];
-
                     if (state.overviewDate === state.currentDate) {
-                        loadAttendanceOverview(true);
+                        loadAttendanceOverview();
                     }
                 }
                 else {
@@ -2022,39 +1945,25 @@
             });
         }
 
-        async function generateReport(forceRefresh = false) {
+        async function generateReport() {
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
             if(!cls || !subj || !state.selectedTerm) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนและวิชา'); return; }
 
             cuteAlert.loading('กำลังประมวลผลข้อมูล... 📊');
             try {
-                const cacheKeyStu = `${state.selectedTerm}_${cls}`;
-                const cacheKeyRep = `${state.selectedTerm}_${cls}_${subj}`;
-
-                // ดึงข้อมูลนักเรียน (ใช้แคชถ้ามี)
-                let studentsData = state.cache.students[cacheKeyStu];
-                if (!studentsData || forceRefresh) {
-                    const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
-                    const stuJson = await stuRes.json();
-                    if(stuJson.status === 'success') {
-                        studentsData = stuJson.data;
-                        state.cache.students[cacheKeyStu] = studentsData;
-                    } else {
-                        cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return;
-                    }
+                const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuJson = await stuRes.json();
+                let rawStudents = [];
+                if(stuJson.status === 'success' && stuJson.data.length > 1) {
+                    rawStudents = stuJson.data.slice(1);
+                } else if(stuJson.status !== 'success') {
+                    cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return;
                 }
-                
-                let rawStudents = studentsData.length > 1 ? studentsData.slice(1) : [];
 
-                // ดึงข้อมูลประวัติเพื่อทำสถิติ (ใช้แคชถ้ามี)
-                let reportData = state.cache.report[cacheKeyRep];
-                if (!reportData || forceRefresh) {
-                    let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    let json = await res.json();
-                    reportData = (json.status === 'success') ? json.data : [];
-                    state.cache.report[cacheKeyRep] = reportData;
-                }
+                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let json = await res.json();
+                let reportData = (json.status === 'success') ? json.data : [];
 
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
@@ -2063,11 +1972,14 @@
                      Swal.close(); return;
                 }
 
-                // สรุปผล
+                // ==========================================
+                // สร้าง Session เพื่อรองรับการสอนมากกว่า 1 คาบ ในวันเดียวกัน
+                // ==========================================
                 let sessions = [];
                 const studentAttendanceMap = {};
                 
                 reportData.forEach(r => {
+                    // ใช้ Date ร่วมกับ SubjectPeriod (คาบ) เพื่อแยกว่าเป็นคอลัมน์ไหน
                     let sessionKey = `${r.date}||${r.subjectPeriod}`;
                     if (!sessions.find(s => s.key === sessionKey)) {
                         sessions.push({ key: sessionKey, date: r.date, subjectPeriod: r.subjectPeriod });
@@ -2077,13 +1989,16 @@
                     if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
                     if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
                     
+                    // บันทึกสถานะโดยระบุคาบเรียนที่ชัดเจน
                     studentAttendanceMap[historyId][sessionKey] = { status: r.status, note: r.note };
                 });
 
+                // เรียงลำดับ sessions ตามวันที่ และตามคาบเรียน
                 sessions.sort((a, b) => {
                     let dateDiff = new Date(a.date) - new Date(b.date);
                     if (dateDiff !== 0) return dateDiff;
                     
+                    // ถ้าวันเดียวกัน ให้เรียงตามหมายเลขคาบ
                     let matchA = a.subjectPeriod.match(/คาบ\s*(\d+)/);
                     let matchB = b.subjectPeriod.match(/คาบ\s*(\d+)/);
                     let pA = matchA ? parseInt(matchA[1]) : 999;
@@ -2091,6 +2006,7 @@
                     return pA - pB;
                 });
 
+                // ลบ late และ sick ออกจากการคำนวณสถิติ
                 let totalStats = { present: 0, leave: 0, absent: 0 };
                 let totalRecords = reportData.length; 
                 reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
@@ -2101,6 +2017,7 @@
                 document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
 
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                // ปรับสัญลักษณ์ให้ตรงกับที่ต้องการ
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold' };
 
@@ -2109,14 +2026,17 @@
                     <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
                     <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
                 
+                // สร้างส่วนหัวตารางของแต่ละวันที่ โดยระบุลำดับ (1), (2), (3) แทนการระบุคาบ
                 sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                    
                     let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
                     
                     tableHtml += `<th class="border text-center min-w-[50px] leading-tight">${dateStr}${periodStr}</th>`;
                 });
                 
+                // ลบส่วนหัวของสายและป่วยออก
                 tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th></tr></thead><tbody>`;
 
                 rawStudents.forEach((stuRow, idx) => {
@@ -2125,6 +2045,7 @@
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
+                    // เก็บแค่ present, leave, absent
                     let rowStats = { present: 0, leave: 0, absent: 0 };
                     let rowCells = '';
 
@@ -2135,6 +2056,7 @@
                         const hasNote = noteStr.trim() !== '';
 
                         if(status && rowStats[status] !== undefined) rowStats[status]++;
+                        // หากสถานะเป็น sick หรือ late ให้แสดงเป็นขาดหรือให้ข้ามไป (ในที่นี้ข้ามไปแสดงเป็น - หากไม่มีในระบบใหม่)
                         const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
                         const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                         
@@ -2142,10 +2064,12 @@
                             const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
                             let dObj = new Date(s.date);
                             let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
+                            // แก้ไขข้อความใน Note ไม่ให้แสดงคาบ
                             rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${sIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
                         } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
+                    // ลบคอลัมน์สายและป่วยออก
                     tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
                 });
 
@@ -2153,6 +2077,7 @@
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
 
+                // ปลดล็อคปุ่มหลังจากสร้างรายงานเสร็จ
                 const printBtn = document.getElementById('btnPrintBtn');
                 if(printBtn) {
                     printBtn.disabled = false;
@@ -2233,29 +2158,14 @@
 
             cuteAlert.loading('กำลังสร้างไฟล์ Excel... 📄');
             try {
-                const cacheKeyStu = `${state.selectedTerm}_${cls}`;
-                const cacheKeyRep = `${state.selectedTerm}_${cls}_${subj}`;
+                const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
+                const stuJson = await stuRes.json();
+                if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) { cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน'); return; }
+                const rawStudents = stuJson.data.slice(1);
 
-                let studentsData = state.cache.students[cacheKeyStu];
-                if (!studentsData) {
-                    const stuRes = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`);
-                    const stuJson = await stuRes.json();
-                    if(stuJson.status === 'success') {
-                        studentsData = stuJson.data;
-                        state.cache.students[cacheKeyStu] = studentsData;
-                    }
-                }
-                
-                if(!studentsData || studentsData.length <= 1) { cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน'); return; }
-                const rawStudents = studentsData.slice(1);
-
-                let reportData = state.cache.report[cacheKeyRep];
-                if (!reportData) {
-                    let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
-                    let attJson = await attRes.json();
-                    reportData = attJson.data || [];
-                    state.cache.report[cacheKeyRep] = reportData;
-                }
+                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let attJson = await attRes.json();
+                let reportData = attJson.data || [];
 
                 let sessions = [];
                 const studentAttendanceMap = {};
@@ -2287,6 +2197,7 @@
 
                 if(sessions.length === 0) { cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้'); return; }
 
+                // ลบ sick และ late ออกจากสัญลักษณ์ที่ใช้ประมวลผลให้ Excel
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
@@ -2297,6 +2208,7 @@
                 excelData.push(["ครูผู้สอน:", state.user.name]); 
                 excelData.push([]); 
                 
+                // ปรับ Header ใหม่
                 let headerRow1 = ["ลำดับ", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "เดือน"];
                 let headerRow2 = ["", "", "", "", `${sessions.length} ชม.`, "", "", "", "วันที่"];
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ลา", "ขาด", "ร้อยละ", "ชั่วโมงที่"];
@@ -2310,6 +2222,7 @@
                         dateStr = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
                     }
                     
+                    // เปลี่ยนเป็นเลขลำดับ (1), (2)
                     let pStr = `(${sIndex + 1})`;
                     
                     headerRow1.push(`${dateStr}\n${pStr}`);
@@ -2327,6 +2240,7 @@
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
+                    // เก็บแค่ present, leave, absent
                     let stats = { present: 0, leave: 0, absent: 0 };
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
@@ -2334,6 +2248,7 @@
                     });
 
                     let percent = sessions.length > 0 ? Math.round((stats.present / sessions.length) * 100) : 0;
+                    // ปรับ rowData ออกให้ตรงกับคอลัมน์ที่แก้ไข
                     let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, `${percent}%`, ""];
 
                     sessions.forEach(s => {
@@ -2346,6 +2261,7 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
+                // ปรับ Merges ใหม่ให้ตรงกับคอลัมน์
                 const merges = [
                     { s: {r:5, c:0}, e: {r:7, c:0} }, { s: {r:5, c:1}, e: {r:7, c:1} }, 
                     { s: {r:5, c:2}, e: {r:7, c:3} }, { s: {r:5, c:5}, e: {r:5, c:7} }, 
@@ -2354,6 +2270,7 @@
                 for(let c = 9; c < 9 + sessions.length; c++) merges.push({ s: {r:5, c:c}, e: {r:7, c:c} });
                 ws['!merges'] = merges;
 
+                // ปรับความกว้างคอลัมน์
                 const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
                 sessions.forEach(() => wscols.push({wch: 10})); wscols.push({wch: 15}); ws['!cols'] = wscols;
 
@@ -2383,45 +2300,27 @@
         function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); document.body.style.overflow = ''; }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
 
-        async function loadManageStudents(forceRefresh = false) {
+        async function loadManageStudents() {
             const className = document.getElementById('manageClassSelector').value;
             const tbody = document.getElementById('manageTableBody');
             if (!className || !state.selectedTerm) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>'; return; }
 
-            const cacheKey = `${state.selectedTerm}_${className}`;
-            if (forceRefresh) {
-                delete state.cache.students[cacheKey];
-            }
-
-            let studentsData = state.cache.students[cacheKey];
-
-            if (!studentsData) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10"><div class="loader mx-auto mb-2"></div></td></tr>';
-                try {
-                    const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className.trim())}&_t=${new Date().getTime()}`);
-                    const json = await res.json();
-                    if (json.status === 'success') {
-                        studentsData = json.data;
-                        state.cache.students[cacheKey] = studentsData;
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10"><div class="loader mx-auto mb-2"></div></td></tr>';
+            try {
+                const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className.trim())}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    if (json.data.length > 0) {
+                        state.headers = json.data[0]; 
+                        state.manageData = json.data.slice(1); 
+                        renderManageTable();
                     } else {
-                        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
-                        return;
+                        state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; 
+                        state.manageData = [];
+                        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-school-blue underline">เพิ่มคนแรกเลย</button></td></tr>`;
                     }
-                } catch (e) { 
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-red-500">เชื่อมต่อล้มเหลว</td></tr>'; 
-                    return;
-                }
-            }
-
-            if (studentsData && studentsData.length > 0) {
-                state.headers = studentsData[0]; 
-                state.manageData = studentsData.slice(1); 
-                renderManageTable();
-            } else {
-                state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; 
-                state.manageData = [];
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-school-blue underline">เพิ่มคนแรกเลย</button></td></tr>`;
-            }
+                } else tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
+            } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-red-500">เชื่อมต่อล้มเหลว</td></tr>'; }
         }
 
         function renderManageTable() {
@@ -2482,16 +2381,7 @@
             try {
                 const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') { 
-                    closeEditStudentForm(); 
-                    
-                    // ล้างแคชนักเรียนหลังมีการแก้ไข
-                    delete state.cache.students[`${state.selectedTerm}_${className}`];
-                    
-                    loadManageStudents(true); 
-                    if (state.currentClass === className) loadStudents(true); 
-                    cuteAlert.success('สำเร็จ! ✨', 'อัปเดตข้อมูลเรียบร้อยแล้ว'); 
-                }
+                if (json.status === 'success') { closeEditStudentForm(); loadManageStudents(); if (state.currentClass === className) loadStudents(); cuteAlert.success('สำเร็จ! ✨', 'อัปเดตข้อมูลเรียบร้อยแล้ว'); }
                 else cuteAlert.error('ข้อผิดพลาด', json.message);
             } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
         }
@@ -2508,14 +2398,7 @@
                     try {
                         const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
                         const json = await res.json();
-                        if (json.status === 'success') { 
-                            // ล้างแคชนักเรียนหลังมีการลบ
-                            delete state.cache.students[`${state.selectedTerm}_${className}`];
-                            
-                            loadManageStudents(true); 
-                            if (state.currentClass === className) loadStudents(true); 
-                            cuteAlert.success('ลบสำเร็จ! ✅', 'นำนักเรียนออกจากระบบแล้ว'); 
-                        }
+                        if (json.status === 'success') { loadManageStudents(); if (state.currentClass === className) loadStudents(); cuteAlert.success('ลบสำเร็จ! ✅', 'นำนักเรียนออกจากระบบแล้ว'); }
                     } catch (e) { cuteAlert.error('Error', 'ลบข้อมูลไม่สำเร็จ'); }
                 }
             });
@@ -2542,12 +2425,7 @@
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
-                        if (json.status === 'success') { 
-                            await fetchClasses(); 
-                            document.getElementById('manageClassSelector').value = newClass; 
-                            loadManageStudents(true); 
-                            cuteAlert.success('สำเร็จ! ✨', `สร้างห้องเรียน ${newClass} เรียบร้อยแล้ว`); 
-                        }
+                        if (json.status === 'success') { await fetchClasses(); document.getElementById('manageClassSelector').value = newClass; loadManageStudents(); cuteAlert.success('สำเร็จ! ✨', `สร้างห้องเรียน ${newClass} เรียบร้อยแล้ว`); }
                         else cuteAlert.error('ข้อผิดพลาด', json.message);
                     } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
                 }
