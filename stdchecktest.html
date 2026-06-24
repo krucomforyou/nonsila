@@ -361,6 +361,9 @@
                             <button onclick="openTimetableSettingsModal()" class="w-full sm:w-auto bg-gray-100 border border-gray-300 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 admin-only" style="display:none;">
                                 <i class="fas fa-cog"></i> ตั้งค่าตาราง (Admin)
                             </button>
+                            <button onclick="cancelScheduleChanges()" class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fas fa-undo"></i> ยกเลิก
+                            </button>
                             <button onclick="saveScheduleToDB()" class="w-full sm:w-auto bg-school-navy hover:bg-school-navyLight text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
                                 <i class="fas fa-cloud-upload-alt"></i> บันทึกตารางสอน
                             </button>
@@ -391,7 +394,7 @@
                             </div>
                             
                             <!-- กล่องเก็บการ์ดที่สามารถลากได้ (ปรับให้มี Scrollbar และไม่ยาวเกินไป) -->
-                            <div id="subjectCardsContainer" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar pb-2 pr-1 max-h-[250px] xl:max-h-[450px]">
+                            <div id="subjectCardsContainer" ondragover="allowDrop(event)" ondrop="dropToSidebar(event)" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar pb-2 pr-1 max-h-[250px] xl:max-h-[450px] p-2 border-2 border-transparent rounded-lg">
                                 <!-- การ์ดจะถูกสร้างที่นี่ -->
                             </div>
                         </div>
@@ -1227,8 +1230,10 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.schedule = json.data;
+                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); // สำรองข้อมูลต้นฉบับ
                     
                     state.subjects = []; 
+                    state.originalSubjects = []; // สำรองข้อมูลวิชาเปล่าต้นฉบับ
                     
                     renderSubjectCards();
                     renderVisualTimetable();
@@ -1297,19 +1302,19 @@
 
             container.innerHTML = Object.values(grouped).map(group => `
                 <div draggable="true" ondragstart="drag(event, '${group.name}', '${group.className}', '${group.ids[0]}')" 
-                     class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex justify-between items-center group relative mt-2">
+                     class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex items-center group relative mt-2">
                     
-                    <div class="absolute -top-2.5 -left-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
+                    <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -left-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
+
+                    <div class="absolute -top-2.5 -right-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
                         ${group.count}
                     </div>
-
-                    <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
                     
-                    <div class="pl-2">
+                    <i class="fas fa-grip-vertical text-gray-300 mr-3 ml-1"></i>
+                    <div class="flex-1">
                         <div class="font-bold text-school-navy text-sm">${group.name}</div>
                         <div class="text-xs text-white ${group.className === '-' ? 'bg-emerald-500' : 'bg-school-blue'} px-2 py-0.5 rounded inline-block mt-1 shadow-sm">${group.className === '-' ? 'กิจกรรม' : group.className}</div>
                     </div>
-                    <i class="fas fa-grip-vertical text-gray-300 ml-2"></i>
                 </div>
             `).join('');
         }
@@ -1322,6 +1327,31 @@
 
         function allowDrop(ev) {
             ev.preventDefault();
+        }
+
+        function dropToSidebar(ev) {
+            ev.preventDefault();
+            const dataStr = ev.dataTransfer.getData("text/plain");
+            if (!dataStr) return;
+            let data;
+            try { data = JSON.parse(dataStr); } catch(e) { return; }
+
+            // หากข้อมูลถูกลากมาจากตารางสอน (table) ให้ถอดออกจากตาราง (ทำงานเหมือนการกดปุ่ม X)
+            if (data.source === 'table') {
+                removeScheduleItem(data.sourceDay, data.sourceSubjectPeriod);
+            }
+        }
+
+        function cancelScheduleChanges() {
+            cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุดที่ดึงมาจากระบบ', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
+                if (result.isConfirmed) {
+                    // โหลดข้อมูลจากที่สำรองไว้กลับมาใช้งาน
+                    state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
+                    state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
+                    renderSubjectCards();
+                    renderVisualTimetable();
+                }
+            });
         }
 
         function drag(ev, subjectName, className, id) {
@@ -1562,6 +1592,8 @@
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') {
+                    state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); // อัปเดตข้อมูลสำรองหลังบันทึก
+                    state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
