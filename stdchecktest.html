@@ -109,11 +109,11 @@
         
         <nav class="flex-1 overflow-y-auto py-4 hide-scrollbar">
             <div class="px-6 text-[10px] font-bold text-school-brass mb-2 uppercase tracking-wider">เมนูจัดการ</div>
-            <a href="#" data-tab="attendance" onclick="switchTab('attendance')" class="sidebar-item active flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
-                <i class="fas fa-clipboard-check w-6 text-center mr-2"></i> บันทึกเวลาเรียน
-            </a>
-            <a href="#" data-tab="history-overview" onclick="switchTab('history-overview')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
+            <a href="#" data-tab="history-overview" onclick="switchTab('history-overview')" class="sidebar-item active flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-clipboard-list w-6 text-center mr-2"></i> ตรวจสอบการเช็คชื่อ
+            </a>
+            <a href="#" data-tab="attendance" onclick="switchTab('attendance')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
+                <i class="fas fa-clipboard-check w-6 text-center mr-2"></i> บันทึกเวลาเรียน
             </a>
             <a href="#" data-tab="manage-time" onclick="switchTab('manage-time')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-history w-6 text-center mr-2"></i> แก้ไขข้อมูลย้อนหลัง
@@ -194,7 +194,10 @@
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
                                 </select>
                                 <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
-
+                                <!-- แก้ไข Spinner โดยใช้ div ครอบเพื่อไม่ให้ชนกับ class หมุนของ tailwind -->
+                                <div id="attSubjectSpinner" class="absolute right-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none hidden">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </div>
                                 <i id="attSubjectArrow" class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
 
@@ -700,40 +703,11 @@
             updateHeaderDate(new Date());
             
             if (checkAuth()) {
-                // 1. เรียกหน้าต่าง Pop-up แจ้งสถานะการโหลดข้อมูลเริ่มต้น
-                Swal.fire({
-                    title: 'กำลังเตรียมข้อมูลระบบ...',
-                    html: `
-                        <div class="text-sm text-gray-600 mt-4 text-left inline-block space-y-2 font-sans">
-                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>ดึงข้อมูล <b>บันทึกเวลาเรียน</b></div>
-                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>ประมวลผล <b>ตรวจสอบการเช็คชื่อ</b></div>
-                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>จัดเตรียม <b>ตารางสอนส่วนตัว</b></div>
-                        </div>
-                    `,
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                // 2. ดึงข้อมูลแบบเรียงลำดับให้ครบทุกฟังก์ชันที่ต้องการ
                 await fetchTerms();
-                await fetchClasses();
-                await fetchSchedule(); // โหลดวิชาและตารางสอน
-                await loadAttendanceOverview(); // โหลดข้อมูลตรวจสอบการเช็คชื่อภาพรวมรายวันล่วงหน้า
-
-                // 3. ปิดการโหลดและแจ้งเตือนสำเร็จ
-                Swal.fire({
-                    icon: 'success',
-                    title: 'พร้อมใช้งาน',
-                    text: 'ดาวน์โหลดข้อมูลทั้งหมดเรียบร้อยแล้ว',
-                    timer: 1500,
-                    showConfirmButton: false,
-                    customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100' }
-                });
+                fetchClasses();
+                fetchSchedule();
             }
-            
-            switchTab('attendance'); 
+            switchTab('history-overview'); // เปลี่ยนหน้าแรกเป็น 'ตรวจสอบการเช็คชื่อ'
         });
 
         function checkAuth() {
@@ -1238,18 +1212,22 @@
             if(!state.selectedTerm) return;
             try {
                 const attSel = document.getElementById('attSubjectSelector');
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
                 
                 if(attSel) {
                     attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
+                    if(attArrow) attArrow.classList.add('hidden');
+                    if(attSpinner) attSpinner.classList.remove('hidden');
                 }
 
                 await fetchTimetableSettings();
 
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
-                
                 if (json.status === 'success') {
                     state.schedule = json.data;
+                    
                     state.subjects = []; 
                     
                     renderSubjectCards();
@@ -1261,8 +1239,15 @@
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
                 
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
+
             } catch (e) { 
                 console.error(e); 
+                const attArrow = document.getElementById('attSubjectArrow');
+                const attSpinner = document.getElementById('attSubjectSpinner');
+                if(attArrow) attArrow.classList.remove('hidden');
+                if(attSpinner) attSpinner.classList.add('hidden');
             }
         }
 
@@ -1899,7 +1884,6 @@
                 if(!conf.isConfirmed) return;
             }
 
-            cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
             const form = new FormData();
             form.append('term', state.selectedTerm);
             form.append('className', state.currentClass.trim());
@@ -1908,23 +1892,54 @@
             form.append('records', JSON.stringify(state.attendance));
             form.append('recordedBy', state.user.name); 
 
-            try {
-                const res = await fetch(`${API_URL}?action=saveAttendance`, { method: 'POST', body: form });
-                const json = await res.json();
-                if (json.status === 'success') {
-                    cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
-                    if (state.overviewDate === state.currentDate) {
-                        loadAttendanceOverview();
-                    }
+            // ==========================================
+            // ระบบ Auto-Retry ต่อคิวใหม่อัตโนมัติ 1 ครั้ง
+            // ==========================================
+            let retryCount = 0;
+            const maxRetries = 1; // จำนวนครั้งที่จะให้ลองใหม่
+            let isSuccess = false;
+
+            cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
+
+            while (retryCount <= maxRetries && !isSuccess) {
+                if (retryCount > 0) {
+                    // อัปเดตหน้าจอโหลดให้รู้ว่ากำลังต่อคิวใหม่
+                    cuteAlert.loading(`ระบบคิวล้น กำลังต่อคิวใหม่อัตโนมัติรอบที่ ${retryCount}... ⏳`);
+                    // หน่วงเวลา 3 วินาทีก่อนยิง Request ใหม่
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
-                else {
-                    if(json.message.includes("ระบบไม่ว่าง")) {
-                        cuteAlert.error('ระบบคิวหนาแน่น', 'ขณะนี้มีผู้ใช้งานบันทึกข้อมูลพร้อมกันจำนวนมาก กรุณากดบันทึกอีกครั้งในสักครู่');
-                    } else {
-                        cuteAlert.error('ข้อผิดพลาด', json.message);
+
+                try {
+                    const res = await fetch(`${API_URL}?action=saveAttendance`, { method: 'POST', body: form });
+                    const json = await res.json();
+                    
+                    if (json.status === 'success') {
+                        isSuccess = true; // ทำงานสำเร็จ ออกจากลูป
+                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
+                        if (state.overviewDate === state.currentDate) {
+                            loadAttendanceOverview();
+                        }
                     }
+                    else {
+                        // เช็คว่า Error เกิดจากคิวล้นหรือไม่ (ดักจับคำว่า "คิวหนาแน่น" หรือ "ไม่ว่าง")
+                        if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
+                            if (retryCount === maxRetries) {
+                                // ถ้าลองครบโควต้าแล้วยังล้นอยู่ ค่อยแจ้ง Error ให้ User ทราบ
+                                cuteAlert.error('ระบบคิวหนาแน่น', 'พยายามต่อคิวอัตโนมัติแล้วแต่คิวยังเต็มอยู่ กรุณากดปุ่ม "บันทึกข้อมูล" ใหม่อีกครั้งครับ');
+                                break;
+                            }
+                            retryCount++; // เพิ่มรอบการทำงานแล้ววนลูปใหม่
+                        } else {
+                            // ถ้าเป็น Error ทั่วไป (เช่น หาชีตไม่เจอ) ให้แจ้งทันที ไม่ต้อง Retry
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                            break;
+                        }
+                    }
+                } catch(e) { 
+                    cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว กรุณาตรวจสอบอินเทอร์เน็ต'); 
+                    break;
                 }
-            } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+            }
         }
 
         function goToEditTime() {
