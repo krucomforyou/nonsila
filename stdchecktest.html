@@ -88,7 +88,7 @@
     <!-- OVERLAY LOADING -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
         <div class="loader mb-4 w-12 h-12 border-4"></div>
-        <p class="text-school-navy font-bold text-lg animate-pulse" id="loadingText">กำลังโหลดข้อมูล...</p>
+        <p class="text-school-navy font-bold text-lg animate-pulse" id="loadingText">กำลังเตรียมข้อมูลระบบ...</p>
     </div>
 
     <!-- Mobile Overlay -->
@@ -705,12 +705,53 @@
             updateHeaderDate(new Date());
             
             if (checkAuth()) {
+                document.getElementById('loadingOverlay').classList.remove('hidden'); // แสดงตอนเปิดเว็บครั้งแรก
+                
                 await fetchTerms();
-                fetchClasses();
-                fetchSchedule();
+                await fetchClasses();
+                await fetchSchedule();
+                
+                prefetchTodayData(); // ดึงข้อมูลของวันนี้ล่วงหน้า (ทำงานเบื้องหลัง)
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
             switchTab('attendance'); 
         });
+        
+        // ฟังก์ชันสำหรับแอบโหลดข้อมูลที่ต้องใช้ในวันนี้ล่วงหน้า เพื่อให้ไม่ต้องรอตอนกดเปลี่ยนแท็บ
+        async function prefetchTodayData() {
+            if (!state.selectedTerm) return;
+            
+            const todayStr = state.currentDate;
+            const dayOfWeek = DAY_NAMES[new Date(todayStr).getDay()];
+            
+            // 1. แอบโหลดภาพรวม (Overview)
+            const overviewCacheKey = `${state.selectedTerm}_${todayStr}`;
+            if (!state.cache.overview[overviewCacheKey] && state.schedule.length > 0) {
+                fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(todayStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`)
+                .then(res => res.json())
+                .then(json => {
+                    if (json.status === 'success') {
+                        state.cache.overview[overviewCacheKey] = json.data;
+                        if (!document.getElementById('tab-history-overview').classList.contains('hidden') && state.overviewDate === todayStr) {
+                            renderOverviewTable(json.data, todayStr);
+                        }
+                    }
+                }).catch(e => console.error("Prefetch overview error", e));
+            }
+
+            // 2. แอบโหลดรายชื่อนักเรียนเฉพาะห้องที่มีสอนวันนี้
+            const classesToday = [...new Set(state.schedule.filter(s => s.day === dayOfWeek && s.className !== '-').map(s => s.className))];
+            classesToday.forEach(cls => {
+                const stuCacheKey = `${state.selectedTerm}_${cls}`;
+                if(!state.cache.students[stuCacheKey]) {
+                    fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&_t=${new Date().getTime()}`)
+                    .then(res => res.json())
+                    .then(json => {
+                        if(json.status === 'success') state.cache.students[stuCacheKey] = json.data;
+                    }).catch(e => console.error("Prefetch students error", e));
+                }
+            });
+        }
 
         function checkAuth() {
             const savedUser = localStorage.getItem('school_user_session');
@@ -796,14 +837,17 @@
                 
                 resetUIForNewTerm();
                 
-                cuteAlert.loading(`กำลังเปลี่ยนเป็นภาคเรียน ${state.selectedTerm}`);
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                document.getElementById('loadingText').innerText = `กำลังโหลดเทอม ${state.selectedTerm}...`;
+                
                 await fetchClasses();
                 await fetchSchedule();
+                prefetchTodayData();
                 
                 const isOverview = !document.getElementById('tab-history-overview').classList.contains('hidden');
                 if(isOverview) loadAttendanceOverview();
 
-                Swal.close();
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
 
@@ -956,7 +1000,7 @@
                     fpOverview.setDate(today);
                     state.overviewDate = fpOverview.formatDate(today, "Y-m-d");
                 }
-                loadAttendanceOverview(); // เรียกฟังก์ชันเดิม ระบบจะจัดการแคชเอง
+                loadAttendanceOverview(); // เรียกฟังก์ชันเดิม ระบบจะจัดการแคชเองและไม่โหลดใหม่ถ้ามีแคช
             }
             if(tabId === 'report') populateReportClassDropdown();
 
@@ -1637,30 +1681,30 @@
             document.getElementById('overviewDateDisplay').innerText = displayDateStr;
 
             const tbody = document.getElementById('overviewTableBody');
+            let overviewData = state.cache.overview[cacheKey];
             
-            try {
-                let overviewData = state.cache.overview[cacheKey];
-                
-                // ถ้าไม่มีข้อมูลในแคช หรือ กดปุ่มรีเฟรช ให้โหลดใหม่
-                if (!overviewData || forceRefresh) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
-                    
+            // แสดง Loader เฉพาะตอนที่แคชว่างเปล่าจริงๆ หรือถูกสั่งโหลดใหม่
+            if (!overviewData || forceRefresh) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
+                try {
                     const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
                     const json = await res.json();
                     
                     if (json.status === 'success') {
                         overviewData = json.data;
-                        state.cache.overview[cacheKey] = overviewData; // เซฟลงแคช
+                        state.cache.overview[cacheKey] = overviewData; 
                     } else {
                         tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
                         return;
                     }
+                } catch (error) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
+                    return;
                 }
-                
-                renderOverviewTable(overviewData, state.overviewDate);
-            } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
             }
+            
+            // ถ้าระบบลงมาถึงตรงนี้ แสดงว่ามี overviewData แน่นอน (จากเว็บหรือแคช) วาดตารางได้เลย
+            renderOverviewTable(overviewData, state.overviewDate);
         }
 
         function renderOverviewTable(scheduleData, dateStr) {
@@ -1730,32 +1774,31 @@
             }, 300);
         }
 
-        // เพิ่มการรับค่า forceRefresh เพื่อสั่งเคลียร์แคชแล้วโหลดใหม่
         async function loadStudents(forceRefresh = false) {
             if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-' || !state.selectedTerm) return;
 
             const cacheKey = `${state.selectedTerm}_${state.currentClass}`;
             
             if (forceRefresh) {
-                delete state.cache.students[cacheKey]; // ล้างแคชห้องเรียนนี้
-                // ล้างแคชการเข้าเรียนของห้องและวิชานี้ด้วย
+                delete state.cache.students[cacheKey]; 
                 const attCacheKey = `${state.selectedTerm}_${state.currentClass}_${state.currentSubjectPeriod}`;
                 delete state.cache.attendance[attCacheKey]; 
             }
 
-            document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center"><div class="loader mx-auto mb-2"></div></td></tr>`;
-            
-            try {
-                let studentsData = state.cache.students[cacheKey];
+            let studentsData = state.cache.students[cacheKey];
 
-                if (!studentsData) {
-                    if(!forceRefresh) cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
+            // แสดงหน้าโหลดเฉพาะถ้าแคชไม่มีข้อมูล
+            if (!studentsData) {
+                document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center"><div class="loader mx-auto mb-2"></div></td></tr>`;
+                if(!forceRefresh) cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
+                
+                try {
                     const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
                     const json = await res.json();
 
                     if (json.status === 'success') {
                         studentsData = json.data;
-                        state.cache.students[cacheKey] = studentsData; // เซฟลงแคช
+                        state.cache.students[cacheKey] = studentsData; 
                         if(!forceRefresh) Swal.close();
                     } else {
                         document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message}</td></tr>`;
@@ -1763,38 +1806,42 @@
                         if(!forceRefresh) Swal.close();
                         return;
                     }
+                } catch (e) { 
+                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500">เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว</td></tr>`;
+                    if(!forceRefresh) Swal.close();
+                    return;
                 }
+            }
 
-                if (studentsData && studentsData.length > 1) {
-                    state.headers = studentsData[0];
-                    state.students = studentsData.slice(1);
-                    document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
-                    await fetchAttendanceHistory(); // รอโหลดข้อมูลประวัติจากแคชหรือเน็ต
-                } else {
-                    document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
-                    document.getElementById('studentCountBadge').innerText = '0 คน';
-                }
-            } catch (e) { 
-                cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); 
+            // ถ้าระบบมีข้อมูลแล้วให้ลุยต่อเลย
+            if (studentsData && studentsData.length > 1) {
+                state.headers = studentsData[0];
+                state.students = studentsData.slice(1);
+                document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
+                await fetchAttendanceHistory(forceRefresh); // ส่งสถานะรีเฟรชให้ประวัติต่อ
+            } else {
+                document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
+                document.getElementById('studentCountBadge').innerText = '0 คน';
             }
         }
 
-        async function fetchAttendanceHistory() {
+        async function fetchAttendanceHistory(forceRefresh = false) {
             if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) return;
             
             const cacheKey = `${state.selectedTerm}_${state.currentClass}_${state.currentSubjectPeriod}`;
+            if (forceRefresh) delete state.cache.attendance[cacheKey];
+
             state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
+            let historyData = state.cache.attendance[cacheKey];
 
             try {
-                let historyData = state.cache.attendance[cacheKey];
-
                 if (!historyData) {
                     const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                     const json = await res.json();
                     
                     if (json.status === 'success') {
                         historyData = json.data;
-                        state.cache.attendance[cacheKey] = historyData; // เซฟลงแคช
+                        state.cache.attendance[cacheKey] = historyData;
                     } else {
                         historyData = [];
                     }
