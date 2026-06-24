@@ -194,10 +194,7 @@
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
                                 </select>
                                 <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
-                                <!-- แก้ไข Spinner โดยใช้ div ครอบเพื่อไม่ให้ชนกับ class หมุนของ tailwind -->
-                                <div id="attSubjectSpinner" class="absolute right-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none hidden">
-                                    <i class="fas fa-spinner fa-spin"></i>
-                                </div>
+
                                 <i id="attSubjectArrow" class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
                             </div>
 
@@ -703,10 +700,39 @@
             updateHeaderDate(new Date());
             
             if (checkAuth()) {
+                // 1. เรียกหน้าต่าง Pop-up แจ้งสถานะการโหลดข้อมูลเริ่มต้น
+                Swal.fire({
+                    title: 'กำลังเตรียมข้อมูลระบบ...',
+                    html: `
+                        <div class="text-sm text-gray-600 mt-4 text-left inline-block space-y-2 font-sans">
+                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>ดึงข้อมูล <b>บันทึกเวลาเรียน</b></div>
+                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>ประมวลผล <b>ตรวจสอบการเช็คชื่อ</b></div>
+                            <div><i class="fas fa-check-circle text-school-blue mr-2"></i>จัดเตรียม <b>ตารางสอนส่วนตัว</b></div>
+                        </div>
+                    `,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // 2. ดึงข้อมูลแบบเรียงลำดับให้ครบทุกฟังก์ชันที่ต้องการ
                 await fetchTerms();
-                fetchClasses();
-                fetchSchedule();
+                await fetchClasses();
+                await fetchSchedule(); // โหลดวิชาและตารางสอน
+                await loadAttendanceOverview(); // โหลดข้อมูลตรวจสอบการเช็คชื่อภาพรวมรายวันล่วงหน้า
+
+                // 3. ปิดการโหลดและแจ้งเตือนสำเร็จ
+                Swal.fire({
+                    icon: 'success',
+                    title: 'พร้อมใช้งาน',
+                    text: 'ดาวน์โหลดข้อมูลทั้งหมดเรียบร้อยแล้ว',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100' }
+                });
             }
+            
             switchTab('attendance'); 
         });
 
@@ -1212,22 +1238,18 @@
             if(!state.selectedTerm) return;
             try {
                 const attSel = document.getElementById('attSubjectSelector');
-                const attArrow = document.getElementById('attSubjectArrow');
-                const attSpinner = document.getElementById('attSubjectSpinner');
                 
                 if(attSel) {
                     attSel.innerHTML = '<option value="">กำลังโหลดข้อมูลวิชา...</option>';
-                    if(attArrow) attArrow.classList.add('hidden');
-                    if(attSpinner) attSpinner.classList.remove('hidden');
                 }
 
                 await fetchTimetableSettings();
 
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
+                
                 if (json.status === 'success') {
                     state.schedule = json.data;
-                    
                     state.subjects = []; 
                     
                     renderSubjectCards();
@@ -1239,15 +1261,8 @@
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
                 
-                if(attArrow) attArrow.classList.remove('hidden');
-                if(attSpinner) attSpinner.classList.add('hidden');
-
             } catch (e) { 
                 console.error(e); 
-                const attArrow = document.getElementById('attSubjectArrow');
-                const attSpinner = document.getElementById('attSubjectSpinner');
-                if(attArrow) attArrow.classList.remove('hidden');
-                if(attSpinner) attSpinner.classList.add('hidden');
             }
         }
 
