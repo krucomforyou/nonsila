@@ -1921,38 +1921,60 @@
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold' };
 
-                // กำหนดจำนวนคาบสูงสุดต่อ 1 หน้า
-                const MAX_PERIODS_PER_PAGE = 20;
+                // 1. กำหนดจำนวนคาบสูงสุดต่อ 1 หน้าเป็น 23 คาบ
+                const MAX_PERIODS_PER_PAGE = 23;
                 let chunks = [];
                 for (let i = 0; i < sessions.length; i += MAX_PERIODS_PER_PAGE) {
                     chunks.push(sessions.slice(i, i + MAX_PERIODS_PER_PAGE));
                 }
 
                 let allTablesHtml = '';
+                
+                // 2. ดึงข้อความหัวรายงาน เพื่อนำไปแทรกในทุกๆ หน้า
+                const termStr = document.getElementById('reportDisplayTerm').innerText;
+                const headerBlock = `
+                    <div class="mb-4 text-center print-header">
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
+                        <p class="text-sm text-gray-600">วิชา: <span class="font-bold">${subj}</span> &nbsp;|&nbsp; ห้องเรียน: <span class="font-bold">${cls}</span> &nbsp;|&nbsp; ภาคเรียนที่: <span class="font-bold">${termStr}</span></p>
+                        <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
+                    </div>
+                `;
 
                 // ลูปสร้างตารางตามจำนวนชุดข้อมูลที่แบ่งไว้
                 chunks.forEach((chunk, chunkIndex) => {
                     let isLastChunk = chunkIndex === chunks.length - 1;
                     let pageBreakClass = !isLastChunk ? 'page-break-after' : '';
 
+                    // แทรก headerBlock และบังคับ table-layout: fixed
                     let tableHtml = `<div class="mb-8 ${pageBreakClass}">
-                        <table class="report-table w-full text-sm text-left border-collapse min-w-max mb-4">
+                        ${headerBlock}
+                        <table class="report-table w-full text-sm text-left border-collapse min-w-max mb-4" style="table-layout: fixed;">
                         <thead class="bg-gray-100 text-school-navy"><tr>
-                        <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
-                        <th class="border text-center" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
+                        <th class="border text-center" style="width: 50px;">ลำดับ</th>
+                        <th class="border text-center" style="width: 170px;">ชื่อ - นามสกุล</th>`;
                     
                     // สร้างหัวคอลัมน์วันที่ เฉพาะในชุดข้อมูล (chunk) นี้
                     chunk.forEach((s) => {
-                        let globalIndex = sessions.findIndex(gs => gs.key === s.key); // หาหมายเลขครั้งที่อ้างอิงจากทั้งหมด
+                        let globalIndex = sessions.findIndex(gs => gs.key === s.key);
                         let dObj = new Date(s.date);
                         let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
                         let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${globalIndex + 1})</span>`;
-                        tableHtml += `<th class="border text-center min-w-[40px] leading-none">${dateStr}${periodStr}</th>`;
+                        // กำหนดความกว้างช่องวันที่ให้คงที่ (เช่น 32px)
+                        tableHtml += `<th class="border text-center leading-none" style="width: 32px; padding: 4px 0;">${dateStr}${periodStr}</th>`;
                     });
+                    
+                    // 3. เติม "คอลัมน์เปล่า" ให้ครบ 23 ช่องเสมอ (เพื่อให้คอลัมน์ตรงกับหน้าแรกเป๊ะๆ)
+                    let emptyCols = MAX_PERIODS_PER_PAGE - chunk.length;
+                    for(let e = 0; e < emptyCols; e++) {
+                        tableHtml += `<th class="border" style="width: 32px;"></th>`;
+                    }
                     
                     // เพิ่มคอลัมน์สรุปเฉพาะในตารางหน้าสุดท้าย
                     if (isLastChunk) {
-                        tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th>`;
+                        tableHtml += `
+                            <th class="border text-center bg-gray-200" style="width: 35px;">มา</th>
+                            <th class="border text-center bg-gray-200" style="width: 35px;">ลา</th>
+                            <th class="border text-center bg-gray-200" style="width: 35px;">ขาด</th>`;
                     }
                     tableHtml += `</tr></thead><tbody>`;
 
@@ -1962,7 +1984,6 @@
                         const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                         const uniqueId = getStudentUniqueId(stuRow);
 
-                        // สรุปสถิติต้องคำนวณจากคาบทั้งหมด (sessions) ไม่ใช่แค่ใน chunk
                         let totalStats = { present: 0, leave: 0, absent: 0 };
                         sessions.forEach(s => {
                             const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
@@ -1978,18 +1999,25 @@
                             const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
                             const hasNote = noteStr.trim() !== '';
 
-                            const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
+                            const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '';
                             const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                             
                             if (hasNote) {
                                 const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
                                 let dObj = new Date(s.date);
                                 let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-                                rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${globalIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 opacity-80"></i></td>`;
-                            } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                                rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${globalIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-0.5 right-0.5 opacity-80"></i></td>`;
+                            } else {
+                                rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                            }
                         });
+                        
+                        // เติมช่องตารางเปล่าให้ครบ 23 ช่องในแถวนี้
+                        for(let e = 0; e < emptyCols; e++) {
+                            rowCells += `<td class="border bg-gray-50/30"></td>`;
+                        }
 
-                        tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}`;
+                        tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border truncate pl-1">${fullName}</td>${rowCells}`;
                         
                         // ใส่ข้อมูลสรุปเฉพาะในตารางหน้าสุดท้าย
                         if (isLastChunk) {
@@ -2046,7 +2074,7 @@
             printWindow.document.write(`
                 <style>
                     body { font-family: "Sarabun", sans-serif; background-color: white; } 
-                    table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; } 
+                    table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; table-layout: fixed; }
                     th, td { border: 1px solid #cbd5e1 !important; padding: 4px 2px; text-align: center; line-height: 1.1; word-wrap: break-word; } 
                     td:nth-child(2) { text-align: left !important; padding-left: 6px !important; }
                     th { background-color: #f1f5f9 !important; font-weight: normal; font-size: 10px; color: #0f172a; min-width: auto !important; }
@@ -2062,13 +2090,6 @@
                 </style>
             `);
             printWindow.document.write('</head><body class="p-4 sm:p-8">');
-            printWindow.document.write(`
-                <div class="mb-6 text-center">
-                    <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
-                    <p class="text-sm text-gray-600">วิชา: <span class="font-bold">${subj}</span> &nbsp;|&nbsp; ห้องเรียน: <span class="font-bold">${cls}</span> &nbsp;|&nbsp; ภาคเรียนที่: <span class="font-bold">${term}</span></p>
-                    <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
-                </div>
-            `);
             printWindow.document.write(printContents);
             printWindow.document.write('</body></html>');
             printWindow.document.close();
