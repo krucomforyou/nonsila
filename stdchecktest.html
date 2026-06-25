@@ -1414,6 +1414,9 @@
             renderVisualTimetable();
         }
 
+        // ========================================================
+        // ฟังก์ชันวาดตารางสอนที่ถูกแก้ไขเพื่อรองรับโครงสร้างข้อมูลใหม่
+        // ========================================================
         function renderVisualTimetable() {
             const container = document.getElementById('visualTimetable');
             const days = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
@@ -1423,24 +1426,11 @@
             let grid = {};
             days.forEach(d => grid[d] = Array(nonBreakPeriods.length).fill(null));
 
+            // ตรวจสอบและนำข้อมูลใน schedule ลง grid ตามชื่อคาบตรงๆ (ไม่ต้องใช้ Regex แล้ว)
             state.schedule.forEach(s => {
-                const match = s.period.match(/คาบ.*?(\d+)/i);
-                if (match) {
-                    let periodNum = parseInt(match[1]);
-                    let gridIdx = nonBreakPeriods.findIndex(p => p.name.includes(periodNum)); 
-                    if(gridIdx === -1) gridIdx = periodNum - 1;
-
-                    if (grid[s.day] && gridIdx >= 0 && gridIdx < nonBreakPeriods.length) {
-                        grid[s.day][gridIdx] = s;
-                    }
-                } else {
-                     const pIndex = nonBreakPeriods.findIndex(p => s.period.includes(p.name));
-                     if(pIndex !== -1 && grid[s.day]) {
-                         grid[s.day][pIndex] = s;
-                     } else if (grid[s.day]) {
-                         const emptyIdx = grid[s.day].findIndex(x => x === null);
-                         if(emptyIdx !== -1) grid[s.day][emptyIdx] = s;
-                     }
+                const pIndex = nonBreakPeriods.findIndex(p => p.name === s.period);
+                if (pIndex !== -1 && grid[s.day]) {
+                    grid[s.day][pIndex] = s;
                 }
             });
 
