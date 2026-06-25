@@ -129,7 +129,6 @@
             <a href="#" onclick="openManageTermModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
                 <i class="fas fa-layer-group w-6 text-center mr-2"></i> จัดการภาคเรียน
             </a>
-            <!-- ย้ายรายงานสถิติมาเป็นอันดับสุดท้ายในส่วนนี้ -->
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
@@ -194,7 +193,6 @@
                                     <option value="">กำลังโหลดวิชาเรียน...</option>
                                 </select>
                                 <i class="fas fa-book absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
-                                <!-- แก้ไข Spinner โดยใช้ div ครอบเพื่อไม่ให้ชนกับ class หมุนของ tailwind -->
                                 <div id="attSubjectSpinner" class="absolute right-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none hidden">
                                     <i class="fas fa-spinner fa-spin"></i>
                                 </div>
@@ -405,7 +403,6 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <button onclick="clearSchedule()" class="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm flex items-center gap-1 transition"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                             </div>
-                            <!-- แก้ไขกล่องหุ้มตารางให้แสดงผลพอดีช่อง -->
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
                                 <!-- ตารางจะถูกสร้างที่นี่ -->
                             </div>
@@ -425,7 +422,6 @@
                             </h3>
                             <p class="text-xs md:text-sm text-gray-500">ภาคเรียน: <span id="reportDisplayTerm" class="font-bold text-school-blue"></span></p>
                         </div>
-                        <!-- ตั้งค่าเริ่มต้นให้ปุ่มถูก Disable ไว้ -->
                         <div class="flex flex-col sm:flex-row w-full md:w-auto gap-2">
                             <button id="btnPrintBtn" onclick="printReport()" disabled class="w-full sm:w-auto bg-school-brass text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
                                 <i class="fas fa-print"></i> พิมพ์ตาราง
@@ -454,7 +450,6 @@
 
                     <div id="reportResult" class="hidden">
                          <h4 class="font-bold text-school-navy mb-4 border-l-4 border-school-brass pl-3">ภาพรวมสถิติ (ร้อยละ)</h4>
-                         <!-- ลดจำนวนคอลัมน์ เอาสายกับป่วยออก -->
                          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-8">
                              <div class="bg-emerald-50 border border-emerald-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-emerald-600 text-xs md:text-sm font-bold">มาเรียน (ร้อยละ)</div><div id="repPresent" class="text-2xl md:text-3xl font-black mt-2 text-emerald-700">0%</div></div>
                              <div class="bg-blue-50 border border-blue-100 p-4 md:p-5 rounded-2xl text-center shadow-sm"><div class="text-school-blue text-xs md:text-sm font-bold">ลา (ร้อยละ)</div><div id="repLeave" class="text-2xl md:text-3xl font-black mt-2 text-[#345ba8]">0%</div></div>
@@ -658,7 +653,8 @@
             subjects: [], 
             currentDate: '',
             currentClass: '',
-            currentSubjectPeriod: '',
+            currentSubject: '', // แยกชื่อวิชา
+            currentPeriod: '',  // แยกคาบเรียน
             manageData: [],
             overviewDate: '',
             timetableConfig: {
@@ -710,7 +706,7 @@
                 fetchClasses();
                 fetchSchedule();
             }
-            switchTab('history-overview'); // เปลี่ยนหน้าแรกเป็น 'ตรวจสอบการเช็คชื่อ'
+            switchTab('history-overview');
         });
 
         function checkAuth() {
@@ -810,7 +806,8 @@
 
         function resetUIForNewTerm() {
             state.currentClass = '';
-            state.currentSubjectPeriod = '';
+            state.currentSubject = '';
+            state.currentPeriod = '';
             
             document.getElementById('attSubjectSelector').innerHTML = '<option value="">เลือกวิชา/คาบเรียน...</option>';
             document.getElementById('attClassDisplay').classList.add('hidden');
@@ -824,26 +821,20 @@
             resetReportButtons();
         }
 
-        function openManageTermModal() {
-            renderManageTermTable();
-            document.getElementById('manageTermModal').classList.add('active');
-        }
+        // โค้ดส่วน Modals Manage Term เดิม
+        function openManageTermModal() { renderManageTermTable(); document.getElementById('manageTermModal').classList.add('active'); }
         function closeManageTermModal() { document.getElementById('manageTermModal').classList.remove('active'); }
-
         function renderManageTermTable() {
             const tbody = document.getElementById('termTableBody');
             if(state.terms.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
                 return;
             }
-            
             tbody.innerHTML = state.terms.map(t => `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 font-bold text-school-navy">${t.name}</td>
                     <td class="px-4 py-3 text-center">
-                        ${t.isActive 
-                            ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">ปัจจุบัน</span>` 
-                            : `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`}
+                        ${t.isActive ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">ปัจจุบัน</span>` : `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`}
                     </td>
                     <td class="px-4 py-3 text-center flex justify-center gap-2">
                         ${!t.isActive ? `<button onclick="setTermActive('${t.name}')" class="text-xs bg-school-blue hover:bg-[#345ba8] text-white px-2 py-1 rounded shadow-sm" title="ตั้งเป็นปัจจุบัน">Set Active</button>` : `<span class="w-[72px]"></span>`}
@@ -852,57 +843,40 @@
                 </tr>
             `).join('');
         }
-
         async function addTerm() {
             const input = document.getElementById('newTermInput');
             const termName = input.value.trim();
             if(!termName) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อภาคเรียน (เช่น 1/2567)'); return; }
             if(termName.includes('_')) { cuteAlert.error('ชื่อไม่ถูกต้อง', 'ไม่อนุญาตให้ใช้เครื่องหมาย _ (Underscore)'); return; }
-            
             cuteAlert.loading('กำลังเพิ่มภาคเรียน ⏳');
-            const form = new FormData();
-            form.append('actionType', 'add'); form.append('termName', termName);
+            const form = new FormData(); form.append('actionType', 'add'); form.append('termName', termName);
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') {
-                    input.value = '';
-                    await fetchTerms();
-                    renderManageTermTable();
-                    cuteAlert.success('สำเร็จ!', json.message);
-                } else cuteAlert.error('ผิดพลาด', json.message);
+                if (json.status === 'success') { input.value = ''; await fetchTerms(); renderManageTermTable(); cuteAlert.success('สำเร็จ!', json.message); } 
+                else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
-
         async function setTermActive(termName) {
             cuteAlert.loading('กำลังอัปเดตสถานะ ⏳');
-            const form = new FormData();
-            form.append('actionType', 'setActive'); form.append('termName', termName);
+            const form = new FormData(); form.append('actionType', 'setActive'); form.append('termName', termName);
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') {
-                    await fetchTerms();
-                    renderManageTermTable();
-                    cuteAlert.success('สำเร็จ!', json.message);
-                } else cuteAlert.error('ผิดพลาด', json.message);
+                if (json.status === 'success') { await fetchTerms(); renderManageTermTable(); cuteAlert.success('สำเร็จ!', json.message); } 
+                else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
-
         function deleteTerm(termName) {
-            cuteAlert.confirm(`ลบภาคเรียน ${termName}?`, 'ลบเฉพาะชื่อภาคเรียนในระบบ (ข้อมูลชีตจะไม่ถูกลบ สามารถดึงกลับมาได้หากเพิ่มชื่อเดิม)', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+            cuteAlert.confirm(`ลบภาคเรียน ${termName}?`, 'ลบเฉพาะชื่อภาคเรียนในระบบ', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบ ⏳');
-                    const form = new FormData();
-                    form.append('actionType', 'delete'); form.append('termName', termName);
+                    const form = new FormData(); form.append('actionType', 'delete'); form.append('termName', termName);
                     try {
                         const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                         const json = await res.json();
-                        if (json.status === 'success') {
-                            await fetchTerms();
-                            renderManageTermTable();
-                            cuteAlert.success('ลบสำเร็จ!', json.message);
-                        } else cuteAlert.error('ผิดพลาด', json.message);
+                        if (json.status === 'success') { await fetchTerms(); renderManageTermTable(); cuteAlert.success('ลบสำเร็จ!', json.message); } 
+                        else cuteAlert.error('ผิดพลาด', json.message);
                     } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
                 }
             });
@@ -934,14 +908,16 @@
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
             
             if(tabId === 'attendance') {
-                const prevSubj = state.currentSubjectPeriod;
+                const prevSubj = state.currentSubject;
+                const prevPeriod = state.currentPeriod;
                 populateSubjectDropdown('attSubjectSelector', state.currentDate);
                 
-                if (prevSubj) {
+                if (prevSubj && prevPeriod) {
                     const attSel = document.getElementById('attSubjectSelector');
-                    const exists = Array.from(attSel.options).some(opt => opt.value === prevSubj);
+                    const matchVal = `${prevSubj}|${prevPeriod}`;
+                    const exists = Array.from(attSel.options).some(opt => opt.value === matchVal);
                     if (exists) {
-                        attSel.value = prevSubj;
+                        attSel.value = matchVal;
                         if (state.currentClass && state.currentClass !== '-') loadStudents();
                     } else {
                         onSubjectSelect('att');
@@ -1017,7 +993,8 @@
                     const refreshBtn = document.getElementById('btnRefreshStudents');
                     if(refreshBtn) refreshBtn.classList.add('hidden');
                     
-                    state.currentSubjectPeriod = '';
+                    state.currentSubject = '';
+                    state.currentPeriod = '';
                     state.currentClass = '';
                 }
             }
@@ -1050,9 +1027,6 @@
             const sel = document.getElementById(selectId);
             if(!sel) return;
             
-            // ==========================================
-            // แก้ไข Dropdown สำหรับเมนูรายงาน (รวมชื่อวิชา)
-            // ==========================================
             if (selectId === 'reportSubjectSel') {
                 if(!classFilter || !state.schedule || state.schedule.length === 0) {
                     sel.innerHTML = '<option value="">เลือกห้องก่อน...</option>';
@@ -1064,12 +1038,7 @@
                 } else {
                     let opts = '<option value="">-- เลือกวิชาที่สอน --</option>';
                     const uniqueSubjects = new Set();
-                    classSchedules.forEach(s => {
-                        // แยกเฉพาะชื่อวิชา โดยตัดคำว่า คาบ... ออก
-                        let cleanSubj = s.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                        if(!cleanSubj) cleanSubj = s.subjectPeriod; // ถ้าไม่ได้ใช้รูปแบบคำว่า "คาบ" ให้ใช้ค่าเดิม
-                        uniqueSubjects.add(cleanSubj);
-                    });
+                    classSchedules.forEach(s => { uniqueSubjects.add(s.subject); });
                     
                     Array.from(uniqueSubjects).forEach(subj => {
                         opts += `<option value="${subj}">${subj}</option>`;
@@ -1079,7 +1048,6 @@
                 return;
             }
 
-            // สำหรับเมนูเช็คชื่อปกติ (แยกรายคาบ)
             if(!state.schedule || state.schedule.length === 0) {
                 sel.innerHTML = '<option value="">กำลังโหลดวิชาเรียน หรือ ยังไม่มีตารางสอน</option>';
                 return;
@@ -1096,8 +1064,8 @@
             const availableSubjects = state.schedule.filter(s => s.day === dayName);
 
             availableSubjects.sort((a, b) => {
-                const matchA = a.subjectPeriod.match(/คาบ\s*(\d+)/);
-                const matchB = b.subjectPeriod.match(/คาบ\s*(\d+)/);
+                const matchA = a.period.match(/คาบ\s*(\d+)/);
+                const matchB = b.period.match(/คาบ\s*(\d+)/);
                 const periodA = matchA ? parseInt(matchA[1], 10) : 999; 
                 const periodB = matchB ? parseInt(matchB[1], 10) : 999;
                 return periodA - periodB;
@@ -1109,7 +1077,7 @@
                 let opts = '<option value="">เลือกวิชา/คาบเรียน...</option>';
                 availableSubjects.forEach(s => {
                     const displayClass = s.className === '-' ? 'คาบกิจกรรม' : `ห้อง ${s.className}`;
-                    opts += `<option value="${s.subjectPeriod}" data-class="${s.className}">${s.subjectPeriod} (${displayClass})</option>`;
+                    opts += `<option value="${s.subject}|${s.period}" data-class="${s.className}" data-subject="${s.subject}" data-period="${s.period}">${s.subject} ${s.period} (${displayClass})</option>`;
                 });
                 sel.innerHTML = opts;
             }
@@ -1157,7 +1125,8 @@
             const selectedOpt = sel.options[sel.selectedIndex];
             
             if (sel.value) {
-                state.currentSubjectPeriod = sel.value;
+                state.currentSubject = selectedOpt.getAttribute('data-subject');
+                state.currentPeriod = selectedOpt.getAttribute('data-period');
                 state.currentClass = selectedOpt.getAttribute('data-class');
                 
                 if(prefix === 'att') {
@@ -1179,7 +1148,8 @@
                     }
                 }
             } else {
-                state.currentSubjectPeriod = '';
+                state.currentSubject = '';
+                state.currentPeriod = '';
                 state.currentClass = '';
                 if(prefix === 'att') {
                     document.getElementById('attClassDisplay').classList.add('hidden');
@@ -1229,11 +1199,11 @@
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
-                    state.schedule = json.data;
-                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); // สำรองข้อมูลต้นฉบับ
+                    state.schedule = json.data; // Now has day, subject, period, className
+                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); 
                     
                     state.subjects = []; 
-                    state.originalSubjects = []; // สำรองข้อมูลวิชาเปล่าต้นฉบับ
+                    state.originalSubjects = []; 
                     
                     renderSubjectCards();
                     renderVisualTimetable();
@@ -1289,7 +1259,6 @@
                 return;
             }
 
-            // จัดกลุ่มการ์ดวิชาที่มีชื่อและห้องเหมือนกัน
             const grouped = {};
             state.subjects.forEach(sub => {
                 const key = `${sub.name}|${sub.className}`;
@@ -1319,15 +1288,12 @@
             `).join('');
         }
 
-        // ลบการ์ดวิชาทั้งหมดที่อยู่ในกลุ่มเดียวกัน
         function removeAllSubjectCards(name, className) {
             state.subjects = state.subjects.filter(s => !(s.name === name && s.className === className));
             renderSubjectCards();
         }
 
-        function allowDrop(ev) {
-            ev.preventDefault();
-        }
+        function allowDrop(ev) { ev.preventDefault(); }
 
         function dropToSidebar(ev) {
             ev.preventDefault();
@@ -1336,16 +1302,14 @@
             let data;
             try { data = JSON.parse(dataStr); } catch(e) { return; }
 
-            // หากข้อมูลถูกลากมาจากตารางสอน (table) ให้ถอดออกจากตาราง (ทำงานเหมือนการกดปุ่ม X)
             if (data.source === 'table') {
-                removeScheduleItem(data.sourceDay, data.sourceSubjectPeriod);
+                removeScheduleItem(data.sourceDay, data.sourceSubject, data.sourcePeriod);
             }
         }
 
         function cancelScheduleChanges() {
             cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุดที่ดึงมาจากระบบ', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
                 if (result.isConfirmed) {
-                    // โหลดข้อมูลจากที่สำรองไว้กลับมาใช้งาน
                     state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
                     renderSubjectCards();
@@ -1358,12 +1322,13 @@
             ev.dataTransfer.setData("text/plain", JSON.stringify({ source: 'sidebar', name: subjectName, class: className, id: id }));
         }
 
-        function dragFromTable(ev, sourceDay, sourceSubjectPeriod, subjectName, className) {
+        function dragFromTable(ev, sourceDay, sourceSubject, sourcePeriod, className) {
             ev.dataTransfer.setData("text/plain", JSON.stringify({ 
                 source: 'table', 
                 sourceDay: sourceDay, 
-                sourceSubjectPeriod: sourceSubjectPeriod, 
-                name: subjectName, 
+                sourceSubject: sourceSubject, 
+                sourcePeriod: sourcePeriod,
+                name: sourceSubject, 
                 class: className 
             }));
         }
@@ -1385,49 +1350,37 @@
             if(targetPeriodIndex < 1 || targetPeriodIndex > nonBreakPeriods.length) return;
 
             const periodName = nonBreakPeriods[targetPeriodIndex-1].name;
-            const targetSubjectPeriodString = `${subjectName} ${periodName}`;
+            const targetPeriodString = periodName;
 
-            const existingTargetIndex = state.schedule.findIndex(s => s.day === targetDay && s.subjectPeriod.includes(periodName));
+            const existingTargetIndex = state.schedule.findIndex(s => s.day === targetDay && s.period === targetPeriodString);
 
             if (data.source === 'sidebar') {
                 if(existingTargetIndex >= 0) {
                     const oldItem = state.schedule[existingTargetIndex];
-                    let cleanOldSubj = oldItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                    if(!cleanOldSubj) cleanOldSubj = oldItem.subjectPeriod;
-                    state.subjects.push({ id: Date.now() + Math.random(), name: cleanOldSubj, className: oldItem.className });
-                    
-                    state.schedule[existingTargetIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
+                    state.subjects.push({ id: Date.now() + Math.random(), name: oldItem.subject, className: oldItem.className });
+                    state.schedule[existingTargetIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 } else {
-                    state.schedule.push({ day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className });
+                    state.schedule.push({ day: targetDay, subject: subjectName, period: targetPeriodString, className: className });
                 }
 
-                if (data.id) {
-                    state.subjects = state.subjects.filter(s => String(s.id) !== String(data.id));
-                }
+                if (data.id) state.subjects = state.subjects.filter(s => String(s.id) !== String(data.id));
             } 
             else if (data.source === 'table') {
                 const sourceDay = data.sourceDay;
-                const sourceSubjectPeriod = data.sourceSubjectPeriod;
+                const sourceSubject = data.sourceSubject;
+                const sourcePeriod = data.sourcePeriod;
                 
-                if (sourceDay === targetDay && sourceSubjectPeriod.includes(periodName)) return;
+                if (sourceDay === targetDay && sourcePeriod === targetPeriodString) return;
 
-                const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subjectPeriod === sourceSubjectPeriod);
+                const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subject === sourceSubject && s.period === sourcePeriod);
                 if (sourceIndex < 0) return;
 
                 if (existingTargetIndex >= 0) {
                     const oldTargetItem = state.schedule[existingTargetIndex];
-                    
-                    state.schedule[sourceIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
-                    
-                    let cleanOldTargetSubj = oldTargetItem.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                    if(!cleanOldTargetSubj) cleanOldTargetSubj = oldTargetItem.subjectPeriod;
-                    
-                    const sourcePeriodMatch = sourceSubjectPeriod.match(/คาบ.*?\d+/i);
-                    const sourcePeriodName = sourcePeriodMatch ? sourcePeriodMatch[0] : '';
-                    
-                    state.schedule[existingTargetIndex] = { day: sourceDay, subjectPeriod: `${cleanOldTargetSubj} ${sourcePeriodName}`.trim(), className: oldTargetItem.className };
+                    state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
+                    state.schedule[existingTargetIndex] = { day: sourceDay, subject: oldTargetItem.subject, period: sourcePeriod, className: oldTargetItem.className };
                 } else {
-                    state.schedule[sourceIndex] = { day: targetDay, subjectPeriod: targetSubjectPeriodString, className: className };
+                    state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 }
             }
 
@@ -1440,9 +1393,7 @@
             cuteAlert.confirm('ล้างตารางทั้งหมด?', 'คุณแน่ใจหรือไม่ที่จะล้างตารางสอนทั้งหมด', 'ใช่, ล้างเลย! 🗑️', '#ef4444').then((result) => {
                 if (result.isConfirmed) {
                     state.schedule.forEach(item => {
-                        let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                        if(!cleanSubj) cleanSubj = item.subjectPeriod;
-                        state.subjects.push({ id: Date.now() + Math.random(), name: cleanSubj, className: item.className });
+                        state.subjects.push({ id: Date.now() + Math.random(), name: item.subject, className: item.className });
                     });
 
                     state.schedule = [];
@@ -1452,15 +1403,13 @@
             });
         }
 
-        function removeScheduleItem(day, subjectPeriod) {
-            const item = state.schedule.find(s => s.day === day && s.subjectPeriod === subjectPeriod);
+        function removeScheduleItem(day, subject, period) {
+            const item = state.schedule.find(s => s.day === day && s.subject === subject && s.period === period);
             if (item) {
-                let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                if(!cleanSubj) cleanSubj = item.subjectPeriod;
-                state.subjects.push({ id: Date.now() + Math.random(), name: cleanSubj, className: item.className });
+                state.subjects.push({ id: Date.now() + Math.random(), name: item.subject, className: item.className });
             }
 
-            state.schedule = state.schedule.filter(s => !(s.day === day && s.subjectPeriod === subjectPeriod));
+            state.schedule = state.schedule.filter(s => !(s.day === day && s.subject === subject && s.period === period));
             renderSubjectCards();
             renderVisualTimetable();
         }
@@ -1475,7 +1424,7 @@
             days.forEach(d => grid[d] = Array(nonBreakPeriods.length).fill(null));
 
             state.schedule.forEach(s => {
-                const match = s.subjectPeriod.match(/คาบ.*?(\d+)/i);
+                const match = s.period.match(/คาบ.*?(\d+)/i);
                 if (match) {
                     let periodNum = parseInt(match[1]);
                     let gridIdx = nonBreakPeriods.findIndex(p => p.name.includes(periodNum)); 
@@ -1485,7 +1434,7 @@
                         grid[s.day][gridIdx] = s;
                     }
                 } else {
-                     const pIndex = nonBreakPeriods.findIndex(p => s.subjectPeriod.includes(p.name));
+                     const pIndex = nonBreakPeriods.findIndex(p => s.period.includes(p.name));
                      if(pIndex !== -1 && grid[s.day]) {
                          grid[s.day][pIndex] = s;
                      } else if (grid[s.day]) {
@@ -1544,9 +1493,6 @@
                         let dropZoneAttr = `ondragover="allowDrop(event)" ondrop="drop(event, '${day}', ${nonBreakCounter})"`;
 
                         if (item) {
-                            let cleanSubj = item.subjectPeriod.replace(/คาบ.*?\d+/gi, '').trim();
-                            if(!cleanSubj) cleanSubj = item.subjectPeriod;
-                            
                             let classPill = '';
                             if (item.className !== '-') {
                                 classPill = `<div class="text-[11px] font-medium text-white bg-school-blue rounded px-2 py-0.5 mt-1 inline-block shadow-sm">${item.className}</div>`;
@@ -1554,12 +1500,12 @@
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
 
-                            let dragAttr = `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subjectPeriod}', '${cleanSubj}', '${item.className}')"`;
+                            let dragAttr = `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"`;
 
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${conf.hov} transition text-center align-middle relative group cursor-grab active:cursor-grabbing" style="height: ${config.rowHeight}px; overflow: hidden;">
-                                <button onclick="removeScheduleItem('${day}', '${item.subjectPeriod}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>
+                                <button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>
                                 <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
-                                    <div class="font-bold text-gray-800 text-sm leading-tight">${cleanSubj}</div>
+                                    <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
                                     ${classPill}
                                 </div>
                             </td>`;
@@ -1592,7 +1538,7 @@
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') {
-                    state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); // อัปเดตข้อมูลสำรองหลังบันทึก
+                    state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
@@ -1604,17 +1550,13 @@
 
         function openTimetableSettingsModal() {
             if(!checkAdminPermission()) return;
-            
             document.getElementById('stgColWidth').value = state.timetableConfig.colWidth;
             document.getElementById('stgRowHeight').value = state.timetableConfig.rowHeight;
             renderTimetablePeriods();
-            
             document.getElementById('timetableSettingsModal').classList.add('active');
         }
 
-        function closeTimetableSettingsModal() {
-            document.getElementById('timetableSettingsModal').classList.remove('active');
-        }
+        function closeTimetableSettingsModal() { document.getElementById('timetableSettingsModal').classList.remove('active'); }
 
         function renderTimetablePeriods() {
             const tbody = document.getElementById('stgPeriodsBody');
@@ -1622,27 +1564,21 @@
                 const isBreakChecked = p.isBreak ? 'checked' : '';
                 const displayCustomWidth = p.isBreak ? 'block' : 'none';
                 const customWVal = p.customWidth || '';
-                
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100">
                     <td class="px-2 py-2 text-center font-bold">${idx+1}</td>
                     <td class="px-2 py-2"><input type="text" value="${p.name}" onchange="updatePeriod(${idx}, 'name', this.value)" class="w-full border border-gray-300 rounded p-1 text-sm outline-none focus:border-school-blue"></td>
                     <td class="px-2 py-2"><input type="text" value="${p.time}" onchange="updatePeriod(${idx}, 'time', this.value)" class="w-full border border-gray-300 rounded p-1 text-sm outline-none focus:border-school-blue"></td>
                     <td class="px-2 py-2 text-center"><input type="checkbox" ${isBreakChecked} onchange="updatePeriod(${idx}, 'isBreak', this.checked); renderTimetablePeriods();" class="w-4 h-4 text-school-blue rounded focus:ring-school-blue"></td>
-                    <td class="px-2 py-2">
-                        <input type="number" id="customW_${idx}" value="${customWVal}" onchange="updatePeriod(${idx}, 'customWidth', this.value)" placeholder="กว้าง" class="w-full border border-gray-300 rounded p-1 text-sm outline-none focus:border-school-blue" style="display: ${displayCustomWidth}">
-                    </td>
+                    <td class="px-2 py-2"><input type="number" id="customW_${idx}" value="${customWVal}" onchange="updatePeriod(${idx}, 'customWidth', this.value)" placeholder="กว้าง" class="w-full border border-gray-300 rounded p-1 text-sm outline-none focus:border-school-blue" style="display: ${displayCustomWidth}"></td>
                     <td class="px-2 py-2 text-center"><button onclick="removeTimetablePeriod(${idx})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-6 h-6 rounded shadow-sm flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
-                </tr>
-            `}).join('');
+                </tr>`
+            }).join('');
         }
 
         function updatePeriod(idx, key, value) {
-            if (key === 'customWidth') {
-                state.timetableConfig.periods[idx][key] = value ? parseInt(value) : null;
-            } else {
-                state.timetableConfig.periods[idx][key] = value;
-            }
+            if (key === 'customWidth') state.timetableConfig.periods[idx][key] = value ? parseInt(value) : null;
+            else state.timetableConfig.periods[idx][key] = value;
         }
 
         function addTimetablePeriod() {
@@ -1658,94 +1594,68 @@
         async function saveTimetableSettings() {
             const w = parseInt(document.getElementById('stgColWidth').value) || 112;
             const h = parseInt(document.getElementById('stgRowHeight').value) || 64;
-            
             state.timetableConfig.colWidth = w;
             state.timetableConfig.rowHeight = h;
-            
             cuteAlert.loading('กำลังบันทึกการตั้งค่าตาราง ⏳');
             const form = new FormData();
-            form.append('term', state.selectedTerm);
-            form.append('config', JSON.stringify(state.timetableConfig));
-
+            form.append('term', state.selectedTerm); form.append('config', JSON.stringify(state.timetableConfig));
             try {
                 const res = await fetch(`${API_URL}?action=saveTimetableSettings`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') {
-                    closeTimetableSettingsModal();
-                    renderVisualTimetable(); 
-                    cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าเรียบร้อยแล้ว');
-                } else cuteAlert.error('ผิดพลาด', json.message);
+                if (json.status === 'success') { closeTimetableSettingsModal(); renderVisualTimetable(); cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าเรียบร้อยแล้ว'); } 
+                else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
 
         async function loadAttendanceOverview() {
             if(!state.overviewDate || !state.selectedTerm) return;
-
             const targetDate = new Date(state.overviewDate);
             const dayOfWeek = DAY_NAMES[targetDate.getDay()];
-            
             const displayDateStr = `${targetDate.getDate()} ${THAI_MONTHS[targetDate.getMonth()]} ${targetDate.getFullYear() + 543}`;
             document.getElementById('overviewDateDisplay').innerText = displayDateStr;
 
             const tbody = document.getElementById('overviewTableBody');
             tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
-            
             try {
                 const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
-                
-                if (json.status === 'success') {
-                    renderOverviewTable(json.data, state.overviewDate);
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
-                }
-            } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
-            }
+                if (json.status === 'success') renderOverviewTable(json.data, state.overviewDate);
+                else tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
+            } catch (error) { tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`; }
         }
 
         function renderOverviewTable(scheduleData, dateStr) {
             const tbody = document.getElementById('overviewTableBody');
-            
             if (!scheduleData || scheduleData.length === 0) {
-                document.getElementById('ovTotal').innerText = '0';
-                document.getElementById('ovChecked').innerText = '0';
-                document.getElementById('ovMissing').innerText = '0';
+                document.getElementById('ovTotal').innerText = '0'; document.getElementById('ovChecked').innerText = '0'; document.getElementById('ovMissing').innerText = '0';
                 tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500 bg-gray-50 rounded-b-xl"><div class="text-4xl mb-3">🏖️</div>คุณไม่มีตารางสอนในวันนี้</td></tr>`;
                 return;
             }
 
             scheduleData.sort((a, b) => {
-                const matchA = a.subjectPeriod.match(/คาบ\s*(\d+)/);
-                const matchB = b.subjectPeriod.match(/คาบ\s*(\d+)/);
-                const periodA = matchA ? parseInt(matchA[1], 10) : 999;
-                const periodB = matchB ? parseInt(matchB[1], 10) : 999;
+                const matchA = a.period.match(/คาบ\s*(\d+)/); const matchB = b.period.match(/คาบ\s*(\d+)/);
+                const periodA = matchA ? parseInt(matchA[1], 10) : 999; const periodB = matchB ? parseInt(matchB[1], 10) : 999;
                 return periodA - periodB;
             });
 
-            let checkedCount = 0;
-            let missingCount = 0;
-            let html = '';
-
+            let checkedCount = 0; let missingCount = 0; let html = '';
             scheduleData.forEach(item => {
                 const isActivity = item.className === '-';
-                if (item.isChecked) checkedCount++;
-                else missingCount++;
+                if (item.isChecked) checkedCount++; else missingCount++;
 
                 const statusBadge = item.isChecked 
-                    ? `<span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-1 w-max mx-auto"><i class="fas fa-check-circle"></i> เช็คแล้ว</span>
-                       <div class="text-[10px] text-gray-400 mt-1">${item.checkTime || ''}</div>`
+                    ? `<span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-1 w-max mx-auto"><i class="fas fa-check-circle"></i> เช็คแล้ว</span><div class="text-[10px] text-gray-400 mt-1">${item.checkTime || ''}</div>`
                     : `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm flex items-center justify-center gap-1 w-max mx-auto animate-pulse"><i class="fas fa-exclamation-circle"></i> ยังไม่เช็ค</span>`;
 
                 const actionBtn = isActivity 
                     ? `<span class="text-gray-400 text-xs">คาบกิจกรรม</span>`
                     : (item.isChecked 
-                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subjectPeriod}', '${item.className}')" class="text-school-navy bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-xs font-bold transition shadow-sm w-full"><i class="fas fa-eye"></i> ดูข้อมูล</button>` 
-                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subjectPeriod}', '${item.className}')" class="text-white bg-school-blue hover:bg-[#345ba8] px-3 py-1.5 rounded text-xs font-bold transition shadow-sm w-full transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
+                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="text-school-navy bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-xs font-bold transition shadow-sm w-full"><i class="fas fa-eye"></i> ดูข้อมูล</button>` 
+                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="text-white bg-school-blue hover:bg-[#345ba8] px-3 py-1.5 rounded text-xs font-bold transition shadow-sm w-full transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
 
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                    <td class="px-4 py-4 text-school-navy font-bold">${item.subjectPeriod}</td>
+                    <td class="px-4 py-4 text-school-navy font-bold">${item.subject} <span class="text-sm font-normal text-gray-500">${item.period}</span></td>
                     <td class="px-4 py-4 text-gray-700">${isActivity ? 'กิจกรรม' : `ห้อง ${item.className}`}</td>
                     <td class="px-4 py-4 text-center">${statusBadge}</td>
                     <td class="px-4 py-4 text-center">${actionBtn}</td>
@@ -1758,65 +1668,51 @@
             tbody.innerHTML = html;
         }
 
-        function jumpToCheckAttendance(dateStr, subjectPeriod, className) {
+        function jumpToCheckAttendance(dateStr, subject, period, className) {
             fpMain.setDate(dateStr, true); 
             switchTab('attendance');
-            
             setTimeout(() => {
                 const attSel = document.getElementById('attSubjectSelector');
-                if (attSel) { 
-                    attSel.value = subjectPeriod; 
-                    onSubjectSelect('att'); 
-                }
+                if (attSel) { attSel.value = `${subject}|${period}`; onSubjectSelect('att'); }
             }, 300);
         }
 
         async function loadStudents() {
-            if (!state.currentClass || !state.currentSubjectPeriod || state.currentClass === '-' || !state.selectedTerm) return;
-
+            if (!state.currentClass || !state.currentSubject || !state.currentPeriod || state.currentClass === '-' || !state.selectedTerm) return;
             cuteAlert.loading(`โหลดรายชื่อนักเรียนห้อง ${state.currentClass} 🚀`);
             try {
                 const res = await fetch(`${API_URL}?action=getStudents&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&_t=${new Date().getTime()}`);
                 const json = await res.json();
-
                 if (json.status === 'success') {
                     if (json.data.length > 1) {
-                        state.headers = json.data[0];
-                        state.students = json.data.slice(1);
+                        state.headers = json.data[0]; state.students = json.data.slice(1);
                         document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
-                        await fetchAttendanceHistory(); 
-                        Swal.close();
+                        await fetchAttendanceHistory(); Swal.close();
                     } else {
                         document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-orange-500"><i class="fas fa-folder-open text-2xl mb-2"></i><br>พบชีตห้องเรียน แต่ยังไม่มีข้อมูลนักเรียน</td></tr>`;
-                        document.getElementById('studentCountBadge').innerText = '0 คน';
-                        Swal.close();
+                        document.getElementById('studentCountBadge').innerText = '0 คน'; Swal.close();
                     }
                 } else {
                     document.getElementById('studentListContainer').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>${json.message}</td></tr>`;
-                    document.getElementById('studentCountBadge').innerText = '0 คน';
-                    Swal.close();
+                    document.getElementById('studentCountBadge').innerText = '0 คน'; Swal.close();
                 }
             } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
         }
 
         async function fetchAttendanceHistory() {
-            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) return;
+            if(!state.currentClass || !state.currentDate || !state.currentSubject || !state.currentPeriod || !state.selectedTerm) return;
             try {
-                const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subjectPeriod=${encodeURIComponent(state.currentSubjectPeriod)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subject=${encodeURIComponent(state.currentSubject)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
 
                 if (json.status === 'success' && json.data && json.data.length > 0) {
                     const targetDateStr = state.currentDate;
-                    
-                    // ==========================================
-                    // กรองข้อมูลประวัติเช็คชื่อให้ตรงกับวันที่ และ ชื่อวิชา+คาบ (ป้องการการดึงข้ามคาบ)
-                    // ==========================================
-                    const targetSubjectPeriod = state.currentSubjectPeriod;
+                    const targetPeriod = state.currentPeriod;
                     
                     const filteredRecords = json.data.filter(r => {
-                        if (!r.date || r.subjectPeriod !== targetSubjectPeriod) return false;
+                        if (!r.date || r.period !== targetPeriod) return false;
                         try {
                             const d = new Date(r.date);
                             if (isNaN(d.getTime())) return String(r.date).trim() === targetDateStr;
@@ -1837,10 +1733,8 @@
         }
 
         function getStudentUniqueId(row) { 
-            const id = String(row[1] || '').trim(); 
-            if (id) return id;
-            const name = String(row[2] || '').trim();
-            const surname = String(row[3] || '').trim();
+            const id = String(row[1] || '').trim(); if (id) return id;
+            const name = String(row[2] || '').trim(); const surname = String(row[3] || '').trim();
             return `${name} ${surname}`;
         }
 
@@ -1850,13 +1744,11 @@
 
             let html = '';
             state.students.forEach((row, index) => {
-                const number = row[0] || '-';
-                const code = row[1] || '';
+                const number = row[0] || '-'; const code = row[1] || '';
                 const nameParts = row.slice(2).filter(Boolean); 
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                 const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
-                const att = state.attendance[index];
-                const s = att.status;
+                const att = state.attendance[index]; const s = att.status;
                 const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
                 const hasNote = noteStr.trim() !== '';
                 const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
@@ -1903,12 +1795,10 @@
         }
 
         async function saveAttendance() {
-            if(!state.currentClass || !state.currentDate || !state.currentSubjectPeriod || !state.selectedTerm) {
+            if(!state.currentClass || !state.currentDate || !state.currentSubject || !state.currentPeriod || !state.selectedTerm) {
                 cuteAlert.warning('แจ้งเตือน', 'กรุณาเลือกวิชาและคาบเรียนให้ครบถ้วนก่อนบันทึก'); return;
             }
-            if(state.currentClass === '-') {
-                cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ'); return;
-            }
+            if(state.currentClass === '-') { cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ'); return; }
 
             const unchecked = state.attendance.filter(a => a.status === null).length;
             if(unchecked > 0) {
@@ -1920,24 +1810,17 @@
             form.append('term', state.selectedTerm);
             form.append('className', state.currentClass.trim());
             form.append('date', state.currentDate);
-            form.append('subjectPeriod', state.currentSubjectPeriod); 
+            form.append('subject', state.currentSubject); 
+            form.append('period', state.currentPeriod); 
             form.append('records', JSON.stringify(state.attendance));
             form.append('recordedBy', state.user.name); 
 
-            // ==========================================
-            // ระบบ Auto-Retry ต่อคิวใหม่อัตโนมัติ 1 ครั้ง
-            // ==========================================
-            let retryCount = 0;
-            const maxRetries = 1; // จำนวนครั้งที่จะให้ลองใหม่
-            let isSuccess = false;
-
+            let retryCount = 0; const maxRetries = 1; let isSuccess = false;
             cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
 
             while (retryCount <= maxRetries && !isSuccess) {
                 if (retryCount > 0) {
-                    // อัปเดตหน้าจอโหลดให้รู้ว่ากำลังต่อคิวใหม่
                     cuteAlert.loading(`ระบบคิวล้น กำลังต่อคิวใหม่อัตโนมัติรอบที่ ${retryCount}... ⏳`);
-                    // หน่วงเวลา 3 วินาทีก่อนยิง Request ใหม่
                     await new Promise(resolve => setTimeout(resolve, 3000));
                 }
 
@@ -1946,47 +1829,32 @@
                     const json = await res.json();
                     
                     if (json.status === 'success') {
-                        isSuccess = true; // ทำงานสำเร็จ ออกจากลูป
-                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
-                        if (state.overviewDate === state.currentDate) {
-                            loadAttendanceOverview();
-                        }
-                    }
-                    else {
-                        // เช็คว่า Error เกิดจากคิวล้นหรือไม่ (ดักจับคำว่า "คิวหนาแน่น" หรือ "ไม่ว่าง")
+                        isSuccess = true; cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
+                        if (state.overviewDate === state.currentDate) loadAttendanceOverview();
+                    } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
-                                // ถ้าลองครบโควต้าแล้วยังล้นอยู่ ค่อยแจ้ง Error ให้ User ทราบ
                                 cuteAlert.error('ระบบคิวหนาแน่น', 'พยายามต่อคิวอัตโนมัติแล้วแต่คิวยังเต็มอยู่ กรุณากดปุ่ม "บันทึกข้อมูล" ใหม่อีกครั้งครับ');
                                 break;
                             }
-                            retryCount++; // เพิ่มรอบการทำงานแล้ววนลูปใหม่
-                        } else {
-                            // ถ้าเป็น Error ทั่วไป (เช่น หาชีตไม่เจอ) ให้แจ้งทันที ไม่ต้อง Retry
-                            cuteAlert.error('ข้อผิดพลาด', json.message);
-                            break;
-                        }
+                            retryCount++;
+                        } else { cuteAlert.error('ข้อผิดพลาด', json.message); break; }
                     }
-                } catch(e) { 
-                    cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว กรุณาตรวจสอบอินเทอร์เน็ต'); 
-                    break;
-                }
+                } catch(e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว กรุณาตรวจสอบอินเทอร์เน็ต'); break; }
             }
         }
 
         function goToEditTime() {
             const dateStr = document.getElementById('manageTimeDate').value;
             const subjSel = document.getElementById('manageTimeSubject');
-            const subj = subjSel.value;
-            const cls = subjSel.options[subjSel.selectedIndex]?.getAttribute('data-class');
-            
-            if(!dateStr || !subj || !cls) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกวันที่ และ วิชา/คาบเรียน'); return; }
+            const optVal = subjSel.value;
+            if(!dateStr || !optVal) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกวันที่ และ วิชา/คาบเรียน'); return; }
 
             fpMain.setDate(dateStr, true); 
             switchTab('attendance');
             setTimeout(() => {
                 const attSel = document.getElementById('attSubjectSelector');
-                if (attSel) { attSel.value = subj; onSubjectSelect('att'); }
+                if (attSel) { attSel.value = optVal; onSubjectSelect('att'); }
             }, 300);
         }
 
@@ -2000,9 +1868,7 @@
                         <div class="bg-yellow-50 text-gray-800 p-3 rounded-lg border border-yellow-200 shadow-inner whitespace-pre-wrap">${note}</div>
                     </div>
                 `,
-                confirmButtonText: 'ปิด',
-                confirmButtonColor: '#1a3a6e',
-                heightAuto: false, scrollbarPadding: false,
+                confirmButtonText: 'ปิด', confirmButtonColor: '#1a3a6e', heightAuto: false, scrollbarPadding: false,
                 customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 max-w-sm font-sans' }
             });
         }
@@ -2019,56 +1885,43 @@
                 let rawStudents = [];
                 if(stuJson.status === 'success' && stuJson.data.length > 1) {
                     rawStudents = stuJson.data.slice(1);
-                } else if(stuJson.status !== 'success') {
-                    cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return;
-                }
+                } else if(stuJson.status !== 'success') { cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return; }
 
-                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 let json = await res.json();
                 let reportData = (json.status === 'success') ? json.data : [];
 
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
-                     resetReportButtons();
-                     Swal.close(); return;
+                     resetReportButtons(); Swal.close(); return;
                 }
 
-                // ==========================================
-                // สร้าง Session เพื่อรองรับการสอนมากกว่า 1 คาบ ในวันเดียวกัน
-                // ==========================================
                 let sessions = [];
                 const studentAttendanceMap = {};
                 
                 reportData.forEach(r => {
-                    // ใช้ Date ร่วมกับ SubjectPeriod (คาบ) เพื่อแยกว่าเป็นคอลัมน์ไหน
-                    let sessionKey = `${r.date}||${r.subjectPeriod}`;
+                    let sessionKey = `${r.date}||${r.period}`;
                     if (!sessions.find(s => s.key === sessionKey)) {
-                        sessions.push({ key: sessionKey, date: r.date, subjectPeriod: r.subjectPeriod });
+                        sessions.push({ key: sessionKey, date: r.date, period: r.period });
                     }
                     
                     let historyId = String(r.id);
                     if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
                     if(!studentAttendanceMap[historyId]) studentAttendanceMap[historyId] = {};
                     
-                    // บันทึกสถานะโดยระบุคาบเรียนที่ชัดเจน
                     studentAttendanceMap[historyId][sessionKey] = { status: r.status, note: r.note };
                 });
 
-                // เรียงลำดับ sessions ตามวันที่ และตามคาบเรียน
                 sessions.sort((a, b) => {
                     let dateDiff = new Date(a.date) - new Date(b.date);
                     if (dateDiff !== 0) return dateDiff;
                     
-                    // ถ้าวันเดียวกัน ให้เรียงตามหมายเลขคาบ
-                    let matchA = a.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let matchB = b.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let pA = matchA ? parseInt(matchA[1]) : 999;
-                    let pB = matchB ? parseInt(matchB[1]) : 999;
+                    let matchA = a.period.match(/คาบ\s*(\d+)/); let matchB = b.period.match(/คาบ\s*(\d+)/);
+                    let pA = matchA ? parseInt(matchA[1]) : 999; let pB = matchB ? parseInt(matchB[1]) : 999;
                     return pA - pB;
                 });
 
-                // ลบ late และ sick ออกจากการคำนวณสถิติ
                 let totalStats = { present: 0, leave: 0, absent: 0 };
                 let totalRecords = reportData.length; 
                 reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
@@ -2079,7 +1932,6 @@
                 document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
 
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-                // ปรับสัญลักษณ์ให้ตรงกับที่ต้องการ
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold' };
 
@@ -2088,17 +1940,13 @@
                     <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
                     <th class="border" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
                 
-                // สร้างส่วนหัวตารางของแต่ละวันที่ โดยระบุลำดับ (1), (2), (3) แทนการระบุคาบ
                 sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
-                    
                     let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
-                    
                     tableHtml += `<th class="border text-center min-w-[50px] leading-tight">${dateStr}${periodStr}</th>`;
                 });
                 
-                // ลบส่วนหัวของสายและป่วยออก
                 tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th></tr></thead><tbody>`;
 
                 rawStudents.forEach((stuRow, idx) => {
@@ -2107,7 +1955,6 @@
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
-                    // เก็บแค่ present, leave, absent
                     let rowStats = { present: 0, leave: 0, absent: 0 };
                     let rowCells = '';
 
@@ -2118,7 +1965,6 @@
                         const hasNote = noteStr.trim() !== '';
 
                         if(status && rowStats[status] !== undefined) rowStats[status]++;
-                        // หากสถานะเป็น sick หรือ late ให้แสดงเป็นขาดหรือให้ข้ามไป (ในที่นี้ข้ามไปแสดงเป็น - หากไม่มีในระบบใหม่)
                         const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
                         const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                         
@@ -2126,12 +1972,10 @@
                             const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
                             let dObj = new Date(s.date);
                             let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-                            // แก้ไขข้อความใน Note ไม่ให้แสดงคาบ
                             rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${sIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
                         } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
-                    // ลบคอลัมน์สายและป่วยออก
                     tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
                 });
 
@@ -2139,7 +1983,6 @@
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
 
-                // ปลดล็อคปุ่มหลังจากสร้างรายงานเสร็จ
                 const printBtn = document.getElementById('btnPrintBtn');
                 if(printBtn) {
                     printBtn.disabled = false;
@@ -2164,14 +2007,12 @@
             const subj = document.getElementById('reportSubjectSel').value;
             
             if (!cls || !subj || printContents.includes('ไม่พบข้อมูลการเช็คชื่อ')) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณากดดูสถิติและให้มีข้อมูลตารางก่อนทำการพิมพ์');
-                return;
+                cuteAlert.error('แจ้งเตือน', 'กรุณากดดูสถิติและให้มีข้อมูลตารางก่อนทำการพิมพ์'); return;
             }
 
             const printWindow = window.open('', 'PrintWindow', 'height=800,width=1200');
             printWindow.document.open();
             
-            // สร้างชื่อไฟล์ตามรูปแบบที่ต้องการ (แปลงเครื่องหมาย / เป็น - เพื่อป้องกัน Error ตอนระบบคอมพิวเตอร์เซฟไฟล์)
             const safeTermForPrint = term.replace(/\//g, '-');
             const safeClsForPrint = cls.replace(/\//g, '-');
             const printTitle = `รายงานบันทึกเวลาเรียน_${subj}_${safeClsForPrint}_${safeTermForPrint}`;
@@ -2179,7 +2020,6 @@
             printWindow.document.write(`<html><head><title>${printTitle}</title>`);
             printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">');
             printWindow.document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
-            
             printWindow.document.write(`
                 <style>
                     body { font-family: "Sarabun", sans-serif; background-color: white; } 
@@ -2191,15 +2031,10 @@
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     .bg-gray-50 { background-color: #f8fafc !important; }
                     .fa-comment-dots { display: none !important; }
-                    
-                    @media print { 
-                        @page { size: A4 landscape; margin: 0mm; } 
-                        body { margin: 5mm; padding: 0; }
-                    }
+                    @media print { @page { size: A4 landscape; margin: 0mm; } body { margin: 5mm; padding: 0; } }
                 </style>
             `);
             printWindow.document.write('</head><body class="p-4 sm:p-8">');
-            
             printWindow.document.write(`
                 <div class="mb-6 text-center">
                     <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
@@ -2207,15 +2042,11 @@
                     <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
                 </div>
             `);
-            
             printWindow.document.write(printContents);
             printWindow.document.write('</body></html>');
             printWindow.document.close();
             
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 1000);
+            setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1000);
         }
 
         async function downloadExcel() {
@@ -2230,7 +2061,7 @@
                 if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) { cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน'); return; }
                 const rawStudents = stuJson.data.slice(1);
 
-                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subjectPeriod=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 let attJson = await attRes.json();
                 let reportData = attJson.data || [];
 
@@ -2239,9 +2070,9 @@
                 
                 reportData.forEach(r => {
                     const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
-                    let sessionKey = `${dateKey}||${r.subjectPeriod}`;
+                    let sessionKey = `${dateKey}||${r.period}`;
                     if (!sessions.find(s => s.key === sessionKey)) {
-                        sessions.push({ key: sessionKey, date: dateKey, subjectPeriod: r.subjectPeriod });
+                        sessions.push({ key: sessionKey, date: dateKey, period: r.period });
                     }
                     
                     let historyId = String(r.id);
@@ -2255,16 +2086,13 @@
                     let dateDiff = new Date(a.date) - new Date(b.date);
                     if (dateDiff !== 0) return dateDiff;
                     
-                    let matchA = a.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let matchB = b.subjectPeriod.match(/คาบ\s*(\d+)/);
-                    let pA = matchA ? parseInt(matchA[1]) : 999;
-                    let pB = matchB ? parseInt(matchB[1]) : 999;
+                    let matchA = a.period.match(/คาบ\s*(\d+)/); let matchB = b.period.match(/คาบ\s*(\d+)/);
+                    let pA = matchA ? parseInt(matchA[1]) : 999; let pB = matchB ? parseInt(matchB[1]) : 999;
                     return pA - pB;
                 });
 
                 if(sessions.length === 0) { cuteAlert.error('แจ้งเตือน', 'ไม่พบประวัติการเช็คชื่อสำหรับวิชานี้'); return; }
 
-                // ลบ sick และ late ออกจากสัญลักษณ์ที่ใช้ประมวลผลให้ Excel
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 
@@ -2275,7 +2103,6 @@
                 excelData.push(["ครูผู้สอน:", state.user.name]); 
                 excelData.push([]); 
                 
-                // ปรับ Header ใหม่
                 let headerRow1 = ["ลำดับ", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "เดือน"];
                 let headerRow2 = ["", "", "", "", `${sessions.length} ชม.`, "", "", "", "วันที่"];
                 let headerRow3 = ["", "", "", "", "มาเรียน", "ลา", "ขาด", "ร้อยละ", "ชั่วโมงที่"];
@@ -2283,31 +2110,23 @@
                 sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = "";
-                    if(isNaN(dObj.getTime())) { 
-                        dateStr = s.date;
-                    } else {
-                        dateStr = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`;
-                    }
+                    if(isNaN(dObj.getTime())) { dateStr = s.date; } 
+                    else { dateStr = `${dObj.getDate()}${THAI_MONTHS_SHORT[dObj.getMonth()]}${(dObj.getFullYear()+543).toString().slice(-2)}`; }
                     
-                    // เปลี่ยนเป็นเลขลำดับ (1), (2)
                     let pStr = `(${sIndex + 1})`;
                     
-                    headerRow1.push(`${dateStr}\n${pStr}`);
-                    headerRow2.push(""); 
-                    headerRow3.push("");
+                    headerRow1.push(`${dateStr}\n${pStr}`); headerRow2.push(""); headerRow3.push("");
                 });
                 headerRow1.push("หมายเหตุ"); headerRow2.push(""); headerRow3.push("");
 
                 excelData.push(headerRow1); excelData.push(headerRow2); excelData.push(headerRow3); 
 
                 rawStudents.forEach(stuRow => {
-                    const number = stuRow[0] || '-';
-                    const code = stuRow[1] || '-';
+                    const number = stuRow[0] || '-'; const code = stuRow[1] || '-';
                     const nameParts = stuRow.slice(2).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     const uniqueId = getStudentUniqueId(stuRow);
 
-                    // เก็บแค่ present, leave, absent
                     let stats = { present: 0, leave: 0, absent: 0 };
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
@@ -2315,7 +2134,6 @@
                     });
 
                     let percent = sessions.length > 0 ? Math.round((stats.present / sessions.length) * 100) : 0;
-                    // ปรับ rowData ออกให้ตรงกับคอลัมน์ที่แก้ไข
                     let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, `${percent}%`, ""];
 
                     sessions.forEach(s => {
@@ -2328,7 +2146,6 @@
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-                // ปรับ Merges ใหม่ให้ตรงกับคอลัมน์
                 const merges = [
                     { s: {r:5, c:0}, e: {r:7, c:0} }, { s: {r:5, c:1}, e: {r:7, c:1} }, 
                     { s: {r:5, c:2}, e: {r:7, c:3} }, { s: {r:5, c:5}, e: {r:5, c:7} }, 
@@ -2337,7 +2154,6 @@
                 for(let c = 9; c < 9 + sessions.length; c++) merges.push({ s: {r:5, c:c}, e: {r:7, c:c} });
                 ws['!merges'] = merges;
 
-                // ปรับความกว้างคอลัมน์
                 const wscols = [ {wch: 6}, {wch: 12}, {wch: 25}, {wch: 2}, {wch: 12}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10} ];
                 sessions.forEach(() => wscols.push({wch: 10})); wscols.push({wch: 15}); ws['!cols'] = wscols;
 
@@ -2351,19 +2167,16 @@
             } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้'); }
         }
 
+        // โค้ดส่วน Modals Manage Student เดิม
         function openManageStudentModal() { 
             document.getElementById('manageStudentModal').classList.add('active'); 
             const isAdmin = checkAdminPermission();
-            
             document.querySelectorAll('.admin-only, .admin-class-btn').forEach(el => el.style.display = isAdmin ? 'flex' : 'none');
-            
             if (state.currentClass && state.currentClass !== '-' && !document.getElementById('manageClassSelector').value) { 
-                document.getElementById('manageClassSelector').value = state.currentClass; 
-                loadManageStudents(); 
+                document.getElementById('manageClassSelector').value = state.currentClass; loadManageStudents(); 
             } 
             document.body.style.overflow = 'hidden'; 
         }
-
         function closeManageStudentModal() { document.getElementById('manageStudentModal').classList.remove('active'); document.body.style.overflow = ''; }
         function closeEditStudentForm() { document.getElementById('studentFormModal').classList.remove('active'); }
 
@@ -2378,12 +2191,9 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     if (json.data.length > 0) {
-                        state.headers = json.data[0]; 
-                        state.manageData = json.data.slice(1); 
-                        renderManageTable();
+                        state.headers = json.data[0]; state.manageData = json.data.slice(1); renderManageTable();
                     } else {
-                        state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; 
-                        state.manageData = [];
+                        state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; state.manageData = [];
                         tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-school-blue underline">เพิ่มคนแรกเลย</button></td></tr>`;
                     }
                 } else tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
@@ -2396,8 +2206,7 @@
             const isAdmin = checkAdminPermission(); 
 
             tbody.innerHTML = state.manageData.map((row, idx) => {
-                const no = row[0] || '-';
-                const stuId = row[1] || '-';
+                const no = row[0] || '-'; const stuId = row[1] || '-';
                 const nameParts = row.slice(2).filter(Boolean);
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                 
@@ -2460,8 +2269,7 @@
                     cuteAlert.loading('กำลังนำข้อมูลออก ⏳');
                     const className = document.getElementById('manageClassSelector').value;
                     const form = new FormData();
-                    form.append('term', state.selectedTerm);
-                    form.append('className', className.trim()); form.append('actionType', 'delete'); form.append('studentData', '[]'); form.append('rowIndex', rowIndex);
+                    form.append('term', state.selectedTerm); form.append('className', className.trim()); form.append('actionType', 'delete'); form.append('studentData', '[]'); form.append('rowIndex', rowIndex);
                     try {
                         const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -2486,9 +2294,7 @@
                     const newClass = result.value.trim();
                     cuteAlert.loading('กำลังสร้างห้องเรียนใหม่ ⏳');
                     const form = new FormData();
-                    form.append('term', state.selectedTerm);
-                    form.append('actionType', 'addClass');
-                    form.append('className', newClass);
+                    form.append('term', state.selectedTerm); form.append('actionType', 'addClass'); form.append('className', newClass);
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -2508,9 +2314,7 @@
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบห้องเรียน ⏳');
                     const form = new FormData();
-                    form.append('term', state.selectedTerm);
-                    form.append('actionType', 'deleteClass');
-                    form.append('className', className);
+                    form.append('term', state.selectedTerm); form.append('actionType', 'deleteClass'); form.append('className', className);
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
