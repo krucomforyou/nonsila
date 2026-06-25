@@ -1921,53 +1921,89 @@
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
                 const statusColor = { 'present': 'text-emerald-600 font-bold', 'absent': 'text-red-600 font-bold', 'leave': 'text-school-blue font-bold' };
 
-                let tableHtml = `<table class="report-table w-full text-sm text-left border-collapse min-w-max">
-                    <thead class="bg-gray-100 text-school-navy"><tr>
-                    <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
-                    <th class="border text-center" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
-                
-                sessions.forEach((s, sIndex) => {
-                    let dObj = new Date(s.date);
-                    // เปลี่ยนช่องว่างระหว่าง วัน และ เดือน ให้เป็น <br> เพื่อขึ้นบรรทัดใหม่
-                    let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
-                    let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
-                    tableHtml += `<th class="border text-center min-w-[40px] leading-none">${dateStr}${periodStr}</th>`;
-                });
-                
-                tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th></tr></thead><tbody>`;
+                // กำหนดจำนวนคาบสูงสุดต่อ 1 หน้า
+                const MAX_PERIODS_PER_PAGE = 20;
+                let chunks = [];
+                for (let i = 0; i < sessions.length; i += MAX_PERIODS_PER_PAGE) {
+                    chunks.push(sessions.slice(i, i + MAX_PERIODS_PER_PAGE));
+                }
 
-                rawStudents.forEach((stuRow, idx) => {
-                    const number = stuRow[0] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
-                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                    const uniqueId = getStudentUniqueId(stuRow);
+                let allTablesHtml = '';
 
-                    let rowStats = { present: 0, leave: 0, absent: 0 };
-                    let rowCells = '';
+                // ลูปสร้างตารางตามจำนวนชุดข้อมูลที่แบ่งไว้
+                chunks.forEach((chunk, chunkIndex) => {
+                    let isLastChunk = chunkIndex === chunks.length - 1;
+                    let pageBreakClass = !isLastChunk ? 'page-break-after' : '';
 
-                    sessions.forEach((s, sIndex) => {
-                        const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
-                        const status = record ? record.status : null;
-                        const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
-                        const hasNote = noteStr.trim() !== '';
+                    let tableHtml = `<div class="mb-8 ${pageBreakClass}">
+                        <table class="report-table w-full text-sm text-left border-collapse min-w-max mb-4">
+                        <thead class="bg-gray-100 text-school-navy"><tr>
+                        <th class="border text-center" style="width: 60px; min-width: 60px; max-width: 60px;">ลำดับ</th>
+                        <th class="border text-center" style="min-width: 180px;">ชื่อ - นามสกุล</th>`;
+                    
+                    // สร้างหัวคอลัมน์วันที่ เฉพาะในชุดข้อมูล (chunk) นี้
+                    chunk.forEach((s) => {
+                        let globalIndex = sessions.findIndex(gs => gs.key === s.key); // หาหมายเลขครั้งที่อ้างอิงจากทั้งหมด
+                        let dObj = new Date(s.date);
+                        let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                        let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${globalIndex + 1})</span>`;
+                        tableHtml += `<th class="border text-center min-w-[40px] leading-none">${dateStr}${periodStr}</th>`;
+                    });
+                    
+                    // เพิ่มคอลัมน์สรุปเฉพาะในตารางหน้าสุดท้าย
+                    if (isLastChunk) {
+                        tableHtml += `<th class="border text-center bg-gray-200">มา</th><th class="border text-center bg-gray-200">ลา</th><th class="border text-center bg-gray-200">ขาด</th>`;
+                    }
+                    tableHtml += `</tr></thead><tbody>`;
 
-                        if(status && rowStats[status] !== undefined) rowStats[status]++;
-                        const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
-                        const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
+                    rawStudents.forEach((stuRow, idx) => {
+                        const number = stuRow[0] || '-';
+                        const nameParts = stuRow.slice(2).filter(Boolean);
+                        const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                        const uniqueId = getStudentUniqueId(stuRow);
+
+                        // สรุปสถิติต้องคำนวณจากคาบทั้งหมด (sessions) ไม่ใช่แค่ใน chunk
+                        let totalStats = { present: 0, leave: 0, absent: 0 };
+                        sessions.forEach(s => {
+                            const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
+                            const status = record ? record.status : null;
+                            if(status && totalStats[status] !== undefined) totalStats[status]++;
+                        });
+
+                        let rowCells = '';
+                        chunk.forEach((s) => {
+                            let globalIndex = sessions.findIndex(gs => gs.key === s.key);
+                            const record = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
+                            const status = record ? record.status : null;
+                            const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
+                            const hasNote = noteStr.trim() !== '';
+
+                            const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
+                            const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
+                            
+                            if (hasNote) {
+                                const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
+                                let dObj = new Date(s.date);
+                                let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
+                                rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${globalIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 opacity-80"></i></td>`;
+                            } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                        });
+
+                        tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}`;
                         
-                        if (hasNote) {
-                            const jsSafeNote = noteStr.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
-                            let dObj = new Date(s.date);
-                            let displayDate = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()} ${THAI_MONTHS_SHORT[dObj.getMonth()]} ${dObj.getFullYear() + 543}`;
-                            rowCells += `<td class="border text-center relative ${colorClass} cursor-pointer bg-yellow-50 hover:bg-yellow-100 transition-colors" onclick="showReportNote('${fullName}', '${displayDate} (ครั้งที่ ${sIndex + 1})', '${jsSafeNote}')" title="แตะเพื่อดูหมายเหตุ">${symbol}<i class="fas fa-comment-dots text-[8px] text-orange-400 absolute top-1 right-1 opacity-80"></i></td>`;
-                        } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                        // ใส่ข้อมูลสรุปเฉพาะในตารางหน้าสุดท้าย
+                        if (isLastChunk) {
+                            tableHtml += `<td class="border text-center font-bold text-green-700 bg-gray-50">${totalStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${totalStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${totalStats.absent}</td>`;
+                        }
+                        
+                        tableHtml += `</tr>`;
                     });
 
-                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center font-bold text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
+                    tableHtml += '</tbody></table></div>';
+                    allTablesHtml += tableHtml;
                 });
 
-                tableHtml += '</tbody></table>';
-                document.getElementById('reportTableContainer').innerHTML = tableHtml;
+                document.getElementById('reportTableContainer').innerHTML = allTablesHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
 
                 const printBtn = document.getElementById('btnPrintBtn');
@@ -2018,7 +2054,11 @@
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     .bg-gray-50 { background-color: #f8fafc !important; }
                     .fa-comment-dots { display: none !important; }
-                    @media print { @page { size: A4 landscape; margin: 0mm; } body { margin: 5mm; padding: 0; } }
+                    @media print {
+                        @page { size: A4 landscape; margin: 0mm; } 
+                        body { margin: 5mm; padding: 0; }
+                        .page-break-after { page-break-after: always; break-after: page; }
+                    }
                 </style>
             `);
             printWindow.document.write('</head><body class="p-4 sm:p-8">');
