@@ -560,11 +560,11 @@
                             <div class="grid grid-cols-2 gap-3 mt-2">
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-700 mb-1">วันเปิดภาคเรียน</label>
-                                    <input type="date" id="blocks-settings-date" class="modern-input text-sm">
+                                    <input type="date" id="blocks-settings-date" class="modern-input text-sm" onchange="renderLockedWeeksList()">
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-medium text-zinc-700 mb-1">จำนวนสัปดาห์</label>
-                                    <input type="number" id="blocks-settings-total-weeks" class="modern-input text-sm" min="1" max="52">
+                                    <input type="number" id="blocks-settings-total-weeks" class="modern-input text-sm" min="1" max="52" oninput="renderLockedWeeksList()">
                                 </div>
                             </div>
                             
@@ -597,7 +597,7 @@
                             <div class="flex justify-between items-center border-b border-zinc-200 pb-2">
                                 <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-2"><i class="fa-solid fa-lock text-zinc-400"></i> 4. ล็อคสัปดาห์การส่งงาน</h4>
                                 <label class="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" id="blocks-settings-autolock" class="custom-checkbox w-3.5 h-3.5">
+                                    <input type="checkbox" id="blocks-settings-autolock" class="custom-checkbox w-3.5 h-3.5" onchange="renderLockedWeeksList()">
                                     <span class="text-[10px] font-medium text-zinc-700">ล็อคอัตโนมัติเมื่อหมดสัปดาห์</span>
                                 </label>
                             </div>
@@ -978,6 +978,7 @@
         }
 
         // ฟังชันแสดงรายการล็อคสัปดาห์
+        // ฟังชันแสดงรายการล็อคสัปดาห์
         function renderLockedWeeksList() {
             const container = document.getElementById('blocks-settings-lock-list');
             if(!container) return;
@@ -986,10 +987,46 @@
             const twInput = document.getElementById('blocks-settings-total-weeks');
             const wks = twInput ? parseInt(twInput.value) || 20 : 20;
             const maxUIWeeks = currentTempShiftedDocs.length > 0 ? wks + 1 : wks;
+
+            const autoLockCheckbox = document.getElementById('blocks-settings-autolock');
+            const isAutoLockOn = autoLockCheckbox ? autoLockCheckbox.checked : false;
+
+            // คำนวณสัปดาห์ปัจจุบันจากช่อง "วันเปิดภาคเรียน" แบบเรียลไทม์
+            let currentPreviewWeek = 1;
+            const dateInput = document.getElementById('blocks-settings-date');
+            if (dateInput && dateInput.value) {
+                const start = new Date(dateInput.value); start.setHours(0,0,0,0);
+                const now = new Date(); now.setHours(0,0,0,0);
+                if (now >= start) {
+                    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    currentPreviewWeek = Math.floor(diffDays / 7) + 1;
+                }
+            }
             
             for(let i=1; i<=maxUIWeeks; i++) {
-                const isLocked = currentTempLockedWeeks.includes(i.toString());
-                container.innerHTML += `<button type="button" onclick="toggleLockedWeek('${i}')" class="w-8 h-8 rounded-lg text-xs font-bold transition-all outline-none flex items-center justify-center ${isLocked ? 'bg-red-50 border-red-500 text-red-600 border-2 shadow-inner shadow-red-100' : 'bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:border-zinc-300'}">${i}</button>`;
+                const isManuallyLocked = currentTempLockedWeeks.includes(i.toString());
+                const isAutoLocked = isAutoLockOn && (i < currentPreviewWeek);
+                
+                let btnClass = '';
+                let extraAttr = '';
+                let innerContent = i;
+
+                if (isAutoLocked) {
+                    // กรณีล็อคอัตโนมัติ (จะกดปลดไม่ได้ ต้องปิด checkbox ด้านบน) - แสดงเป็นสีแดงจางๆ มีรูปแม่กุญแจซ้อน
+                    btnClass = 'bg-red-100 border-red-300 text-red-500 border-2 shadow-inner cursor-not-allowed opacity-80';
+                    extraAttr = 'disabled title="ถูกล็อคอัตโนมัติเนื่องจากหมดสัปดาห์แล้ว"';
+                    innerContent = `<i class="fa-solid fa-lock text-[10px] absolute opacity-30"></i><span>${i}</span>`;
+                } else if (isManuallyLocked) {
+                    // กรณีล็อคแบบ Manual (กดปลดล็อคได้) - แสดงเป็นสีแดงเข้ม
+                    btnClass = 'bg-red-50 border-red-500 text-red-600 border-2 shadow-inner shadow-red-100 cursor-pointer';
+                    extraAttr = `onclick="toggleLockedWeek('${i}')" title="ปลดล็อคสัปดาห์นี้"`;
+                } else {
+                    // สัปดาห์ปกติ
+                    btnClass = 'bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:border-zinc-300 cursor-pointer';
+                    extraAttr = `onclick="toggleLockedWeek('${i}')" title="คลิกเพื่อล็อคสัปดาห์นี้"`;
+                }
+
+                container.innerHTML += `<button type="button" ${extraAttr} class="w-8 h-8 rounded-lg text-xs font-bold transition-all outline-none flex items-center justify-center relative overflow-hidden ${btnClass}">${innerContent}</button>`;
             }
         }
 
