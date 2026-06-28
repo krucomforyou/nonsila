@@ -503,7 +503,8 @@
             termsList: ["1/2567"], 
             currentTerm: "1/2567",
             lockedWeeks: [],
-            shiftedDocs: []
+            shiftedDocs: [],
+            autoLockEnabled: 'false' // เพิ่มตรงนี้
         };
         
         let selectedDocsForSubmission = new Set();
@@ -593,7 +594,13 @@
                         </div>
 
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-3">
-                            <h4 class="text-xs font-bold text-zinc-900 border-b border-zinc-200 pb-2 flex items-center gap-2"><i class="fa-solid fa-lock text-zinc-400"></i> 4. ล็อคสัปดาห์การส่งงาน (สำหรับผู้บริหาร)</h4>
+                            <div class="flex justify-between items-center border-b border-zinc-200 pb-2">
+                                <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-2"><i class="fa-solid fa-lock text-zinc-400"></i> 4. ล็อคสัปดาห์การส่งงาน</h4>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="blocks-settings-autolock" class="custom-checkbox w-3.5 h-3.5">
+                                    <span class="text-[10px] font-medium text-zinc-700">ล็อคอัตโนมัติเมื่อหมดสัปดาห์</span>
+                                </label>
+                            </div>
                             <div id="blocks-settings-lock-list" class="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1"></div>
                             <p class="text-[10px] text-zinc-500">* คลิกเพื่อล็อคสัปดาห์ (สีแดง) ป้องกันไม่ให้ครูเลือกส่งงานใน Dropdown สัปดาห์นั้นๆ ได้ (จะส่งผลเฉพาะสัปดาห์นั้น แต่ไม่รวมถึงเอกสารที่เลื่อนส่งไปแล้ว)</p>
                         </div>
@@ -800,6 +807,7 @@
                     document.getElementById('blocks-settings-total-weeks').value = inputs.totalWeeks || 20; 
                     document.getElementById('blocks-settings-school').value = inputs.schoolName || '';
                     document.getElementById('blocks-settings-director').value = inputs.directorName || '';
+                    document.getElementById('blocks-settings-autolock').checked = (inputs.autoLockEnabled === 'true'); // ดึงค่ามาติ๊กถูก
                     
                     currentTempLockedWeeks = inputs.lockedWeeks ? [...inputs.lockedWeeks] : [];
                     renderDocsSettingsList(inputs.docs || [], inputs.shiftedDocs || []);
@@ -871,6 +879,7 @@
                     const schoolName = document.getElementById('blocks-settings-school').value;
                     const directorName = document.getElementById('blocks-settings-director').value;
                     const activeTerm = document.getElementById('blocks-settings-current-term').value;
+                    const autoLockEnabled = document.getElementById('blocks-settings-autolock').checked ? 'true' : 'false'; // ดึงค่าการติ๊ก
                     
                     if(!sd) return showBlocksToast('กรุณาระบุวันเปิดภาคเรียน', 'error');
                     if(!tw || tw < 1) return showBlocksToast('กรุณาระบุจำนวนสัปดาห์ให้ถูกต้อง', 'error');
@@ -885,7 +894,8 @@
                         schoolName: schoolName, directorName: directorName,
                         terms: currentTempTerms, currentTerm: activeTerm,
                         shiftedDocs: currentTempShiftedDocs,
-                        lockedWeeks: currentTempLockedWeeks
+                        lockedWeeks: currentTempLockedWeeks,
+                        autoLockEnabled: autoLockEnabled // เพิ่มตรงนี้
                     };
                 } else if (type === 'changepwd') {
                     const o = document.getElementById('blocks-pwd-old').value;
@@ -1098,6 +1108,11 @@
                         if(result.data.settings.currentTerm) {
                             db_settings.currentTerm = formatTermString(result.data.settings.currentTerm);
                         }
+                        
+                        // เพิ่มการดึงค่า autoLockEnabled
+                        if(result.data.settings.autoLockEnabled) {
+                            db_settings.autoLockEnabled = result.data.settings.autoLockEnabled;
+                        }
                     }
                     
                     db_submissions = (result.data.submissions || []).map(s => {
@@ -1234,8 +1249,12 @@
             for (let i = 1; i <= teacherMaxWeeks; i++) {
                 let label = `สัปดาห์ที่ ${i}`;
                 if (i === actualCurrentWeek) label += ' (ปัจจุบัน)';
+                
+                // คำนวณว่าถูกล็อคอัตโนมัติหรือไม่
+                const isAutoLocked = (db_settings.autoLockEnabled === 'true' && i < actualCurrentWeek);
+                
                 // บ่งบอกใน dropdown ว่าสัปดาห์นี้ถูกล็อคแล้ว (สำหรับครู)
-                if (db_settings.lockedWeeks && db_settings.lockedWeeks.includes(i.toString())) {
+                if ((db_settings.lockedWeeks && db_settings.lockedWeeks.includes(i.toString())) || isAutoLocked) {
                     label += ' [ถูกล็อค]';
                 }
                 teacherOptionsHTML += `<option value="${i}">${label}</option>`;
@@ -1425,13 +1444,16 @@
             const btnGenerate = document.getElementById('btn-generate-qr');
             let html = '';
 
-            // ตรวจสอบการล็อคสัปดาห์ในหน้า UI นี้
-            if(db_settings.lockedWeeks.includes(uiWeek.toString())) {
+            const actualCurrentWeek = getCurrentWeek(); // ดึงสัปดาห์ปัจจุบัน
+            const isAutoLocked = (db_settings.autoLockEnabled === 'true' && parseInt(uiWeek) < actualCurrentWeek);
+
+            // ตรวจสอบการล็อคสัปดาห์ทั้งจากการล็อคแบบ Manual และ Auto-lock
+            if(db_settings.lockedWeeks.includes(uiWeek.toString()) || isAutoLocked) {
                 container.innerHTML = `
                     <div class="col-span-full p-6 text-center bg-red-50 border border-red-200 rounded-xl shadow-sm my-4">
                         <i class="fa-solid fa-lock text-red-400 text-3xl mb-3"></i>
                         <p class="font-bold text-red-700 text-base">สัปดาห์นี้ถูกล็อคการส่งเอกสาร</p>
-                        <p class="text-xs text-red-500 mt-1.5 max-w-sm mx-auto leading-relaxed">ฝ่ายบริหารได้ปิดระบบการส่งงานในสัปดาห์ที่ ${uiWeek} แล้ว หากมีข้อสงสัยโปรดติดต่อผู้ดูแลระบบ</p>
+                        <p class="text-xs text-red-500 mt-1.5 max-w-sm mx-auto leading-relaxed">ฝ่ายบริหารได้ปิดระบบหรือหมดเวลาการส่งงานในสัปดาห์ที่ ${uiWeek} แล้ว หากมีข้อสงสัยโปรดติดต่อผู้ดูแลระบบ</p>
                     </div>
                 `;
                 document.getElementById('teacher-selected-count').innerText = "เลือกแล้ว: 0 รายการ";
@@ -1827,6 +1849,7 @@
                 
                 const newShiftedDocsStr = inputs.shiftedDocs.join(',');
                 const newLockedWeeksStr = inputs.lockedWeeks.join(',');
+                const newAutoLockEnabled = inputs.autoLockEnabled; // รับค่ามา
 
                 const formData = new URLSearchParams();
                 formData.append('action', 'updateSettings');
@@ -1839,6 +1862,7 @@
                 formData.append('currentTerm', newCurrentTerm);
                 formData.append('shiftedDocs', newShiftedDocsStr);
                 formData.append('lockedWeeks', newLockedWeeksStr);
+                formData.append('autoLockEnabled', newAutoLockEnabled); // ส่งไป Backend
                 
                 fetch(SCRIPT_URL, { method: 'POST', body: formData })
                     .then(response => {
@@ -1866,7 +1890,8 @@
                 terms: db_settings.termsList,
                 currentTerm: db_settings.currentTerm,
                 shiftedDocs: db_settings.shiftedDocs,
-                lockedWeeks: db_settings.lockedWeeks
+                lockedWeeks: db_settings.lockedWeeks,
+                autoLockEnabled: db_settings.autoLockEnabled // ส่งค่าเริ่มต้นให้ UI
             });
 
             const newDocInput = document.getElementById('blocks-settings-new-doc');
