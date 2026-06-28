@@ -897,8 +897,7 @@
                 }
                 
                 const originalHtml = btn.innerHTML; 
-                // ***แก้ไขตรงนี้: ลบเงื่อนไข type !== 'warning' ออกเพื่อให้กดตกลงแล้วขึ้น Spinner ได้ ***
-                if(type !== 'success' && type !== 'error') {
+                if(type !== 'success' && type !== 'error' && type !== 'warning') {
                     btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> รอสักครู่...`;
                 }
 
@@ -1790,35 +1789,26 @@
             }, 300); 
         }
 
-        // *** เปลี่ยนแปลงฟังก์ชันนี้ให้แสดงโหลดตรงกลางจอ ***
         function deleteTeacherPrompt(id, name) {
-            closeManageTeachersModal(); 
-            setTimeout(() => {
+            closeManageTeachersModal(); setTimeout(() => {
                 showBlocksAlert('warning', 'ยืนยันการลบ?', `คุณต้องการลบ "${name}" ออกจากระบบ ใช่หรือไม่?`, (res, done) => {
                     
-                    // ปิดหน้าต่างยืนยัน และโชว์หน้าต่างโหลดข้อมูล
-                    done(); 
-                    showBlocksAlert('loading', 'กำลังลบข้อมูล...', 'โปรดรอสักครู่');
+                    // 1. เพิ่มคำสั่งนี้เพื่อแสดง Spinner การโหลดข้อมูลทับหน้าต่างเดิม
+                    showBlocksAlert('loading', 'กำลังลบข้อมูล...', 'กรุณารอสักครู่');
                     
-                    const formData = new URLSearchParams(); 
-                    formData.append('action', 'deleteTeacher'); 
-                    formData.append('id', id);
-                    
-                    fetch(SCRIPT_URL, { method: 'POST', body: formData })
-                        .then(response => response.json())
-                        .then(data => {
+                    const formData = new URLSearchParams(); formData.append('action', 'deleteTeacher'); formData.append('id', id);
+                    fetch(SCRIPT_URL, { method: 'POST', body: formData }).then(response => response.json()).then(data => {
                             if (data.status !== 'success') throw new Error('Failed'); 
                             fetchDataIfNeeded(() => {
-                                closeBlocksAlert(); // ปิดกล่องโหลด
+                                closeBlocksAlert(); // 2. เปลี่ยนจาก done() เป็น closeBlocksAlert()
                                 showBlocksToast('ลบข้อมูลสำเร็จ'); 
                                 setTimeout(() => openManageTeachersModal(), 300); 
                             }, true);
-                        })
-                        .catch(e => { 
-                            closeBlocksAlert(); // ปิดกล่องโหลดในกรณีที่พัง
-                            showBlocksToast('การลบล้มเหลว', 'error'); 
-                            setTimeout(() => openManageTeachersModal(), 300); 
-                        });
+                    }).catch(e => { 
+                        closeBlocksAlert(); // 3. เปลี่ยนจาก done() เป็น closeBlocksAlert()
+                        showBlocksToast('การลบล้มเหลว', 'error'); 
+                        setTimeout(() => openManageTeachersModal(), 300); 
+                    });
                 }, true, () => { setTimeout(() => openManageTeachersModal(), 300); });
             }, 300);
         }
