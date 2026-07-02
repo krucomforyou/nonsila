@@ -196,9 +196,26 @@
                             <canvas id="teacherSummaryPieChart"></canvas>
                         </div>
                         
-                        <div id="uncheckedTeachersContainer" class="mt-6 w-full max-w-md hidden bg-red-50 p-4 rounded-lg border border-red-100">
-                            <h4 class="font-bold text-red-600 mb-2"><i class="fas fa-exclamation-circle"></i> รายชื่อครูที่ยังไม่บันทึกข้อมูล</h4>
-                            <ul id="uncheckedTeachersList" class="text-sm text-gray-700 list-disc pl-5 space-y-1"></ul>
+                        <div style="width: 300px; height: 300px;">
+                            <canvas id="teacherSummaryPieChart"></canvas>
+                        </div>
+                        
+                        <div class="w-full mt-6 border-t border-gray-100 pt-6">
+                            <h4 class="font-bold text-school-navy mb-4"><i class="fas fa-list-ul text-school-brass mr-2"></i> รายละเอียดการสอนและการเช็คชื่อ</h4>
+                            <div class="overflow-x-auto hide-scrollbar bg-white border border-gray-200 rounded-xl shadow-sm">
+                                <table class="w-full text-sm text-left">
+                                    <thead class="bg-gray-50 border-b border-gray-200 text-school-navy">
+                                        <tr>
+                                            <th class="px-4 py-3 w-1/4 min-w-[150px]">ชื่อ-สกุล ครูผู้สอน</th>
+                                            <th class="px-4 py-3 text-center w-24">สัดส่วน</th>
+                                            <th class="px-4 py-3 min-w-[300px]">สถานะรายวิชา / ห้องเรียน</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="teacherSummaryTableBody" class="divide-y divide-gray-100">
+                                        <tr><td colspan="3" class="text-center py-8 text-gray-500">กรุณาเลือกวันที่</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2621,19 +2638,18 @@
         function renderTeacherSummaryChart(data) {
             const ctx = document.getElementById('teacherSummaryPieChart').getContext('2d');
             
-            // ลบกราฟเก่าทิ้งก่อนถ้าวาดใหม่ (ป้องกันการซ้อนกัน)
             if (teacherSummaryChart) {
                 teacherSummaryChart.destroy();
             }
             
+            // ข้อมูลสำหรับกราฟ (แสดงจำนวนคาบรวมทั้งโรงเรียน)
             const checkedCount = data.checkedCount || 0;
             const uncheckedCount = data.uncheckedCount || 0;
             const total = checkedCount + uncheckedCount;
             
-            // ถ้าไม่มีข้อมูลเลย ให้แสดงกราฟสีเทา
             const chartData = total === 0 ? [1] : [checkedCount, uncheckedCount];
             const bgColors = total === 0 ? ['#e2e8f0'] : ['#10b981', '#ef4444'];
-            const labels = total === 0 ? ['ไม่มีข้อมูลตารางสอนในวันนี้'] : ['เช็คชื่อแล้ว', 'ยังไม่เช็คชื่อ'];
+            const labels = total === 0 ? ['ไม่มีข้อมูลตารางสอนในวันนี้'] : ['เช็คชื่อแล้ว (คาบ)', 'ยังไม่เช็คชื่อ (คาบ)'];
 
             teacherSummaryChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -2658,7 +2674,7 @@
                                     let label = context.label || '';
                                     let val = context.raw || 0;
                                     let percent = Math.round((val / total) * 100);
-                                    return ` ${label}: ${val} คน (${percent}%)`;
+                                    return ` ${label}: ${val} คาบ (${percent}%)`;
                                 }
                             }
                         }
@@ -2666,16 +2682,56 @@
                 }
             });
 
-            // อัปเดตรายชื่อครูที่ยังไม่เช็คชื่อ
-            const listContainer = document.getElementById('uncheckedTeachersContainer');
-            const listUl = document.getElementById('uncheckedTeachersList');
-            
-            if (data.uncheckedTeachers && data.uncheckedTeachers.length > 0) {
-                listUl.innerHTML = data.uncheckedTeachers.map(name => `<li>${name}</li>`).join('');
-                listContainer.classList.remove('hidden');
-            } else {
-                listContainer.classList.add('hidden');
+            // อัปเดตตารางรายชื่อครูทุกคน
+            const tbody = document.getElementById('teacherSummaryTableBody');
+            const summaryList = data.summaryList || [];
+
+            if (summaryList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครู หรือไม่มีตารางสอน</td></tr>';
+                return;
             }
+
+            let html = '';
+            summaryList.forEach(item => {
+                let classStatusHtml = '';
+                
+                if (item.totalClasses === 0) {
+                    classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
+                } else {
+                    classStatusHtml = '<div class="flex flex-wrap gap-2">';
+                    item.classes.forEach(cls => {
+                        // กำหนดสีของจุดและกรอบตามสถานะ
+                        const dotColor = cls.isChecked ? 'bg-emerald-500' : 'bg-red-500';
+                        const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
+                        const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
+                        
+                        classStatusHtml += `
+                            <div class="flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="${cls.period}">
+                                <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
+                                <span class="${textColor} font-bold">${cls.subject} (ห้อง ${cls.className})</span>
+                            </div>
+                        `;
+                    });
+                    classStatusHtml += '</div>';
+                }
+
+                // เช็คไฮไลท์แถวสีแดงอ่อน ถ้าครูมีคาบสอนแต่ยังเช็คไม่ครบ
+                const rowBg = (item.totalClasses > 0 && item.checkedClasses < item.totalClasses) ? 'bg-red-50/30' : 'bg-white';
+
+                html += `
+                    <tr class="hover:bg-blue-50 transition-colors ${rowBg}">
+                        <td class="px-4 py-3 font-bold text-school-navy">${item.teacherName}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="bg-white text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-200 font-bold shadow-sm">
+                                ${item.checkedClasses}/${item.totalClasses}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">${classStatusHtml}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
         }
     </script>
 </body>
