@@ -117,7 +117,7 @@
                 <i class="fas fa-history w-6 text-center mr-2"></i> แก้ไขข้อมูลย้อนหลัง
             </a>
             <a href="#" data-tab="schedule" onclick="switchTab('schedule')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
-                <i class="fas fa-calendar-alt w-6 text-center mr-2"></i> ตารางสอนส่วนตัว
+                <i class="fas fa-calendar-alt w-6 text-center mr-2"></i> ตารางสอน
             </a>
             
             <div class="px-6 text-[10px] font-bold text-school-brass mt-6 mb-2 uppercase tracking-wider">ข้อมูลส่วนกลาง</div>
@@ -349,11 +349,20 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <div>
                             <h3 class="text-lg md:text-xl font-bold text-school-navy flex items-center">
-                                <i class="fas fa-calendar-alt mr-2 text-school-brass"></i> ตารางสอนส่วนตัว
+                                <i class="fas fa-calendar-alt mr-2 text-school-brass"></i> <span id="scheduleTitleText">ตารางสอนส่วนตัว</span>
                             </h3>
                             <p class="text-xs md:text-sm text-gray-500 mt-1">กำหนดวิชาและคาบเรียนของภาคเรียน <span id="schDisplayTerm" class="font-bold text-school-blue"></span></p>
                         </div>
                         <div class="w-full md:w-auto flex flex-col sm:flex-row gap-2">
+                            
+                            <!-- Dropdown สำหรับ Admin เลือกครู -->
+                            <div id="adminTeacherSelectorContainer" class="hidden items-center bg-gray-50 border border-gray-300 rounded-lg px-2 shadow-sm w-full sm:w-auto">
+                                <div class="px-2 border-r border-gray-300 py-2"><i class="fas fa-user-tie text-school-navy text-sm"></i></div>
+                                <select id="adminTeacherSelector" onchange="onTeacherChange()" class="bg-transparent text-sm font-bold text-school-navy py-2 px-2 outline-none cursor-pointer w-full sm:w-auto min-w-[150px]">
+                                    <option value="">กำลังโหลดรายชื่อ...</option>
+                                </select>
+                            </div>
+                            
                             <button onclick="openTimetableSettingsModal()" class="w-full sm:w-auto bg-gray-100 border border-gray-300 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2 admin-only" style="display:none;">
                                 <i class="fas fa-cog"></i> ตั้งค่าตาราง (Admin)
                             </button>
@@ -641,6 +650,8 @@
         
         let state = {
             user: null,
+            viewingTeacher: '',
+            teachers: [],
             terms: [],
             selectedTerm: '',
             classes: [],
@@ -702,6 +713,16 @@
             if (checkAuth()) {
                 await fetchTerms();
                 fetchClasses();
+
+                if (checkAdminPermission()) {
+                    const selCont = document.getElementById('adminTeacherSelectorContainer');
+                    if (selCont) {
+                        selCont.classList.remove('hidden');
+                        selCont.classList.add('flex');
+                    }
+                    fetchTeachers();
+                }
+
                 fetchSchedule();
             }
             switchTab('history-overview');
@@ -711,6 +732,8 @@
             const savedUser = localStorage.getItem('school_user_session');
             if (savedUser) {
                 state.user = JSON.parse(savedUser);
+                state.viewingTeacher = state.user.name;
+
                 document.getElementById('sidebarUserName').innerText = state.user.name || 'ไม่ระบุชื่อ';
                 
                 let displayRole = 'บุคลากรทั่วไป';
@@ -762,6 +785,58 @@
             } catch (e) {
                 console.error("Error fetching terms:", e);
                 document.getElementById('globalTermSelector').innerHTML = '<option value="">โหลดล้มเหลว</option>';
+            }
+        }
+
+        async function fetchTeachers() {
+            try {
+                const res = await fetch(`${API_URL}?action=getTeachers&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    state.teachers = json.data;
+                    let opts = '';
+                    state.teachers.forEach(t => {
+                        const selected = (t === state.viewingTeacher) ? 'selected' : '';
+                        opts += `<option value="${t}" ${selected}>${t}</option>`;
+                    });
+                    
+                    // ป้องกันกรณีที่ชื่อแอดมินไม่มีอยู่ในลิสต์
+                    if (!state.teachers.includes(state.viewingTeacher)) {
+                        opts = `<option value="${state.viewingTeacher}" selected>${state.viewingTeacher}</option>` + opts;
+                    }
+                    
+                    document.getElementById('adminTeacherSelector').innerHTML = opts;
+                } else {
+                    document.getElementById('adminTeacherSelector').innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                }
+            } catch (e) {
+                console.error("Error fetching teachers:", e);
+                document.getElementById('adminTeacherSelector').innerHTML = '<option value="">โหลดล้มเหลว</option>';
+            }
+        }
+
+        async function onTeacherChange() {
+            const val = document.getElementById('adminTeacherSelector').value;
+            if (val && val !== state.viewingTeacher) {
+                state.viewingTeacher = val;
+                
+                const schTitleEl = document.getElementById('scheduleTitleText');
+                if (schTitleEl) {
+                    if (state.viewingTeacher !== state.user.name) {
+                        schTitleEl.innerText = `ตารางสอนของ: ${state.viewingTeacher}`;
+                        schTitleEl.classList.remove('text-school-navy');
+                        schTitleEl.classList.add('text-school-blue');
+                    } else {
+                        schTitleEl.innerText = `ตารางสอนส่วนตัว`;
+                        schTitleEl.classList.add('text-school-navy');
+                        schTitleEl.classList.remove('text-school-blue');
+                    }
+                }
+
+                cuteAlert.loading(`กำลังโหลดตารางของ ${state.viewingTeacher} ⏳`);
+                await fetchSchedule();
+                Swal.close();
             }
         }
 
@@ -1193,8 +1268,9 @@
                 }
 
                 await fetchTimetableSettings();
+                const teacherToFetch = state.viewingTeacher || state.user.name;
 
-                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacherToFetch)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.schedule = json.data; // Now has day, subject, period, className
@@ -1516,10 +1592,12 @@
 
         async function saveScheduleToDB() {
             if(!state.selectedTerm) return;
-            cuteAlert.loading('กำลังบันทึกตารางสอน ⏳');
+            const targetTeacher = state.viewingTeacher || state.user.name;
+            cuteAlert.loading(`กำลังบันทึกตารางสอนของ ${targetTeacher} ⏳`);
+            
             const form = new FormData();
             form.append('term', state.selectedTerm);
-            form.append('teacher', state.user.name);
+            form.append('teacher', targetTeacher);
             form.append('scheduleData', JSON.stringify(state.schedule));
 
             try {
