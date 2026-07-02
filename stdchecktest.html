@@ -343,7 +343,7 @@
                  </div>
             </div>
 
-            <!-- 4. จัดการตารางสอน (Schedule) - ระบบ Drag & Drop -->
+            <!-- 4. จัดการตารางสอน (Schedule) - ระบบ Drag & Drop และ Paste Data -->
             <div id="tab-schedule" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8 hide-scrollbar">
                 <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 md:p-6 max-w-6xl mx-auto">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -362,6 +362,11 @@
                                 </select>
                             </div>
                             
+                            <!-- ปุ่มนำเข้าข้อมูลแบบวาง Excel (เพิ่มใหม่) -->
+                            <button onclick="openImportScheduleModal()" class="w-full sm:w-auto bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 px-4 py-2.5 rounded-lg font-bold shadow-sm transition items-center justify-center gap-2 whitespace-nowrap admin-only" style="display:none;">
+                                <i class="fas fa-paste"></i> นำเข้าจาก Excel
+                            </button>
+
                             <button onclick="openTimetableSettingsModal()" class="w-full sm:w-auto bg-gray-100 border border-gray-300 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-bold shadow-sm transition items-center justify-center gap-2 whitespace-nowrap admin-only" style="display:none;">
                                 <i class="fas fa-cog"></i> ตั้งค่าตาราง
                             </button>
@@ -637,6 +642,34 @@
             <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
                 <button onclick="closeTimetableSettingsModal()" class="px-5 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
                 <button onclick="saveTimetableSettings()" class="px-6 py-2 bg-school-navy text-white text-sm font-bold rounded-lg shadow-md hover:bg-school-navyLight transition"><i class="fas fa-save mr-1"></i> บันทึกการตั้งค่า</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPORT SCHEDULE MODAL (Admin Only) - ระบบวางข้อมูลจาก Excel -->
+    <div id="importScheduleModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col">
+            <div class="bg-indigo-600 px-6 py-4 border-b border-indigo-700 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-white"><i class="fas fa-paste mr-2"></i> นำเข้าตารางสอนจาก Excel / Sheets</h3>
+                 <button onclick="closeImportScheduleModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 bg-gray-50 flex-1">
+                <div class="bg-indigo-50 border border-indigo-200 text-indigo-700 p-4 rounded-xl text-sm mb-4">
+                    <p class="font-bold mb-2"><i class="fas fa-info-circle mr-1"></i> คำแนะนำในการใช้งาน:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li>ไปที่ไฟล์ Excel หรือ Google Sheets ที่มีข้อมูลตารางสอน</li>
+                        <li><strong>คลุมดำข้อมูล 4 คอลัมน์</strong> ตามลำดับ: <span class="font-bold bg-white px-1 rounded">วัน</span> | <span class="font-bold bg-white px-1 rounded">วิชา</span> | <span class="font-bold bg-white px-1 rounded">คาบ</span> | <span class="font-bold bg-white px-1 rounded">ห้องเรียน</span></li>
+                        <li>กด <kbd class="bg-gray-200 px-1.5 py-0.5 rounded border border-gray-300 shadow-sm text-black">Ctrl</kbd> + <kbd class="bg-gray-200 px-1.5 py-0.5 rounded border border-gray-300 shadow-sm text-black">C</kbd> เพื่อคัดลอก</li>
+                        <li>คลิกที่กล่องข้อความด้านล่าง แล้วกด <kbd class="bg-gray-200 px-1.5 py-0.5 rounded border border-gray-300 shadow-sm text-black">Ctrl</kbd> + <kbd class="bg-gray-200 px-1.5 py-0.5 rounded border border-gray-300 shadow-sm text-black">V</kbd> เพื่อวาง</li>
+                        <li class="text-red-500">* การนำเข้าจะ <b>แทนที่</b> ตารางสอนเดิมทั้งหมดในหน้านี้ทันที (ต้องกดบันทึกเพื่อยืนยันอีกครั้ง)</li>
+                    </ul>
+                </div>
+                
+                <textarea id="pasteScheduleArea" rows="8" class="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white font-mono whitespace-pre text-gray-700 resize-none shadow-inner" placeholder="คลิกที่นี่ แล้วกด Ctrl+V เพื่อวางข้อมูล..."></textarea>
+            </div>
+            <div class="bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+                <button onclick="closeImportScheduleModal()" class="px-5 py-2 text-gray-600 text-sm font-bold hover:bg-gray-100 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                <button onclick="processPastedSchedule()" class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-indigo-700 transition transform hover:-translate-y-0.5 flex items-center"><i class="fas fa-magic mr-2"></i> ประมวลผลและสร้างตาราง</button>
             </div>
         </div>
     </div>
@@ -1686,6 +1719,110 @@
                 if (json.status === 'success') { closeTimetableSettingsModal(); renderVisualTimetable(); cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าเรียบร้อยแล้ว'); } 
                 else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+        }
+        
+        // ==========================================
+        // ระบบใหม่: วางข้อมูลจาก Excel (Import Schedule)
+        // ==========================================
+        function openImportScheduleModal() {
+            if(!checkAdminPermission()) return;
+            document.getElementById('pasteScheduleArea').value = '';
+            document.getElementById('importScheduleModal').classList.add('active');
+        }
+
+        function closeImportScheduleModal() {
+            document.getElementById('importScheduleModal').classList.remove('active');
+        }
+
+        function processPastedSchedule() {
+            const textArea = document.getElementById('pasteScheduleArea');
+            const text = textArea.value;
+            
+            if (!text || text.trim() === '') {
+                cuteAlert.error('ไม่พบข้อมูล', 'กรุณาวางข้อมูลในกล่องข้อความก่อนครับ');
+                return;
+            }
+
+            const rows = text.split('\n');
+            let newSchedule = [];
+            let errorCount = 0;
+            let successCount = 0;
+            let uniqueSubjects = {}; // เก็บรวบรวมวิชาที่ไม่ซ้ำไว้แสดงในการ์ดด้านซ้าย
+
+            for (let r of rows) {
+                if (!r.trim()) continue; // ข้ามบรรทัดว่าง
+                
+                const cols = r.split('\t');
+                
+                // ตรวจสอบว่ามีอย่างน้อย 3 หรือ 4 คอลัมน์ (บางทีห้องเรียนอาจจะเว้นว่างใน Excel ทำให้ก๊อปมาแล้ว cols.length สั้นกว่า)
+                if (cols.length >= 3) {
+                    let day = cols[0].trim();
+                    let subject = cols[1].trim();
+                    let period = cols[2].trim();
+                    let className = cols[3] ? cols[3].trim() : '';
+
+                    // ข้ามบรรทัด Header ถ้าผู้ใช้ก๊อปมาด้วย (เช็คจากคำว่า "วัน" หรือ "วิชา")
+                    if (day === 'วัน' || subject === 'วิชา') continue;
+
+                    // ถ้ามีข้อมูลจำเป็นครบ ถือว่าผ่าน
+                    if (day && subject && period) {
+                        // ถ้าห้องเรียนว่าง ให้ถือว่าเป็นกิจกรรม (-)
+                        const finalClassName = className || '-';
+                        
+                        newSchedule.push({ 
+                            day: day, 
+                            subject: subject, 
+                            period: period, 
+                            className: finalClassName 
+                        });
+                        
+                        // บันทึกวิชาที่ไม่ซ้ำเพื่อสร้างเป็นการ์ด
+                        const subjKey = `${subject}|${finalClassName}`;
+                        if (!uniqueSubjects[subjKey]) {
+                            uniqueSubjects[subjKey] = { name: subject, className: finalClassName };
+                        }
+                        
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } else {
+                    errorCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                // อัปเดต state
+                state.schedule = newSchedule;
+                
+                // นำวิชาที่พบใน Excel มาใส่ใน state.subjects เผื่อไว้ให้ลากแก้ใหม่ได้
+                state.subjects = Object.values(uniqueSubjects).map(sub => ({
+                    id: Date.now() + Math.random(),
+                    name: sub.name,
+                    className: sub.className
+                }));
+
+                renderSubjectCards();
+                renderVisualTimetable();
+                closeImportScheduleModal();
+                
+                let msg = `ดึงข้อมูลได้สำเร็จจำนวน <b>${successCount}</b> รายการ`;
+                if (errorCount > 0) {
+                    msg += `<br><span class="text-red-500 text-xs">* ข้ามข้อมูลที่ไม่สมบูรณ์ ${errorCount} แถว</span>`;
+                }
+                msg += `<br><br><span class="text-blue-600 font-bold">อย่าลืมกดปุ่ม "บันทึกตาราง" เพื่อยืนยัน</span>`;
+                
+                Swal.fire({
+                    title: 'ดึงข้อมูลเรียบร้อย!',
+                    html: msg,
+                    icon: 'success',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#1a3a6e',
+                    customClass: { popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100' }
+                });
+            } else {
+                cuteAlert.error('รูปแบบข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบว่าก๊อปปี้ข้อมูลมาครบ 4 คอลัมน์ (วัน, วิชา, คาบ, ห้องเรียน) และมีแถวข้อมูลจริงครับ');
+            }
         }
 
         async function loadAttendanceOverview() {
