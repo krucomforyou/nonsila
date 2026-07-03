@@ -2702,10 +2702,14 @@
                         const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
                         
+                        // ป้องกันปัญหาเรื่องเครื่องหมายคำพูด (Quote) ในชื่อวิชา
+                        const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        
                         classStatusHtml += `
-                            <div class="flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="${cls.period}">
+                            <div onclick="showSubjectDetails('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" 
+                                 class="flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm cursor-pointer hover:shadow-md hover:scale-105 transition-all" title="คลิกเพื่อดูรายวิชา">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
-                                <span class="${textColor} font-bold">${cls.subject} (ห้อง ${cls.className})</span>
+                                <span class="${textColor} font-bold">ห้อง ${cls.className}</span>
                             </div>
                         `;
                     });
@@ -2729,6 +2733,40 @@
             });
             
             tbody.innerHTML = html;
+        }
+
+        // ฟังก์ชันสำหรับแสดง Pop-up รายละเอียดวิชาเมื่อคลิกที่ห้องเรียน
+        function showSubjectDetails(subject, className, period, isChecked) {
+            const statusHtml = isChecked 
+                ? '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-xs font-bold border border-emerald-200"><i class="fas fa-check-circle"></i> เช็คชื่อแล้ว</span>' 
+                : '<span class="bg-red-100 text-red-600 px-2 py-1 rounded-md text-xs font-bold border border-red-200"><i class="fas fa-exclamation-circle"></i> ยังไม่เช็คชื่อ</span>';
+
+            Swal.fire({
+                title: '<i class="fas fa-book text-school-brass mr-2"></i> รายละเอียดการสอน',
+                html: `
+                    <div class="text-left mt-4 text-sm space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+                        <div class="flex items-start">
+                            <div class="w-20 font-bold text-gray-500">วิชา:</div>
+                            <div class="flex-1 text-school-navy font-bold">${subject}</div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-20 font-bold text-gray-500">ห้องเรียน:</div>
+                            <div class="flex-1 text-school-navy">ห้อง ${className}</div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-20 font-bold text-gray-500">คาบเรียน:</div>
+                            <div class="flex-1 text-school-navy">${period}</div>
+                        </div>
+                        <div class="flex items-start pt-2 border-t border-gray-200 mt-2">
+                            <div class="w-20 font-bold text-gray-500">สถานะ:</div>
+                            <div class="flex-1">${statusHtml}</div>
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'ปิด',
+                confirmButtonColor: '#1a3a6e',
+                customClass: { popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100' }
+            });
         }
     </script>
 </body>
