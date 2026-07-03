@@ -882,80 +882,66 @@
                     `,
                     confirmButtonText: '<i class="fas fa-sign-in-alt mr-2"></i> เข้าสู่ระบบ',
                     confirmButtonColor: '#1a3a6e',
-                    
-                    // --- ส่วนที่เพิ่มใหม่: ปุ่มกลับหน้าเว็บหลัก ---
                     showCancelButton: true,
                     cancelButtonText: '<i class="fas fa-home mr-1"></i> กลับหน้าหลัก',
-                    cancelButtonColor: '#64748b', // สีเทา
-                    // ----------------------------------------
-                    
+                    cancelButtonColor: '#64748b',
                     allowOutsideClick: false, 
                     allowEscapeKey: false, 
                     scrollbarPadding: false, 
                     heightAuto: false,
                     
-                    // --- ปรับแต่ง Class เพื่อให้ปุ่มเรียงกันสวยงาม ---
+                    // --- 1. ปรับแต่ง Class เพื่อให้ปุ่มมีขนาดเล็ก โค้งมน และมีเงา ---
                     customClass: { 
                         popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans',
-                        actions: 'flex flex-col-reverse sm:flex-row w-full max-w-[90%] mx-auto gap-2 mt-4',
-                        confirmButton: 'w-full sm:w-auto m-0 py-2.5',
-                        cancelButton: 'w-full sm:w-auto m-0 py-2.5'
+                        actions: 'flex flex-col-reverse sm:flex-row w-full max-w-[90%] mx-auto gap-3 mt-4 justify-center',
+                        confirmButton: 'w-full sm:w-auto m-0 px-6 py-2.5 text-sm font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5',
+                        cancelButton: 'w-full sm:w-auto m-0 px-6 py-2.5 text-sm font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5'
                     },
                     
-                    showLoaderOnConfirm: true,
-                    preConfirm: async () => {
+                    // --- ดึงข้อมูล Username/Password มาส่งต่อ (ถอด API ออกจากตรงนี้) ---
+                    preConfirm: () => {
                         const user = Swal.getPopup().querySelector('#loginUsername').value;
                         const pass = Swal.getPopup().querySelector('#loginPassword').value;
                         if (!user || !pass) {
                             Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
                             return false;
                         }
+                        return { user, pass };
+                    }
+                }).then(async (result) => {
+                    if (result.isConfirmed && result.value) {
+                        const { user, pass } = result.value;
+
+                        // --- 2. เรียกใช้ Loading แบบเดียวกับระบบหลัก ---
+                        cuteAlert.loading('กำลังตรวจสอบข้อมูลเข้าสู่ระบบ... ⏳');
                         
                         try {
                             const response = await fetch(LOGIN_API_URL, {
                                 method: "POST",
                                 body: JSON.stringify({ action: "login", username: user, password: pass }),
                             });
-                            const result = await response.json();
+                            const resJson = await response.json();
                             
-                            if (result.status === "success") {
-                                return result.userData; 
+                            if (resJson.status === "success") {
+                                localStorage.setItem('school_user_session', JSON.stringify(resJson.userData));
+                                // เมื่อสำเร็จ เรียก cuteAlert.success
+                                cuteAlert.success('เข้าสู่ระบบสำเร็จ! 🎉', 'กำลังพาท่านเข้าสู่ระบบเช็คชื่อ...').then(() => {
+                                    window.location.reload(); 
+                                });
                             } else {
-                                Swal.showValidationMessage(result.message || 'ชื่อผู้ใช้ หรือ รหัสผ่าน ไม่ถูกต้อง');
-                                return false;
+                                // รหัสผิด เรียก cuteAlert.error และเมื่อกดปิดให้เปิด popup ล็อกอินใหม่
+                                cuteAlert.error('เข้าสู่ระบบล้มเหลว', resJson.message || 'ชื่อผู้ใช้ หรือ รหัสผ่าน ไม่ถูกต้อง').then(() => {
+                                    checkAuth();
+                                });
                             }
                         } catch (error) {
-                            Swal.showValidationMessage('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
-                            return false;
+                            cuteAlert.error('ผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้').then(() => {
+                                checkAuth();
+                            });
                         }
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed && result.value) {
-                        // บันทึก Session กลับเข้าเครื่องเมื่อล็อกอินสำเร็จ
-                        localStorage.setItem('school_user_session', JSON.stringify(result.value));
                         
-                        Swal.fire({
-                            html: `
-                                <div class="p-4 text-center">
-                                    <div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce border border-emerald-100">
-                                        <i class="fas fa-check"></i>
-                                    </div>
-                                    <h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">เข้าสู่ระบบสำเร็จ</h3>
-                                    <p class="text-xs md:text-sm text-gray-500 font-sans">กำลังพาท่านเข้าสู่ระบบเช็คชื่อ...</p>
-                                </div>
-                            `,
-                            showConfirmButton: false,
-                            timer: 1500,
-                            scrollbarPadding: false,
-                            heightAuto: false,
-                            customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
-                        }).then(() => {
-                            window.location.reload(); 
-                        });
-                        
-                    // --- ส่วนที่เพิ่มใหม่: ดักจับเหตุการณ์เมื่อผู้ใช้กดปุ่มยกเลิก/กลับหน้าหลัก ---
                     } else if (result.dismiss === Swal.DismissReason.cancel) {
-                        window.location.href = 'index.html'; // ลิงก์กลับไปยังหน้าแรกของเว็บไซต์
+                        window.location.href = 'index.html';
                     }
                 });
                 
