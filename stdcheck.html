@@ -613,6 +613,7 @@
                             <th class="p-3 md:p-4 w-12 md:w-16 text-center whitespace-nowrap">ลำดับ</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">รหัสประจำตัว</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">ชื่อ - นามสกุล</th>
+                            <th class="p-3 md:p-4 text-center whitespace-nowrap">สถานะ</th>
                             <th class="p-3 md:p-4 text-center w-24 whitespace-nowrap">จัดการ</th>
                         </tr>
                     </thead>
@@ -2741,9 +2742,21 @@
             const isAdmin = checkAdminPermission(); 
 
             tbody.innerHTML = state.manageData.map((row, idx) => {
-                const no = row[0] || '-'; const stuId = row[1] || '-';
-                const nameParts = row.slice(2).filter(Boolean);
+                const no = row[0] || '-'; 
+                const stuId = row[1] || '-';
+                
+                // 🛑 [แก้ไข] ล็อกการดึงข้อมูลเฉพาะคอลัมน์ 2(ชื่อ) และ 3(สกุล) เพื่อไม่ให้ดึงสถานะไปต่อท้ายชื่อ
+                const nameParts = [row[2], row[3]].filter(Boolean);
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                
+                // 🟢 [เพิ่มใหม่] ดึงข้อมูลสถานะจากคอลัมน์ที่ 4 มาแสดงเป็นป้ายสี
+                const status = row[4] || 'ปกติ';
+                let statusBadge = '';
+                if (status.includes('ลาออก') || status.includes('ย้าย')) {
+                    statusBadge = `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border border-red-200">ลาออก</span>`;
+                } else {
+                    statusBadge = `<span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border border-emerald-100">ปกติ</span>`;
+                }
                 
                 const actionHtml = isAdmin 
                     ? `<div class="flex items-center justify-center gap-1.5 sm:gap-2">
@@ -2752,7 +2765,14 @@
                     </div>`
                     : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
 
-                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100"><td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td><td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td><td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td></tr>`
+                // 🟢 [เพิ่มใหม่] แทรก <td>${statusBadge}</td> เข้าไปในตาราง
+                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100">
+                    <td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td>
+                    <td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td>
+                    <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td>
+                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${statusBadge}</td>
+                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td>
+                </tr>`
             }).join('');
         }
 
