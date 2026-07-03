@@ -2702,12 +2702,11 @@
                         const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
                         
-                        // ป้องกันปัญหาเรื่องเครื่องหมายคำพูด (Quote) ในชื่อวิชา
-                        const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                        
+                        // ป้องกันปัญหาเครื่องหมาย Single Quote (') ในชื่อวิชาทำลาย Syntax ของ onclick
+                        const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
                         classStatusHtml += `
-                            <div onclick="showSubjectDetails('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" 
-                                 class="flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm cursor-pointer hover:shadow-md hover:scale-105 transition-all" title="คลิกเพื่อดูรายวิชา">
+                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="คลิกเพื่อดูรายละเอียด">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
                                 <span class="${textColor} font-bold">ห้อง ${cls.className}</span>
                             </div>
@@ -2735,37 +2734,43 @@
             tbody.innerHTML = html;
         }
 
-        // ฟังก์ชันสำหรับแสดง Pop-up รายละเอียดวิชาเมื่อคลิกที่ห้องเรียน
-        function showSubjectDetails(subject, className, period, isChecked) {
+        function showSubjectDetail(subject, className, period, isChecked) {
+            // กำหนดรูปแบบข้อความสถานะ
             const statusHtml = isChecked 
-                ? '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-xs font-bold border border-emerald-200"><i class="fas fa-check-circle"></i> เช็คชื่อแล้ว</span>' 
-                : '<span class="bg-red-100 text-red-600 px-2 py-1 rounded-md text-xs font-bold border border-red-200"><i class="fas fa-exclamation-circle"></i> ยังไม่เช็คชื่อ</span>';
-
+                ? '<div class="bg-emerald-50 text-emerald-700 py-2 rounded-lg font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-2"><i class="fas fa-check-circle"></i> เช็คชื่อเรียบร้อยแล้ว</div>' 
+                : '<div class="bg-red-50 text-red-600 py-2 rounded-lg font-bold border border-red-200 shadow-sm flex items-center justify-center gap-2 animate-pulse"><i class="fas fa-exclamation-circle"></i> ยังไม่ได้เช็คชื่อ</div>';
+            
+            // เรียกใช้ SweetAlert2 ตามธีมระบบโรงเรียนโนนศิลาสว่างวิทย์
             Swal.fire({
-                title: '<i class="fas fa-book text-school-brass mr-2"></i> รายละเอียดการสอน',
+                title: '<i class="fas fa-book text-school-brass mr-2"></i> ข้อมูลรายวิชา',
                 html: `
-                    <div class="text-left mt-4 text-sm space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
-                        <div class="flex items-start">
-                            <div class="w-20 font-bold text-gray-500">วิชา:</div>
-                            <div class="flex-1 text-school-navy font-bold">${subject}</div>
+                    <div class="text-left text-sm mt-2">
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner space-y-3">
+                            <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                <span class="text-gray-500 font-bold">วิชา:</span>
+                                <span class="text-school-navy font-bold text-right">${subject}</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                <span class="text-gray-500 font-bold">ห้องเรียน:</span>
+                                <span class="text-school-blue font-bold text-right">${className === '-' ? 'กิจกรรม' : className}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-500 font-bold">คาบเรียน:</span>
+                                <span class="text-gray-800 font-medium text-right">${period}</span>
+                            </div>
                         </div>
-                        <div class="flex items-start">
-                            <div class="w-20 font-bold text-gray-500">ห้องเรียน:</div>
-                            <div class="flex-1 text-school-navy">ห้อง ${className}</div>
-                        </div>
-                        <div class="flex items-start">
-                            <div class="w-20 font-bold text-gray-500">คาบเรียน:</div>
-                            <div class="flex-1 text-school-navy">${period}</div>
-                        </div>
-                        <div class="flex items-start pt-2 border-t border-gray-200 mt-2">
-                            <div class="w-20 font-bold text-gray-500">สถานะ:</div>
-                            <div class="flex-1">${statusHtml}</div>
+                        <div class="mt-4">
+                            ${statusHtml}
                         </div>
                     </div>
                 `,
                 confirmButtonText: 'ปิด',
                 confirmButtonColor: '#1a3a6e',
-                customClass: { popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100' }
+                customClass: { 
+                    popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100 w-11/12 max-w-sm' 
+                },
+                scrollbarPadding: false,
+                heightAuto: false
             });
         }
     </script>
