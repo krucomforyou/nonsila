@@ -2310,14 +2310,12 @@
             printWindow.document.write(`
                 <style>
                     body { font-family: "Sarabun", sans-serif; background-color: white; } 
-                    /* ปรับ width ให้เป็น auto เพื่อไม่ให้ยืดเต็มจอถ้าคาบน้อย */
                     table { width: auto; margin-left: 0; border-collapse: collapse; margin-top: 5px; font-size: 11px; } 
                     th, td { border: 1px solid #cbd5e1 !important; padding: 4px 2px; text-align: center; line-height: 1.1; word-wrap: break-word; } 
                     td:nth-child(2) { text-align: left !important; padding-left: 6px !important; }
                     th { background-color: #f1f5f9 !important; font-weight: normal; font-size: 10px; color: #0f172a; min-width: 35px; }
                     th:first-child, td:first-child, th { position: static !important; box-shadow: none !important; }
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    /* คลาสสำหรับแบ่งหน้ากระดาษ */
                     .page-break { page-break-after: always; padding-bottom: 20px; }
                     .page-break:last-child { page-break-after: auto; }
                     @media print { @page { size: A4 landscape; margin: 10mm; } body { margin: 0; padding: 0; } }
@@ -2325,19 +2323,43 @@
             `);
             printWindow.document.write('</head><body class="p-2 sm:p-4">');
 
-            // 1. ตั้งค่าการพิมพ์: 1 หน้ามี 20 คาบ
-            const CHUNK_SIZE = 20; 
-            const totalChunks = Math.ceil(sessions.length / CHUNK_SIZE);
             const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
             const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
 
+            // 1. คำนวณการแบ่งหน้า (หน้าปกติ 25 คาบ, หน้าที่มีสรุปรองรับสูงสุด 22 คาบ เพื่อไม่ให้ล้นหน้ากระดาษ)
+            const chunks = [];
+            let currentIndex = 0;
+            
+            if (sessions.length === 0) {
+                chunks.push({ sessions: [], isLastChunk: true });
+            } else {
+                while (currentIndex < sessions.length) {
+                    let remaining = sessions.length - currentIndex;
+                    if (remaining <= 22) {
+                        // เหลือไม่เกิน 22 คาบ -> ใส่คาบพร้อมคอลัมน์สรุปได้พอดีในหน้านี้
+                        chunks.push({ sessions: sessions.slice(currentIndex, currentIndex + remaining), isLastChunk: true });
+                        currentIndex += remaining;
+                    } else if (remaining > 22 && remaining <= 25) {
+                        // เหลือ 23-25 คาบ -> ใส่ให้เต็มแม็กซ์ของหน้าแรก (ไม่มีสรุป) แล้วสร้างหน้าใหม่เปล่าๆ ไว้พิมพ์สรุปอย่างเดียว
+                        chunks.push({ sessions: sessions.slice(currentIndex, currentIndex + remaining), isLastChunk: false });
+                        currentIndex += remaining;
+                        chunks.push({ sessions: [], isLastChunk: true }); 
+                    } else {
+                        // มีมากกว่า 25 คาบ -> ทยอยตัดทีละ 25 คาบ (สำหรับหน้าปกติที่ไม่มีสรุป)
+                        chunks.push({ sessions: sessions.slice(currentIndex, currentIndex + 25), isLastChunk: false });
+                        currentIndex += 25;
+                    }
+                }
+            }
+
             let pagesHtml = '';
+            const totalChunks = chunks.length;
+            let globalSessionCount = 0; // ตัวแปรเก็บเลขลำดับคาบข้ามหน้ากระดาษ
 
             // วนลูปสร้างหน้ากระดาษทีละหน้า
-            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-                const isLastChunk = (chunkIndex === totalChunks - 1);
-                // ตัดเฉพาะ 20 คาบของหน้านี้
-                const chunkSessions = sessions.slice(chunkIndex * CHUNK_SIZE, (chunkIndex + 1) * CHUNK_SIZE);
+            chunks.forEach((chunk, chunkIndex) => {
+                const isLastChunk = chunk.isLastChunk;
+                const chunkSessions = chunk.sessions;
 
                 // 4. หัวกระดาษ (ติดไปทุกหน้า)
                 pagesHtml += `
@@ -2359,7 +2381,10 @@
                 chunkSessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
-                    let globalSessionIndex = (chunkIndex * CHUNK_SIZE) + sIndex + 1;
+                    
+                    // นับลำดับคาบต่อจากหน้าเก่า
+                    let globalSessionIndex = globalSessionCount + sIndex + 1;
+                    
                     let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${globalSessionIndex})</span>`;
                     pagesHtml += `<th class="border text-center leading-none">${dateStr}${periodStr}</th>`;
                 });
@@ -2394,7 +2419,7 @@
 
                     pagesHtml += `<tr><td class="border text-center font-bold">${number}</td><td class="border text-left pl-2">${fullName}</td>`;
 
-                    // ข้อมูล 20 คาบในหน้านี้
+                    // ข้อมูลคาบในหน้านี้
                     chunkSessions.forEach(s => {
                         const record = attendanceMap[uniqueId] ? attendanceMap[uniqueId][s.key] : null;
                         const status = record ? record.status : null;
@@ -2419,7 +2444,10 @@
                 });
 
                 pagesHtml += `</tbody></table></div>`;
-            }
+                
+                // อัปเดตเลขลำดับคาบสะสม สำหรับใช้ในหน้ากระดาษถัดไป
+                globalSessionCount += chunkSessions.length;
+            });
 
             printWindow.document.write(pagesHtml);
             printWindow.document.write('</body></html>');
