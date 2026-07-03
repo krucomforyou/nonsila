@@ -789,10 +789,28 @@
             }
         }
 
+        // 1. ดักจับเมื่อหน้าเว็บถูกแสดงผล (รวมถึงการกด Back กลับมาจากหน้าอื่น)
         window.addEventListener('pageshow', function (event) {
-            // ถ้าหน้าเว็บถูกดึงมาจาก Cache ของเบราว์เซอร์ (กดปุ่มย้อนกลับ)
+            const hasSession = localStorage.getItem('school_user_session');
+            
             if (event.persisted) {
-                window.location.reload(); // บังคับให้โหลดหน้าเว็บใหม่
+                // ถ้าหน้าเว็บถูกดึงมาจาก Cache (กด Back) ให้รีเฟรชเพื่อโหลดตาราง/ข้อมูลใหม่
+                window.location.reload();
+            } else if (!hasSession && !Swal.isVisible()) {
+                // ถ้าไม่มี Session ค้างอยู่ และยังไม่มี Pop-up แสดง ให้เรียกฟังก์ชันล็อกอิน
+                checkAuth();
+            }
+        });
+
+        // 2. ดักจับเมื่อผู้ใช้สลับแท็บ (Tab) เบราว์เซอร์ไปมา
+        // ป้องกันกรณีผู้ใช้กดล็อกเอาท์จากแท็บอื่น แล้วสลับกลับมาแท็บนี้
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                const hasSession = localStorage.getItem('school_user_session');
+                // หากกลับมาที่หน้านี้แล้วพบว่าไม่มี Session ให้แสดง Pop-up ล็อกอินทันที
+                if (!hasSession && !Swal.isVisible()) {
+                    checkAuth();
+                }
             }
         });
 
