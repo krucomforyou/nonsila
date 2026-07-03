@@ -613,7 +613,6 @@
                             <th class="p-3 md:p-4 w-12 md:w-16 text-center whitespace-nowrap">ลำดับ</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">รหัสประจำตัว</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">ชื่อ - นามสกุล</th>
-                            <th class="p-3 md:p-4 text-center whitespace-nowrap">สถานะ</th>
                             <th class="p-3 md:p-4 text-center w-24 whitespace-nowrap">จัดการ</th>
                         </tr>
                     </thead>
@@ -2070,14 +2069,7 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     if (json.data.length > 1) {
-                        state.headers = json.data[0]; 
-                        
-                        // 🟢 [เพิ่มใหม่] ถ้าไม่มีหัวคอลัมน์สถานะ ให้เติมเข้าไปอัตโนมัติ
-                        if (!state.headers.includes('สถานะ')) {
-                            state.headers.push('สถานะ');
-                        }
-
-                        state.students = json.data.slice(1);
+                        state.headers = json.data[0]; state.students = json.data.slice(1);
                         document.getElementById('studentCountBadge').innerText = `${state.students.length} คน`;
                         await fetchAttendanceHistory(); Swal.close();
                     } else {
@@ -2137,49 +2129,32 @@
             let html = '';
             state.students.forEach((row, index) => {
                 const number = row[0] || '-'; const code = row[1] || '';
-                const nameParts = row.slice(2).filter(Boolean); 
+                const nameParts = row.slice(2, 4).filter(Boolean); // ดึงเฉพาะคอลัมน์ ชื่อ และ สกุล
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
-                
-                // 🛑 [แก้ไข] เพิ่มตัวแปรดึงสถานะเช็คชื่อและหมายเหตุที่หายไปกลับมา
-                const s = state.attendance && state.attendance[index] ? state.attendance[index].status : null;
-                const noteStr = state.attendance && state.attendance[index] && state.attendance[index].note ? String(state.attendance[index].note) : '';
+                const studentStatus = row[4] || 'ปกติ (กำลังศึกษา)'; // ดึงข้อมูลจากคอลัมน์ที่ 5 (Index 4)
+                const isResigned = studentStatus === 'ลาออก / ย้ายสถานศึกษา';
+
+                const nameStyle = isResigned ? 'line-through text-red-500' : 'text-gray-800';
+                const badgeStyle = isResigned ? '<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">ลาออก</span>' : '';
+                const displayInfo = `<span class="${nameStyle}">${fullName}</span> <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span> ${badgeStyle}`;
+                const att = state.attendance[index]; const s = att.status;
+                const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
                 const hasNote = noteStr.trim() !== '';
-                const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;') : 'เพิ่มหมายเหตุ';
-                // ---------------------------------------------------------
-
-                // ดึงค่าจากคอลัมน์ที่ 4 (สถานะ) ถ้าไม่มีให้ถือว่า ปกติ
-                const studentStatus = row[4] || 'ปกติ'; 
-                const isResigned = studentStatus.includes('ลาออก') || studentStatus.includes('ย้าย');
-
-                // ถ้าลาออกแล้ว จะใช้ CSS ทำให้แถวจางลง
-                const rowClass = isResigned ? "bg-gray-100 opacity-60" : "hover:bg-gray-50 transition border-b border-gray-100";
-                const displayInfoUpdated = isResigned 
-                    ? `${fullName} <span class="text-[10px] bg-red-100 text-red-600 px-1 rounded ml-1 block sm:inline">ลาออก</span>`
-                    : displayInfo;
-
-                let actionButtons = '';
-                if (isResigned) {
-                    actionButtons = `<span class="text-xs text-gray-500 font-bold">- ออกกลางคัน -</span>`;
-                } else {
-                    actionButtons = `
-                        <div class="flex items-center justify-center gap-1 sm:gap-2 min-w-max">
-                            <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
-                            <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
-                            <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
-                        </div>
-                    `;
-                }
+                const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
 
                 html += `
-                <tr class="${rowClass}">
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
                     <td class="px-3 sm:px-6 py-3 text-center text-school-navy font-bold">${number}</td>
-                    <td class="px-3 sm:px-6 py-3 font-medium text-gray-800 whitespace-nowrap">${displayInfoUpdated}</td>
+                    <td class="px-3 sm:px-6 py-3 font-medium text-gray-800 whitespace-nowrap">${displayInfo}</td>
                     <td class="px-2 sm:px-6 py-3 text-center">
-                        ${actionButtons}
+                        <div class="flex items-center justify-center gap-1 sm:gap-2 min-w-max">
+                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="มาเรียน">/</button>
+                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="ลากิจ">ล</button>
+                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="ขาดเรียน">ข</button>
+                        </div>
                     </td>
                     <td class="px-3 sm:px-6 py-3 text-center">
-                        <button onclick="openNoteModal(${index})" ${isResigned ? 'disabled' : ''} class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto border ${hasNote ? 'bg-blue-50 text-school-blue border-blue-200 hover:bg-blue-100 shadow-sm' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'} ${isResigned ? 'cursor-not-allowed opacity-50' : ''}" title="${safeNoteTitle}">
+                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto border ${hasNote ? 'bg-blue-50 text-school-blue border-blue-200 hover:bg-blue-100 shadow-sm' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}" title="${safeNoteTitle}">
                             <i class="fas fa-comment-alt text-xs"></i>
                         </button>
                     </td>
@@ -2189,7 +2164,17 @@
         }
 
         function setStatus(index, status) { state.attendance[index].status = (state.attendance[index].status === status) ? null : status; renderStudentTable(); }
-        function setAllStatus(status) { if(state.students.length === 0) return; state.attendance.forEach(a => a.status = status); renderStudentTable(); }
+        function setAllStatus(status) { 
+            if(state.students.length === 0) return; 
+            state.students.forEach((row, index) => {
+                const studentStatus = row[4] || 'ปกติ (กำลังศึกษา)';
+                // ข้ามคนที่ลาออกแล้ว
+                if (studentStatus !== 'ลาออก / ย้ายสถานศึกษา') {
+                    state.attendance[index].status = status;
+                }
+            });
+            renderStudentTable(); 
+        }
 
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
@@ -2734,19 +2719,9 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     if (json.data.length > 0) {
-                        state.headers = json.data[0]; 
-                        
-                        // 🟢 [เพิ่มใหม่] ถ้าไม่มีหัวคอลัมน์สถานะ ให้เติมเข้าไปอัตโนมัติ
-                        if (!state.headers.includes('สถานะ')) {
-                            state.headers.push('สถานะ');
-                        }
-                        
-                        state.manageData = json.data.slice(1); 
-                        renderManageTable();
+                        state.headers = json.data[0]; state.manageData = json.data.slice(1); renderManageTable();
                     } else {
-                        // 🟢 [แก้ไข] เพิ่มสถานะไว้เป็นค่าเริ่มต้น
-                        state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล', 'สถานะ']; 
-                        state.manageData = [];
+                        state.headers = ['ลำดับ', 'รหัสประจำตัว', 'ชื่อ', 'สกุล']; state.manageData = [];
                         tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีข้อมูลนักเรียนในชีตนี้ <button onclick="openEditStudentForm('add')" class="text-school-blue underline">เพิ่มคนแรกเลย</button></td></tr>`;
                     }
                 } else tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle mb-2 text-2xl"></i><br>${json.message}</td></tr>`;
@@ -2759,21 +2734,9 @@
             const isAdmin = checkAdminPermission(); 
 
             tbody.innerHTML = state.manageData.map((row, idx) => {
-                const no = row[0] || '-'; 
-                const stuId = row[1] || '-';
-                
-                // 🛑 [แก้ไข] ล็อกการดึงข้อมูลเฉพาะคอลัมน์ 2(ชื่อ) และ 3(สกุล) เพื่อไม่ให้ดึงสถานะไปต่อท้ายชื่อ
-                const nameParts = [row[2], row[3]].filter(Boolean);
+                const no = row[0] || '-'; const stuId = row[1] || '-';
+                const nameParts = row.slice(2).filter(Boolean);
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                
-                // 🟢 [เพิ่มใหม่] ดึงข้อมูลสถานะจากคอลัมน์ที่ 4 มาแสดงเป็นป้ายสี
-                const status = row[4] || 'ปกติ';
-                let statusBadge = '';
-                if (status.includes('ลาออก') || status.includes('ย้าย')) {
-                    statusBadge = `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border border-red-200">ลาออก</span>`;
-                } else {
-                    statusBadge = `<span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border border-emerald-100">ปกติ</span>`;
-                }
                 
                 const actionHtml = isAdmin 
                     ? `<div class="flex items-center justify-center gap-1.5 sm:gap-2">
@@ -2782,14 +2745,7 @@
                     </div>`
                     : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
 
-                // 🟢 [เพิ่มใหม่] แทรก <td>${statusBadge}</td> เข้าไปในตาราง
-                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100">
-                    <td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td>
-                    <td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td>
-                    <td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td>
-                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${statusBadge}</td>
-                    <td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td>
-                </tr>`
+                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100"><td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td><td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td><td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td></tr>`
             }).join('');
         }
 
@@ -2806,19 +2762,17 @@
             let rowData = actionType === 'edit' ? state.manageData[rowIndex] : [];
 
             state.headers.forEach((headerName, i) => {
+                let inputHtml = '';
                 if (headerName === 'สถานะ') {
-                    const val = rowData[i] || 'ปกติ';
-                    container.innerHTML += `
-                    <div class="mb-3">
-                        <label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label>
-                        <select id="stuInput_${i}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">
-                            <option value="ปกติ" ${val === 'ปกติ' || val === '' ? 'selected' : ''}>ปกติ (กำลังศึกษา)</option>
-                            <option value="ลาออก" ${val === 'ลาออก' ? 'selected' : ''}>ลาออก / ย้ายสถานศึกษา</option>
-                        </select>
-                    </div>`;
+                    const val = rowData[i] || 'ปกติ (กำลังศึกษา)';
+                    inputHtml = `<select id="stuInput_${i}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">
+                        <option value="ปกติ (กำลังศึกษา)" ${val === 'ปกติ (กำลังศึกษา)' ? 'selected' : ''}>ปกติ (กำลังศึกษา)</option>
+                        <option value="ลาออก / ย้ายสถานศึกษา" ${val === 'ลาออก / ย้ายสถานศึกษา' ? 'selected' : ''}>ลาออก / ย้ายสถานศึกษา</option>
+                    </select>`;
                 } else {
-                    container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label><input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50"></div>`;
+                    inputHtml = `<input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">`;
                 }
+                container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label>${inputHtml}</div>`;
             });
             document.getElementById('studentFormModal').classList.add('active');
         }
