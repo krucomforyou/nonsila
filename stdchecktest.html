@@ -752,7 +752,8 @@
                     { name: 'คาบ 6', time: '14.30 - 15.30', isBreak: false, customWidth: null },
                     { name: 'คาบ 7', time: '15.30 - 16.00', isBreak: false, customWidth: null }
                 ]
-            }
+            },
+            printData: null // เพิ่มตัวแปรนี้สำหรับส่งข้อมูลไปหน้าพิมพ์
         };
 
         const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
@@ -2195,6 +2196,13 @@
                     let matchA = a.period.match(/คาบ\s*(\d+)/); let matchB = b.period.match(/คาบ\s*(\d+)/);
                     let pA = matchA ? parseInt(matchA[1]) : 999; let pB = matchB ? parseInt(matchB[1]) : 999;
                     return pA - pB;
+
+                    // บันทึกข้อมูลแบบดิบลง state เพื่อส่งให้ฟังก์ชัน printReport นำไปแบ่งหน้า
+                    state.printData = {
+                        sessions: sessions,
+                        rawStudents: rawStudents,
+                        attendanceMap: studentAttendanceMap
+                    };
                 });
 
                 let totalStats = { present: 0, leave: 0, absent: 0 };
@@ -2277,14 +2285,16 @@
         }
 
         function printReport() {
-            const printContents = document.getElementById('reportTableContainer').innerHTML;
+            if (!state.printData || !state.printData.sessions || state.printData.sessions.length === 0) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณากดดูสถิติและให้มีข้อมูลตารางก่อนทำการพิมพ์'); return;
+            }
+
             const term = document.getElementById('reportDisplayTerm').innerText;
             const cls = document.getElementById('reportClassSel').value;
             const subj = document.getElementById('reportSubjectSel').value;
             
-            if (!cls || !subj || printContents.includes('ไม่พบข้อมูลการเช็คชื่อ')) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณากดดูสถิติและให้มีข้อมูลตารางก่อนทำการพิมพ์'); return;
-            }
+            // ดึงข้อมูลดิบมาเตรียมวาดใหม่
+            const { sessions, rawStudents, attendanceMap } = state.printData;
 
             const printWindow = window.open('', 'PrintWindow', 'height=800,width=1200');
             printWindow.document.open();
@@ -2299,26 +2309,118 @@
             printWindow.document.write(`
                 <style>
                     body { font-family: "Sarabun", sans-serif; background-color: white; } 
-                    table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; } 
+                    /* ปรับ width ให้เป็น auto เพื่อไม่ให้ยืดเต็มจอถ้าคาบน้อย */
+                    table { width: auto; margin: 0 auto; border-collapse: collapse; margin-top: 5px; font-size: 11px; } 
                     th, td { border: 1px solid #cbd5e1 !important; padding: 4px 2px; text-align: center; line-height: 1.1; word-wrap: break-word; } 
                     td:nth-child(2) { text-align: left !important; padding-left: 6px !important; }
-                    th { background-color: #f1f5f9 !important; font-weight: normal; font-size: 10px; color: #0f172a; min-width: auto !important; }
+                    th { background-color: #f1f5f9 !important; font-weight: normal; font-size: 10px; color: #0f172a; min-width: 35px; }
                     th:first-child, td:first-child, th { position: static !important; box-shadow: none !important; }
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .bg-gray-50 { background-color: #f8fafc !important; }
-                    .fa-comment-dots { display: none !important; }
-                    @media print { @page { size: A4 landscape; margin: 0mm; } body { margin: 5mm; padding: 0; } }
+                    /* คลาสสำหรับแบ่งหน้ากระดาษ */
+                    .page-break { page-break-after: always; padding-bottom: 20px; }
+                    .page-break:last-child { page-break-after: auto; }
+                    @media print { @page { size: A4 landscape; margin: 10mm; } body { margin: 0; padding: 0; } }
                 </style>
             `);
-            printWindow.document.write('</head><body class="p-4 sm:p-8">');
-            printWindow.document.write(`
-                <div class="mb-6 text-center">
-                    <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
-                    <p class="text-sm text-gray-600">วิชา: <span class="font-bold">${subj}</span> &nbsp;|&nbsp; ห้องเรียน: <span class="font-bold">${cls}</span> &nbsp;|&nbsp; ภาคเรียนที่: <span class="font-bold">${term}</span></p>
-                    <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
-                </div>
-            `);
-            printWindow.document.write(printContents);
+            printWindow.document.write('</head><body class="p-2 sm:p-4">');
+
+            // 1. ตั้งค่าการพิมพ์: 1 หน้ามี 20 คาบ
+            const CHUNK_SIZE = 20; 
+            const totalChunks = Math.ceil(sessions.length / CHUNK_SIZE);
+            const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
+
+            let pagesHtml = '';
+
+            // วนลูปสร้างหน้ากระดาษทีละหน้า
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const isLastChunk = (chunkIndex === totalChunks - 1);
+                // ตัดเฉพาะ 20 คาบของหน้านี้
+                const chunkSessions = sessions.slice(chunkIndex * CHUNK_SIZE, (chunkIndex + 1) * CHUNK_SIZE);
+
+                // 4. หัวกระดาษ (ติดไปทุกหน้า)
+                pagesHtml += `
+                    <div class="page-break w-full flex flex-col items-center">
+                        <div class="mb-4 text-center">
+                            <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
+                            <p class="text-sm text-gray-600">วิชา: <span class="font-bold">${subj}</span> &nbsp;|&nbsp; ห้องเรียน: <span class="font-bold">${cls}</span> &nbsp;|&nbsp; ภาคเรียนที่: <span class="font-bold">${term}</span></p>
+                            <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
+                            ${totalChunks > 1 ? `<p class="text-xs text-gray-500 mt-1">แผ่นที่ ${chunkIndex + 1} / ${totalChunks}</p>` : ''}
+                        </div>
+                        <table class="report-table">
+                            <thead class="bg-gray-100 text-school-navy">
+                                <tr>
+                                    <th class="border text-center" style="width: 50px;">ลำดับ</th>
+                                    <th class="border text-center" style="width: 150px;">ชื่อ - นามสกุล</th>
+                `;
+
+                // วาดหัวคอลัมน์ของคาบในหน้านี้
+                chunkSessions.forEach((s, sIndex) => {
+                    let dObj = new Date(s.date);
+                    let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
+                    let globalSessionIndex = (chunkIndex * CHUNK_SIZE) + sIndex + 1;
+                    let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${globalSessionIndex})</span>`;
+                    pagesHtml += `<th class="border text-center leading-none">${dateStr}${periodStr}</th>`;
+                });
+
+                // 2. เอารวม มา, ลา, ขาด ไว้หน้าสุดท้ายเท่านั้น
+                if (isLastChunk) {
+                    pagesHtml += `
+                        <th class="border text-center bg-gray-200" style="width: 40px;">มา</th>
+                        <th class="border text-center bg-gray-200" style="width: 40px;">ลา</th>
+                        <th class="border text-center bg-gray-200" style="width: 40px;">ขาด</th>
+                    `;
+                }
+                pagesHtml += `</tr></thead><tbody>`;
+
+                // วาดรายชื่อนักเรียนและข้อมูลการเช็คชื่อ
+                rawStudents.forEach((stuRow) => {
+                    const number = stuRow[0] || '-';
+                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const uniqueId = getStudentUniqueId(stuRow);
+
+                    let rowStats = { present: 0, leave: 0, absent: 0 };
+                    
+                    // คำนวณสรุปเฉพาะสำหรับโชว์ในหน้าสุดท้าย (คำนวณจาก session ของทุกหน้ารวมกัน)
+                    if (isLastChunk) {
+                         sessions.forEach(s => {
+                             const record = attendanceMap[uniqueId] ? attendanceMap[uniqueId][s.key] : null;
+                             const status = record ? record.status : null;
+                             if(status && rowStats[status] !== undefined) rowStats[status]++;
+                         });
+                    }
+
+                    pagesHtml += `<tr><td class="border text-center font-bold">${number}</td><td class="border text-left pl-2">${fullName}</td>`;
+
+                    // ข้อมูล 20 คาบในหน้านี้
+                    chunkSessions.forEach(s => {
+                        const record = attendanceMap[uniqueId] ? attendanceMap[uniqueId][s.key] : null;
+                        const status = record ? record.status : null;
+                        const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : ''; 
+                        
+                        let colorClass = '';
+                        if (status === 'absent') colorClass = 'text-red-600 font-bold';
+                        else if (status === 'leave') colorClass = 'text-blue-600 font-bold';
+                        
+                        pagesHtml += `<td class="border text-center ${colorClass}">${symbol}</td>`;
+                    });
+
+                    // ใส่ผลสรุปท้ายตาราง (เฉพาะหน้าสุดท้าย)
+                    if (isLastChunk) {
+                        pagesHtml += `
+                            <td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td>
+                            <td class="border text-center font-bold text-blue-700 bg-gray-50">${rowStats.leave}</td>
+                            <td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td>
+                        `;
+                    }
+                    pagesHtml += `</tr>`;
+                });
+
+                pagesHtml += `</tbody></table></div>`;
+            }
+
+            printWindow.document.write(pagesHtml);
             printWindow.document.write('</body></html>');
             printWindow.document.close();
             
