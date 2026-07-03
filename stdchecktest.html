@@ -2696,6 +2696,14 @@
                     classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
                 } else {
                     classStatusHtml = '<div class="flex flex-wrap gap-2">';
+                    
+                    // 1. เพิ่มคำสั่งจัดเรียงตามเลขคาบเรียน
+                    item.classes.sort((a, b) => {
+                        const periodA = parseInt(a.period.match(/\d+/) ? a.period.match(/\d+/)[0] : 999);
+                        const periodB = parseInt(b.period.match(/\d+/) ? b.period.match(/\d+/)[0] : 999);
+                        return periodA - periodB;
+                    });
+
                     item.classes.forEach(cls => {
                         // กำหนดสีของจุดและกรอบตามสถานะ
                         const dotColor = cls.isChecked ? 'bg-emerald-500' : 'bg-red-500';
@@ -2705,10 +2713,11 @@
                         // ป้องกันปัญหาเครื่องหมาย Single Quote (') ในชื่อวิชาทำลาย Syntax ของ onclick
                         const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
+                        // 2. ปรับข้อความแสดงผล และใส่ title ให้อ่านรายละเอียดเมื่อเอาเมาส์ชี้
                         classStatusHtml += `
-                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="คลิกเพื่อดูรายละเอียด">
+                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
-                                <span class="${textColor} font-bold">ห้อง ${cls.className}</span>
+                                <span class="${textColor} font-bold">${cls.period} (ห้อง ${cls.className})</span>
                             </div>
                         `;
                     });
