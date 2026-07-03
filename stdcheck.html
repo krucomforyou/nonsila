@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2129,14 +2129,9 @@
             let html = '';
             state.students.forEach((row, index) => {
                 const number = row[0] || '-'; const code = row[1] || '';
-                const nameParts = row.slice(2, 4).filter(Boolean); // ดึงเฉพาะคอลัมน์ ชื่อ และ สกุล
+                const nameParts = row.slice(2).filter(Boolean); 
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                const studentStatus = row[4] || 'ปกติ (กำลังศึกษา)'; // ดึงข้อมูลจากคอลัมน์ที่ 5 (Index 4)
-                const isResigned = studentStatus === 'ลาออก / ย้ายสถานศึกษา';
-
-                const nameStyle = isResigned ? 'line-through text-red-500' : 'text-gray-800';
-                const badgeStyle = isResigned ? '<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">ลาออก</span>' : '';
-                const displayInfo = `<span class="${nameStyle}">${fullName}</span> <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span> ${badgeStyle}`;
+                const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
                 const att = state.attendance[index]; const s = att.status;
                 const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
                 const hasNote = noteStr.trim() !== '';
@@ -2148,9 +2143,9 @@
                     <td class="px-3 sm:px-6 py-3 font-medium text-gray-800 whitespace-nowrap">${displayInfo}</td>
                     <td class="px-2 sm:px-6 py-3 text-center">
                         <div class="flex items-center justify-center gap-1 sm:gap-2 min-w-max">
-                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="มาเรียน">/</button>
-                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="ลากิจ">ล</button>
-                            <button ${isResigned ? 'disabled' : ''} onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''} ${isResigned ? 'opacity-30 cursor-not-allowed' : ''}" title="ขาดเรียน">ข</button>
+                            <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
+                            <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
+                            <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
                         </div>
                     </td>
                     <td class="px-3 sm:px-6 py-3 text-center">
@@ -2164,17 +2159,7 @@
         }
 
         function setStatus(index, status) { state.attendance[index].status = (state.attendance[index].status === status) ? null : status; renderStudentTable(); }
-        function setAllStatus(status) { 
-            if(state.students.length === 0) return; 
-            state.students.forEach((row, index) => {
-                const studentStatus = row[4] || 'ปกติ (กำลังศึกษา)';
-                // ข้ามคนที่ลาออกแล้ว
-                if (studentStatus !== 'ลาออก / ย้ายสถานศึกษา') {
-                    state.attendance[index].status = status;
-                }
-            });
-            renderStudentTable(); 
-        }
+        function setAllStatus(status) { if(state.students.length === 0) return; state.attendance.forEach(a => a.status = status); renderStudentTable(); }
 
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
@@ -2762,17 +2747,7 @@
             let rowData = actionType === 'edit' ? state.manageData[rowIndex] : [];
 
             state.headers.forEach((headerName, i) => {
-                let inputHtml = '';
-                if (headerName === 'สถานะ') {
-                    const val = rowData[i] || 'ปกติ (กำลังศึกษา)';
-                    inputHtml = `<select id="stuInput_${i}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">
-                        <option value="ปกติ (กำลังศึกษา)" ${val === 'ปกติ (กำลังศึกษา)' ? 'selected' : ''}>ปกติ (กำลังศึกษา)</option>
-                        <option value="ลาออก / ย้ายสถานศึกษา" ${val === 'ลาออก / ย้ายสถานศึกษา' ? 'selected' : ''}>ลาออก / ย้ายสถานศึกษา</option>
-                    </select>`;
-                } else {
-                    inputHtml = `<input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">`;
-                }
-                container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label>${inputHtml}</div>`;
+                container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label><input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50"></div>`;
             });
             document.getElementById('studentFormModal').classList.add('active');
         }
