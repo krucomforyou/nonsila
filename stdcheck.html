@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2347,9 +2347,27 @@
                 };
                 
 
+                // ดึงเฉพาะ ID ของนักเรียนที่ยัง "กำลังศึกษา" อยู่
+                const activeStudentIds = rawStudents
+                    .filter(stuRow => {
+                        const statusText = stuRow[4] || 'กำลังศึกษา';
+                        return statusText !== 'ย้าย' && statusText !== 'ลาออก';
+                    })
+                    .map(stuRow => getStudentUniqueId(stuRow));
+
                 let totalStats = { present: 0, leave: 0, absent: 0 };
-                let totalRecords = reportData.length; 
-                reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
+                let totalRecords = 0; 
+                
+                reportData.forEach(r => { 
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+                    
+                    // นับสถิติภาพรวมเฉพาะนักเรียนที่อยู่ในลิสต์ activeStudentIds เท่านั้น
+                    if (activeStudentIds.includes(historyId) && totalStats[r.status] !== undefined) {
+                        totalStats[r.status]++;
+                        totalRecords++;
+                    }
+                });
 
                 const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
                 document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
