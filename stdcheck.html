@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -2377,8 +2377,16 @@
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    // ดึงเฉพาะชื่อ-สกุล (คอลัมน์ 2 และ 3)
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    // จัดการแสดงผลชื่อตามสถานะ
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    let displayInfo = fullName;
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        displayInfo = `<span class="text-red-500 line-through decoration-red-500 decoration-2 opacity-70 font-medium">${fullName}</span> <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1 font-bold border border-red-200">${statusText}</span>`;
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let rowStats = { present: 0, leave: 0, absent: 0 };
@@ -2402,7 +2410,7 @@
                         } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
-                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center text-school-navy">${number}</td><td class="border">${displayInfo}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
                 });
 
                 tableHtml += '</tbody></table>';
@@ -2543,8 +2551,15 @@
                 // วาดรายชื่อนักเรียนและข้อมูลการเช็คชื่อ
                 rawStudents.forEach((stuRow) => {
                     const number = stuRow[0] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    let displayInfo = fullName;
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        // ใช้ inline CSS เพื่อให้หน้าต่าง Print แสดงผลสีและเส้นขีดฆ่าได้
+                        displayInfo = `<span style="text-decoration: line-through; color: #ef4444;">${fullName}</span> <span style="color: #dc2626; font-size: 10px; border: 1px solid #fca5a5; padding: 1px 4px; border-radius: 4px; background-color: #fee2e2; margin-left: 4px;">${statusText}</span>`;
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let rowStats = { present: 0, leave: 0, absent: 0 };
@@ -2558,7 +2573,7 @@
                          });
                     }
 
-                    pagesHtml += `<tr><td class="border text-center">${number}</td><td class="border text-left pl-2">${fullName}</td>`;
+                    pagesHtml += `<tr><td class="border text-center">${number}</td><td class="border text-left pl-2">${displayInfo}</td>`;
 
                     // ข้อมูลคาบในหน้านี้
                     chunkSessions.forEach(s => {
@@ -2671,8 +2686,13 @@
 
                 rawStudents.forEach(stuRow => {
                     const number = stuRow[0] || '-'; const code = stuRow[1] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
-                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
+                    let fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        fullName += ` (${statusText})`; // เติมวงเล็บสถานะต่อท้ายในเซลล์ Excel
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let stats = { present: 0, leave: 0, absent: 0 };
