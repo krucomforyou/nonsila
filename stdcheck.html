@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -1127,11 +1127,27 @@
                 tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
                 return;
             }
-            tbody.innerHTML = state.terms.map(t => `
+
+            // หาตำแหน่ง (Index) ของภาคเรียนปัจจุบัน
+            const activeIndex = state.terms.findIndex(t => t.isActive);
+
+            tbody.innerHTML = state.terms.map((t, index) => {
+                let statusBadge = '';
+                
+                // คำนวณสถานะจาก Index
+                if (t.isActive) {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200 shadow-sm">ปัจจุบัน</span>`;
+                } else if (activeIndex !== -1 && index < activeIndex) {
+                    statusBadge = `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`;
+                } else {
+                    statusBadge = `<span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-bold border border-blue-200 shadow-sm">อนาคต</span>`;
+                }
+
+                return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 font-bold text-school-navy">${t.name}</td>
                     <td class="px-4 py-3 text-center">
-                        ${t.isActive ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">ปัจจุบัน</span>` : `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`}
+                        ${statusBadge}
                     </td>
                     <td class="px-4 py-3 text-center flex justify-center gap-2">
                         ${!t.isActive ? `<button onclick="setTermActive('${t.name}')" class="text-xs bg-school-blue hover:bg-[#345ba8] text-white px-2 py-1 rounded shadow-sm" title="ตั้งเป็นปัจจุบัน">Set Active</button>` : `<span class="w-[72px]"></span>`}
@@ -1142,7 +1158,8 @@
                         }
                     </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
         async function addTerm() {
             const input = document.getElementById('newTermInput');
