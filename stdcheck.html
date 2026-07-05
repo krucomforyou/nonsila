@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -555,8 +555,13 @@
                  <button onclick="closeManageTermModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
             </div>
             <div class="p-6 overflow-y-auto bg-gray-50 hide-scrollbar">
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="newTermInput" placeholder="เช่น 1/2567" class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <input type="text" id="newTermInput" placeholder="ชื่อภาคเรียน เช่น 1/2567" class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                    
+                    <div class="relative flex-1 sm:w-40">
+                        <input type="date" id="newTermStartDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white text-gray-600" title="วันเปิดภาคเรียน">
+                    </div>
+
                     <button onclick="addTerm()" class="bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
                         <i class="fas fa-plus mr-1"></i> เพิ่ม
                     </button>
@@ -1121,20 +1126,27 @@
         // โค้ดส่วน Modals Manage Term เดิม
         function openManageTermModal() { renderManageTermTable(); document.getElementById('manageTermModal').classList.add('active'); }
         function closeManageTermModal() { document.getElementById('manageTermModal').classList.remove('active'); }
+        
         function renderManageTermTable() {
             const tbody = document.getElementById('termTableBody');
             if(state.terms.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
                 return;
             }
 
-            // หาตำแหน่ง (Index) ของภาคเรียนปัจจุบัน
+            // อัปเดตหัวตาราง (เพิ่มคอลัมน์วันเปิดภาคเรียน)
+            const thead = document.querySelector('#manageTermModal thead tr');
+            thead.innerHTML = `
+                <th class="px-4 py-3">ชื่อภาคเรียน</th>
+                <th class="px-4 py-3 text-center">วันเปิดภาคเรียน</th>
+                <th class="px-4 py-3 text-center w-24">สถานะ</th>
+                <th class="px-4 py-3 text-center w-32">จัดการ</th>
+            `;
+
             const activeIndex = state.terms.findIndex(t => t.isActive);
 
             tbody.innerHTML = state.terms.map((t, index) => {
                 let statusBadge = '';
-                
-                // คำนวณสถานะจาก Index
                 if (t.isActive) {
                     statusBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200 shadow-sm">ปัจจุบัน</span>`;
                 } else if (activeIndex !== -1 && index < activeIndex) {
@@ -1143,12 +1155,21 @@
                     statusBadge = `<span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-bold border border-blue-200 shadow-sm">อนาคต</span>`;
                 }
 
+                // แปลงวันที่ YYYY-MM-DD เป็นรูปแบบไทยย่อ
+                let displayDate = '<span class="text-gray-400">-</span>';
+                if (t.startDate) {
+                    const d = new Date(t.startDate);
+                    if (!isNaN(d.getTime())) {
+                        const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                        displayDate = `<span class="text-school-blue font-medium">${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear() + 543}</span>`;
+                    }
+                }
+
                 return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 font-bold text-school-navy">${t.name}</td>
-                    <td class="px-4 py-3 text-center">
-                        ${statusBadge}
-                    </td>
+                    <td class="px-4 py-3 text-center text-sm">${displayDate}</td>
+                    <td class="px-4 py-3 text-center">${statusBadge}</td>
                     <td class="px-4 py-3 text-center flex justify-center gap-2">
                         ${!t.isActive ? `<button onclick="setTermActive('${t.name}')" class="text-xs bg-school-blue hover:bg-[#345ba8] text-white px-2 py-1 rounded shadow-sm" title="ตั้งเป็นปัจจุบัน">Set Active</button>` : `<span class="w-[72px]"></span>`}
                         
@@ -1161,20 +1182,37 @@
                 `;
             }).join('');
         }
+
         async function addTerm() {
             const input = document.getElementById('newTermInput');
+            const dateInput = document.getElementById('newTermStartDate'); // ดึง element วันที่
             const termName = input.value.trim();
+            const startDate = dateInput.value; // ดึงค่า YYYY-MM-DD
+
             if(!termName) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อภาคเรียน (เช่น 1/2567)'); return; }
+            if(!startDate) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุวันเปิดภาคเรียนด้วยครับ'); return; }
             if(termName.includes('_')) { cuteAlert.error('ชื่อไม่ถูกต้อง', 'ไม่อนุญาตให้ใช้เครื่องหมาย _ (Underscore)'); return; }
+            
             cuteAlert.loading('กำลังเพิ่มภาคเรียน ⏳');
-            const form = new FormData(); form.append('actionType', 'add'); form.append('termName', termName);
+            const form = new FormData(); 
+            form.append('actionType', 'add'); 
+            form.append('termName', termName);
+            form.append('startDate', startDate); // แนบวันที่ไปด้วย
+
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') { input.value = ''; await fetchTerms(); renderManageTermTable(); cuteAlert.success('สำเร็จ!', json.message); } 
+                if (json.status === 'success') { 
+                    input.value = ''; 
+                    dateInput.value = ''; // เคลียร์ช่องวันที่
+                    await fetchTerms(); 
+                    renderManageTermTable(); 
+                    cuteAlert.success('สำเร็จ!', json.message); 
+                } 
                 else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
+
         async function setTermActive(termName) {
             cuteAlert.loading('กำลังอัปเดตสถานะ ⏳');
             const form = new FormData(); form.append('actionType', 'setActive'); form.append('termName', termName);
