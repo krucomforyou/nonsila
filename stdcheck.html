@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -595,6 +595,9 @@
                         <select id="manageClassSelector" onchange="loadManageStudents()" class="border border-gray-300 rounded p-2 text-sm focus:ring-1 focus:ring-school-navy bg-white w-full sm:w-auto min-w-[120px]"></select>
                         <button onclick="promptAddClass()" class="admin-class-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="เพิ่มห้องเรียนใหม่">
                             <i class="fas fa-folder-plus"></i>
+                        </button>
+                        <button onclick="promptEditClass()" class="admin-class-btn bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="แก้ไขชื่อห้องเรียนที่เลือก">
+                            <i class="fas fa-edit"></i>
                         </button>
                         <button onclick="confirmDeleteClass()" class="admin-class-btn bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="ลบห้องเรียนที่เลือก">
                             <i class="fas fa-folder-minus"></i>
@@ -3280,6 +3283,50 @@
             } else {
                 cuteAlert.error('รูปแบบข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบว่าก๊อปปี้ข้อมูลมาอย่างน้อย 4 คอลัมน์ (ลำดับ, รหัส, ชื่อ, นามสกุล)');
             }
+        }
+
+        function promptEditClass() {
+            if (!checkAdminPermission()) return;
+            const oldClassName = document.getElementById('manageClassSelector').value;
+            if (!oldClassName) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการแก้ไขก่อน'); return; }
+
+            Swal.fire({
+                title: 'แก้ไขชื่อห้องเรียน', 
+                input: 'text', 
+                inputValue: oldClassName,
+                inputLabel: 'ชื่อห้องเรียนใหม่', 
+                inputPlaceholder: 'กรอกชื่อห้องเรียนใหม่...',
+                showCancelButton: true, confirmButtonText: 'บันทึกการแก้ไข', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#1a3a6e',
+                inputValidator: (value) => {
+                    if (!value || value.trim() === '') return 'กรุณากรอกชื่อห้องเรียน!';
+                    if (value.trim() === oldClassName) return 'ชื่อห้องเรียนเหมือนเดิม!';
+                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในระบบแล้ว!';
+                },
+                customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const newClassName = result.value.trim();
+                    cuteAlert.loading('กำลังเปลี่ยนชื่อห้องเรียน ⏳');
+                    const form = new FormData();
+                    form.append('term', state.selectedTerm); 
+                    form.append('actionType', 'editClass'); 
+                    form.append('oldClassName', oldClassName);
+                    form.append('newClassName', newClassName);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') { 
+                            await fetchClasses(); 
+                            document.getElementById('manageClassSelector').value = newClassName; 
+                            loadManageStudents(); 
+                            cuteAlert.success('สำเร็จ! ✨', `เปลี่ยนชื่อเป็น ${newClassName} เรียบร้อยแล้ว`); 
+                        } else {
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                        }
+                    } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
+                }
+            });
         }
     </script>
 </body>
