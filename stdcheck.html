@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -1266,15 +1266,45 @@
                 disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
             };
 
-            fpMain = flatpickr("#datePicker", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'attSubjectSelector') });
-            fpHistory = flatpickr("#manageTimeDate", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'manageTimeSubject') });
+            // --- 1. เพิ่มฟังก์ชันตัวกลางเพื่อซิงค์วันที่ให้ตรงกันทุกหน้าต่าง ---
+            const syncAllDates = (dates, dateStr) => {
+                if (dates.length === 0) return;
+                const d = dates[0];
+                
+                // อัปเดตตัวแปรระบบ
+                state.currentDate = dateStr;
+                state.overviewDate = dateStr;
+                updateHeaderDate(d);
+                
+                // สั่งอัปเดตปฏิทินตัวอื่นๆ (false = ไม่ให้ trigger event วนลูป)
+                if (fpMain) fpMain.setDate(d, false);
+                if (fpHistory) fpHistory.setDate(d, false);
+                if (fpOverview) fpOverview.setDate(d, false);
+                if (fpSummary) fpSummary.setDate(d, false);
+            };
+
+            // --- 2. นำฟังก์ชัน syncAllDates ไปใส่ใน onChange ของปฏิทินทุกตัว ---
+            fpMain = flatpickr("#datePicker", { 
+                ...commonConfig, 
+                onChange: (dates, dateStr) => {
+                    syncAllDates(dates, dateStr);
+                    handleDateChange(dates, dateStr, 'attSubjectSelector');
+                }
+            });
+            
+            fpHistory = flatpickr("#manageTimeDate", { 
+                ...commonConfig, 
+                onChange: (dates, dateStr) => {
+                    syncAllDates(dates, dateStr);
+                    handleDateChange(dates, dateStr, 'manageTimeSubject');
+                }
+            });
             
             fpOverview = flatpickr("#overviewDatePicker", { 
                 ...commonConfig, 
                 onChange: (dates, dateStr) => {
                     if (dates.length > 0) {
-                        state.overviewDate = dateStr;
-                        updateHeaderDate(dates[0]); 
+                        syncAllDates(dates, dateStr);
                         loadAttendanceOverview();
                     }
                 } 
@@ -1284,16 +1314,15 @@
                 ...commonConfig, 
                 onChange: (dates, dateStr) => {
                     if (dates.length > 0) {
+                        syncAllDates(dates, dateStr);
                         fpSummary.close(); 
-                        
-                        // เพิ่มบรรทัดนี้: บังคับให้ช่องกรอกวันที่เลิกโฟกัส เพื่อป้องกันปฏิทินเด้งซ้ำตอนโหลดเสร็จ
                         document.getElementById('summaryDatePicker').blur(); 
-                        
                         loadTeacherSummary(dateStr); 
                     }
                 } 
             });
 
+            // ส่วนเริ่มต้นค่าวันปัจจุบัน (คงไว้เหมือนเดิม)
             const today = new Date();
             if(today.getDay() === 0) today.setDate(today.getDate() - 2);
             else if(today.getDay() === 6) today.setDate(today.getDate() - 1);
