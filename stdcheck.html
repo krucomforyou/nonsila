@@ -1273,7 +1273,10 @@
             fpSummary = flatpickr("#summaryDatePicker", { 
                 ...commonConfig, 
                 onChange: (dates, dateStr) => {
-                    if (dates.length > 0) loadTeacherSummary(dateStr); // เมื่อเปลี่ยนวัน ให้ดึงข้อมูลใหม่
+                    if (dates.length > 0) {
+                        fpSummary.close(); // <--- เพิ่มบรรทัดนี้ เพื่อบังคับปิดปฏิทินทันที
+                        loadTeacherSummary(dateStr); 
+                    }
                 } 
             });
 
@@ -2096,13 +2099,33 @@
             tbody.innerHTML = html;
         }
 
-        function jumpToCheckAttendance(dateStr, subject, period, className) {
-            fpMain.setDate(dateStr, true); 
-            switchTab('attendance');
-            setTimeout(() => {
-                const attSel = document.getElementById('attSubjectSelector');
-                if (attSel) { attSel.value = `${subject}|${period}`; onSubjectSelect('att'); }
-            }, 300);
+        function jumpToCheckAttendance(dateStr, subject, period, className, teacherName = null) {
+            const executeJump = () => {
+                fpMain.setDate(dateStr, true); 
+                switchTab('attendance');
+                setTimeout(() => {
+                    const attSel = document.getElementById('attSubjectSelector');
+                    if (attSel) { 
+                        attSel.value = `${subject}|${period}`; 
+                        onSubjectSelect('att'); 
+                    }
+                }, 300);
+            };
+
+            // หากข้ามมาจากหน้ารวมของครูท่านอื่น ให้ทำการดึงตารางสอนใหม่ก่อนข้ามหน้า
+            if (teacherName && state.viewingTeacher !== teacherName && checkAdminPermission()) {
+                state.viewingTeacher = teacherName;
+                const adminSel = document.getElementById('adminTeacherSelector');
+                if(adminSel) adminSel.value = teacherName;
+                
+                cuteAlert.loading(`กำลังดึงตารางสอนของ ${teacherName}...`);
+                fetchSchedule().then(() => {
+                    Swal.close();
+                    executeJump();
+                });
+            } else {
+                executeJump();
+            }
         }
 
         async function loadStudents() {
@@ -3068,21 +3091,22 @@
             const summaryList = (data.summaryList || []).filter(item => item.totalClasses > 0);
 
             if (summaryList.length === 0) {
-                // [จุดที่ต้องแก้ไข] เปลี่ยนข้อความแจ้งเตือนให้สอดคล้องกัน
                 tbody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครูที่มีตารางสอนในวันนี้</td></tr>';
                 return;
             }
 
             let html = '';
-                summaryList.forEach(item => {
-                    let classStatusHtml = '';
+            const currentDateStr = document.getElementById('summaryDatePicker').value; // <--- เพิ่มบรรทัดนี้
+            
+            summaryList.forEach(item => {
+                let classStatusHtml = '';
+                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, "&quot;"); // <--- เพิ่มบรรทัดนี้
                 
                 if (item.totalClasses === 0) {
                     classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
                 } else {
                     classStatusHtml = '<div class="flex flex-wrap gap-2">';
                     
-                    // 1. เพิ่มคำสั่งจัดเรียงตามเลขคาบเรียน
                     item.classes.sort((a, b) => {
                         const periodA = parseInt(a.period.match(/\d+/) ? a.period.match(/\d+/)[0] : 999);
                         const periodB = parseInt(b.period.match(/\d+/) ? b.period.match(/\d+/)[0] : 999);
@@ -3090,17 +3114,14 @@
                     });
 
                     item.classes.forEach(cls => {
-                        // กำหนดสีของจุดและกรอบตามสถานะ
                         const dotColor = cls.isChecked ? 'bg-emerald-500' : 'bg-red-500';
                         const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
-                        
-                        // ป้องกันปัญหาเครื่องหมาย Single Quote (') ในชื่อวิชาทำลาย Syntax ของ onclick
                         const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
-                        // 2. ปรับข้อความแสดงผล และใส่ title ให้อ่านรายละเอียดเมื่อเอาเมาส์ชี้
+                        // <--- แก้ไข onclick ตรงนี้ (ส่ง currentDateStr และ safeTeacherName เพิ่มเข้าไป)
                         classStatusHtml += `
-                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
+                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked}, '${currentDateStr}', '${safeTeacherName}')" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
                                 <span class="${textColor} font-bold">${cls.period} (ห้อง ${cls.className})</span>
                             </div>
@@ -3128,13 +3149,15 @@
             tbody.innerHTML = html;
         }
 
-        function showSubjectDetail(subject, className, period, isChecked) {
-            // กำหนดรูปแบบข้อความสถานะ
+        function showSubjectDetail(subject, className, period, isChecked, dateStr, teacherName) {
             const statusHtml = isChecked 
                 ? '<div class="bg-emerald-50 text-emerald-700 py-2 rounded-lg font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-2"><i class="fas fa-check-circle"></i> เช็คชื่อเรียบร้อยแล้ว</div>' 
                 : '<div class="bg-red-50 text-red-600 py-2 rounded-lg font-bold border border-red-200 shadow-sm flex items-center justify-center gap-2 animate-pulse"><i class="fas fa-exclamation-circle"></i> ยังไม่ได้เช็คชื่อ</div>';
             
-            // เรียกใช้ SweetAlert2 ตามธีมระบบโรงเรียนโนนศิลาสว่างวิทย์
+            // ตั้งค่าปุ่มกดตามสถานะการเช็คชื่อ
+            let confirmBtnText = isChecked ? 'ปิดหน้าต่าง' : '<i class="fas fa-edit"></i> ไปเช็คชื่อวิชานี้';
+            let confirmBtnColor = isChecked ? '#64748b' : '#4472c4';
+
             Swal.fire({
                 title: '<i class="fas fa-book text-school-brass mr-2"></i> ข้อมูลรายวิชา',
                 html: `
@@ -3158,13 +3181,21 @@
                         </div>
                     </div>
                 `,
-                confirmButtonText: 'ปิด',
-                confirmButtonColor: '#1a3a6e',
+                showCancelButton: !isChecked,
+                cancelButtonText: 'ปิด',
+                confirmButtonText: confirmBtnText,
+                confirmButtonColor: confirmBtnColor,
                 customClass: { 
-                    popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100 w-11/12 max-w-sm' 
+                    popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100 w-11/12 max-w-sm',
+                    confirmButton: 'px-4 py-2 text-sm font-bold rounded-lg shadow-sm',
+                    cancelButton: 'px-4 py-2 text-sm font-bold rounded-lg shadow-sm bg-gray-100 text-gray-700 hover:bg-gray-200'
                 },
                 scrollbarPadding: false,
                 heightAuto: false
+            }).then((result) => {
+                if (result.isConfirmed && !isChecked) {
+                    jumpToCheckAttendance(dateStr, subject, period, className, teacherName);
+                }
             });
         }
 
