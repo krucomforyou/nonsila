@@ -601,9 +601,14 @@
                         </button>
                     </div>
                 </div>
-                <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition admin-only">
-                    <i class="fas fa-plus"></i> เพิ่มนักเรียน
-                </button>
+                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto admin-only">
+                    <button onclick="openImportStudentModal()" class="w-full sm:w-auto bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
+                        <i class="fas fa-paste"></i> นำเข้าจาก Excel
+                    </button>
+                    <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
+                        <i class="fas fa-plus"></i> เพิ่มนักเรียน
+                    </button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-auto relative bg-gray-50 pb-32 md:pb-0 hide-scrollbar">
@@ -719,6 +724,33 @@
             <div class="bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
                 <button onclick="closeImportScheduleModal()" class="px-5 py-2 text-gray-600 text-sm font-bold hover:bg-gray-100 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
                 <button onclick="processPastedSchedule()" class="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-indigo-700 transition transform hover:-translate-y-0.5 flex items-center"><i class="fas fa-magic mr-2"></i> ประมวลผลและสร้างตาราง</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importStudentModal" class="modal fixed inset-0 z-[170] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col">
+            <div class="bg-emerald-600 px-6 py-4 border-b border-emerald-700 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-white"><i class="fas fa-user-plus mr-2"></i> นำเข้ารายชื่อนักเรียนจาก Excel / Sheets</h3>
+                 <button onclick="closeImportStudentModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 bg-gray-50 flex-1">
+                <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl text-sm mb-4">
+                    <p class="font-bold mb-2"><i class="fas fa-info-circle mr-1"></i> คำแนะนำในการวางข้อมูล:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li>คลุมดำข้อมูลใน Excel 4 หรือ 5 คอลัมน์ ตามลำดับ: <br>
+                            <span class="font-bold bg-white px-1 rounded">ลำดับ</span> | <span class="font-bold bg-white px-1 rounded">รหัสประจำตัว</span> | <span class="font-bold bg-white px-1 rounded">ชื่อ</span> | <span class="font-bold bg-white px-1 rounded">นามสกุล</span> | <span class="font-bold bg-white px-1 rounded text-gray-500">สถานะ (มีหรือไม่มีก็ได้)</span>
+                        </li>
+                        <li>หากไม่ใส่คอลัมน์ "สถานะ" ระบบจะตั้งค่าเริ่มต้นเป็น "กำลังศึกษา" ให้โดยอัตโนมัติ</li>
+                        <li class="text-red-500">* ข้อมูลจะถูก <b>เพิ่มต่อท้าย</b> รายชื่อเดิมในห้องเรียนปัจจุบันเสมอ</li>
+                    </ul>
+                </div>
+                
+                <textarea id="pasteStudentArea" rows="8" class="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white font-mono whitespace-pre text-gray-700 resize-none shadow-inner" placeholder="คลิกที่นี่ แล้วกด Ctrl+V เพื่อวางข้อมูล..."></textarea>
+            </div>
+            <div class="bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+                <button onclick="closeImportStudentModal()" class="px-5 py-2 text-gray-600 text-sm font-bold hover:bg-gray-100 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                <button onclick="processPastedStudents()" class="px-6 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-emerald-700 transition transform hover:-translate-y-0.5 flex items-center"><i class="fas fa-save mr-2"></i> นำเข้าข้อมูล</button>
             </div>
         </div>
     </div>
@@ -3157,6 +3189,96 @@
                         window.location.reload();
                     }, 500);
                 }
+            }
+        }
+
+        // ==========================================
+        // ระบบวางข้อมูลรายชื่อนักเรียนจาก Excel
+        // ==========================================
+        function openImportStudentModal() {
+            if (!checkAdminPermission()) return;
+            const className = document.getElementById('manageClassSelector').value;
+            if(!className) { 
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือก "ห้องเรียน" ด้านบนก่อนทำการนำเข้าครับ'); 
+                return; 
+            }
+            document.getElementById('pasteStudentArea').value = '';
+            document.getElementById('importStudentModal').classList.add('active');
+        }
+
+        function closeImportStudentModal() {
+            document.getElementById('importStudentModal').classList.remove('active');
+        }
+
+        async function processPastedStudents() {
+            const className = document.getElementById('manageClassSelector').value;
+            const text = document.getElementById('pasteStudentArea').value;
+            
+            if (!text || text.trim() === '') {
+                cuteAlert.error('ไม่พบข้อมูล', 'กรุณาวางข้อมูลในกล่องข้อความก่อนครับ');
+                return;
+            }
+
+            const rows = text.split('\n');
+            let parsedStudents = [];
+            let errorCount = 0;
+
+            for (let r of rows) {
+                if (!r.trim()) continue; // ข้ามบรรทัดว่าง
+                const cols = r.split('\t');
+                
+                // ต้องมีอย่างน้อย 4 คอลัมน์ (ลำดับ, รหัส, ชื่อ, สกุล)
+                if (cols.length >= 4) {
+                    let no = cols[0].trim();
+                    let stuId = cols[1].trim();
+                    let name = cols[2].trim();
+                    let surname = cols[3].trim();
+                    let status = cols[4] ? cols[4].trim() : 'กำลังศึกษา'; // ถ้าไม่มีคอลัมน์ 5 ให้เป็น กำลังศึกษา
+
+                    // ข้ามบรรทัดหัวตาราง (ถ้าก๊อปมาด้วย)
+                    if (no === 'ลำดับ' || name === 'ชื่อ') continue;
+
+                    // ถ้ามีชื่อและนามสกุล ถือว่าผ่าน
+                    if (name && surname) {
+                        parsedStudents.push([no, stuId, name, surname, status]);
+                    } else {
+                        errorCount++;
+                    }
+                } else {
+                    errorCount++;
+                }
+            }
+
+            if (parsedStudents.length > 0) {
+                closeImportStudentModal();
+                cuteAlert.loading(`กำลังนำเข้านักเรียน ${parsedStudents.length} คน เข้าสู่ห้อง ${className} ⏳`);
+                
+                const form = new FormData();
+                form.append('term', state.selectedTerm);
+                form.append('className', className.trim()); 
+                form.append('actionType', 'import'); 
+                form.append('studentData', JSON.stringify(parsedStudents));
+
+                try {
+                    const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
+                    const json = await res.json();
+                    if (json.status === 'success') { 
+                        loadManageStudents(); 
+                        if (state.currentClass === className) loadStudents(); 
+                        
+                        let msg = `เพิ่มรายชื่อสำเร็จ <b>${parsedStudents.length}</b> คน`;
+                        if(errorCount > 0) msg += `<br><span class="text-red-500 text-xs">* ข้ามข้อมูลที่ไม่สมบูรณ์ ${errorCount} แถว</span>`;
+                        
+                        Swal.fire({
+                            title: 'นำเข้าสำเร็จ! ✨', html: msg, icon: 'success',
+                            confirmButtonText: 'ตกลง', confirmButtonColor: '#1a3a6e',
+                            customClass: { popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100' }
+                        });
+                    }
+                    else cuteAlert.error('ข้อผิดพลาด', json.message);
+                } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
+            } else {
+                cuteAlert.error('รูปแบบข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบว่าก๊อปปี้ข้อมูลมาอย่างน้อย 4 คอลัมน์ (ลำดับ, รหัส, ชื่อ, นามสกุล)');
             }
         }
     </script>
