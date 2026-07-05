@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -3177,15 +3177,24 @@
                 ? '<div class="bg-emerald-50 text-emerald-700 py-2 rounded-lg font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-2"><i class="fas fa-check-circle"></i> เช็คชื่อเรียบร้อยแล้ว</div>' 
                 : '<div class="bg-red-50 text-red-600 py-2 rounded-lg font-bold border border-red-200 shadow-sm flex items-center justify-center gap-2 animate-pulse"><i class="fas fa-exclamation-circle"></i> ยังไม่ได้เช็คชื่อ</div>';
             
-            // ตั้งค่าปุ่มกดตามสถานะการเช็คชื่อ
-            let confirmBtnText = isChecked ? 'ปิดหน้าต่าง' : '<i class="fas fa-edit"></i> ไปเช็คชื่อวิชานี้';
-            let confirmBtnColor = isChecked ? '#64748b' : '#4472c4';
+            // 1. ตรวจสอบสิทธิ์: เป็นแอดมิน หรือ เป็นวิชาของตัวเอง (teacherName ตรงกับ state.viewingTeacher)
+            const isAdmin = checkAdminPermission();
+            const isOwnSubject = (teacherName === state.viewingTeacher);
+            const canGoToCheck = !isChecked && (isAdmin || isOwnSubject);
+
+            // 2. ตั้งค่าปุ่มกด: ถ้ามีสิทธิ์จะแสดงปุ่มสีน้ำเงิน ถ้าไม่มีสิทธิ์จะแสดงแค่ปุ่มสีเทาสำหรับปิดหน้าต่าง
+            let confirmBtnText = canGoToCheck ? '<i class="fas fa-edit"></i> ไปเช็คชื่อวิชานี้' : 'ปิดหน้าต่าง';
+            let confirmBtnColor = canGoToCheck ? '#4472c4' : '#64748b';
 
             Swal.fire({
                 title: '<i class="fas fa-book text-school-brass mr-2"></i> ข้อมูลรายวิชา',
                 html: `
                     <div class="text-left text-sm mt-2">
                         <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner space-y-3">
+                            <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                <span class="text-gray-500 font-bold">ครูผู้สอน:</span>
+                                <span class="text-school-navy font-bold text-right">${teacherName}</span>
+                            </div>
                             <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                                 <span class="text-gray-500 font-bold">วิชา:</span>
                                 <span class="text-school-navy font-bold text-right">${subject}</span>
@@ -3204,7 +3213,7 @@
                         </div>
                     </div>
                 `,
-                showCancelButton: !isChecked,
+                showCancelButton: canGoToCheck, // ซ่อนปุ่ม Cancel ถ้าผู้ใช้ไม่มีสิทธิ์ไปหน้าเช็คชื่อ
                 cancelButtonText: 'ปิด',
                 confirmButtonText: confirmBtnText,
                 confirmButtonColor: confirmBtnColor,
@@ -3216,7 +3225,8 @@
                 scrollbarPadding: false,
                 heightAuto: false
             }).then((result) => {
-                if (result.isConfirmed && !isChecked) {
+                // 3. อนุญาตให้กระโดดไปหน้าเช็คชื่อได้ เฉพาะผู้ที่มีสิทธิ์เท่านั้น
+                if (result.isConfirmed && canGoToCheck) {
                     jumpToCheckAttendance(dateStr, subject, period, className, teacherName);
                 }
             });
