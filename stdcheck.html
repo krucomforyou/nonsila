@@ -80,6 +80,14 @@
         .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; z-index: 20; border-right: 1px solid #e2e8f0; width: 50px; min-width: 50px; max-width: 50px; text-align: center; background-color: #ffffff; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.05); }
         .report-table th:first-child { background-color: #f8fafc; z-index: 30; }
         .report-table tbody tr:hover td:first-child { background-color: #f1f5f9; }
+
+        .flatpickr-day.fully-checked { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; font-weight: bold; }
+        .flatpickr-day.term-start { position: relative; border: 2px solid #c9a84c !important; }
+        .flatpickr-day.term-start::after {
+            content: '🏁'; position: absolute; bottom: -4px; right: -4px; font-size: 10px;
+            background: #fff; border-radius: 50%; width: 14px; height: 14px;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 10;
+        }
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
@@ -148,7 +156,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -1389,7 +1397,26 @@
             flatpickr.localize(flatpickr.l10ns.th);
             const commonConfig = {
                 dateFormat: "Y-m-d", defaultDate: "today",
-                disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
+                disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ],
+                
+                // --- เพิ่มการตั้งค่า onDayCreate ตรงนี้ ---
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    const dateStr = fp.formatDate(dayElem.dateObj, "Y-m-d");
+                    
+                    // 1. ตรวจสอบสัญลักษณ์วันเปิดภาคเรียน (ธง)
+                    const termObj = state.terms.find(t => t.name === state.selectedTerm);
+                    if (termObj && termObj.startDate === dateStr) {
+                        dayElem.classList.add('term-start');
+                        dayElem.title = "วันเปิดภาคเรียน";
+                    }
+
+                    // 2. ตรวจสอบว่าเช็คชื่อครบหรือยัง (พื้นหลังสีเขียว)
+                    if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
+                        dayElem.classList.add('fully-checked');
+                        dayElem.title = "เช็คชื่อครบแล้ว";
+                    }
+                }
+                // ------------------------------------
             };
 
             // --- 1. เพิ่มฟังก์ชันตัวกลางเพื่อซิงค์วันที่ให้ตรงกันทุกหน้าต่าง ---
@@ -1692,6 +1719,7 @@
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
                     populateReportClassDropdown(); 
+                    fetchCalendarStatus();
                 } else {
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
@@ -1706,6 +1734,20 @@
                 if(attArrow) attArrow.classList.remove('hidden');
                 if(attSpinner) attSpinner.classList.add('hidden');
             }
+        }
+
+        async function fetchCalendarStatus() {
+            if(!state.selectedTerm) return;
+            try {
+                const targetTeacher = state.viewingTeacher || state.user.name;
+                const res = await fetch(`${API_URL}?action=getCalendarStatus&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if(json.status === 'success') {
+                    state.calendarStatus = json.data;
+                    // สั่งให้ปฏิทินทั้งหมดโหลดสีใหม่
+                    [fpMain, fpHistory, fpOverview, fpSummary].forEach(fp => { if(fp) fp.redraw(); });
+                }
+            } catch (e) { console.error("Error fetching calendar status", e); }
         }
 
         async function fetchTimetableSettings() {
@@ -2505,6 +2547,7 @@
                     if (json.status === 'success') {
                         isSuccess = true; cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
                         if (state.overviewDate === state.currentDate) loadAttendanceOverview();
+                        fetchCalendarStatus();
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
@@ -3300,8 +3343,8 @@
                 thead.innerHTML = `
                     <tr>
                         <th class="px-4 py-3 min-w-[150px]">ชื่อ-สกุล ครูผู้สอน</th>
-                        <th class="px-4 py-3 text-center w-32">สถิติ (ตั้งแต่เปิดเทอม)</th>
-                        <th class="px-4 py-3 text-center w-24">สัดส่วนวันนี้</th>
+                        <th class="px-4 py-3 text-center w-32">สถิติ</th>
+                        <th class="px-4 py-3 text-center w-24">วันนี้</th>
                         <th class="px-4 py-3 min-w-[300px]">สถานะรายวิชา / ห้องเรียน</th>
                     </tr>
                 `;
