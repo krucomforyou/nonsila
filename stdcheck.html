@@ -159,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2753,6 +2753,24 @@
                 let json = await res.json();
                 let reportData = (json.status === 'success') ? json.data : [];
 
+                // --- [เพิ่มใหม่] กรองข้อมูล: ตัดวันหยุด และ กรองวิชาให้ตรงกับวันชดเชย ---
+                reportData = reportData.filter(r => {
+                    const rDateStr = (r.date || '').trim();
+                    const dayName = getEffectiveDayName(rDateStr);
+                    
+                    // 1. ถ้าวันที่เช็คถูกเปลี่ยนเป็น "วันหยุด" ในภายหลัง ให้ข้าม (ไม่แสดง)
+                    if (dayName === "holiday") return false;
+                    
+                    // 2. เช็คว่าวิชาที่เคยเช็คนี้ ยังคงมีสอนอยู่ในตารางของวันนั้นๆ หรือไม่ (ป้องกันกรณีเปลี่ยนวันชดเชย)
+                    return state.schedule.some(s => 
+                        s.day === dayName && 
+                        s.subject === r.subject && 
+                        s.period === r.period && 
+                        s.className === cls
+                    );
+                });
+                // --------------------------------------------------------
+
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
@@ -3887,9 +3905,21 @@
 
         function goToTodayOverview() {
             const today = new Date();
-            // หากกดปุ่มในวันเสาร์-อาทิตย์ ให้ย้อนกลับไปแสดงวันศุกร์
-            if (today.getDay() === 0) today.setDate(today.getDate() - 2);
-            else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            
+            // 1. แปลงวันที่ปัจจุบันเป็น YYYY-MM-DD เพื่อตรวจสอบกับข้อมูลการตั้งค่า
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            
+            // 2. เช็คว่าวันนี้ถูกตั้งค่าให้เป็นวันเรียนชดเชย (makeup) หรือไม่
+            const isMakeup = state.calendarSettings && state.calendarSettings[dateStr] && state.calendarSettings[dateStr].type === 'makeup';
+
+            // 3. หากเป็นวันเสาร์-อาทิตย์ และ "ไม่ใช่วันเรียนชดเชย" ค่อยย้อนกลับไปแสดงวันศุกร์
+            if (!isMakeup) {
+                if (today.getDay() === 0) today.setDate(today.getDate() - 2);
+                else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            }
             
             // สั่งให้ปฏิทินเปลี่ยนวันที่ (true = สั่งให้ระบบโหลดข้อมูลใหม่ทันที)
             if (fpOverview) {
@@ -3899,9 +3929,21 @@
 
         function goToTodaySummary() {
             const today = new Date();
-            // หากกดปุ่มในวันเสาร์-อาทิตย์ ให้ย้อนกลับไปแสดงวันศุกร์
-            if (today.getDay() === 0) today.setDate(today.getDate() - 2);
-            else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            
+            // 1. แปลงวันที่ปัจจุบันเป็น YYYY-MM-DD เพื่อตรวจสอบกับข้อมูลการตั้งค่า
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            
+            // 2. เช็คว่าวันนี้ถูกตั้งค่าให้เป็นวันเรียนชดเชย (makeup) หรือไม่
+            const isMakeup = state.calendarSettings && state.calendarSettings[dateStr] && state.calendarSettings[dateStr].type === 'makeup';
+
+            // 3. หากเป็นวันเสาร์-อาทิตย์ และ "ไม่ใช่วันเรียนชดเชย" ค่อยย้อนกลับไปแสดงวันศุกร์
+            if (!isMakeup) {
+                if (today.getDay() === 0) today.setDate(today.getDate() - 2);
+                else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            }
             
             // สั่งให้ปฏิทินของหน้า Summary เปลี่ยนวันที่และโหลดข้อมูลใหม่ทันที
             if (fpSummary) {
