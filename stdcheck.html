@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -1600,6 +1600,7 @@
                      class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex items-center group relative mt-2">
                     
                     <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -left-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
+                    <button onclick="editSubjectName('${group.name}', '${group.className}')" class="absolute -top-2 left-4 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit"></i></button>
 
                     <div class="absolute -top-2.5 -right-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
                         ${group.count}
@@ -1820,11 +1821,13 @@
                             // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin
                             let dragAttr = isAdmin ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
                             let removeBtn = isAdmin ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
+                            // เพิ่มตัวแปรปุ่ม Edit ขยับมาทางซ้าย (right-7)
+                            let editBtn = isAdmin ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
                             let hoverClass = isAdmin ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 ${removeBtn}
-                                <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
+                                ${editBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
                                     ${classPill}
                                 </div>
@@ -3435,6 +3438,59 @@
                             cuteAlert.error('ข้อผิดพลาด', json.message);
                         }
                     } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
+                }
+            });
+        }
+
+        function editSubjectName(oldName, className) {
+            Swal.fire({
+                title: '<i class="fas fa-edit text-school-blue mb-2 text-3xl"></i><br>แก้ไขชื่อรายวิชา',
+                html: `<p class="text-sm text-gray-500 mb-2">เปลี่ยนชื่อวิชาสำหรับห้อง <span class="text-school-navy font-bold">${className === '-' ? 'กิจกรรม' : className}</span></p>`,
+                input: 'text',
+                inputValue: oldName,
+                inputPlaceholder: 'กรอกชื่อวิชาใหม่...',
+                showCancelButton: true,
+                confirmButtonText: 'ตกลง',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value || value.trim() === '') {
+                        return 'กรุณากรอกชื่อวิชา!';
+                    }
+                },
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 mt-2 text-center focus:border-school-blue focus:outline-none w-[85%] text-school-navy font-bold mx-auto block transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-school-blue text-white text-sm font-bold rounded-xl shadow-md hover:bg-[#345ba8] transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const newName = result.value.trim();
+                    if (newName !== oldName) {
+                        // 1. อัปเดตในการ์ดรายวิชาด้านซ้าย
+                        state.subjects.forEach(s => {
+                            if (s.name === oldName && s.className === className) {
+                                s.name = newName;
+                            }
+                        });
+                        // 2. อัปเดตในตารางสอนด้านขวา (กรณีลากลงตารางไปแล้ว)
+                        state.schedule.forEach(s => {
+                            if (s.subject === oldName && s.className === className) {
+                                s.subject = newName;
+                            }
+                        });
+                        
+                        // รีเฟรชหน้าจอใหม่ให้แสดงชื่อที่แก้
+                        renderSubjectCards();
+                        renderVisualTimetable();
+                        
+                        // แจ้งเตือนผู้ใช้ให้บันทึกตาราง
+                        const Toast = Swal.mixin({
+                            toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+                        });
+                        Toast.fire({ icon: 'success', title: 'เปลี่ยนชื่อวิชาชั่วคราวแล้ว กด "บันทึกตาราง" เพื่อยืนยัน' });
+                    }
                 }
             });
         }
