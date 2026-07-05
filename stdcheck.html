@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -3255,7 +3255,6 @@
                 teacherSummaryChart.destroy();
             }
             
-            // ข้อมูลสำหรับกราฟ (แสดงจำนวนคาบรวมทั้งโรงเรียน)
             const checkedCount = data.checkedCount || 0;
             const uncheckedCount = data.uncheckedCount || 0;
             const total = checkedCount + uncheckedCount;
@@ -3295,21 +3294,33 @@
                 }
             });
 
-            // อัปเดตตารางรายชื่อครูทุกคน
+            // อัปเดตตารางหัวข้อ
+            const thead = document.querySelector('#teacherSummaryTableBody').previousElementSibling;
+            if (thead) {
+                thead.innerHTML = `
+                    <tr>
+                        <th class="px-4 py-3 min-w-[150px]">ชื่อ-สกุล ครูผู้สอน</th>
+                        <th class="px-4 py-3 text-center w-32">สถิติ (ตั้งแต่เปิดเทอม)</th>
+                        <th class="px-4 py-3 text-center w-24">สัดส่วนวันนี้</th>
+                        <th class="px-4 py-3 min-w-[300px]">สถานะรายวิชา / ห้องเรียน</th>
+                    </tr>
+                `;
+            }
+
             const tbody = document.getElementById('teacherSummaryTableBody');
             const summaryList = (data.summaryList || []).filter(item => item.totalClasses > 0);
 
             if (summaryList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครูที่มีตารางสอนในวันนี้</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครูที่มีตารางสอนในวันนี้</td></tr>';
                 return;
             }
 
             let html = '';
-            const currentDateStr = document.getElementById('summaryDatePicker').value; // <--- เพิ่มบรรทัดนี้
+            const currentDateStr = document.getElementById('summaryDatePicker').value; 
             
             summaryList.forEach(item => {
                 let classStatusHtml = '';
-                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, "&quot;"); // <--- เพิ่มบรรทัดนี้
+                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                 
                 if (item.totalClasses === 0) {
                     classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
@@ -3328,7 +3339,6 @@
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
                         const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
-                        // <--- แก้ไข onclick ตรงนี้ (ส่ง currentDateStr และ safeTeacherName เพิ่มเข้าไป)
                         classStatusHtml += `
                             <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked}, '${currentDateStr}', '${safeTeacherName}')" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
@@ -3339,12 +3349,26 @@
                     classStatusHtml += '</div>';
                 }
 
-                // เช็คไฮไลท์แถวสีแดงอ่อน ถ้าครูมีคาบสอนแต่ยังเช็คไม่ครบ
                 const rowBg = (item.totalClasses > 0 && item.checkedClasses < item.totalClasses) ? 'bg-red-50/30' : 'bg-white';
+
+                // --- สร้าง UI สำหรับสถิติรวม ---
+                let overallStatHtml = '';
+                if (item.hasTermStartDate) {
+                    let percentColor = item.overallPercent >= 80 ? 'text-emerald-600' : (item.overallPercent >= 50 ? 'text-orange-500' : 'text-red-500');
+                    overallStatHtml = `
+                        <div class="text-sm font-black ${percentColor}">${item.overallPercent}%</div>
+                        <div class="text-[10px] text-gray-500 font-medium">${item.checkedDays} / ${item.expectedDays} วัน</div>
+                    `;
+                } else {
+                    overallStatHtml = `<span class="text-[10px] text-gray-400">ไม่ได้ตั้งวันเปิดเทอม</span>`;
+                }
 
                 html += `
                     <tr class="hover:bg-blue-50 transition-colors ${rowBg}">
                         <td class="px-4 py-3 font-bold text-school-navy">${item.teacherName}</td>
+                        <td class="px-4 py-3 text-center bg-gray-50 border-x border-gray-100">
+                            ${overallStatHtml}
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <span class="bg-white text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-200 font-bold shadow-sm">
                                 ${item.checkedClasses}/${item.totalClasses}
