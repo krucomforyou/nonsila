@@ -148,7 +148,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -782,6 +782,7 @@
             currentPeriod: '',  // แยกคาบเรียน
             manageData: [],
             overviewDate: '',
+            renamedSubjects: [],
             timetableConfig: {
                 colWidth: 112,
                 rowHeight: 64,
@@ -1635,10 +1636,11 @@
         }
 
         function cancelScheduleChanges() {
-            cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุดที่ดึงมาจากระบบ', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
+            cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุด', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
                 if (result.isConfirmed) {
                     state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
+                    state.renamedSubjects = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -1864,12 +1866,17 @@
             form.append('teacher', targetTeacher);
             form.append('scheduleData', JSON.stringify(state.schedule));
 
+            if (state.renamedSubjects && state.renamedSubjects.length > 0) {
+                form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
+            }
+
             try {
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
+                    state.renamedSubjects = [];
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
@@ -3474,12 +3481,16 @@
                                 s.name = newName;
                             }
                         });
-                        // 2. อัปเดตในตารางสอนด้านขวา (กรณีลากลงตารางไปแล้ว)
+                        // 2. อัปเดตในตารางสอนด้านขวา
                         state.schedule.forEach(s => {
                             if (s.subject === oldName && s.className === className) {
                                 s.subject = newName;
                             }
                         });
+                        
+                        // --- เพิ่มโค้ดเก็บประวัติ 2 บรรทัดนี้ ---
+                        if (!state.renamedSubjects) state.renamedSubjects = [];
+                        state.renamedSubjects.push({ oldName: oldName, newName: newName, className: className });
                         
                         // รีเฟรชหน้าจอใหม่ให้แสดงชื่อที่แก้
                         renderSubjectCards();
