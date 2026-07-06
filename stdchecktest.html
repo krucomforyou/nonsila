@@ -159,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -2895,7 +2895,13 @@
                 tableHtml += '</tbody></table>';
 
                 // สั่งอัปเดตตัวเลขแสดงผลเปอร์เซ็นต์บนการ์ดด้านบน (บวกค่ายอดรวมมาจากตารางจริง)
-                const calcPercent = (val) => grandTotalRecords > 0 ? Math.round((val / grandTotalRecords) * 100) + '%' : '0%';
+                const calcPercent = (val) => {
+                    if (grandTotalRecords === 0) return '0%';
+                    let p = (val / grandTotalRecords) * 100;
+                    // ถ้าไม่ใช่ 0% หรือ 100% เป๊ะ ให้แสดงทศนิยม 2 ตำแหน่ง
+                    if (p > 0 && p < 100) return parseFloat(p.toFixed(2)) + '%';
+                    return Math.round(p) + '%';
+                };
                 document.getElementById('repPresent').innerText = calcPercent(grandTotalStats.present);
                 document.getElementById('repLeave').innerText = calcPercent(grandTotalStats.leave);
                 document.getElementById('repAbsent').innerText = calcPercent(grandTotalStats.absent);
@@ -3198,8 +3204,9 @@
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    let percent = sessions.length > 0 ? Math.round((stats.present / sessions.length) * 100) : 0;
-                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, `${percent}%`, ""];
+                    let p = sessions.length > 0 ? ((stats.present / sessions.length) * 100) : 0;
+                    let displayPercent = (p > 0 && p < 100) ? parseFloat(p.toFixed(2)) + '%' : Math.round(p) + '%';
+                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, displayPercent, ""];
 
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
