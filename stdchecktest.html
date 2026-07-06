@@ -159,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div>
             </div>
         </div>
     </aside>
@@ -2773,12 +2773,10 @@
 
                 const activeSessions = new Set();
                 reportData.forEach(r => {
-                    // ถ้านักเรียนคนไหนมีสถานะ (ไม่เป็นค่าว่าง) ให้จำว่าคาบนี้มีการเช็คชื่อแล้ว
                     if (r.status && String(r.status).trim() !== '') {
                         activeSessions.add(`${r.date}||${r.period}`);
                     }
                 });
-                // กรองเอาเฉพาะข้อมูลที่อยู่ในคาบที่มีการเช็คชื่อแล้วจริงๆ
                 reportData = reportData.filter(r => activeSessions.has(`${r.date}||${r.period}`));
 
                 if (reportData.length === 0) {
@@ -2828,27 +2826,8 @@
                     })
                     .map(stuRow => getStudentUniqueId(stuRow));
 
-                let totalStats = { present: 0, leave: 0, absent: 0 };
-                let totalRecords = 0; 
-                
-                reportData.forEach(r => { 
-                    let historyId = String(r.id);
-                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
-                    
-                    // นับสถิติภาพรวมเฉพาะนักเรียนที่อยู่ในลิสต์ activeStudentIds เท่านั้น
-                    if (activeStudentIds.includes(historyId)) {
-                        totalRecords++; // ย้ายบรรทัดนี้ออกมาเพื่อนับทุกช่อง (รวมช่องว่าง)
-                        
-                        if (totalStats[r.status] !== undefined) {
-                            totalStats[r.status]++;
-                        }
-                    }
-                });
-
-                const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
-                document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
-                document.getElementById('repLeave').innerText = calcPercent(totalStats.leave);
-                document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
+                let grandTotalStats = { present: 0, leave: 0, absent: 0 };
+                let grandTotalRecords = 0;
 
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
@@ -2861,7 +2840,6 @@
                 
                 sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
-                    // เปลี่ยนช่องว่างระหว่าง วัน และ เดือน ให้เป็น <br> เพื่อขึ้นบรรทัดใหม่
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
                     let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
                     tableHtml += `<th class="border text-center min-w-[40px] leading-none">${dateStr}${periodStr}</th>`;
@@ -2871,11 +2849,9 @@
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
-                    // ดึงเฉพาะชื่อ-สกุล (คอลัมน์ 2 และ 3)
                     const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     
-                    // จัดการแสดงผลชื่อตามสถานะ
                     const statusText = stuRow[4] || 'กำลังศึกษา';
                     let displayInfo = fullName;
                     if (statusText === 'ย้าย' || statusText === 'ลาออก') {
@@ -2892,7 +2868,16 @@
                         const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
                         const hasNote = noteStr.trim() !== '';
 
-                        if(status && rowStats[status] !== undefined) rowStats[status]++;
+                        if(status && rowStats[status] !== undefined) {
+                            rowStats[status]++;
+                            
+                            // ให้นับยอดรวมสถิติ เฉพาะเด็กที่กำลังศึกษาอยู่ (สถานะล่าสุดเท่านั้น)
+                            if (activeStudentIds.includes(uniqueId)) {
+                                grandTotalStats[status]++;
+                                grandTotalRecords++;
+                            }
+                        }
+
                         const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
                         const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                         
@@ -2908,6 +2893,12 @@
                 });
 
                 tableHtml += '</tbody></table>';
+
+                // สั่งอัปเดตตัวเลขแสดงผลเปอร์เซ็นต์บนการ์ดด้านบน (บวกค่ายอดรวมมาจากตารางจริง)
+                const calcPercent = (val) => grandTotalRecords > 0 ? Math.round((val / grandTotalRecords) * 100) + '%' : '0%';
+                document.getElementById('repPresent').innerText = calcPercent(grandTotalStats.present);
+                document.getElementById('repLeave').innerText = calcPercent(grandTotalStats.leave);
+                document.getElementById('repAbsent').innerText = calcPercent(grandTotalStats.absent);
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
 
