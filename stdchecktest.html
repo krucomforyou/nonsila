@@ -80,6 +80,14 @@
         .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; z-index: 20; border-right: 1px solid #e2e8f0; width: 50px; min-width: 50px; max-width: 50px; text-align: center; background-color: #ffffff; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.05); }
         .report-table th:first-child { background-color: #f8fafc; z-index: 30; }
         .report-table tbody tr:hover td:first-child { background-color: #f1f5f9; }
+
+        .flatpickr-day.fully-checked { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; font-weight: bold; }
+        .flatpickr-day.term-start { position: relative; border: 2px solid #c9a84c !important; }
+        .flatpickr-day.term-start::after {
+            content: '🏁'; position: absolute; bottom: -4px; right: -4px; font-size: 10px;
+            background: #fff; border-radius: 50%; width: 14px; height: 14px;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 10;
+        }
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
@@ -112,7 +120,7 @@
                 <i class="fas fa-chart-pie w-6 text-center mr-2"></i> สรุปสถิติการเช็คชื่อ
             </a>
             <a href="#" data-tab="history-overview" onclick="switchTab('history-overview')" class="sidebar-item active flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
-                <i class="fas fa-clipboard-list w-6 text-center mr-2"></i> ตรวจสอบการเช็คชื่อ
+                <i class="fas fa-clipboard-list w-6 text-center mr-2"></i> เช็คชื่อประจำวัน
             </a>
             <a href="#" data-tab="attendance" onclick="switchTab('attendance')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-clipboard-check w-6 text-center mr-2"></i> บันทึกเวลาเรียน
@@ -131,6 +139,9 @@
             <a href="#" onclick="openManageTermModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
                 <i class="fas fa-layer-group w-6 text-center mr-2"></i> จัดการภาคเรียน
             </a>
+            <a href="#" onclick="openCalendarSettingsModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
+                <i class="fas fa-calendar-day w-6 text-center mr-2"></i> วันหยุด/ชดเชย
+            </a>
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
@@ -148,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -186,14 +197,18 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3">
                         <h3 class="text-xl font-bold text-school-navy"><i class="fas fa-chart-pie text-school-brass mr-2"></i> สรุปสถิติการเช็คชื่อของครู</h3>
                         
-                        <div class="flex items-center w-full md:w-auto gap-2">
-                            <div class="w-full md:w-64 relative">
-                                <input type="text" id="summaryDatePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm" placeholder="เลือกวันที่...">
+                        <div class="w-full md:w-auto flex items-center gap-2">
+                            <button onclick="if(document.getElementById('summaryDatePicker').value) loadTeacherSummary(document.getElementById('summaryDatePicker').value)" class="bg-white hover:bg-gray-50 text-gray-500 hover:text-school-navy border border-gray-300 w-9 h-9 rounded-lg shadow-sm transition flex items-center justify-center shrink-0 text-xs" title="รีเฟรชข้อมูล">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+
+                            <div class="relative flex-1 md:w-56">
+                                <input type="text" id="summaryDatePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-school-navy focus:border-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่...">
                                 <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
                             </div>
                             
-                            <button onclick="if(document.getElementById('summaryDatePicker').value) loadTeacherSummary(document.getElementById('summaryDatePicker').value)" class="bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 px-3 py-2.5 rounded-lg shadow-sm transition shrink-0" title="รีเฟรชข้อมูล">
-                                <i class="fas fa-sync-alt"></i>
+                            <button onclick="goToTodaySummary()" class="bg-school-blue hover:bg-[#345ba8] text-white px-3 py-2 rounded-lg shadow-sm text-sm font-bold transition shrink-0">
+                                วันนี้
                             </button>
                         </div>
                     </div>
@@ -304,14 +319,19 @@
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <div>
                             <h3 class="text-lg md:text-xl font-bold text-school-navy flex items-center">
-                                <i class="fas fa-clipboard-list mr-2 text-school-brass"></i> ประวัติการเช็คชื่อประจำวัน
+                                <i class="fas fa-clipboard-list mr-2 text-school-brass"></i> เช็คชื่อประจำวัน
                             </h3>
                             <p class="text-xs md:text-sm text-gray-500 mt-1">ตรวจสอบว่ามีคาบใดที่คุณยังไม่ได้เช็คชื่อในแต่ละวัน</p>
                         </div>
                         
-                        <div class="w-full md:w-64 relative">
-                            <input type="text" id="overviewDatePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-school-navy focus:border-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่ต้องการดู...">
-                            <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
+                        <div class="w-full md:w-auto flex items-center gap-2">
+                            <div class="relative flex-1 md:w-56">
+                                <input type="text" id="overviewDatePicker" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-school-navy focus:border-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium text-gray-700 cursor-pointer" placeholder="เลือกวันที่ต้องการดู...">
+                                <i class="far fa-calendar-alt absolute left-4 top-1/2 -translate-y-1/2 text-school-blue pointer-events-none"></i>
+                            </div>
+                            <button onclick="goToTodayOverview()" class="bg-school-blue hover:bg-[#345ba8] text-white px-3 py-2 rounded-lg shadow-sm text-sm font-bold transition shrink-0">
+                                วันนี้
+                            </button>
                         </div>
                     </div>
 
@@ -555,8 +575,13 @@
                  <button onclick="closeManageTermModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
             </div>
             <div class="p-6 overflow-y-auto bg-gray-50 hide-scrollbar">
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="newTermInput" placeholder="เช่น 1/2567" class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <input type="text" id="newTermInput" placeholder="ชื่อภาคเรียน เช่น 1/2567" class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                    
+                    <div class="relative flex-1 sm:w-40">
+                        <input type="date" id="newTermStartDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white text-gray-600" title="วันเปิดภาคเรียน">
+                    </div>
+
                     <button onclick="addTerm()" class="bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap">
                         <i class="fas fa-plus mr-1"></i> เพิ่ม
                     </button>
@@ -596,14 +621,22 @@
                         <button onclick="promptAddClass()" class="admin-class-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="เพิ่มห้องเรียนใหม่">
                             <i class="fas fa-folder-plus"></i>
                         </button>
+                        <button onclick="promptEditClass()" class="admin-class-btn bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="แก้ไขชื่อห้องเรียนที่เลือก">
+                            <i class="fas fa-edit"></i>
+                        </button>
                         <button onclick="confirmDeleteClass()" class="admin-class-btn bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 w-9 h-9 rounded shadow-sm flex items-center justify-center transition" title="ลบห้องเรียนที่เลือก">
                             <i class="fas fa-folder-minus"></i>
                         </button>
                     </div>
                 </div>
-                <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition admin-only">
-                    <i class="fas fa-plus"></i> เพิ่มนักเรียน
-                </button>
+                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto admin-only">
+                    <button onclick="openImportStudentModal()" class="w-full sm:w-auto bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
+                        <i class="fas fa-paste"></i> นำเข้าจาก Excel
+                    </button>
+                    <button onclick="openEditStudentForm('add')" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white px-4 py-2.5 rounded shadow-sm text-sm font-bold flex items-center justify-center gap-2 transition">
+                        <i class="fas fa-plus"></i> เพิ่มนักเรียน
+                    </button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-auto relative bg-gray-50 pb-32 md:pb-0 hide-scrollbar">
@@ -613,7 +646,7 @@
                             <th class="p-3 md:p-4 w-12 md:w-16 text-center whitespace-nowrap">ลำดับ</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">รหัสประจำตัว</th>
                             <th class="p-3 md:p-4 whitespace-nowrap">ชื่อ - นามสกุล</th>
-                            <th class="p-3 md:p-4 text-center w-24 whitespace-nowrap">จัดการ</th>
+                            <th class="p-3 md:p-4 text-center whitespace-nowrap">สถานะ</th> <th class="p-3 md:p-4 text-center w-24 whitespace-nowrap">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="manageTableBody" class="divide-y divide-gray-100 bg-white">
@@ -723,11 +756,100 @@
         </div>
     </div>
 
+    <div id="importStudentModal" class="modal fixed inset-0 z-[170] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col">
+            <div class="bg-emerald-600 px-6 py-4 border-b border-emerald-700 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-white"><i class="fas fa-user-plus mr-2"></i> นำเข้ารายชื่อนักเรียนจาก Excel / Sheets</h3>
+                 <button onclick="closeImportStudentModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 bg-gray-50 flex-1">
+                <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl text-sm mb-4">
+                    <p class="font-bold mb-2"><i class="fas fa-info-circle mr-1"></i> คำแนะนำในการวางข้อมูล:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li>คลุมดำข้อมูลใน Excel 4 หรือ 5 คอลัมน์ ตามลำดับ: <br>
+                            <span class="font-bold bg-white px-1 rounded">ลำดับ</span> | <span class="font-bold bg-white px-1 rounded">รหัสประจำตัว</span> | <span class="font-bold bg-white px-1 rounded">ชื่อ</span> | <span class="font-bold bg-white px-1 rounded">นามสกุล</span> | <span class="font-bold bg-white px-1 rounded text-gray-500">สถานะ (มีหรือไม่มีก็ได้)</span>
+                        </li>
+                        <li>หากไม่ใส่คอลัมน์ "สถานะ" ระบบจะตั้งค่าเริ่มต้นเป็น "กำลังศึกษา" ให้โดยอัตโนมัติ</li>
+                        <li class="text-red-500">* ข้อมูลจะถูก <b>เพิ่มต่อท้าย</b> รายชื่อเดิมในห้องเรียนปัจจุบันเสมอ</li>
+                    </ul>
+                </div>
+                
+                <textarea id="pasteStudentArea" rows="8" class="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white font-mono whitespace-pre text-gray-700 resize-none shadow-inner" placeholder="คลิกที่นี่ แล้วกด Ctrl+V เพื่อวางข้อมูล..."></textarea>
+            </div>
+            <div class="bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+                <button onclick="closeImportStudentModal()" class="px-5 py-2 text-gray-600 text-sm font-bold hover:bg-gray-100 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                <button onclick="processPastedStudents()" class="px-6 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-emerald-700 transition transform hover:-translate-y-0.5 flex items-center"><i class="fas fa-save mr-2"></i> นำเข้าข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="calendarSettingsModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-school-navy px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-white"><i class="fas fa-calendar-day mr-2 text-school-brassLight"></i> ตั้งค่าวันหยุด / วันเรียนชดเชย</h3>
+                 <button onclick="closeCalendarSettingsModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto bg-gray-50 flex-1 hide-scrollbar">
+                
+                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
+                    <h4 class="font-bold text-school-navy mb-3 text-sm border-b pb-2">เพิ่ม/แก้ไข วันพิเศษ</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">เลือกวันที่</label>
+                            <input type="date" id="calSetDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">ประเภท</label>
+                            <select id="calSetType" onchange="toggleSubstituteDay()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                                <option value="holiday">🏖️ วันหยุด (ไม่คิดสถิติ)</option>
+                                <option value="makeup">🔄 วันเรียนชดเชย</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div id="substituteDayContainer" class="hidden">
+                            <label class="block text-xs font-bold text-gray-700 mb-1">ชดเชยแทนตารางเรียนวัน...</label>
+                            <select id="calSetSubstitute" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                                <option value="จันทร์">วันจันทร์</option>
+                                <option value="อังคาร">วันอังคาร</option>
+                                <option value="พุธ">วันพุธ</option>
+                                <option value="พฤหัสบดี">วันพฤหัสบดี</option>
+                                <option value="ศุกร์">วันศุกร์</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 md:col-span-2">
+                            <label class="block text-xs font-bold text-gray-700 mb-1">หมายเหตุ / ชื่อวันหยุด (ถ้ามี)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="calSetNote" placeholder="เช่น วันมาฆบูชา, ชดเชยกีฬาสี..." class="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                                <button onclick="saveCalendarSetting()" class="bg-school-blue hover:bg-[#345ba8] text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition whitespace-nowrap"><i class="fas fa-save mr-1"></i> บันทึก</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="font-bold text-school-navy mb-2 text-sm">รายการที่ตั้งค่าไว้แล้ว</h4>
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-100 text-school-navy border-b border-gray-200 text-xs">
+                            <tr>
+                                <th class="px-4 py-2 w-28">วันที่</th>
+                                <th class="px-4 py-2">ประเภท / หมายเหตุ</th>
+                                <th class="px-4 py-2 text-center w-16">ลบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calSettingsTableBody" class="divide-y divide-gray-100">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==========================================
         // ตั้งค่า API URL ตรงนี้ (จาก Apps Script ตัวใหม่)
         // ==========================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbyhQSHxT5R2BzYsOXp9SkBo77ZID-5IG8A8FSconKoxHLQmNC-Ba8wKMf7BgC4FfoF99w/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbx0TtMjSAIUvLd-mzfXI9IFxE6y7lR0eE5PbNjYsPqPli6jZmDaIXAmbbxred0pKV8M/exec';
         
         let state = {
             user: null,
@@ -747,6 +869,7 @@
             currentPeriod: '',  // แยกคาบเรียน
             manageData: [],
             overviewDate: '',
+            renamedSubjects: [],
             timetableConfig: {
                 colWidth: 112,
                 rowHeight: 64,
@@ -761,7 +884,8 @@
                     { name: 'คาบ 7', time: '15.30 - 16.00', isBreak: false, customWidth: null }
                 ]
             },
-            printData: null // เพิ่มตัวแปรนี้สำหรับส่งข้อมูลไปหน้าพิมพ์
+            printData: null, // เพิ่มตัวแปรนี้สำหรับส่งข้อมูลไปหน้าพิมพ์
+            calendarSettings: {}
         };
 
         const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
@@ -821,6 +945,8 @@
             if (checkAuth()) {
                 await fetchTerms();
                 fetchClasses();
+
+                await fetchCalendarSettings();
 
                 if (checkAdminPermission()) {
                     const selCont = document.getElementById('adminTeacherSelectorContainer');
@@ -1085,46 +1211,108 @@
         // โค้ดส่วน Modals Manage Term เดิม
         function openManageTermModal() { renderManageTermTable(); document.getElementById('manageTermModal').classList.add('active'); }
         function closeManageTermModal() { document.getElementById('manageTermModal').classList.remove('active'); }
+        
         function renderManageTermTable() {
             const tbody = document.getElementById('termTableBody');
             if(state.terms.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500">ยังไม่มีข้อมูลภาคเรียน</td></tr>`;
                 return;
             }
-            tbody.innerHTML = state.terms.map(t => `
+
+            // อัปเดตหัวตาราง (เพิ่มคอลัมน์วันเปิดภาคเรียน)
+            const thead = document.querySelector('#manageTermModal thead tr');
+            thead.innerHTML = `
+                <th class="px-4 py-3">ชื่อภาคเรียน</th>
+                <th class="px-4 py-3 text-center">วันเปิดภาคเรียน</th>
+                <th class="px-4 py-3 text-center w-24">สถานะ</th>
+                <th class="px-4 py-3 text-center w-32">จัดการ</th>
+            `;
+
+            const activeIndex = state.terms.findIndex(t => t.isActive);
+
+            tbody.innerHTML = state.terms.map((t, index) => {
+                let statusBadge = '';
+                if (t.isActive) {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200 shadow-sm">ปัจจุบัน</span>`;
+                } else if (activeIndex !== -1 && index < activeIndex) {
+                    statusBadge = `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`;
+                } else {
+                    statusBadge = `<span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs font-bold border border-blue-200 shadow-sm">อนาคต</span>`;
+                }
+
+                // แปลงวันที่ YYYY-MM-DD เป็นรูปแบบไทยย่อ
+                let displayDate = '<span class="text-gray-400">-</span>';
+                if (t.startDate) {
+                    const d = new Date(t.startDate);
+                    if (!isNaN(d.getTime())) {
+                        const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                        displayDate = `<span class="text-school-blue font-medium">${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear() + 543}</span>`;
+                    }
+                }
+
+                // (ในส่วนของฟังก์ชัน renderManageTermTable)
+                return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3 font-bold text-school-navy">${t.name}</td>
-                    <td class="px-4 py-3 text-center">
-                        ${t.isActive ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">ปัจจุบัน</span>` : `<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs border border-gray-200">อดีต</span>`}
-                    </td>
+                    <td class="px-4 py-3 text-center text-sm">${displayDate}</td>
+                    <td class="px-4 py-3 text-center">${statusBadge}</td>
                     <td class="px-4 py-3 text-center flex justify-center gap-2">
                         ${!t.isActive ? `<button onclick="setTermActive('${t.name}')" class="text-xs bg-school-blue hover:bg-[#345ba8] text-white px-2 py-1 rounded shadow-sm" title="ตั้งเป็นปัจจุบัน">Set Active</button>` : `<span class="w-[72px]"></span>`}
-                        <button onclick="deleteTerm('${t.name}')" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm flex items-center justify-center" title="ลบ"><i class="fas fa-trash"></i></button>
+                        
+                        <button onclick="promptEditTerm('${t.name}', '${t.startDate || ''}')" class="text-blue-500 hover:text-blue-700 bg-white border border-blue-100 hover:bg-blue-50 w-7 h-7 rounded shadow-sm flex items-center justify-center" title="แก้ไข"><i class="fas fa-edit"></i></button>
+
+                        ${t.isActive 
+                            ? `<button class="text-gray-300 bg-gray-50 border border-gray-100 w-7 h-7 rounded flex items-center justify-center cursor-not-allowed" title="ไม่สามารถลบภาคเรียนปัจจุบันได้"><i class="fas fa-trash"></i></button>`
+                            : `<button onclick="deleteTerm('${t.name}')" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm flex items-center justify-center" title="ลบ"><i class="fas fa-trash"></i></button>`
+                        }
                     </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
+
         async function addTerm() {
             const input = document.getElementById('newTermInput');
+            const dateInput = document.getElementById('newTermStartDate'); // ดึง element วันที่
             const termName = input.value.trim();
+            const startDate = dateInput.value; // ดึงค่า YYYY-MM-DD
+
             if(!termName) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อภาคเรียน (เช่น 1/2567)'); return; }
+            if(!startDate) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาระบุวันเปิดภาคเรียนด้วยครับ'); return; }
             if(termName.includes('_')) { cuteAlert.error('ชื่อไม่ถูกต้อง', 'ไม่อนุญาตให้ใช้เครื่องหมาย _ (Underscore)'); return; }
+            
             cuteAlert.loading('กำลังเพิ่มภาคเรียน ⏳');
-            const form = new FormData(); form.append('actionType', 'add'); form.append('termName', termName);
+            const form = new FormData(); 
+            form.append('actionType', 'add'); 
+            form.append('termName', termName);
+            form.append('startDate', startDate); // แนบวันที่ไปด้วย
+
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') { input.value = ''; await fetchTerms(); renderManageTermTable(); cuteAlert.success('สำเร็จ!', json.message); } 
+                if (json.status === 'success') { 
+                    input.value = ''; 
+                    dateInput.value = ''; // เคลียร์ช่องวันที่
+                    await fetchTerms(); 
+                    renderManageTermTable(); 
+                    cuteAlert.success('สำเร็จ!', json.message); 
+                } 
                 else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
+
         async function setTermActive(termName) {
             cuteAlert.loading('กำลังอัปเดตสถานะ ⏳');
             const form = new FormData(); form.append('actionType', 'setActive'); form.append('termName', termName);
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
-                if (json.status === 'success') { await fetchTerms(); renderManageTermTable(); cuteAlert.success('สำเร็จ!', json.message); } 
+                if (json.status === 'success') { 
+                    // เมื่อสำเร็จ ให้แจ้งเตือนและรีเฟรชหน้าจอเลย
+                    cuteAlert.success('สำเร็จ!', json.message).then(() => {
+                        window.location.reload(); 
+                    });
+                } 
                 else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
@@ -1139,6 +1327,74 @@
                         if (json.status === 'success') { await fetchTerms(); renderManageTermTable(); cuteAlert.success('ลบสำเร็จ!', json.message); } 
                         else cuteAlert.error('ผิดพลาด', json.message);
                     } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+                }
+            });
+        }
+
+        function promptEditTerm(oldName, oldStartDate) {
+            Swal.fire({
+                title: '<i class="fas fa-edit text-school-blue mb-2 text-3xl"></i><br>แก้ไขภาคเรียน',
+                html: `
+                    <div class="text-left mt-2">
+                        <label class="block text-xs font-bold text-school-navy mb-1">ชื่อภาคเรียน</label>
+                        <input type="text" id="editTermName" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white mb-3" value="${oldName}">
+                        
+                        <label class="block text-xs font-bold text-school-navy mb-1">วันเปิดภาคเรียน</label>
+                        <input type="date" id="editTermDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white text-gray-600" value="${oldStartDate}">
+                        <p class="text-[10px] text-red-500 mt-2">* หมายเหตุ: หากภาคเรียนนี้มีข้อมูลอยู่แล้ว จะไม่สามารถเปลี่ยน "ชื่อภาคเรียน" ได้ (เปลี่ยนได้แค่วันที่)</p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                cancelButtonText: 'ยกเลิก',
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans w-11/12 max-w-sm',
+                    confirmButton: 'px-5 py-2.5 bg-school-blue text-white text-sm font-bold rounded-xl shadow-md hover:bg-[#345ba8] transition',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition'
+                },
+                preConfirm: () => {
+                    const newName = document.getElementById('editTermName').value.trim();
+                    const newDate = document.getElementById('editTermDate').value;
+                    if (!newName) {
+                        Swal.showValidationMessage('กรุณากรอกชื่อภาคเรียน');
+                        return false;
+                    }
+                    return { newName, newDate };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const { newName, newDate } = result.value;
+                    
+                    // ถ้าไม่ได้เปลี่ยนอะไรเลย
+                    if (newName === oldName && newDate === oldStartDate) return;
+
+                    cuteAlert.loading('กำลังบันทึกข้อมูล ⏳');
+                    
+                    const form = new FormData();
+                    form.append('actionType', 'edit');
+                    form.append('oldTermName', oldName);
+                    form.append('newTermName', newName);
+                    form.append('newStartDate', newDate);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        
+                        if (json.status === 'success') {
+                            await fetchTerms();
+                            renderManageTermTable();
+                            cuteAlert.success('สำเร็จ!', json.message);
+                            
+                            // ถ้าแก้ชื่อเทอมที่กำลังเปิดใช้อยู่ ให้รีเฟรชหน้าเว็บ
+                            if (oldName === state.selectedTerm && oldName !== newName) {
+                                setTimeout(() => window.location.reload(), 1500);
+                            }
+                        } else {
+                            cuteAlert.error('ผิดพลาด', json.message);
+                        }
+                    } catch (e) {
+                        cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว');
+                    }
                 }
             });
         }
@@ -1162,7 +1418,7 @@
             const tabTitles = {
                 'attendance': 'บันทึกเวลาเรียนประจำวัน', 
                 'manage-time': 'แก้ไขเวลาย้อนหลัง',
-                'history-overview': 'ประวัติการเช็คชื่อประจำวัน',
+                'history-overview': 'เช็คชื่อประจำวัน',
                 'schedule': 'จัดการตารางสอน', 
                 'report': 'รายงานสถิติ / ดาวน์โหลด Excel',
                 'teacher-summary': 'สรุปสถิติการเช็คชื่อของครู'
@@ -1214,22 +1470,126 @@
             }
         }
 
+
+        function getEffectiveDayName(dateStr) {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return "";
+            
+            // ตรวจสอบว่ามีการตั้งค่าพิเศษสำหรับวันนี้หรือไม่
+            if (state.calendarSettings && state.calendarSettings[dateStr]) {
+                const setting = state.calendarSettings[dateStr];
+                
+                if (setting.type === 'makeup' && setting.substituteFor) {
+                    return setting.substituteFor; // คืนค่าชื่อวันที่ต้องการชดเชย (เช่น "จันทร์")
+                }
+                if (setting.type === 'holiday') {
+                    return "holiday"; // คืนค่าสถานะวันหยุด เพื่อให้ระบบตัดการทำงาน
+                }
+            }
+            
+            // ถ้าเป็นวันปกติ ไม่มีตั้งค่าพิเศษ ให้คืนค่าชื่อวันตามปฏิทินจริง
+            return DAY_NAMES[d.getDay()];
+        }
+
         function initDatePickers() {
             flatpickr.localize(flatpickr.l10ns.th);
             const commonConfig = {
                 dateFormat: "Y-m-d", defaultDate: "today",
-                disable: [ function(date) { return (date.getDay() === 0 || date.getDay() === 6); } ]
+                
+                // --- [แก้ไข] ลอจิกการห้ามคลิก (Disable) ---
+                disable: [ 
+                    function(date) { 
+                        // แปลง date object เป็น YYYY-MM-DD เพื่อเทียบกับ settings
+                        const y = date.getFullYear();
+                        const m = String(date.getMonth() + 1).padStart(2, '0');
+                        const d = String(date.getDate()).padStart(2, '0');
+                        const dateStr = `${y}-${m}-${d}`;
+
+                        // ถ้าเป็นวันหยุด ห้ามคลิก (return true)
+                        if (state.calendarSettings && state.calendarSettings[dateStr]?.type === 'holiday') return true;
+                        
+                        // ถ้าเป็นวันชดเชย อนุญาตให้คลิกได้เสมอแม้เป็นเสาร์-อาทิตย์ (return false)
+                        if (state.calendarSettings && state.calendarSettings[dateStr]?.type === 'makeup') return false;
+
+                        // วันอื่นๆ ปิดเสาร์-อาทิตย์ตามปกติ
+                        return (date.getDay() === 0 || date.getDay() === 6); 
+                    } 
+                ],
+                
+                // --- [แก้ไข] ลอจิกการวาดสีในช่องปฏิทิน ---
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    const dateStr = fp.formatDate(dayElem.dateObj, "Y-m-d");
+                    
+                    const termObj = state.terms.find(t => t.name === state.selectedTerm);
+                    if (termObj && termObj.startDate === dateStr) {
+                        dayElem.classList.add('term-start');
+                        dayElem.title = "วันเปิดภาคเรียน";
+                    }
+
+                    if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
+                        dayElem.classList.add('fully-checked');
+                        dayElem.title = "เช็คชื่อครบแล้ว";
+                    }
+
+                    // --- [เพิ่มใหม่] ใส่สีให้วันหยุดและวันชดเชย ---
+                    if (state.calendarSettings && state.calendarSettings[dateStr]) {
+                        const setting = state.calendarSettings[dateStr];
+                        if (setting.type === 'holiday') {
+                            dayElem.classList.add('!bg-red-50', '!text-red-500', '!border-red-200');
+                            dayElem.title = setting.note || "วันหยุด";
+                        } else if (setting.type === 'makeup') {
+                            dayElem.classList.add('!bg-blue-50', '!text-blue-700', '!border-blue-300');
+                            dayElem.title = `เรียนชดเชยแทนวัน${setting.substituteFor}`;
+                        }
+                    }
+                }
             };
 
-            fpMain = flatpickr("#datePicker", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'attSubjectSelector') });
-            fpHistory = flatpickr("#manageTimeDate", { ...commonConfig, onChange: (dates, dateStr) => handleDateChange(dates, dateStr, 'manageTimeSubject') });
+            // --- 1. เพิ่มฟังก์ชันตัวกลางเพื่อซิงค์วันที่ให้ตรงกันทุกหน้าต่าง ---
+            const syncAllDates = (dates, dateStr) => {
+                if (dates.length === 0) return;
+                const d = dates[0];
+                
+                // อัปเดตตัวแปรระบบ
+                state.currentDate = dateStr;
+                state.overviewDate = dateStr;
+                updateHeaderDate(d);
+                
+                // สั่งอัปเดตปฏิทินตัวอื่นๆ (false = ไม่ให้ trigger event วนลูป)
+                if (fpMain) fpMain.setDate(d, false);
+                if (fpHistory) fpHistory.setDate(d, false);
+                if (fpOverview) fpOverview.setDate(d, false);
+                if (fpSummary) fpSummary.setDate(d, false);
+            };
+
+            // --- 2. นำฟังก์ชัน syncAllDates ไปใส่ใน onChange ของปฏิทินทุกตัว ---
+            fpMain = flatpickr("#datePicker", { 
+                ...commonConfig, 
+                onChange: (dates, dateStr, instance) => { // จุดแก้: รับค่า instance เข้ามา
+                    syncAllDates(dates, dateStr);
+                    handleDateChange(dates, dateStr, 'attSubjectSelector');
+                    instance.close(); // จุดแก้: สั่งปิดปฏิทิน
+                    document.getElementById('datePicker').blur(); // จุดแก้: เอาเคอร์เซอร์ออก
+                }
+            });
+            
+            fpHistory = flatpickr("#manageTimeDate", { 
+                ...commonConfig, 
+                onChange: (dates, dateStr, instance) => {
+                    syncAllDates(dates, dateStr);
+                    handleDateChange(dates, dateStr, 'manageTimeSubject');
+                    instance.close();
+                    document.getElementById('manageTimeDate').blur();
+                }
+            });
             
             fpOverview = flatpickr("#overviewDatePicker", { 
                 ...commonConfig, 
-                onChange: (dates, dateStr) => {
+                onChange: (dates, dateStr, instance) => {
                     if (dates.length > 0) {
-                        state.overviewDate = dateStr;
-                        updateHeaderDate(dates[0]); 
+                        syncAllDates(dates, dateStr);
+                        instance.close();
+                        document.getElementById('overviewDatePicker').blur();
                         loadAttendanceOverview();
                     }
                 } 
@@ -1237,11 +1597,17 @@
 
             fpSummary = flatpickr("#summaryDatePicker", { 
                 ...commonConfig, 
-                onChange: (dates, dateStr) => {
-                    if (dates.length > 0) loadTeacherSummary(dateStr); // เมื่อเปลี่ยนวัน ให้ดึงข้อมูลใหม่
+                onChange: (dates, dateStr, instance) => {
+                    if (dates.length > 0) {
+                        syncAllDates(dates, dateStr);
+                        instance.close();
+                        document.getElementById('summaryDatePicker').blur(); 
+                        loadTeacherSummary(dateStr); 
+                    }
                 } 
             });
 
+            // ส่วนเริ่มต้นค่าวันปัจจุบัน (คงไว้เหมือนเดิม)
             const today = new Date();
             if(today.getDay() === 0) today.setDate(today.getDate() - 2);
             else if(today.getDay() === 6) today.setDate(today.getDate() - 1);
@@ -1333,9 +1699,14 @@
             }
             
             const d = new Date(dateStr);
-            const dayName = DAY_NAMES[d.getDay()];
+            const dayName = getEffectiveDayName(dateStr);
             
-            const availableSubjects = state.schedule.filter(s => s.day === dayName);
+            if (dayName === "holiday") {
+                sel.innerHTML = '<option value="">-- เป็นวันหยุด --</option>';
+                return;
+            }
+            
+            const availableSubjects = state.schedule.filter(s => s.day === dayName && s.className !== '-');
 
             availableSubjects.sort((a, b) => {
                 const matchA = a.period.match(/คาบ\s*(\d+)/);
@@ -1485,6 +1856,7 @@
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
                     populateReportClassDropdown(); 
+                    fetchCalendarStatus();
                 } else {
                     if(attSel) attSel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
@@ -1499,6 +1871,20 @@
                 if(attArrow) attArrow.classList.remove('hidden');
                 if(attSpinner) attSpinner.classList.add('hidden');
             }
+        }
+
+        async function fetchCalendarStatus() {
+            if(!state.selectedTerm) return;
+            try {
+                const targetTeacher = state.viewingTeacher || state.user.name;
+                const res = await fetch(`${API_URL}?action=getCalendarStatus&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if(json.status === 'success') {
+                    state.calendarStatus = json.data;
+                    // สั่งให้ปฏิทินทั้งหมดโหลดสีใหม่
+                    [fpMain, fpHistory, fpOverview, fpSummary].forEach(fp => { if(fp) fp.redraw(); });
+                }
+            } catch (e) { console.error("Error fetching calendar status", e); }
         }
 
         async function fetchTimetableSettings() {
@@ -1549,6 +1935,7 @@
                      class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex items-center group relative mt-2">
                     
                     <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -left-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
+                    <button onclick="editSubjectName('${group.name}', '${group.className}')" class="absolute -top-2 left-4 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit"></i></button>
 
                     <div class="absolute -top-2.5 -right-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
                         ${group.count}
@@ -1583,10 +1970,11 @@
         }
 
         function cancelScheduleChanges() {
-            cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุดที่ดึงมาจากระบบ', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
+            cuteAlert.confirm('ยกเลิกการแก้ไข?', 'ตารางสอนและวิชาจะกลับไปเป็นข้อมูลล่าสุด', 'ใช่, ยกเลิกเลย! 🔄', '#f59e0b').then((result) => {
                 if (result.isConfirmed) {
                     state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
+                    state.renamedSubjects = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -1769,11 +2157,13 @@
                             // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin
                             let dragAttr = isAdmin ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
                             let removeBtn = isAdmin ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
+                            // เพิ่มตัวแปรปุ่ม Edit ขยับมาทางซ้าย (right-7)
+                            let editBtn = isAdmin ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
                             let hoverClass = isAdmin ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 ${removeBtn}
-                                <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
+                                ${editBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
                                     ${classPill}
                                 </div>
@@ -1810,12 +2200,17 @@
             form.append('teacher', targetTeacher);
             form.append('scheduleData', JSON.stringify(state.schedule));
 
+            if (state.renamedSubjects && state.renamedSubjects.length > 0) {
+                form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
+            }
+
             try {
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
+                    state.renamedSubjects = [];
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
@@ -1971,14 +2366,23 @@
                 msg += `<br><br><span class="text-blue-600 font-bold">อย่าลืมกดปุ่ม "บันทึกตาราง" เพื่อยืนยัน</span>`;
                 
                 Swal.fire({
-                    title: 'ดึงข้อมูลเรียบร้อย!',
-                    html: msg,
-                    icon: 'success',
+                    html: `
+                    <div class="p-4 text-center">
+                        <div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce border border-emerald-100">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">ดึงข้อมูลเรียบร้อย!</h3>
+                        <div class="text-xs md:text-sm text-gray-600 font-sans leading-relaxed">${msg}</div>
+                    </div>`,
+                    showConfirmButton: true,
                     confirmButtonText: 'ตกลง',
                     confirmButtonColor: '#1a3a6e',
-                    customClass: { popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100' },
+                    scrollbarPadding: false,
                     heightAuto: false,
-                    scrollbarPadding: false
+                    customClass: { 
+                        popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto font-sans',
+                        confirmButton: 'px-6 py-2.5 text-sm font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5'
+                    }
                 });
             } else {
                 cuteAlert.error('รูปแบบข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบว่าก๊อปปี้ข้อมูลมาครบ 4 คอลัมน์ (วัน, วิชา, คาบ, ห้องเรียน) และมีแถวข้อมูลจริงครับ');
@@ -1988,18 +2392,38 @@
         async function loadAttendanceOverview() {
             if(!state.overviewDate || !state.selectedTerm) return;
             const targetDate = new Date(state.overviewDate);
-            const dayOfWeek = DAY_NAMES[targetDate.getDay()];
+            // --- [แก้ไข] ใช้ getEffectiveDayName เพื่อให้ API ส่งวันชดเชยไปโหลดตารางให้ถูก ---
+            let dayOfWeek = getEffectiveDayName(state.overviewDate);
+            
+            if (dayOfWeek === "holiday") {
+                document.getElementById('overviewTableBody').innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500 bg-red-50 rounded-b-xl"><div class="text-4xl mb-3">🏖️</div>วันนี้เป็นวันหยุด</td></tr>`;
+                document.getElementById('ovTotal').innerText = '0'; document.getElementById('ovChecked').innerText = '0'; document.getElementById('ovMissing').innerText = '0';
+                Swal.close();
+                return;
+            }
             const displayDateStr = `${targetDate.getDate()} ${THAI_MONTHS[targetDate.getMonth()]} ${targetDate.getFullYear() + 543}`;
             document.getElementById('overviewDateDisplay').innerText = displayDateStr;
 
             const tbody = document.getElementById('overviewTableBody');
             tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
+            
+            // --- จุดที่ 1: เรียก Pop-up โหลดขึ้นมาบังหน้าจอ ---
+            cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
+
             try {
                 const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
+                
+                // --- จุดที่ 2: ปิด Pop-up เมื่อโหลดสำเร็จ ---
+                Swal.close();
+
                 if (json.status === 'success') renderOverviewTable(json.data, state.overviewDate);
                 else tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
-            } catch (error) { tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`; }
+            } catch (error) { 
+                // --- จุดที่ 3: ปิด Pop-up เมื่อเกิด Error ด้วย ---
+                Swal.close();
+                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-wifi text-2xl mb-2"></i><br>ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`; 
+            }
         }
 
         function renderOverviewTable(scheduleData, dateStr) {
@@ -2052,13 +2476,33 @@
             tbody.innerHTML = html;
         }
 
-        function jumpToCheckAttendance(dateStr, subject, period, className) {
-            fpMain.setDate(dateStr, true); 
-            switchTab('attendance');
-            setTimeout(() => {
-                const attSel = document.getElementById('attSubjectSelector');
-                if (attSel) { attSel.value = `${subject}|${period}`; onSubjectSelect('att'); }
-            }, 300);
+        function jumpToCheckAttendance(dateStr, subject, period, className, teacherName = null) {
+            const executeJump = () => {
+                fpMain.setDate(dateStr, true); 
+                switchTab('attendance');
+                setTimeout(() => {
+                    const attSel = document.getElementById('attSubjectSelector');
+                    if (attSel) { 
+                        attSel.value = `${subject}|${period}`; 
+                        onSubjectSelect('att'); 
+                    }
+                }, 300);
+            };
+
+            // หากข้ามมาจากหน้ารวมของครูท่านอื่น ให้ทำการดึงตารางสอนใหม่ก่อนข้ามหน้า
+            if (teacherName && state.viewingTeacher !== teacherName && checkAdminPermission()) {
+                state.viewingTeacher = teacherName;
+                const adminSel = document.getElementById('adminTeacherSelector');
+                if(adminSel) adminSel.value = teacherName;
+                
+                cuteAlert.loading(`กำลังดึงตารางสอนของ ${teacherName}...`);
+                fetchSchedule().then(() => {
+                    Swal.close();
+                    executeJump();
+                });
+            } else {
+                executeJump();
+            }
         }
 
         async function loadStudents() {
@@ -2129,27 +2573,44 @@
             let html = '';
             state.students.forEach((row, index) => {
                 const number = row[0] || '-'; const code = row[1] || '';
-                const nameParts = row.slice(2).filter(Boolean); 
+                const nameParts = row.slice(2, 4).filter(Boolean); // ดึงเฉพาะชื่อ-สกุล
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
-                const displayInfo = `${fullName} <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
+                
+                // ตรวจสอบสถานะ
+                const statusText = row[4] || 'กำลังศึกษา';
+                const isActive = statusText === 'กำลังศึกษา';
+                
+                // จัดรูปแบบชื่อ (ขีดเส้นแดงทับถ้าไม่ Active)
+                let nameStyle = isActive ? 'font-medium text-gray-800' : 'text-red-500 line-through decoration-red-500 decoration-2 opacity-70 font-medium';
+                let displayInfo = `<span class="${nameStyle}">${fullName}</span> <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
+                
+                // ใส่ป้ายกำกับหลังชื่อให้เห็นชัดๆ
+                if (!isActive) {
+                    displayInfo += ` <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1 font-bold border border-red-200">${statusText}</span>`;
+                }
+
                 const att = state.attendance[index]; const s = att.status;
                 const noteStr = att.note !== undefined && att.note !== null ? String(att.note) : '';
                 const hasNote = noteStr.trim() !== '';
                 const safeNoteTitle = hasNote ? noteStr.replace(/"/g, '&quot;').replace(/'/g, '&#39;') : 'เพิ่มหมายเหตุ';
 
+                // ตั้งค่าล็อกปุ่ม
+                const btnDisabled = isActive ? '' : 'disabled';
+                const btnStyle = isActive ? '' : 'opacity-40 cursor-not-allowed filter grayscale bg-gray-100 border-gray-200';
+                
                 html += `
-                <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                <tr class="hover:bg-gray-50 transition border-b border-gray-100 ${isActive ? '' : 'bg-gray-50/50'}">
                     <td class="px-3 sm:px-6 py-3 text-center text-school-navy font-bold">${number}</td>
-                    <td class="px-3 sm:px-6 py-3 font-medium text-gray-800 whitespace-nowrap">${displayInfo}</td>
+                    <td class="px-3 sm:px-6 py-3 whitespace-nowrap">${displayInfo}</td>
                     <td class="px-2 sm:px-6 py-3 text-center">
                         <div class="flex items-center justify-center gap-1 sm:gap-2 min-w-max">
-                            <button onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''}" title="มาเรียน">/</button>
-                            <button onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''}" title="ลากิจ">ล</button>
-                            <button onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''}" title="ขาดเรียน">ข</button>
+                            <button ${btnDisabled} onclick="setStatus(${index}, 'present')" class="status-btn status-present ${s === 'present' ? 'selected' : ''} ${btnStyle}" title="มาเรียน">/</button>
+                            <button ${btnDisabled} onclick="setStatus(${index}, 'leave')" class="status-btn status-leave ${s === 'leave' ? 'selected' : ''} ${btnStyle}" title="ลากิจ">ล</button>
+                            <button ${btnDisabled} onclick="setStatus(${index}, 'absent')" class="status-btn status-absent ${s === 'absent' ? 'selected' : ''} ${btnStyle}" title="ขาดเรียน">ข</button>
                         </div>
                     </td>
                     <td class="px-3 sm:px-6 py-3 text-center">
-                        <button onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto border ${hasNote ? 'bg-blue-50 text-school-blue border-blue-200 hover:bg-blue-100 shadow-sm' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}" title="${safeNoteTitle}">
+                        <button ${btnDisabled} onclick="openNoteModal(${index})" class="w-8 h-8 rounded-full flex items-center justify-center transition mx-auto border ${btnStyle ? btnStyle : (hasNote ? 'bg-blue-50 text-school-blue border-blue-200 hover:bg-blue-100 shadow-sm' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50')}" title="${safeNoteTitle}">
                             <i class="fas fa-comment-alt text-xs"></i>
                         </button>
                     </td>
@@ -2159,7 +2620,17 @@
         }
 
         function setStatus(index, status) { state.attendance[index].status = (state.attendance[index].status === status) ? null : status; renderStudentTable(); }
-        function setAllStatus(status) { if(state.students.length === 0) return; state.attendance.forEach(a => a.status = status); renderStudentTable(); }
+        function setAllStatus(status) { 
+            if(state.students.length === 0) return; 
+            state.attendance.forEach((a, index) => {
+                const row = state.students[index];
+                const statusText = row[4] || 'กำลังศึกษา'; // เช็คสถานะ
+                if (statusText === 'กำลังศึกษา') {
+                    a.status = status; // เช็คให้เฉพาะคนที่สถานะปกติ
+                }
+            }); 
+            renderStudentTable(); 
+        }
 
         function openNoteModal(index) {
             document.getElementById('noteStudentIndex').value = index;
@@ -2182,7 +2653,15 @@
             }
             if(state.currentClass === '-') { cuteAlert.warning('แจ้งเตือน', 'คาบกิจกรรม ไม่จำเป็นต้องบันทึกการเช็คชื่อ'); return; }
 
-            const unchecked = state.attendance.filter(a => a.status === null).length;
+            // นับเฉพาะคนที่สถานะ "กำลังศึกษา" (หรือค่าว่าง) แต่ยังไม่ได้เช็คชื่อ
+            let unchecked = 0;
+            state.attendance.forEach((a, index) => {
+                const statusText = state.students[index][4] || 'กำลังศึกษา';
+                if (statusText === 'กำลังศึกษา' && a.status === null) {
+                    unchecked++;
+                }
+            });
+
             if(unchecked > 0) {
                 const conf = await cuteAlert.confirm('ยังระบุไม่ครบ!', `มีนักเรียนที่ยังไม่ได้เลือกสถานะจำนวน ${unchecked} คน บันทึกเลยหรือไม่?`, 'บันทึกเลย', '#f59e0b');
                 if(!conf.isConfirmed) return;
@@ -2213,6 +2692,7 @@
                     if (json.status === 'success') {
                         isSuccess = true; cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
                         if (state.overviewDate === state.currentDate) loadAttendanceOverview();
+                        fetchCalendarStatus();
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
@@ -2273,6 +2753,24 @@
                 let json = await res.json();
                 let reportData = (json.status === 'success') ? json.data : [];
 
+                // --- [เพิ่มใหม่] กรองข้อมูล: ตัดวันหยุด และ กรองวิชาให้ตรงกับวันชดเชย ---
+                reportData = reportData.filter(r => {
+                    const rDateStr = (r.date || '').trim();
+                    const dayName = getEffectiveDayName(rDateStr);
+                    
+                    // 1. ถ้าวันที่เช็คถูกเปลี่ยนเป็น "วันหยุด" ในภายหลัง ให้ข้าม (ไม่แสดง)
+                    if (dayName === "holiday") return false;
+                    
+                    // 2. เช็คว่าวิชาที่เคยเช็คนี้ ยังคงมีสอนอยู่ในตารางของวันนั้นๆ หรือไม่ (ป้องกันกรณีเปลี่ยนวันชดเชย)
+                    return state.schedule.some(s => 
+                        s.day === dayName && 
+                        s.subject === r.subject && 
+                        s.period === r.period && 
+                        s.className === cls
+                    );
+                });
+                // --------------------------------------------------------
+
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
@@ -2312,9 +2810,30 @@
                 };
                 
 
+                // ดึงเฉพาะ ID ของนักเรียนที่ยัง "กำลังศึกษา" อยู่
+                const activeStudentIds = rawStudents
+                    .filter(stuRow => {
+                        const statusText = stuRow[4] || 'กำลังศึกษา';
+                        return statusText !== 'ย้าย' && statusText !== 'ลาออก';
+                    })
+                    .map(stuRow => getStudentUniqueId(stuRow));
+
                 let totalStats = { present: 0, leave: 0, absent: 0 };
-                let totalRecords = reportData.length; 
-                reportData.forEach(r => { if (totalStats[r.status] !== undefined) totalStats[r.status]++; });
+                let totalRecords = 0; 
+                
+                reportData.forEach(r => { 
+                    let historyId = String(r.id);
+                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
+                    
+                    // นับสถิติภาพรวมเฉพาะนักเรียนที่อยู่ในลิสต์ activeStudentIds เท่านั้น
+                    if (activeStudentIds.includes(historyId)) {
+                        totalRecords++; // ย้ายบรรทัดนี้ออกมาเพื่อนับทุกช่อง (รวมช่องว่าง)
+                        
+                        if (totalStats[r.status] !== undefined) {
+                            totalStats[r.status]++;
+                        }
+                    }
+                });
 
                 const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
                 document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
@@ -2342,8 +2861,16 @@
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    // ดึงเฉพาะชื่อ-สกุล (คอลัมน์ 2 และ 3)
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    // จัดการแสดงผลชื่อตามสถานะ
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    let displayInfo = fullName;
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        displayInfo = `<span class="text-red-500 line-through decoration-red-500 decoration-2 opacity-70 font-medium">${fullName}</span> <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1 font-bold border border-red-200">${statusText}</span>`;
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let rowStats = { present: 0, leave: 0, absent: 0 };
@@ -2367,7 +2894,7 @@
                         } else rowCells += `<td class="border text-center ${colorClass}">${symbol}</td>`;
                     });
 
-                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center text-school-navy">${number}</td><td class="border">${fullName}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
+                    tableHtml += `<tr class="hover:bg-gray-50 border-b"><td class="border text-center text-school-navy">${number}</td><td class="border">${displayInfo}</td>${rowCells}<td class="border text-center font-bold text-green-700 bg-gray-50">${rowStats.present}</td><td class="border text-center font-bold text-school-blue bg-gray-50">${rowStats.leave}</td><td class="border text-center font-bold text-red-700 bg-gray-50">${rowStats.absent}</td></tr>`;
                 });
 
                 tableHtml += '</tbody></table>';
@@ -2508,8 +3035,15 @@
                 // วาดรายชื่อนักเรียนและข้อมูลการเช็คชื่อ
                 rawStudents.forEach((stuRow) => {
                     const number = stuRow[0] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    let displayInfo = fullName;
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        // ใช้ inline CSS เพื่อให้หน้าต่าง Print แสดงผลสีและเส้นขีดฆ่าได้
+                        displayInfo = `<span style="text-decoration: line-through; color: #ef4444;">${fullName}</span> <span style="color: #dc2626; font-size: 10px; border: 1px solid #fca5a5; padding: 1px 4px; border-radius: 4px; background-color: #fee2e2; margin-left: 4px;">${statusText}</span>`;
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let rowStats = { present: 0, leave: 0, absent: 0 };
@@ -2523,7 +3057,7 @@
                          });
                     }
 
-                    pagesHtml += `<tr><td class="border text-center">${number}</td><td class="border text-left pl-2">${fullName}</td>`;
+                    pagesHtml += `<tr><td class="border text-center">${number}</td><td class="border text-left pl-2">${displayInfo}</td>`;
 
                     // ข้อมูลคาบในหน้านี้
                     chunkSessions.forEach(s => {
@@ -2636,8 +3170,13 @@
 
                 rawStudents.forEach(stuRow => {
                     const number = stuRow[0] || '-'; const code = stuRow[1] || '-';
-                    const nameParts = stuRow.slice(2).filter(Boolean);
-                    const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    const nameParts = stuRow.slice(2, 4).filter(Boolean);
+                    let fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
+                    
+                    const statusText = stuRow[4] || 'กำลังศึกษา';
+                    if (statusText === 'ย้าย' || statusText === 'ลาออก') {
+                        fullName += ` (${statusText})`; // เติมวงเล็บสถานะต่อท้ายในเซลล์ Excel
+                    }
                     const uniqueId = getStudentUniqueId(stuRow);
 
                     let stats = { present: 0, leave: 0, absent: 0 };
@@ -2720,9 +3259,17 @@
 
             tbody.innerHTML = state.manageData.map((row, idx) => {
                 const no = row[0] || '-'; const stuId = row[1] || '-';
-                const nameParts = row.slice(2).filter(Boolean);
+                const nameParts = row.slice(2, 4).filter(Boolean); // ดึงแค่ชื่อ-สกุล
                 const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                 
+                // จัดการ Badge ของสถานะ
+                const statusText = row[4] || 'กำลังศึกษา';
+                let statusBadge = '';
+                if (statusText === 'กำลังศึกษา') statusBadge = '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold border border-emerald-200">กำลังศึกษา</span>';
+                else if (statusText === 'ย้าย') statusBadge = '<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold border border-orange-200">ย้าย</span>';
+                else if (statusText === 'ลาออก') statusBadge = '<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">ลาออก</span>';
+                else statusBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold border border-gray-200">${statusText}</span>`;
+
                 const actionHtml = isAdmin 
                     ? `<div class="flex items-center justify-center gap-1.5 sm:gap-2">
                         <button onclick="openEditStudentForm('edit', ${idx})" class="text-school-blue bg-blue-50 border border-blue-100 hover:bg-blue-100 w-8 h-8 md:w-10 md:h-10 rounded-lg transition shadow-sm"><i class="fas fa-edit"></i></button>
@@ -2730,7 +3277,7 @@
                     </div>`
                     : `<span class="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200"><i class="fas fa-lock"></i> ดูเท่านั้น</span>`;
 
-                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100"><td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td><td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td><td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td></tr>`
+                return `<tr class="hover:bg-gray-50 bg-white transition-colors border-b border-gray-100"><td class="p-3 md:p-4 text-center font-bold text-school-navy align-middle">${no}</td><td class="p-3 md:p-4 text-sm text-school-blue font-mono font-bold align-middle whitespace-nowrap">${stuId}</td><td class="p-3 md:p-4 text-sm text-gray-900 align-middle whitespace-nowrap">${fullName}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${statusBadge}</td><td class="p-3 md:p-4 text-center align-middle whitespace-nowrap">${actionHtml}</td></tr>`
             }).join('');
         }
 
@@ -2747,7 +3294,27 @@
             let rowData = actionType === 'edit' ? state.manageData[rowIndex] : [];
 
             state.headers.forEach((headerName, i) => {
-                container.innerHTML += `<div class="mb-3"><label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label><input type="text" id="stuInput_${i}" value="${rowData[i] || ''}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50"></div>`;
+                const val = rowData[i] || ''; // ถ้าดึงค่าว่างมา val จะเท่ากับ ''
+                
+                // ตรวจสอบว่าเป็นคอลัมน์ "สถานะ" (คอลัมน์ที่ 5 หรือ index 4)
+                if (headerName === 'สถานะ' || i === 4) {
+                    container.innerHTML += `
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label>
+                        <select id="stuInput_${i}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                            <option value="" ${val === '' || val === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option>
+                            <option value="ย้าย" ${val === 'ย้าย' ? 'selected' : ''}>ย้าย</option>
+                            <option value="ลาออก" ${val === 'ลาออก' ? 'selected' : ''}>ลาออก</option>
+                        </select>
+                    </div>`;
+                } else {
+                    // สำหรับช่องอื่นๆ ให้เป็น Text Input ปกติ
+                    container.innerHTML += `
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-school-navy mb-1">${headerName}</label>
+                        <input type="text" id="stuInput_${i}" value="${val}" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">
+                    </div>`;
+                }
             });
             document.getElementById('studentFormModal').classList.add('active');
         }
@@ -2795,14 +3362,33 @@
         function promptAddClass() {
             if (!checkAdminPermission()) return;
             Swal.fire({
-                title: 'เพิ่มห้องเรียนใหม่', input: 'text', inputLabel: 'ชื่อห้องเรียน (เช่น ม.1/1)', inputPlaceholder: 'กรอกชื่อห้องเรียน...',
-                showCancelButton: true, confirmButtonText: 'สร้างห้องเรียน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#1a3a6e',
+                html: `
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4 text-3xl shadow-sm border border-emerald-100">
+                            <i class="fas fa-folder-plus"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-school-navy mb-1">เพิ่มห้องเรียนใหม่</h3>
+                        <p class="text-sm text-gray-500">สำหรับภาคเรียนปัจจุบัน</p>
+                    </div>`,
+                input: 'text', 
+                inputPlaceholder: 'ตัวอย่าง: ป.1/1, ม.1/2',
+                showCancelButton: true, 
+                confirmButtonText: 'บันทึกข้อมูล', 
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false, // ปิดสไตล์ปุ่มเดิม เพื่อใช้ Tailwind แบบ 100%
                 inputValidator: (value) => {
                     if (!value || value.trim() === '') return 'กรุณากรอกชื่อห้องเรียน!';
-                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในภาคเรียนนี้แล้ว!';
+                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในระบบแล้ว!';
                 },
-                customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
-            }).then(async (result) => {
+                customClass: { 
+                    popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 text-center focus:border-emerald-500 focus:outline-none w-[85%] text-school-navy font-bold text-lg mx-auto block mt-4 mb-2 shadow-inner transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-emerald-700 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            })
+            .then(async (result) => {
                 if (result.isConfirmed) {
                     const newClass = result.value.trim();
                     cuteAlert.loading('กำลังสร้างห้องเรียนใหม่ ⏳');
@@ -2875,7 +3461,6 @@
                 teacherSummaryChart.destroy();
             }
             
-            // ข้อมูลสำหรับกราฟ (แสดงจำนวนคาบรวมทั้งโรงเรียน)
             const checkedCount = data.checkedCount || 0;
             const uncheckedCount = data.uncheckedCount || 0;
             const total = checkedCount + uncheckedCount;
@@ -2915,26 +3500,39 @@
                 }
             });
 
-            // อัปเดตตารางรายชื่อครูทุกคน
+            // อัปเดตตารางหัวข้อ
+            const thead = document.querySelector('#teacherSummaryTableBody').previousElementSibling;
+            if (thead) {
+                thead.innerHTML = `
+                    <tr>
+                        <th class="px-4 py-3 min-w-[150px]">ชื่อ-สกุล ครูผู้สอน</th>
+                        <th class="px-4 py-3 text-center w-32">สถิติ</th>
+                        <th class="px-4 py-3 text-center w-24">วันนี้</th>
+                        <th class="px-4 py-3 min-w-[300px]">สถานะรายวิชา / ห้องเรียน</th>
+                    </tr>
+                `;
+            }
+
             const tbody = document.getElementById('teacherSummaryTableBody');
             const summaryList = (data.summaryList || []).filter(item => item.totalClasses > 0);
 
             if (summaryList.length === 0) {
-                // [จุดที่ต้องแก้ไข] เปลี่ยนข้อความแจ้งเตือนให้สอดคล้องกัน
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครูที่มีตารางสอนในวันนี้</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">ไม่พบข้อมูลครูที่มีตารางสอนในวันนี้</td></tr>';
                 return;
             }
 
             let html = '';
-                summaryList.forEach(item => {
-                    let classStatusHtml = '';
+            const currentDateStr = document.getElementById('summaryDatePicker').value; 
+            
+            summaryList.forEach(item => {
+                let classStatusHtml = '';
+                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                 
                 if (item.totalClasses === 0) {
                     classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
                 } else {
                     classStatusHtml = '<div class="flex flex-wrap gap-2">';
                     
-                    // 1. เพิ่มคำสั่งจัดเรียงตามเลขคาบเรียน
                     item.classes.sort((a, b) => {
                         const periodA = parseInt(a.period.match(/\d+/) ? a.period.match(/\d+/)[0] : 999);
                         const periodB = parseInt(b.period.match(/\d+/) ? b.period.match(/\d+/)[0] : 999);
@@ -2942,17 +3540,13 @@
                     });
 
                     item.classes.forEach(cls => {
-                        // กำหนดสีของจุดและกรอบตามสถานะ
                         const dotColor = cls.isChecked ? 'bg-emerald-500' : 'bg-red-500';
                         const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
-                        
-                        // ป้องกันปัญหาเครื่องหมาย Single Quote (') ในชื่อวิชาทำลาย Syntax ของ onclick
                         const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
-                        // 2. ปรับข้อความแสดงผล และใส่ title ให้อ่านรายละเอียดเมื่อเอาเมาส์ชี้
                         classStatusHtml += `
-                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked})" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
+                            <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked}, '${currentDateStr}', '${safeTeacherName}')" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
                                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 ${!cls.isChecked ? 'animate-pulse' : ''}"></span>
                                 <span class="${textColor} font-bold">${cls.period} (ห้อง ${cls.className})</span>
                             </div>
@@ -2961,12 +3555,26 @@
                     classStatusHtml += '</div>';
                 }
 
-                // เช็คไฮไลท์แถวสีแดงอ่อน ถ้าครูมีคาบสอนแต่ยังเช็คไม่ครบ
                 const rowBg = (item.totalClasses > 0 && item.checkedClasses < item.totalClasses) ? 'bg-red-50/30' : 'bg-white';
+
+                // --- สร้าง UI สำหรับสถิติรวม ---
+                let overallStatHtml = '';
+                if (item.hasTermStartDate) {
+                    let percentColor = item.overallPercent >= 80 ? 'text-emerald-600' : (item.overallPercent >= 50 ? 'text-orange-500' : 'text-red-500');
+                    overallStatHtml = `
+                        <div class="text-sm font-black ${percentColor}">${item.overallPercent}%</div>
+                        <div class="text-[10px] text-gray-500 font-medium">${item.checkedDays} / ${item.expectedDays} วัน</div>
+                    `;
+                } else {
+                    overallStatHtml = `<span class="text-[10px] text-gray-400">ไม่ได้ตั้งวันเปิดเทอม</span>`;
+                }
 
                 html += `
                     <tr class="hover:bg-blue-50 transition-colors ${rowBg}">
                         <td class="px-4 py-3 font-bold text-school-navy">${item.teacherName}</td>
+                        <td class="px-4 py-3 text-center bg-gray-50 border-x border-gray-100">
+                            ${overallStatHtml}
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <span class="bg-white text-gray-600 text-xs px-2 py-0.5 rounded border border-gray-200 font-bold shadow-sm">
                                 ${item.checkedClasses}/${item.totalClasses}
@@ -2980,18 +3588,29 @@
             tbody.innerHTML = html;
         }
 
-        function showSubjectDetail(subject, className, period, isChecked) {
-            // กำหนดรูปแบบข้อความสถานะ
+        function showSubjectDetail(subject, className, period, isChecked, dateStr, teacherName) {
             const statusHtml = isChecked 
                 ? '<div class="bg-emerald-50 text-emerald-700 py-2 rounded-lg font-bold border border-emerald-200 shadow-sm flex items-center justify-center gap-2"><i class="fas fa-check-circle"></i> เช็คชื่อเรียบร้อยแล้ว</div>' 
                 : '<div class="bg-red-50 text-red-600 py-2 rounded-lg font-bold border border-red-200 shadow-sm flex items-center justify-center gap-2 animate-pulse"><i class="fas fa-exclamation-circle"></i> ยังไม่ได้เช็คชื่อ</div>';
             
-            // เรียกใช้ SweetAlert2 ตามธีมระบบโรงเรียนโนนศิลาสว่างวิทย์
+            // 1. ตรวจสอบสิทธิ์: เป็นแอดมิน หรือ เป็นวิชาของตัวเอง (teacherName ตรงกับ state.viewingTeacher)
+            const isAdmin = checkAdminPermission();
+            const isOwnSubject = (teacherName === state.viewingTeacher);
+            const canGoToCheck = !isChecked && (isAdmin || isOwnSubject);
+
+            // 2. ตั้งค่าปุ่มกด: ถ้ามีสิทธิ์จะแสดงปุ่มสีน้ำเงิน ถ้าไม่มีสิทธิ์จะแสดงแค่ปุ่มสีเทาสำหรับปิดหน้าต่าง
+            let confirmBtnText = canGoToCheck ? '<i class="fas fa-edit"></i> ไปเช็คชื่อวิชานี้' : 'ปิดหน้าต่าง';
+            let confirmBtnColor = canGoToCheck ? '#4472c4' : '#64748b';
+
             Swal.fire({
                 title: '<i class="fas fa-book text-school-brass mr-2"></i> ข้อมูลรายวิชา',
                 html: `
                     <div class="text-left text-sm mt-2">
                         <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner space-y-3">
+                            <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                <span class="text-gray-500 font-bold">ครูผู้สอน:</span>
+                                <span class="text-school-navy font-bold text-right">${teacherName}</span>
+                            </div>
                             <div class="flex justify-between items-center border-b border-gray-200 pb-2">
                                 <span class="text-gray-500 font-bold">วิชา:</span>
                                 <span class="text-school-navy font-bold text-right">${subject}</span>
@@ -3010,13 +3629,439 @@
                         </div>
                     </div>
                 `,
-                confirmButtonText: 'ปิด',
-                confirmButtonColor: '#1a3a6e',
+                showCancelButton: canGoToCheck, // ซ่อนปุ่ม Cancel ถ้าผู้ใช้ไม่มีสิทธิ์ไปหน้าเช็คชื่อ
+                cancelButtonText: 'ปิด',
+                confirmButtonText: confirmBtnText,
+                confirmButtonColor: confirmBtnColor,
                 customClass: { 
-                    popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100 w-11/12 max-w-sm' 
+                    popup: 'rounded-2xl shadow-2xl font-sans border border-gray-100 w-11/12 max-w-sm',
+                    confirmButton: 'px-4 py-2 text-sm font-bold rounded-lg shadow-sm',
+                    cancelButton: 'px-4 py-2 text-sm font-bold rounded-lg shadow-sm bg-gray-100 text-gray-700 hover:bg-gray-200'
                 },
                 scrollbarPadding: false,
                 heightAuto: false
+            }).then((result) => {
+                // 3. อนุญาตให้กระโดดไปหน้าเช็คชื่อได้ เฉพาะผู้ที่มีสิทธิ์เท่านั้น
+                if (result.isConfirmed && canGoToCheck) {
+                    jumpToCheckAttendance(dateStr, subject, period, className, teacherName);
+                }
+            });
+        }
+
+        // ==========================================
+        // ระบบ Pull-to-Refresh (ลากลงเพื่อรีเฟรช)
+        // ==========================================
+        let touchStartY = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function(e) {
+            touchEndY = e.changedTouches[0].screenY;
+            handlePullToRefresh();
+        }, { passive: true });
+
+        function handlePullToRefresh() {
+            // หาแท็บที่กำลังเปิดใช้งานอยู่ (ที่ไม่ได้ซ่อน)
+            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            
+            // ตรวจสอบว่ามีแท็บที่เปิดอยู่ และผู้ใช้เลื่อนหน้าจออยู่บนสุดหรือไม่ (scrollTop <= 0)
+            if (activeTab && activeTab.scrollTop <= 0) {
+                // ถ้าระยะลากลง (touchEndY - touchStartY) มากกว่า 150 พิกเซล
+                if (touchEndY - touchStartY > 150) {
+                    // เรียกใช้ Alert แบบที่มีอยู่ในระบบเพื่อให้ดูเนียนตา
+                    if (typeof cuteAlert !== 'undefined' && cuteAlert.loading) {
+                        cuteAlert.loading('กำลังรีเฟรชข้อมูล... 🔄');
+                    }
+                    
+                    // หน่วงเวลาเล็กน้อยแล้วโหลดหน้าเว็บใหม่
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                }
+            }
+        }
+
+        // ==========================================
+        // ระบบวางข้อมูลรายชื่อนักเรียนจาก Excel
+        // ==========================================
+        function openImportStudentModal() {
+            if (!checkAdminPermission()) return;
+            const className = document.getElementById('manageClassSelector').value;
+            if(!className) { 
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือก "ห้องเรียน" ด้านบนก่อนทำการนำเข้าครับ'); 
+                return; 
+            }
+            document.getElementById('pasteStudentArea').value = '';
+            document.getElementById('importStudentModal').classList.add('active');
+        }
+
+        function closeImportStudentModal() {
+            document.getElementById('importStudentModal').classList.remove('active');
+        }
+
+        async function processPastedStudents() {
+            const className = document.getElementById('manageClassSelector').value;
+            const text = document.getElementById('pasteStudentArea').value;
+            
+            if (!text || text.trim() === '') {
+                cuteAlert.error('ไม่พบข้อมูล', 'กรุณาวางข้อมูลในกล่องข้อความก่อนครับ');
+                return;
+            }
+
+            const rows = text.split('\n');
+            let parsedStudents = [];
+            let errorCount = 0;
+
+            for (let r of rows) {
+                if (!r.trim()) continue; // ข้ามบรรทัดว่าง
+                const cols = r.split('\t');
+                
+                // ต้องมีอย่างน้อย 4 คอลัมน์ (ลำดับ, รหัส, ชื่อ, สกุล)
+                if (cols.length >= 4) {
+                    let no = cols[0].trim();
+                    let stuId = cols[1].trim();
+                    let name = cols[2].trim();
+                    let surname = cols[3].trim();
+                    let status = cols[4] ? cols[4].trim() : 'กำลังศึกษา'; // ถ้าไม่มีคอลัมน์ 5 ให้เป็น กำลังศึกษา
+
+                    // ข้ามบรรทัดหัวตาราง (ถ้าก๊อปมาด้วย)
+                    if (no === 'ลำดับ' || name === 'ชื่อ') continue;
+
+                    // ถ้ามีชื่อและนามสกุล ถือว่าผ่าน
+                    if (name && surname) {
+                        parsedStudents.push([no, stuId, name, surname, status]);
+                    } else {
+                        errorCount++;
+                    }
+                } else {
+                    errorCount++;
+                }
+            }
+
+            if (parsedStudents.length > 0) {
+                closeImportStudentModal();
+                cuteAlert.loading(`กำลังนำเข้านักเรียน ${parsedStudents.length} คน เข้าสู่ห้อง ${className} ⏳`);
+                
+                const form = new FormData();
+                form.append('term', state.selectedTerm);
+                form.append('className', className.trim()); 
+                form.append('actionType', 'import'); 
+                form.append('studentData', JSON.stringify(parsedStudents));
+
+                try {
+                    const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
+                    const json = await res.json();
+                    if (json.status === 'success') { 
+                        loadManageStudents(); 
+                        if (state.currentClass === className) loadStudents(); 
+                        
+                        let msg = `เพิ่มรายชื่อสำเร็จ <b>${parsedStudents.length}</b> คน`;
+                        if(errorCount > 0) msg += `<br><span class="text-red-500 text-xs">* ข้ามข้อมูลที่ไม่สมบูรณ์ ${errorCount} แถว</span>`;
+                        
+                        Swal.fire({
+                            html: `
+                            <div class="p-4 text-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce border border-emerald-100">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">นำเข้าสำเร็จ! ✨</h3>
+                                <div class="text-xs md:text-sm text-gray-600 font-sans leading-relaxed">${msg}</div>
+                            </div>`,
+                            showConfirmButton: false, // ปิดการแสดงปุ่ม "ตกลง"
+                            timer: 2500, // ตั้งเวลาให้ Pop-up หายไปเองใน 2.5 วินาที (ปรับตัวเลขได้ 1000 = 1 วินาที)
+                            scrollbarPadding: false,
+                            heightAuto: false,
+                            customClass: { 
+                                popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto font-sans'
+                            }
+                        });
+                    }
+                    else cuteAlert.error('ข้อผิดพลาด', json.message);
+                } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
+            } else {
+                cuteAlert.error('รูปแบบข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบว่าก๊อปปี้ข้อมูลมาอย่างน้อย 4 คอลัมน์ (ลำดับ, รหัส, ชื่อ, นามสกุล)');
+            }
+        }
+
+        function promptEditClass() {
+            if (!checkAdminPermission()) return;
+            const oldClassName = document.getElementById('manageClassSelector').value;
+            if (!oldClassName) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการแก้ไขก่อน'); return; }
+
+            Swal.fire({
+                html: `
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 text-3xl shadow-sm border border-blue-100">
+                            <i class="fas fa-edit"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-school-navy mb-1">แก้ไขชื่อห้องเรียน</h3>
+                        <p class="text-sm text-gray-500">เปลี่ยนชื่อจาก <span class="font-bold text-school-blue">${oldClassName}</span> เป็น...</p>
+                    </div>`,
+                input: 'text', 
+                inputValue: oldClassName,
+                inputPlaceholder: 'กรอกชื่อห้องเรียนใหม่...',
+                showCancelButton: true, 
+                confirmButtonText: 'บันทึกการแก้ไข', 
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false,
+                inputValidator: (value) => {
+                    if (!value || value.trim() === '') return 'กรุณากรอกชื่อห้องเรียน!';
+                    if (value.trim() === oldClassName) return 'ชื่อห้องเรียนเหมือนเดิม!';
+                    if (state.classes.includes(value.trim())) return 'มีห้องเรียนนี้อยู่ในระบบแล้ว!';
+                },
+                customClass: { 
+                    popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 text-center focus:border-blue-500 focus:outline-none w-[85%] text-school-navy font-bold text-lg mx-auto block mt-4 mb-2 shadow-inner transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-blue-700 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            })
+            .then(async (result) => {
+                if (result.isConfirmed) {
+                    const newClassName = result.value.trim();
+                    cuteAlert.loading('กำลังเปลี่ยนชื่อห้องเรียน ⏳');
+                    const form = new FormData();
+                    form.append('term', state.selectedTerm); 
+                    form.append('actionType', 'editClass'); 
+                    form.append('oldClassName', oldClassName);
+                    form.append('newClassName', newClassName);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') { 
+                            await fetchClasses(); 
+                            document.getElementById('manageClassSelector').value = newClassName; 
+                            loadManageStudents(); 
+                            cuteAlert.success('สำเร็จ! ✨', `เปลี่ยนชื่อเป็น ${newClassName} เรียบร้อยแล้ว`); 
+                        } else {
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                        }
+                    } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
+                }
+            });
+        }
+
+        function editSubjectName(oldName, className) {
+            Swal.fire({
+                title: '<i class="fas fa-edit text-school-blue mb-2 text-3xl"></i><br>แก้ไขชื่อรายวิชา',
+                html: `<p class="text-sm text-gray-500 mb-2">เปลี่ยนชื่อวิชาสำหรับห้อง <span class="text-school-navy font-bold">${className === '-' ? 'กิจกรรม' : className}</span></p>`,
+                input: 'text',
+                inputValue: oldName,
+                inputPlaceholder: 'กรอกชื่อวิชาใหม่...',
+                showCancelButton: true,
+                confirmButtonText: 'ตกลง',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value || value.trim() === '') {
+                        return 'กรุณากรอกชื่อวิชา!';
+                    }
+                },
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 mt-2 text-center focus:border-school-blue focus:outline-none w-[85%] text-school-navy font-bold mx-auto block transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-school-blue text-white text-sm font-bold rounded-xl shadow-md hover:bg-[#345ba8] transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const newName = result.value.trim();
+                    if (newName !== oldName) {
+                        // 1. อัปเดตในการ์ดรายวิชาด้านซ้าย
+                        state.subjects.forEach(s => {
+                            if (s.name === oldName && s.className === className) {
+                                s.name = newName;
+                            }
+                        });
+                        // 2. อัปเดตในตารางสอนด้านขวา
+                        state.schedule.forEach(s => {
+                            if (s.subject === oldName && s.className === className) {
+                                s.subject = newName;
+                            }
+                        });
+                        
+                        // --- เพิ่มโค้ดเก็บประวัติ 2 บรรทัดนี้ ---
+                        if (!state.renamedSubjects) state.renamedSubjects = [];
+                        state.renamedSubjects.push({ oldName: oldName, newName: newName, className: className });
+                        
+                        // รีเฟรชหน้าจอใหม่ให้แสดงชื่อที่แก้
+                        renderSubjectCards();
+                        renderVisualTimetable();
+                        
+                        // แจ้งเตือนผู้ใช้ให้บันทึกตาราง
+                        const Toast = Swal.mixin({
+                            toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+                        });
+                        Toast.fire({ icon: 'success', title: 'เปลี่ยนชื่อวิชาชั่วคราวแล้ว กด "บันทึกตาราง" เพื่อยืนยัน' });
+                    }
+                }
+            });
+        }
+
+        function goToTodayOverview() {
+            const today = new Date();
+            
+            // 1. แปลงวันที่ปัจจุบันเป็น YYYY-MM-DD เพื่อตรวจสอบกับข้อมูลการตั้งค่า
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            
+            // 2. เช็คว่าวันนี้ถูกตั้งค่าให้เป็นวันเรียนชดเชย (makeup) หรือไม่
+            const isMakeup = state.calendarSettings && state.calendarSettings[dateStr] && state.calendarSettings[dateStr].type === 'makeup';
+
+            // 3. หากเป็นวันเสาร์-อาทิตย์ และ "ไม่ใช่วันเรียนชดเชย" ค่อยย้อนกลับไปแสดงวันศุกร์
+            if (!isMakeup) {
+                if (today.getDay() === 0) today.setDate(today.getDate() - 2);
+                else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            }
+            
+            // สั่งให้ปฏิทินเปลี่ยนวันที่ (true = สั่งให้ระบบโหลดข้อมูลใหม่ทันที)
+            if (fpOverview) {
+                fpOverview.setDate(today, true);
+            }
+        }
+
+        function goToTodaySummary() {
+            const today = new Date();
+            
+            // 1. แปลงวันที่ปัจจุบันเป็น YYYY-MM-DD เพื่อตรวจสอบกับข้อมูลการตั้งค่า
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            const dateStr = `${y}-${m}-${d}`;
+            
+            // 2. เช็คว่าวันนี้ถูกตั้งค่าให้เป็นวันเรียนชดเชย (makeup) หรือไม่
+            const isMakeup = state.calendarSettings && state.calendarSettings[dateStr] && state.calendarSettings[dateStr].type === 'makeup';
+
+            // 3. หากเป็นวันเสาร์-อาทิตย์ และ "ไม่ใช่วันเรียนชดเชย" ค่อยย้อนกลับไปแสดงวันศุกร์
+            if (!isMakeup) {
+                if (today.getDay() === 0) today.setDate(today.getDate() - 2);
+                else if (today.getDay() === 6) today.setDate(today.getDate() - 1);
+            }
+            
+            // สั่งให้ปฏิทินของหน้า Summary เปลี่ยนวันที่และโหลดข้อมูลใหม่ทันที
+            if (fpSummary) {
+                fpSummary.setDate(today, true);
+            }
+        }
+
+        // ==========================================
+        // ระบบจัดการตั้งค่า ปฏิทิน (วันหยุด / ชดเชย)
+        // ==========================================
+        async function fetchCalendarSettings() {
+            try {
+                const res = await fetch(`${API_URL}?action=getCalendarSettings&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                if (json.status === 'success') {
+                    state.calendarSettings = json.data;
+                    // อัปเดตสีในปฏิทินทั้งหมด
+                    [fpMain, fpHistory, fpOverview, fpSummary].forEach(fp => { if(fp) fp.redraw(); });
+                }
+            } catch (e) { console.error("Error fetching calendar settings", e); }
+        }
+
+        function openCalendarSettingsModal() {
+            document.getElementById('calSetDate').value = '';
+            document.getElementById('calSetNote').value = '';
+            document.getElementById('calSetType').value = 'holiday';
+            toggleSubstituteDay();
+            renderCalendarSettingsTable();
+            document.getElementById('calendarSettingsModal').classList.add('active');
+        }
+
+        function closeCalendarSettingsModal() {
+            document.getElementById('calendarSettingsModal').classList.remove('active');
+        }
+
+        function toggleSubstituteDay() {
+            const type = document.getElementById('calSetType').value;
+            const subCont = document.getElementById('substituteDayContainer');
+            if (type === 'makeup') subCont.classList.remove('hidden');
+            else subCont.classList.add('hidden');
+        }
+
+        function renderCalendarSettingsTable() {
+            const tbody = document.getElementById('calSettingsTableBody');
+            const dates = Object.keys(state.calendarSettings).sort();
+            
+            if (dates.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-6 text-gray-400">ยังไม่มีการตั้งค่าวันพิเศษ</td></tr>';
+                return;
+            }
+
+            const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+            tbody.innerHTML = dates.map(dateStr => {
+                const setting = state.calendarSettings[dateStr];
+                const d = new Date(dateStr);
+                const displayDate = isNaN(d.getTime()) ? dateStr : `${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()+543}`;
+                
+                let badge = '';
+                if (setting.type === 'holiday') {
+                    badge = `<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs font-bold border border-red-200">หยุด</span> ${setting.note}`;
+                } else {
+                    badge = `<span class="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">ชดเชย</span> เรียนแบบวัน${setting.substituteFor} ${setting.note ? '('+setting.note+')' : ''}`;
+                }
+
+                return `
+                <tr class="hover:bg-gray-50 border-b border-gray-100">
+                    <td class="px-4 py-3 font-medium text-gray-700">${displayDate}</td>
+                    <td class="px-4 py-3">${badge}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="deleteCalendarSetting('${dateStr}')" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm inline-flex items-center justify-center"><i class="fas fa-trash text-xs"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function saveCalendarSetting() {
+            const dateStr = document.getElementById('calSetDate').value;
+            const type = document.getElementById('calSetType').value;
+            const subFor = document.getElementById('calSetSubstitute').value;
+            const note = document.getElementById('calSetNote').value.trim();
+
+            if (!dateStr) { cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณาเลือกวันที่ก่อนครับ'); return; }
+
+            cuteAlert.loading('กำลังบันทึกข้อมูล...');
+            const form = new FormData();
+            form.append('date', dateStr);
+            form.append('type', type);
+            if (type === 'makeup') form.append('substituteFor', subFor);
+            form.append('note', note);
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveCalendarSetting`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    await fetchCalendarSettings();
+                    renderCalendarSettingsTable();
+                    cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าปฏิทินเรียบร้อยแล้ว');
+                } else { cuteAlert.error('ผิดพลาด', json.message); }
+            } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
+        }
+
+        function deleteCalendarSetting(dateStr) {
+            cuteAlert.confirm('ลบการตั้งค่า?', `ยืนยันการลบการตั้งค่าของวันที่ ${dateStr}`, 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบข้อมูล...');
+                    const form = new FormData();
+                    form.append('date', dateStr);
+                    try {
+                        const res = await fetch(`${API_URL}?action=deleteCalendarSetting`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            await fetchCalendarSettings();
+                            renderCalendarSettingsTable();
+                            cuteAlert.success('ลบสำเร็จ!', 'นำการตั้งค่าออกเรียบร้อยแล้ว');
+                        } else { cuteAlert.error('ผิดพลาด', json.message); }
+                    } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
+                }
             });
         }
     </script>
