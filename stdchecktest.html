@@ -45,6 +45,12 @@
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
     <style>
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background-color: #f8fafc; 
+            overscroll-behavior-y: none; /* เพิ่มบรรทัดนี้เพื่อปิด Pull-to-refresh เดิมของเบราว์เซอร์ */
+        }
+
         body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
         .sidebar { background: linear-gradient(180deg, #1a3a6e 0%, #2a5298 100%); } 
         .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.05); }
@@ -91,6 +97,10 @@
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
+
+    <div id="pullToRefreshIndicator" class="fixed top-[-60px] left-1/2 transform -translate-x-1/2 z-[9999] bg-white rounded-full shadow-lg w-10 h-10 flex items-center justify-center transition-transform duration-300 pointer-events-none">
+        <i class="fas fa-sync-alt text-school-blue text-lg transition-colors"></i>
+    </div>
 
     <!-- OVERLAY LOADING -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
@@ -159,7 +169,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -3676,40 +3686,85 @@
         }
 
         // ==========================================
-        // ระบบ Pull-to-Refresh (ลากลงเพื่อรีเฟรช)
+        // ระบบ Pull-to-Refresh (ลากลงเพื่อรีเฟรช) รูปแบบใหม่
         // ==========================================
         let touchStartY = 0;
-        let touchEndY = 0;
+        let touchCurrentY = 0;
+        let isPulling = false;
+        const PULL_THRESHOLD = 120; // ระยะที่ต้องลากลงเพื่อสั่งรีเฟรช (พิกเซล)
+        const TOP_AREA_LIMIT = 120; // แตะเริ่มลากได้เฉพาะช่วง 120px จากขอบบนของจอเท่านั้น
+
+        const p2rIndicator = document.getElementById('pullToRefreshIndicator');
+        const p2rIcon = p2rIndicator.querySelector('i');
 
         document.addEventListener('touchstart', function(e) {
-            touchStartY = e.touches[0].screenY;
+            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            
+            // เช็คว่า 1. มีแท็บเปิดอยู่ 2. สกอร์ลอยู่บนสุด 3. นิ้วแตะในโซนขอบบนของจอ
+            if (activeTab && activeTab.scrollTop <= 0 && e.touches[0].clientY <= TOP_AREA_LIMIT) {
+                touchStartY = e.touches[0].screenY;
+                isPulling = true;
+                // ปิด transition ชั่วคราวเพื่อให้วงกลมขยับตามนิ้วได้ทันทีโดยไม่หน่วง
+                p2rIndicator.style.transition = 'none';
+                p2rIcon.classList.remove('fa-spin');
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isPulling) return;
+            touchCurrentY = e.touches[0].screenY;
+            const pullDistance = touchCurrentY - touchStartY;
+
+            // ถ้าลากนิ้วลงด้านล่าง
+            if (pullDistance > 0) {
+                // คำนวณระยะแสดงผล (ดึงลงมาสูงสุด 80px)
+                const visualDistance = Math.min(pullDistance * 0.5, 80);
+                p2rIndicator.style.transform = `translate(-50%, ${visualDistance}px)`;
+                
+                // หมุนไอคอนตามระยะลาก
+                const rotation = Math.min(pullDistance * 2, 360);
+                p2rIcon.style.transform = `rotate(${rotation}deg)`;
+
+                // เปลี่ยนสีเป็นสีเขียวเมื่อดึงถึงจุดที่พร้อมรีเฟรช
+                if (pullDistance >= PULL_THRESHOLD) {
+                    p2rIcon.classList.remove('text-school-blue');
+                    p2rIcon.classList.add('text-emerald-500');
+                } else {
+                    p2rIcon.classList.add('text-school-blue');
+                    p2rIcon.classList.remove('text-emerald-500');
+                }
+            }
         }, { passive: true });
 
         document.addEventListener('touchend', function(e) {
-            touchEndY = e.changedTouches[0].screenY;
-            handlePullToRefresh();
-        }, { passive: true });
-
-        function handlePullToRefresh() {
-            // หาแท็บที่กำลังเปิดใช้งานอยู่ (ที่ไม่ได้ซ่อน)
-            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            if (!isPulling) return;
+            isPulling = false;
             
-            // ตรวจสอบว่ามีแท็บที่เปิดอยู่ และผู้ใช้เลื่อนหน้าจออยู่บนสุดหรือไม่ (scrollTop <= 0)
-            if (activeTab && activeTab.scrollTop <= 0) {
-                // ถ้าระยะลากลง (touchEndY - touchStartY) มากกว่า 150 พิกเซล
-                if (touchEndY - touchStartY > 150) {
-                    // เรียกใช้ Alert แบบที่มีอยู่ในระบบเพื่อให้ดูเนียนตา
-                    if (typeof cuteAlert !== 'undefined' && cuteAlert.loading) {
-                        cuteAlert.loading('กำลังรีเฟรชข้อมูล... 🔄');
-                    }
-                    
-                    // หน่วงเวลาเล็กน้อยแล้วโหลดหน้าเว็บใหม่
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
+            const pullDistance = touchCurrentY - touchStartY;
+            
+            // คืนค่า transition เพื่อให้วงกลมเด้งกลับแบบนุ่มนวล
+            p2rIndicator.style.transition = 'transform 0.3s ease-out';
+
+            if (pullDistance >= PULL_THRESHOLD) {
+                // ถ้าดึงเลยจุดที่กำหนด -> แสดงค้างไว้ หมุนติ้วๆ และรีเฟรช
+                p2rIndicator.style.transform = `translate(-50%, 60px)`;
+                p2rIcon.classList.add('fa-spin');
+                
+                if (typeof cuteAlert !== 'undefined' && cuteAlert.loading) {
+                    cuteAlert.loading('กำลังรีเฟรชข้อมูล... 🔄');
                 }
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // ถ้าดึงไม่ถึงจุด -> เด้งกลับไปซ่อนด้านบน
+                p2rIndicator.style.transform = `translate(-50%, -60px)`;
             }
-        }
+            
+            touchStartY = 0;
+            touchCurrentY = 0;
+        }, { passive: true });
 
         // ==========================================
         // ระบบวางข้อมูลรายชื่อนักเรียนจาก Excel
