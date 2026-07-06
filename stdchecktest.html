@@ -159,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -1526,18 +1526,25 @@
                         dayElem.title = "วันเปิดภาคเรียน";
                     }
 
-                    if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
-                        dayElem.classList.add('fully-checked');
-                        dayElem.title = "เช็คชื่อครบแล้ว";
-                    }
+                    // ล้างคลาสสีเขียว (เช็คแล้ว) ออกก่อนเสมอ ป้องกันสีค้าง
+                    dayElem.classList.remove('fully-checked');
 
-                    // --- [เพิ่มใหม่] ใส่สีให้วันหยุดและวันชดเชย ---
-                    if (state.calendarSettings && state.calendarSettings[dateStr]) {
-                        const setting = state.calendarSettings[dateStr];
-                        if (setting.type === 'holiday') {
-                            dayElem.classList.add('!bg-red-50', '!text-red-500', '!border-red-200');
-                            dayElem.title = setting.note || "วันหยุด";
-                        } else if (setting.type === 'makeup') {
+                    // ตรวจสอบว่าเป็นวันหยุด/ชดเชยหรือไม่
+                    const setting = state.calendarSettings ? state.calendarSettings[dateStr] : null;
+
+                    if (setting && setting.type === 'holiday') {
+                        // 1. ถ้าเป็นวันหยุด ให้แสดงสีแดง และไม่ต้องใส่สีเขียวทับ
+                        dayElem.classList.add('!bg-red-50', '!text-red-500', '!border-red-200');
+                        dayElem.title = setting.note || "วันหยุด";
+                    } else {
+                        // 2. ถ้าไม่ใช่วันหยุด ค่อยเช็คว่าเช็คชื่อครบหรือยัง
+                        if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
+                            dayElem.classList.add('fully-checked');
+                            dayElem.title = "เช็คชื่อครบแล้ว";
+                        }
+                        
+                        // 3. ถ้าเป็นวันชดเชย ให้แสดงสีน้ำเงิน (แต่ถ้าเช็คชื่อครบแล้ว สีเขียวจะทับอัตโนมัติ)
+                        if (setting && setting.type === 'makeup') {
                             dayElem.classList.add('!bg-blue-50', '!text-blue-700', '!border-blue-300');
                             dayElem.title = `เรียนชดเชยแทนวัน${setting.substituteFor}`;
                         }
