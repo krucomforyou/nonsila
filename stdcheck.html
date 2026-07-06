@@ -45,6 +45,12 @@
     <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
 
     <style>
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background-color: #f8fafc; 
+            overscroll-behavior-y: none; /* เพิ่มบรรทัดนี้เพื่อปิด Pull-to-refresh เดิมของเบราว์เซอร์ */
+        }
+
         body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
         .sidebar { background: linear-gradient(180deg, #1a3a6e 0%, #2a5298 100%); } 
         .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.05); }
@@ -91,6 +97,10 @@
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
+
+    <div id="pullToRefreshIndicator" class="fixed top-[-60px] left-1/2 transform -translate-x-1/2 z-[9999] bg-white rounded-full shadow-lg w-10 h-10 flex items-center justify-center transition-transform duration-300 pointer-events-none">
+        <i class="fas fa-sync-alt text-school-blue text-lg transition-colors"></i>
+    </div>
 
     <!-- OVERLAY LOADING -->
     <div id="loadingOverlay" class="fixed inset-0 bg-white/90 z-[100] flex flex-col items-center justify-center backdrop-blur-sm hidden">
@@ -159,7 +169,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div>
             </div>
         </div>
     </aside>
@@ -360,8 +370,8 @@
                             <table class="w-full text-sm text-left">
                                 <thead class="bg-white border-b border-gray-100 text-gray-500 text-xs uppercase">
                                     <tr>
-                                        <th class="px-4 py-3 w-1/3">วิชาและคาบเรียน</th>
-                                        <th class="px-4 py-3 w-1/4">ห้องเรียน</th>
+                                        <th class="px-4 py-3 w-[45%] min-w-[120px]">วิชาและคาบเรียน</th>
+                                        <th class="px-4 py-3 w-[15%] min-w-[80px]">ห้องเรียน</th>
                                         <th class="px-4 py-3 text-center">สถานะ</th>
                                         <th class="px-4 py-3 text-center w-32">จัดการ</th>
                                     </tr>
@@ -1526,18 +1536,25 @@
                         dayElem.title = "วันเปิดภาคเรียน";
                     }
 
-                    if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
-                        dayElem.classList.add('fully-checked');
-                        dayElem.title = "เช็คชื่อครบแล้ว";
-                    }
+                    // ล้างคลาสสีเขียว (เช็คแล้ว) ออกก่อนเสมอ ป้องกันสีค้าง
+                    dayElem.classList.remove('fully-checked');
 
-                    // --- [เพิ่มใหม่] ใส่สีให้วันหยุดและวันชดเชย ---
-                    if (state.calendarSettings && state.calendarSettings[dateStr]) {
-                        const setting = state.calendarSettings[dateStr];
-                        if (setting.type === 'holiday') {
-                            dayElem.classList.add('!bg-red-50', '!text-red-500', '!border-red-200');
-                            dayElem.title = setting.note || "วันหยุด";
-                        } else if (setting.type === 'makeup') {
+                    // ตรวจสอบว่าเป็นวันหยุด/ชดเชยหรือไม่
+                    const setting = state.calendarSettings ? state.calendarSettings[dateStr] : null;
+
+                    if (setting && setting.type === 'holiday') {
+                        // 1. ถ้าเป็นวันหยุด ให้แสดงสีแดง และไม่ต้องใส่สีเขียวทับ
+                        dayElem.classList.add('!bg-red-50', '!text-red-500', '!border-red-200');
+                        dayElem.title = setting.note || "วันหยุด";
+                    } else {
+                        // 2. ถ้าไม่ใช่วันหยุด ค่อยเช็คว่าเช็คชื่อครบหรือยัง
+                        if (state.calendarStatus && state.calendarStatus[dateStr] === 'complete') {
+                            dayElem.classList.add('fully-checked');
+                            dayElem.title = "เช็คชื่อครบแล้ว";
+                        }
+                        
+                        // 3. ถ้าเป็นวันชดเชย ให้แสดงสีน้ำเงิน (แต่ถ้าเช็คชื่อครบแล้ว สีเขียวจะทับอัตโนมัติ)
+                        if (setting && setting.type === 'makeup') {
                             dayElem.classList.add('!bg-blue-50', '!text-blue-700', '!border-blue-300');
                             dayElem.title = `เรียนชดเชยแทนวัน${setting.substituteFor}`;
                         }
@@ -2464,7 +2481,7 @@
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                     <td class="px-4 py-4 text-school-navy font-bold">${item.subject} <span class="text-sm font-normal text-gray-500">${item.period}</span></td>
-                    <td class="px-4 py-4 text-gray-700">${isActivity ? 'กิจกรรม' : `ห้อง ${item.className}`}</td>
+                    <td class="px-4 py-4 text-gray-700">${isActivity ? 'กิจกรรม' : item.className}</td>
                     <td class="px-4 py-4 text-center">${statusBadge}</td>
                     <td class="px-4 py-4 text-center">${actionBtn}</td>
                 </tr>`;
@@ -2771,6 +2788,14 @@
                 });
                 // --------------------------------------------------------
 
+                const activeSessions = new Set();
+                reportData.forEach(r => {
+                    if (r.status && String(r.status).trim() !== '') {
+                        activeSessions.add(`${r.date}||${r.period}`);
+                    }
+                });
+                reportData = reportData.filter(r => activeSessions.has(`${r.date}||${r.period}`));
+
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
@@ -2818,27 +2843,8 @@
                     })
                     .map(stuRow => getStudentUniqueId(stuRow));
 
-                let totalStats = { present: 0, leave: 0, absent: 0 };
-                let totalRecords = 0; 
-                
-                reportData.forEach(r => { 
-                    let historyId = String(r.id);
-                    if (historyId.includes('|')) historyId = historyId.split('|')[1].trim();
-                    
-                    // นับสถิติภาพรวมเฉพาะนักเรียนที่อยู่ในลิสต์ activeStudentIds เท่านั้น
-                    if (activeStudentIds.includes(historyId)) {
-                        totalRecords++; // ย้ายบรรทัดนี้ออกมาเพื่อนับทุกช่อง (รวมช่องว่าง)
-                        
-                        if (totalStats[r.status] !== undefined) {
-                            totalStats[r.status]++;
-                        }
-                    }
-                });
-
-                const calcPercent = (val) => totalRecords > 0 ? Math.round((val / totalRecords) * 100) + '%' : '0%';
-                document.getElementById('repPresent').innerText = calcPercent(totalStats.present);
-                document.getElementById('repLeave').innerText = calcPercent(totalStats.leave);
-                document.getElementById('repAbsent').innerText = calcPercent(totalStats.absent);
+                let grandTotalStats = { present: 0, leave: 0, absent: 0 };
+                let grandTotalRecords = 0;
 
                 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
                 const statusSymbol = { 'present': '/', 'absent': 'ข', 'leave': 'ล' };
@@ -2851,7 +2857,6 @@
                 
                 sessions.forEach((s, sIndex) => {
                     let dObj = new Date(s.date);
-                    // เปลี่ยนช่องว่างระหว่าง วัน และ เดือน ให้เป็น <br> เพื่อขึ้นบรรทัดใหม่
                     let dateStr = isNaN(dObj.getTime()) ? s.date : `${dObj.getDate()}<br>${THAI_MONTHS_SHORT[dObj.getMonth()]}`;
                     let periodStr = `<br><span class="text-[10px] text-gray-500 font-normal">(${sIndex + 1})</span>`;
                     tableHtml += `<th class="border text-center min-w-[40px] leading-none">${dateStr}${periodStr}</th>`;
@@ -2861,11 +2866,9 @@
 
                 rawStudents.forEach((stuRow, idx) => {
                     const number = stuRow[0] || '-';
-                    // ดึงเฉพาะชื่อ-สกุล (คอลัมน์ 2 และ 3)
                     const nameParts = stuRow.slice(2, 4).filter(Boolean);
                     const fullName = nameParts.length > 0 ? nameParts.join(' ') : 'ไม่ระบุชื่อ';
                     
-                    // จัดการแสดงผลชื่อตามสถานะ
                     const statusText = stuRow[4] || 'กำลังศึกษา';
                     let displayInfo = fullName;
                     if (statusText === 'ย้าย' || statusText === 'ลาออก') {
@@ -2882,7 +2885,16 @@
                         const noteStr = record && record.note !== undefined && record.note !== null ? String(record.note) : '';
                         const hasNote = noteStr.trim() !== '';
 
-                        if(status && rowStats[status] !== undefined) rowStats[status]++;
+                        if(status && rowStats[status] !== undefined) {
+                            rowStats[status]++;
+                            
+                            // ให้นับยอดรวมสถิติ เฉพาะเด็กที่กำลังศึกษาอยู่ (สถานะล่าสุดเท่านั้น)
+                            if (activeStudentIds.includes(uniqueId)) {
+                                grandTotalStats[status]++;
+                                grandTotalRecords++;
+                            }
+                        }
+
                         const symbol = (status && statusSymbol[status]) ? statusSymbol[status] : '-';
                         const colorClass = (status && statusColor[status]) ? statusColor[status] : 'text-gray-300';
                         
@@ -2898,6 +2910,18 @@
                 });
 
                 tableHtml += '</tbody></table>';
+
+                // สั่งอัปเดตตัวเลขแสดงผลเปอร์เซ็นต์บนการ์ดด้านบน (บวกค่ายอดรวมมาจากตารางจริง)
+                const calcPercent = (val) => {
+                    if (grandTotalRecords === 0) return '0%';
+                    let p = (val / grandTotalRecords) * 100;
+                    // ถ้าไม่ใช่ 0% หรือ 100% เป๊ะ ให้แสดงทศนิยม 2 ตำแหน่ง
+                    if (p > 0 && p < 100) return parseFloat(p.toFixed(2)) + '%';
+                    return Math.round(p) + '%';
+                };
+                document.getElementById('repPresent').innerText = calcPercent(grandTotalStats.present);
+                document.getElementById('repLeave').innerText = calcPercent(grandTotalStats.leave);
+                document.getElementById('repAbsent').innerText = calcPercent(grandTotalStats.absent);
                 document.getElementById('reportTableContainer').innerHTML = tableHtml;
                 document.getElementById('reportResult').classList.remove('hidden');
 
@@ -3112,6 +3136,18 @@
                 let attJson = await attRes.json();
                 let reportData = attJson.data || [];
 
+                const activeSessionsExcel = new Set();
+                reportData.forEach(r => {
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                    if (r.status && String(r.status).trim() !== '') {
+                        activeSessionsExcel.add(`${dateKey}||${r.period}`);
+                    }
+                });
+                reportData = reportData.filter(r => {
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                    return activeSessionsExcel.has(`${dateKey}||${r.period}`);
+                });
+
                 let sessions = [];
                 const studentAttendanceMap = {};
                 
@@ -3185,8 +3221,9 @@
                         if(status && stats[status] !== undefined) stats[status]++;
                     });
 
-                    let percent = sessions.length > 0 ? Math.round((stats.present / sessions.length) * 100) : 0;
-                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, `${percent}%`, ""];
+                    let p = sessions.length > 0 ? ((stats.present / sessions.length) * 100) : 0;
+                    let displayPercent = (p > 0 && p < 100) ? parseFloat(p.toFixed(2)) + '%' : Math.round(p) + '%';
+                    let rowData = [number, code, fullName, "", stats.present, stats.leave, stats.absent, displayPercent, ""];
 
                     sessions.forEach(s => {
                         const status = studentAttendanceMap[uniqueId] ? studentAttendanceMap[uniqueId][s.key] : null;
@@ -3649,40 +3686,85 @@
         }
 
         // ==========================================
-        // ระบบ Pull-to-Refresh (ลากลงเพื่อรีเฟรช)
+        // ระบบ Pull-to-Refresh (ลากลงเพื่อรีเฟรช) รูปแบบใหม่
         // ==========================================
         let touchStartY = 0;
-        let touchEndY = 0;
+        let touchCurrentY = 0;
+        let isPulling = false;
+        const PULL_THRESHOLD = 120; // ระยะที่ต้องลากลงเพื่อสั่งรีเฟรช (พิกเซล)
+        const TOP_AREA_LIMIT = 120; // แตะเริ่มลากได้เฉพาะช่วง 120px จากขอบบนของจอเท่านั้น
+
+        const p2rIndicator = document.getElementById('pullToRefreshIndicator');
+        const p2rIcon = p2rIndicator.querySelector('i');
 
         document.addEventListener('touchstart', function(e) {
-            touchStartY = e.touches[0].screenY;
+            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            
+            // เช็คว่า 1. มีแท็บเปิดอยู่ 2. สกอร์ลอยู่บนสุด 3. นิ้วแตะในโซนขอบบนของจอ
+            if (activeTab && activeTab.scrollTop <= 0 && e.touches[0].clientY <= TOP_AREA_LIMIT) {
+                touchStartY = e.touches[0].screenY;
+                isPulling = true;
+                // ปิด transition ชั่วคราวเพื่อให้วงกลมขยับตามนิ้วได้ทันทีโดยไม่หน่วง
+                p2rIndicator.style.transition = 'none';
+                p2rIcon.classList.remove('fa-spin');
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isPulling) return;
+            touchCurrentY = e.touches[0].screenY;
+            const pullDistance = touchCurrentY - touchStartY;
+
+            // ถ้าลากนิ้วลงด้านล่าง
+            if (pullDistance > 0) {
+                // คำนวณระยะแสดงผล (ดึงลงมาสูงสุด 80px)
+                const visualDistance = Math.min(pullDistance * 0.5, 80);
+                p2rIndicator.style.transform = `translate(-50%, ${visualDistance}px)`;
+                
+                // หมุนไอคอนตามระยะลาก
+                const rotation = Math.min(pullDistance * 2, 360);
+                p2rIcon.style.transform = `rotate(${rotation}deg)`;
+
+                // เปลี่ยนสีเป็นสีเขียวเมื่อดึงถึงจุดที่พร้อมรีเฟรช
+                if (pullDistance >= PULL_THRESHOLD) {
+                    p2rIcon.classList.remove('text-school-blue');
+                    p2rIcon.classList.add('text-emerald-500');
+                } else {
+                    p2rIcon.classList.add('text-school-blue');
+                    p2rIcon.classList.remove('text-emerald-500');
+                }
+            }
         }, { passive: true });
 
         document.addEventListener('touchend', function(e) {
-            touchEndY = e.changedTouches[0].screenY;
-            handlePullToRefresh();
-        }, { passive: true });
-
-        function handlePullToRefresh() {
-            // หาแท็บที่กำลังเปิดใช้งานอยู่ (ที่ไม่ได้ซ่อน)
-            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            if (!isPulling) return;
+            isPulling = false;
             
-            // ตรวจสอบว่ามีแท็บที่เปิดอยู่ และผู้ใช้เลื่อนหน้าจออยู่บนสุดหรือไม่ (scrollTop <= 0)
-            if (activeTab && activeTab.scrollTop <= 0) {
-                // ถ้าระยะลากลง (touchEndY - touchStartY) มากกว่า 150 พิกเซล
-                if (touchEndY - touchStartY > 150) {
-                    // เรียกใช้ Alert แบบที่มีอยู่ในระบบเพื่อให้ดูเนียนตา
-                    if (typeof cuteAlert !== 'undefined' && cuteAlert.loading) {
-                        cuteAlert.loading('กำลังรีเฟรชข้อมูล... 🔄');
-                    }
-                    
-                    // หน่วงเวลาเล็กน้อยแล้วโหลดหน้าเว็บใหม่
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
+            const pullDistance = touchCurrentY - touchStartY;
+            
+            // คืนค่า transition เพื่อให้วงกลมเด้งกลับแบบนุ่มนวล
+            p2rIndicator.style.transition = 'transform 0.3s ease-out';
+
+            if (pullDistance >= PULL_THRESHOLD) {
+                // ถ้าดึงเลยจุดที่กำหนด -> แสดงค้างไว้ หมุนติ้วๆ และรีเฟรช
+                p2rIndicator.style.transform = `translate(-50%, 60px)`;
+                p2rIcon.classList.add('fa-spin');
+                
+                if (typeof cuteAlert !== 'undefined' && cuteAlert.loading) {
+                    cuteAlert.loading('กำลังรีเฟรชข้อมูล... 🔄');
                 }
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // ถ้าดึงไม่ถึงจุด -> เด้งกลับไปซ่อนด้านบน
+                p2rIndicator.style.transform = `translate(-50%, -60px)`;
             }
-        }
+            
+            touchStartY = 0;
+            touchCurrentY = 0;
+        }, { passive: true });
 
         // ==========================================
         // ระบบวางข้อมูลรายชื่อนักเรียนจาก Excel
@@ -4041,13 +4123,34 @@
                 if (json.status === 'success') {
                     await fetchCalendarSettings();
                     renderCalendarSettingsTable();
-                    cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าปฏิทินเรียบร้อยแล้ว');
+                    cuteAlert.success('สำเร็จ!', 'บันทึกการตั้งค่าปฏิทินเรียบร้อยแล้ว').then(() => {
+                        window.location.reload(); // เพิ่มบรรทัดนี้เพื่อให้เว็บรีเฟรช
+                    });
                 } else { cuteAlert.error('ผิดพลาด', json.message); }
             } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
         }
 
         function deleteCalendarSetting(dateStr) {
-            cuteAlert.confirm('ลบการตั้งค่า?', `ยืนยันการลบการตั้งค่าของวันที่ ${dateStr}`, 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+            Swal.fire({
+                html: `
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl shadow-sm border border-red-100">
+                            <i class="fas fa-trash-alt"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-school-navy mb-1">ลบการตั้งค่า?</h3>
+                        <p class="text-sm text-gray-500">ยืนยันการลบการตั้งค่าของวันที่ <span class="font-bold text-school-blue">${dateStr}</span></p>
+                    </div>`,
+                showCancelButton: true, 
+                confirmButtonText: 'ใช่, ลบเลย! <i class="fas fa-trash-alt ml-1"></i>', 
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false,
+                customClass: { 
+                    popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-red-500 text-white text-sm font-bold rounded-xl shadow-md hover:bg-red-600 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            }).then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบข้อมูล...');
                     const form = new FormData();
@@ -4058,7 +4161,9 @@
                         if (json.status === 'success') {
                             await fetchCalendarSettings();
                             renderCalendarSettingsTable();
-                            cuteAlert.success('ลบสำเร็จ!', 'นำการตั้งค่าออกเรียบร้อยแล้ว');
+                            cuteAlert.success('ลบสำเร็จ!', 'นำการตั้งค่าออกเรียบร้อยแล้ว').then(() => {
+                                window.location.reload(); 
+                            });
                         } else { cuteAlert.error('ผิดพลาด', json.message); }
                     } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
                 }
