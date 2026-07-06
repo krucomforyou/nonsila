@@ -169,7 +169,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2238,6 +2238,31 @@
 
             if (state.renamedSubjects && state.renamedSubjects.length > 0) {
                 form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
+            }
+
+            // --- เริ่มโค้ดที่ต้องเพิ่ม: คำนวณหาคาบที่ถูกย้ายก่อนกดบันทึก ---
+            const movedPeriods = [];
+            if (state.originalSchedule) {
+                state.schedule.forEach(newSlot => {
+                    if (!newSlot._id) return; // หากเป็นการ์ดใหม่จาก sidebar ข้ามไปเลย
+                    const oldSlot = state.originalSchedule.find(s => s._id === newSlot._id);
+                    if (oldSlot) {
+                        // ถ้าย้ายคาบ หรือ ย้ายวัน
+                        if (oldSlot.day !== newSlot.day || oldSlot.period !== newSlot.period) {
+                            movedPeriods.push({
+                                subject: newSlot.subject,
+                                className: newSlot.className,
+                                oldDay: oldSlot.day,
+                                oldPeriod: oldSlot.period,
+                                newPeriod: newSlot.period
+                            });
+                        }
+                    }
+                });
+            }
+
+            if (movedPeriods.length > 0) {
+                form.append('movedPeriods', JSON.stringify(movedPeriods));
             }
 
             try {
