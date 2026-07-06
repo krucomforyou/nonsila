@@ -159,7 +159,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2771,6 +2771,16 @@
                 });
                 // --------------------------------------------------------
 
+                const activeSessions = new Set();
+                reportData.forEach(r => {
+                    // ถ้านักเรียนคนไหนมีสถานะ (ไม่เป็นค่าว่าง) ให้จำว่าคาบนี้มีการเช็คชื่อแล้ว
+                    if (r.status && String(r.status).trim() !== '') {
+                        activeSessions.add(`${r.date}||${r.period}`);
+                    }
+                });
+                // กรองเอาเฉพาะข้อมูลที่อยู่ในคาบที่มีการเช็คชื่อแล้วจริงๆ
+                reportData = reportData.filter(r => activeSessions.has(`${r.date}||${r.period}`));
+
                 if (reportData.length === 0) {
                      document.getElementById('reportTableContainer').innerHTML = '<div class="p-8 text-center text-gray-500">ไม่พบข้อมูลการเช็คชื่อในระบบสำหรับวิชานี้ในภาคเรียนนี้</div>';
                      document.getElementById('reportResult').classList.remove('hidden');
@@ -3111,6 +3121,18 @@
                 let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
                 let attJson = await attRes.json();
                 let reportData = attJson.data || [];
+
+                const activeSessionsExcel = new Set();
+                reportData.forEach(r => {
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                    if (r.status && String(r.status).trim() !== '') {
+                        activeSessionsExcel.add(`${dateKey}||${r.period}`);
+                    }
+                });
+                reportData = reportData.filter(r => {
+                    const dateKey = r.date || (r.Timestamp ? r.Timestamp.split(' ')[0] : '');
+                    return activeSessionsExcel.has(`${dateKey}||${r.period}`);
+                });
 
                 let sessions = [];
                 const studentAttendanceMap = {};
