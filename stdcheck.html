@@ -1873,8 +1873,8 @@
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacherToFetch)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
-                    state.schedule = json.data.map(item => ({ ...item, _id: Math.random().toString(36).substr(2, 9) }));
-                    state.originalSchedule = JSON.parse(JSON.stringify(state.schedule));
+                    state.schedule = json.data; // Now has day, subject, period, className
+                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); 
                     
                     state.subjects = []; 
                     state.originalSubjects = []; 
@@ -2049,11 +2049,9 @@
                 if(existingTargetIndex >= 0) {
                     const oldItem = state.schedule[existingTargetIndex];
                     state.subjects.push({ id: Date.now() + Math.random(), name: oldItem.subject, className: oldItem.className });
-                    // สร้าง _id ใหม่เมื่อนำการ์ดจาก Sidebar เข้ามา
-                    state.schedule[existingTargetIndex] = { _id: Math.random().toString(36).substr(2, 9), day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
+                    state.schedule[existingTargetIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 } else {
-                    // สร้าง _id ใหม่เมื่อนำการ์ดจาก Sidebar เข้ามา
-                    state.schedule.push({ _id: Math.random().toString(36).substr(2, 9), day: targetDay, subject: subjectName, period: targetPeriodString, className: className });
+                    state.schedule.push({ day: targetDay, subject: subjectName, period: targetPeriodString, className: className });
                 }
 
                 if (data.id) state.subjects = state.subjects.filter(s => String(s.id) !== String(data.id));
@@ -2068,19 +2066,13 @@
                 const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subject === sourceSubject && s.period === sourcePeriod);
                 if (sourceIndex < 0) return;
 
-                // --- แก้ไขเงื่อนไขการย้ายคาบ ให้เก็บรักษา _id เดิมไว้เสมอ ---
                 if (existingTargetIndex >= 0) {
                     const oldTargetItem = state.schedule[existingTargetIndex];
-                    const sourceItem = state.schedule[sourceIndex];
-                    
-                    // สลับข้อมูลกัน แต่เก็บ _id เดิมของแต่ละตัวไว้เพื่อ Track ได้
-                    state.schedule[existingTargetIndex] = { ...sourceItem, day: targetDay, period: targetPeriodString };
-                    state.schedule[sourceIndex] = { ...oldTargetItem, day: sourceDay, period: sourcePeriod };
+                    state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
+                    state.schedule[existingTargetIndex] = { day: sourceDay, subject: oldTargetItem.subject, period: sourcePeriod, className: oldTargetItem.className };
                 } else {
-                    const sourceItem = state.schedule[sourceIndex];
-                    state.schedule[sourceIndex] = { ...sourceItem, day: targetDay, period: targetPeriodString };
+                    state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 }
-                // ---------------------------------------------------
             }
 
             renderSubjectCards();
@@ -2238,31 +2230,6 @@
 
             if (state.renamedSubjects && state.renamedSubjects.length > 0) {
                 form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
-            }
-
-            // --- เริ่มโค้ดที่ต้องเพิ่ม: คำนวณหาคาบที่ถูกย้ายก่อนกดบันทึก ---
-            const movedPeriods = [];
-            if (state.originalSchedule) {
-                state.schedule.forEach(newSlot => {
-                    if (!newSlot._id) return; // หากเป็นการ์ดใหม่จาก sidebar ข้ามไปเลย
-                    const oldSlot = state.originalSchedule.find(s => s._id === newSlot._id);
-                    if (oldSlot) {
-                        // ถ้าย้ายคาบ หรือ ย้ายวัน
-                        if (oldSlot.day !== newSlot.day || oldSlot.period !== newSlot.period) {
-                            movedPeriods.push({
-                                subject: newSlot.subject,
-                                className: newSlot.className,
-                                oldDay: oldSlot.day,
-                                oldPeriod: oldSlot.period,
-                                newPeriod: newSlot.period
-                            });
-                        }
-                    }
-                });
-            }
-
-            if (movedPeriods.length > 0) {
-                form.append('movedPeriods', JSON.stringify(movedPeriods));
             }
 
             try {
