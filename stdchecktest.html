@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -994,6 +994,9 @@
 
                 await Promise.all(promises);
                 
+                // --- เพิ่มคำสั่งอุ่นแคชตรงนี้ (ใช้วันที่ปัจจุบัน) ---
+                warmUpCache(state.currentDate);
+
                 // 3. ข้ามไปหน้าเช็คชื่อประจำวัน
                 switchTab('history-overview');
             } else {
@@ -1625,6 +1628,10 @@
                 if (fpHistory) fpHistory.setDate(d, false);
                 if (fpOverview) fpOverview.setDate(d, false);
                 if (fpSummary) fpSummary.setDate(d, false);
+
+                // --- เพิ่มคำสั่งอุ่นแคชตรงนี้ ---
+                // ทันทีที่ครูจิ้มเปลี่ยนวันในปฏิทิน ระบบจะแอบไปกาง Sheet ล่วงหน้าทันที
+                warmUpCache(dateStr);
             };
 
             // --- 2. นำฟังก์ชัน syncAllDates ไปใส่ใน onChange ของปฏิทินทุกตัว ---
@@ -2532,6 +2539,29 @@
             }
         }
 
+
+        // ==========================================
+        // ฟังก์ชันแอบโหลดข้อมูลเบื้องหลัง (Cache Warming)
+        // ==========================================
+        function warmUpCache(dateStr) {
+            if (!state.selectedTerm || !dateStr) return;
+            
+            const dayOfWeek = getEffectiveDayName(dateStr);
+            if (dayOfWeek === "holiday") return; // ถ้าเป็นวันหยุดไม่ต้องสร้างแคช
+
+            const targetTeacher = state.viewingTeacher || (state.user ? state.user.name : '');
+            
+            // 1. แอบโหลดหน้า "เช็คชื่อประจำวัน" (Overview)
+            // สังเกตว่าไม่มีคำว่า await นำหน้า fetch ทำให้เบราว์เซอร์ไม่ต้องรอ
+            fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&_t=${new Date().getTime()}`)
+            .catch(e => console.log('Background Cache Warning:', e));
+
+            // 2. แอบโหลดหน้า "สรุปสถิติ" (Summary)
+            fetch(`${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&_t=${new Date().getTime()}`)
+            .catch(e => console.log('Background Cache Warning:', e));
+        }
+
+
         function renderOverviewTable(scheduleData, dateStr) {
             const tbody = document.getElementById('overviewTableBody');
             
@@ -2798,9 +2828,15 @@
                     const json = await res.json();
                     
                     if (json.status === 'success') {
-                        isSuccess = true; cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
+                        isSuccess = true;
+                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
                         if (state.overviewDate === state.currentDate) loadAttendanceOverview();
                         fetchCalendarStatus();
+
+                        // --- เพิ่มคำสั่งอุ่นแคชตรงนี้ ---
+                        // แอบดึงข้อมูลใหม่ไปสร้างแคชทันที ระหว่างที่ครูกำลังอ่าน Pop-up แจ้งเตือนสำเร็จ
+                        warmUpCache(state.currentDate);
+
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
