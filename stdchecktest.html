@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -211,7 +211,7 @@
                         <h3 class="text-xl font-bold text-school-navy"><i class="fas fa-chart-pie text-school-brass mr-2"></i> สรุปสถิติการเช็คชื่อของครู</h3>
                         
                         <div class="w-full md:w-auto flex items-center gap-2">
-                            <button onclick="if(document.getElementById('summaryDatePicker').value) loadTeacherSummary(document.getElementById('summaryDatePicker').value)" class="bg-white hover:bg-gray-50 text-gray-500 hover:text-school-navy border border-gray-300 w-9 h-9 rounded-lg shadow-sm transition flex items-center justify-center shrink-0 text-xs" title="รีเฟรชข้อมูล">
+                            <button onclick="if(document.getElementById('summaryDatePicker').value) loadTeacherSummary(document.getElementById('summaryDatePicker').value, true)" class="bg-white hover:bg-gray-50 text-gray-500 hover:text-school-navy border border-gray-300 w-9 h-9 rounded-lg shadow-sm transition flex items-center justify-center shrink-0 text-xs" title="บังคับโหลดข้อมูลใหม่">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
 
@@ -367,7 +367,7 @@
                     <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                         <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 font-bold text-school-navy text-sm flex items-center justify-between">
                             <span><i class="fas fa-list-ul text-school-blue mr-2"></i> รายการคาบสอนวันที่ <span id="overviewDateDisplay" class="text-school-brass">-</span></span>
-                            <button onclick="loadAttendanceOverview()" class="text-gray-500 hover:text-school-navy text-xs bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
+                            <button onclick="loadAttendanceOverview(true)" class="text-gray-500 hover:text-school-navy text-xs bg-white px-2 py-1 rounded border border-gray-200 shadow-sm"><i class="fas fa-sync-alt"></i> รีเฟรช</button>
                         </div>
                         <div class="overflow-x-auto hide-scrollbar bg-white">
                             <table class="w-full text-sm text-left">
@@ -2493,7 +2493,7 @@
             }
         }
 
-        async function loadAttendanceOverview() {
+        async function loadAttendanceOverview(forceRefresh = false) {
             if(!state.overviewDate || !state.selectedTerm) return;
             const targetDate = new Date(state.overviewDate);
             // --- [แก้ไข] ใช้ getEffectiveDayName เพื่อให้ API ส่งวันชดเชยไปโหลดตารางให้ถูก ---
@@ -2517,7 +2517,7 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=${forceRefresh}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 // --- จุดที่ 2: ปิด Pop-up เมื่อโหลดสำเร็จ ---
@@ -3575,7 +3575,7 @@
         // ==========================================
         // ระบบสรุปสถิติการเช็คชื่อของครู
         // ==========================================
-        async function loadTeacherSummary(dateStr) {
+        async function loadTeacherSummary(dateStr, forceRefresh = false) {
             if (!state.selectedTerm) return;
             
             if (!Swal.isVisible()) {
@@ -3586,7 +3586,7 @@
                 const targetDate = new Date(dateStr);
                 const dayOfWeek = DAY_NAMES[targetDate.getDay()];
                 
-                const res = await fetch(`${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=${forceRefresh}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 if (json.status === 'success') {
