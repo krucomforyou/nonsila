@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2558,15 +2558,17 @@
         let isProcessingCache = false;
         let warmedDates = new Set();
 
-        function warmUpCache(baseDateStr) {
+        function warmUpCache(baseDateStr, singleDayOnly = false) {
             if (!state.selectedTerm || !baseDateStr) return;
             
             const targetTeacher = state.viewingTeacher || (state.user ? state.user.name : '');
             const baseDate = new Date(baseDateStr);
             
-            // สร้างคิวล่วงหน้า: วันนี้, ถอยหลัง 2 วัน, ไปข้างหน้า 1 วัน (รวม 4 วัน)
-            // คุณสามารถเพิ่ม/ลดช่วงวันได้ตามต้องการ
-            const offsets = [0, -1, -2, 1]; 
+            const offsets = singleDayOnly ? [0] : [
+                0, -1, 1, -2, 2, -3, 3, // กลุ่มที่ 1: โหลดใกล้ตัวก่อน (สำคัญสุด)
+                -4, -5, -6, -7, -8, -9, -10 // กลุ่มที่ 2: โลหดย้อนหลัง 10 วันที่เหลือ
+            ];
+
             let addedToQueue = false;
             
             offsets.forEach(offset => {
@@ -2595,7 +2597,7 @@
                 }
             });
 
-            // <--- 4. ถ้ามีคิวใหม่ถูกเพิ่มเข้าไปจริงๆ ค่อยสั่งให้แถบขวาล่างทำงาน
+            // ถ้ามีคิวใหม่ถูกเพิ่มเข้าไปจริงๆ ค่อยสั่งให้แถบขวาล่างทำงาน
             if (addedToQueue && !isProcessingCache) {
                 processCacheQueue();
             }
@@ -2612,11 +2614,12 @@
             const monitor = document.getElementById('bgCacheMonitor');
             monitor.classList.remove('translate-y-20', 'opacity-0'); // โชว์แถบสถานะ
 
-            const totalItems = cacheQueue.length;
             let completedItems = 0;
 
             while (cacheQueue.length > 0) {
                 const item = cacheQueue.shift(); // ดึงคิวแรกออกมา
+
+                const dynamicTotal = completedItems + cacheQueue.length + 1;
                 
                 document.getElementById('bgCacheStatusText').innerText = `กำลังโหลด: ${item.desc}...`;
                 
@@ -2628,13 +2631,12 @@
                 }
 
                 completedItems++;
-                const percent = Math.round((completedItems / totalItems) * 100);
+                const percent = Math.round((completedItems / dynamicTotal) * 100);
                 
                 document.getElementById('bgCachePercent').innerText = `${percent}%`;
                 document.getElementById('bgCacheProgressBar').style.width = `${percent}%`;
 
-                // หน่วงเวลาเล็กน้อย (500ms) ระหว่างรอบ เพื่อไม่ให้ Google Sheets API โดนยิงรัวเกินไป
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 800));
             }
 
             // ทำงานเสร็จหมด
@@ -2929,7 +2931,10 @@
                         fetchCalendarStatus();
 
                         warmedDates.delete(state.currentDate); 
-                        warmUpCache(state.currentDate);
+                        
+                        // --- แก้ไขบรรทัดนี้: ใส่ค่า true ลงไปเพื่อให้โหลดเฉพาะวันที่เพิ่งบันทึก ---
+                        warmUpCache(state.currentDate, true); 
+                        // --------------------------------------------------------
 
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
