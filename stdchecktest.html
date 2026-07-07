@@ -2029,6 +2029,7 @@
                     state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
                     state.renamedSubjects = [];
+                    state.pendingMoves = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -2092,10 +2093,33 @@
                 const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subject === sourceSubject && s.period === sourcePeriod);
                 if (sourceIndex < 0) return;
 
+                // --- โค้ดที่เพิ่มใหม่: บันทึกการย้ายที่แม่นยำ ---
+                if (!state.pendingMoves) state.pendingMoves = [];
+                state.pendingMoves.push({
+                    subject: subjectName,
+                    className: className,
+                    oldDay: sourceDay,
+                    oldPeriod: sourcePeriod,
+                    newDay: targetDay,
+                    newPeriod: targetPeriodString
+                });
+                // ------------------------------------
+
                 if (existingTargetIndex >= 0) {
                     const oldTargetItem = state.schedule[existingTargetIndex];
                     state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                     state.schedule[existingTargetIndex] = { day: sourceDay, subject: oldTargetItem.subject, period: sourcePeriod, className: oldTargetItem.className };
+                    
+                    // --- โค้ดที่เพิ่มใหม่: บันทึกกรณีมีการลากไปทับแล้วสลับที่กัน ---
+                    state.pendingMoves.push({
+                        subject: oldTargetItem.subject,
+                        className: oldTargetItem.className,
+                        oldDay: targetDay,
+                        oldPeriod: targetPeriodString,
+                        newDay: sourceDay,
+                        newPeriod: sourcePeriod
+                    });
+                    // ------------------------------------
                 } else {
                     state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 }
@@ -2114,6 +2138,7 @@
                     });
 
                     state.schedule = [];
+                    state.pendingMoves = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -2249,20 +2274,9 @@
             const targetTeacher = state.viewingTeacher || state.user.name;
             cuteAlert.loading(`กำลังบันทึกตารางสอนของ ${targetTeacher} ⏳`);
 
-            const movedClasses = [];
-            state.schedule.forEach(newSch => {
-                const oldSch = state.originalSchedule.find(s => s.subject === newSch.subject && s.className === newSch.className);
-                if (oldSch && (oldSch.day !== newSch.day || oldSch.period !== newSch.period)) {
-                    movedClasses.push({
-                        subject: newSch.subject,
-                        className: newSch.className,
-                        oldDay: oldSch.day,
-                        oldPeriod: oldSch.period,
-                        newDay: newSch.day,
-                        newPeriod: newSch.period
-                    });
-                }
-            });
+            // --- โค้ดที่แก้ไข: ดึงข้อมูลการย้ายที่ถูกบันทึกไว้ตอนลากวาง ---
+            const movedClasses = state.pendingMoves || [];
+            // ------------------------------------------------
             
             const form = new FormData();
             form.append('term', state.selectedTerm);
@@ -2284,6 +2298,11 @@
                     state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     state.renamedSubjects = [];
+                    
+                    // --- เพิ่มบรรทัดนี้: ล้างคิวหลังจากบันทึกเสร็จ ---
+                    state.pendingMoves = []; 
+                    // ---------------------------------------
+                    
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
@@ -2427,6 +2446,7 @@
                 
                 // แก้ไข: เคลียร์การ์ดวิชาด้านซ้ายมือทิ้ง เพราะข้อมูลลงตารางไปหมดแล้ว
                 state.subjects = [];
+                state.pendingMoves = [];
 
                 renderSubjectCards();
                 renderVisualTimetable();
