@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -576,6 +576,17 @@
 
         </div>
     </main>
+
+    <div id="bgCacheMonitor" class="fixed bottom-4 right-4 bg-white border border-gray-200 shadow-[0_10px_25px_rgba(0,0,0,0.1)] rounded-xl p-3 z-[100] text-xs font-sans w-64 transition-all duration-500 transform translate-y-20 opacity-0 pointer-events-none">
+        <div class="flex justify-between items-center mb-1.5">
+            <span class="font-bold text-school-navy"><i class="fas fa-sync-alt fa-spin text-school-blue mr-1"></i> ซิงค์ข้อมูลล่วงหน้า</span>
+            <span id="bgCachePercent" class="text-emerald-600 font-bold text-[10px]">0%</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-1.5 mb-1.5 overflow-hidden">
+            <div id="bgCacheProgressBar" class="bg-school-blue h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div id="bgCacheStatusText" class="text-gray-500 text-[10px] truncate">กำลังจัดเตรียมคิว...</div>
+    </div>
 
     <!-- NOTE MODAL -->
     <div id="noteModal" class="modal fixed inset-0 z-[150] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
@@ -2541,24 +2552,105 @@
 
 
         // ==========================================
-        // ฟังก์ชันแอบโหลดข้อมูลเบื้องหลัง (Cache Warming)
+        // ระบบคิวโหลดข้อมูลเบื้องหลัง (Background Smart Queue)
         // ==========================================
-        function warmUpCache(dateStr) {
-            if (!state.selectedTerm || !dateStr) return;
-            
-            const dayOfWeek = getEffectiveDayName(dateStr);
-            if (dayOfWeek === "holiday") return; // ถ้าเป็นวันหยุดไม่ต้องสร้างแคช
+        let cacheQueue = [];
+        let isProcessingCache = false;
 
+        function warmUpCache(baseDateStr) {
+            if (!state.selectedTerm || !baseDateStr) return;
+            
             const targetTeacher = state.viewingTeacher || (state.user ? state.user.name : '');
+            const baseDate = new Date(baseDateStr);
             
-            // 1. แอบโหลดหน้า "เช็คชื่อประจำวัน" (Overview)
-            // สังเกตว่าไม่มีคำว่า await นำหน้า fetch ทำให้เบราว์เซอร์ไม่ต้องรอ
-            fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&_t=${new Date().getTime()}`)
-            .catch(e => console.log('Background Cache Warning:', e));
+            // สร้างคิวล่วงหน้า: วันนี้, ถอยหลัง 2 วัน, ไปข้างหน้า 1 วัน (รวม 4 วัน)
+            // คุณสามารถเพิ่ม/ลดช่วงวันได้ตามต้องการ
+            const offsets = [0, -1, -2, 1]; 
+            
+            offsets.forEach(offset => {
+                let d = new Date(baseDate);
+                d.setDate(d.getDate() + offset);
+                
+                // ข้ามเสาร์-อาทิตย์ (ถ้าไม่ได้ตั้งให้เป็นวันชดเชย)
+                let dStr = fpMain.formatDate(d, "Y-m-d");
+                let dayOfWeek = getEffectiveDayName(dStr);
+                
+                if (dayOfWeek !== "holiday") {
+                    // ใส่คิวหน้าเช็คชื่อประจำวัน
+                    cacheQueue.push({
+                        type: 'Overview',
+                        url: `${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&date=${encodeURIComponent(dStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&isWarming=true&_t=${new Date().getTime()}`,
+                        desc: `ตารางสอนวันที่ ${d.getDate()}`
+                    });
+                    
+                    // ใส่คิวหน้าสรุปสถิติ
+                    cacheQueue.push({
+                        type: 'Summary',
+                        url: `${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&isWarming=true&_t=${new Date().getTime()}`,
+                        desc: `สถิติรวมวันที่ ${d.getDate()}`
+                    });
+                }
+            });
 
-            // 2. แอบโหลดหน้า "สรุปสถิติ" (Summary)
-            fetch(`${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&_t=${new Date().getTime()}`)
-            .catch(e => console.log('Background Cache Warning:', e));
+            // ถ้าคิวยังไม่ทำงาน ให้เริ่มรันเลย
+            if (!isProcessingCache) {
+                processCacheQueue();
+            }
+        }
+
+        async function processCacheQueue() {
+            if (cacheQueue.length === 0) {
+                isProcessingCache = false;
+                hideCacheMonitor();
+                return;
+            }
+
+            isProcessingCache = true;
+            const monitor = document.getElementById('bgCacheMonitor');
+            monitor.classList.remove('translate-y-20', 'opacity-0'); // โชว์แถบสถานะ
+
+            const totalItems = cacheQueue.length;
+            let completedItems = 0;
+
+            while (cacheQueue.length > 0) {
+                const item = cacheQueue.shift(); // ดึงคิวแรกออกมา
+                
+                document.getElementById('bgCacheStatusText').innerText = `กำลังโหลด: ${item.desc}...`;
+                
+                try {
+                    // สั่ง fetch แต่ใส่ await ไว้เพื่อไม่ให้ยิงพร้อมกันจนเซิร์ฟเวอร์รวน
+                    await fetch(item.url);
+                } catch (e) { 
+                    console.log('Cache warming skipped/error:', e); 
+                }
+
+                completedItems++;
+                const percent = Math.round((completedItems / totalItems) * 100);
+                
+                document.getElementById('bgCachePercent').innerText = `${percent}%`;
+                document.getElementById('bgCacheProgressBar').style.width = `${percent}%`;
+
+                // หน่วงเวลาเล็กน้อย (500ms) ระหว่างรอบ เพื่อไม่ให้ Google Sheets API โดนยิงรัวเกินไป
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // ทำงานเสร็จหมด
+            document.getElementById('bgCacheStatusText').innerText = 'เตรียมข้อมูลเสร็จสมบูรณ์! ✨';
+            document.getElementById('bgCacheProgressBar').classList.replace('bg-school-blue', 'bg-emerald-500');
+            
+            setTimeout(() => {
+                isProcessingCache = false;
+                hideCacheMonitor();
+                // รีเซ็ตสีบาร์กลับเป็นสีเดิมเตรียมไว้รอบหน้า
+                setTimeout(() => {
+                    document.getElementById('bgCacheProgressBar').classList.replace('bg-emerald-500', 'bg-school-blue');
+                }, 500);
+            }, 2000);
+        }
+
+        function hideCacheMonitor() {
+            const monitor = document.getElementById('bgCacheMonitor');
+            monitor.classList.add('translate-y-20', 'opacity-0');
         }
 
 
