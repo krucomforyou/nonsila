@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2528,18 +2528,18 @@
 
             const tbody = document.getElementById('overviewTableBody');
             tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
+
             
-            // --- จุดที่ 1: เรียก Pop-up โหลดขึ้นมาบังหน้าจอ ---
-            if (!Swal.isVisible()) {
-                cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
+            if (forceRefresh) {
+                warmedDates.delete(state.overviewDate);
+                if (!Swal.isVisible()) cuteAlert.loading('กำลังดึงข้อมูลล่าสุด... ⏳');
             }
 
             try {
                 const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=${forceRefresh}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
-                // --- จุดที่ 2: ปิด Pop-up เมื่อโหลดสำเร็จ ---
-                Swal.close();
+                if (Swal.isVisible()) Swal.close();
 
                 if (json.status === 'success') renderOverviewTable(json.data, state.overviewDate);
                 else tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><br>พบข้อผิดพลาด: ${json.message}</td></tr>`;
@@ -2556,6 +2556,7 @@
         // ==========================================
         let cacheQueue = [];
         let isProcessingCache = false;
+        let warmedDates = new Set();
 
         function warmUpCache(baseDateStr) {
             if (!state.selectedTerm || !baseDateStr) return;
@@ -2566,6 +2567,7 @@
             // สร้างคิวล่วงหน้า: วันนี้, ถอยหลัง 2 วัน, ไปข้างหน้า 1 วัน (รวม 4 วัน)
             // คุณสามารถเพิ่ม/ลดช่วงวันได้ตามต้องการ
             const offsets = [0, -1, -2, 1]; 
+            let addedToQueue = false;
             
             offsets.forEach(offset => {
                 let d = new Date(baseDate);
@@ -2575,15 +2577,16 @@
                 let dStr = fpMain.formatDate(d, "Y-m-d");
                 let dayOfWeek = getEffectiveDayName(dStr);
                 
-                if (dayOfWeek !== "holiday") {
-                    // ใส่คิวหน้าเช็คชื่อประจำวัน
+                if (dayOfWeek !== "holiday" && !warmedDates.has(dStr)) {
+                    warmedDates.add(dStr); // จดจำไว้ว่าสั่งโหลดล่วงหน้าไปแล้ว
+                    addedToQueue = true;
+
                     cacheQueue.push({
                         type: 'Overview',
                         url: `${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(targetTeacher)}&date=${encodeURIComponent(dStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&isWarming=true&_t=${new Date().getTime()}`,
                         desc: `ตารางสอนวันที่ ${d.getDate()}`
                     });
                     
-                    // ใส่คิวหน้าสรุปสถิติ
                     cacheQueue.push({
                         type: 'Summary',
                         url: `${API_URL}?action=getTeacherSummary&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&forceRefresh=false&isWarming=true&_t=${new Date().getTime()}`,
@@ -2592,8 +2595,8 @@
                 }
             });
 
-            // ถ้าคิวยังไม่ทำงาน ให้เริ่มรันเลย
-            if (!isProcessingCache) {
+            // <--- 4. ถ้ามีคิวใหม่ถูกเพิ่มเข้าไปจริงๆ ค่อยสั่งให้แถบขวาล่างทำงาน
+            if (addedToQueue && !isProcessingCache) {
                 processCacheQueue();
             }
         }
@@ -2925,8 +2928,7 @@
                         if (state.overviewDate === state.currentDate) loadAttendanceOverview();
                         fetchCalendarStatus();
 
-                        // --- เพิ่มคำสั่งอุ่นแคชตรงนี้ ---
-                        // แอบดึงข้อมูลใหม่ไปสร้างแคชทันที ระหว่างที่ครูกำลังอ่าน Pop-up แจ้งเตือนสำเร็จ
+                        warmedDates.delete(state.currentDate); 
                         warmUpCache(state.currentDate);
 
                     } else {
@@ -3706,8 +3708,9 @@
         async function loadTeacherSummary(dateStr, forceRefresh = false) {
             if (!state.selectedTerm) return;
             
-            if (!Swal.isVisible()) {
-                cuteAlert.loading('กำลังโหลดข้อมูลสถิติ...');
+            if (forceRefresh) {
+                warmedDates.delete(dateStr);
+                if (!Swal.isVisible()) cuteAlert.loading('กำลังโหลดข้อมูลสถิติ...');
             }
             
             try {
@@ -3719,11 +3722,13 @@
                 
                 if (json.status === 'success') {
                     renderTeacherSummaryChart(json.data);
-                    Swal.close();
+                    if (Swal.isVisible()) Swal.close();
                 } else {
+                    if (Swal.isVisible()) Swal.close();
                     cuteAlert.error('พบข้อผิดพลาด', json.message);
                 }
             } catch (error) {
+                if (Swal.isVisible()) Swal.close();
                 cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถโหลดข้อมูลสถิติได้');
             }
         }
