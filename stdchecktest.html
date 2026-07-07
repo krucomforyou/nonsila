@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2532,6 +2532,7 @@
             
             if (forceRefresh) {
                 warmedDates.delete(state.overviewDate);
+                saveWarmedDatesMemory(warmedDates);
                 if (!Swal.isVisible()) cuteAlert.loading('กำลังดึงข้อมูลล่าสุด... ⏳');
             }
 
@@ -2556,7 +2557,36 @@
         // ==========================================
         let cacheQueue = [];
         let isProcessingCache = false;
-        let warmedDates = new Set();
+
+        // --- 1. เพิ่มระบบดึงความจำระยะยาว (เช็ควันหมดอายุ 6 ชั่วโมง) ---
+        function getWarmedDatesMemory() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('stdcheck_warmed_dates') || '{}');
+                const now = new Date().getTime();
+                const validDates = new Set();
+                
+                for (const [dateStr, timestamp] of Object.entries(stored)) {
+                    // ถ้ายังไม่เกิน 6 ชั่วโมง (21,600,000 มิลลิวินาที) ให้จำไว้ต่อ
+                    if (now - timestamp < 21600000) {
+                        validDates.add(dateStr);
+                    }
+                }
+                return validDates;
+            } catch (e) {
+                return new Set();
+            }
+        }
+
+        // ฟังก์ชันเซฟความจำลงเครื่อง
+        function saveWarmedDatesMemory(datesSet) {
+            const now = new Date().getTime();
+            const obj = {};
+            datesSet.forEach(d => obj[d] = now);
+            localStorage.setItem('stdcheck_warmed_dates', JSON.stringify(obj));
+        }
+
+        // เรียกใช้ความจำ
+        let warmedDates = getWarmedDatesMemory();
 
         function warmUpCache(baseDateStr, singleDayOnly = false) {
             if (!state.selectedTerm || !baseDateStr) return;
@@ -2581,6 +2611,7 @@
                 
                 if (dayOfWeek !== "holiday" && !warmedDates.has(dStr)) {
                     warmedDates.add(dStr); // จดจำไว้ว่าสั่งโหลดล่วงหน้าไปแล้ว
+                    saveWarmedDatesMemory(warmedDates);
                     addedToQueue = true;
 
                     cacheQueue.push({
@@ -2931,6 +2962,7 @@
                         fetchCalendarStatus();
 
                         warmedDates.delete(state.currentDate); 
+                        saveWarmedDatesMemory(warmedDates);
                         
                         // --- แก้ไขบรรทัดนี้: ใส่ค่า true ลงไปเพื่อให้โหลดเฉพาะวันที่เพิ่งบันทึก ---
                         warmUpCache(state.currentDate, true); 
@@ -3715,6 +3747,7 @@
             
             if (forceRefresh) {
                 warmedDates.delete(dateStr);
+                saveWarmedDatesMemory(warmedDates);
                 if (!Swal.isVisible()) cuteAlert.loading('กำลังโหลดข้อมูลสถิติ...');
             }
             
