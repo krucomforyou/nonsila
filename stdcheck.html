@@ -169,7 +169,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
             </div>
         </div>
     </aside>
@@ -2222,6 +2222,21 @@
             if(!state.selectedTerm) return;
             const targetTeacher = state.viewingTeacher || state.user.name;
             cuteAlert.loading(`กำลังบันทึกตารางสอนของ ${targetTeacher} ⏳`);
+
+            const movedClasses = [];
+            state.schedule.forEach(newSch => {
+                const oldSch = state.originalSchedule.find(s => s.subject === newSch.subject && s.className === newSch.className);
+                if (oldSch && (oldSch.day !== newSch.day || oldSch.period !== newSch.period)) {
+                    movedClasses.push({
+                        subject: newSch.subject,
+                        className: newSch.className,
+                        oldDay: oldSch.day,
+                        oldPeriod: oldSch.period,
+                        newDay: newSch.day,
+                        newPeriod: newSch.period
+                    });
+                }
+            });
             
             const form = new FormData();
             form.append('term', state.selectedTerm);
@@ -2230,6 +2245,10 @@
 
             if (state.renamedSubjects && state.renamedSubjects.length > 0) {
                 form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
+            }
+
+            if (movedClasses.length > 0) {
+                form.append('movedClasses', JSON.stringify(movedClasses));
             }
 
             try {
