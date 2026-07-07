@@ -152,6 +152,9 @@
             <a href="#" onclick="openCalendarSettingsModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
                 <i class="fas fa-calendar-day w-6 text-center mr-2"></i> วันหยุด/ชดเชย
             </a>
+            <a href="#" data-tab="admin-logs" onclick="switchTab('admin-logs')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
+                <i class="fas fa-terminal w-6 text-center mr-2"></i> System Logs
+            </a>
             <a href="#" data-tab="report" onclick="switchTab('report')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-chart-line w-6 text-center mr-2"></i> รายงานสถิติ / ดาวน์โหลด
             </a>
@@ -169,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -552,6 +555,21 @@
                                 <div class="p-8 text-center text-gray-500">กรุณากดปุ่ม "ดูสถิติ"</div>
                             </div>
                          </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-admin-logs" class="tab-content hidden absolute inset-0 overflow-hidden p-4 md:p-6 pb-32 md:pb-8 flex flex-col bg-gray-900 z-50">
+                <div class="flex justify-between items-center mb-2 px-2 shrink-0">
+                    <h3 class="text-emerald-400 font-mono font-bold text-sm md:text-base"><i class="fas fa-terminal mr-2"></i> Administrator Log System</h3>
+                    <button onclick="loadAdminLogs()" class="text-gray-400 hover:text-white bg-gray-800 px-3 py-1 rounded border border-gray-700 text-xs font-mono transition">
+                        <i class="fas fa-sync-alt mr-1"></i> REFRESH
+                    </button>
+                </div>
+                <div id="terminalWindow" class="flex-1 bg-black border-2 border-gray-700 rounded-lg p-4 overflow-y-auto font-mono text-xs md:text-sm shadow-inner hide-scrollbar text-emerald-500">
+                    <div class="text-gray-500 mb-2">Microsoft Windows [Version 10.0.19045.2965]<br>(c) Microsoft Corporation. All rights reserved.</div>
+                    <div id="logOutputContainer">
+                        <div class="animate-pulse">C:\\SchoolSystem\\Logs> Loading module...</div>
                     </div>
                 </div>
             </div>
@@ -1296,6 +1314,7 @@
             form.append('actionType', 'add'); 
             form.append('termName', termName);
             form.append('startDate', startDate); // แนบวันที่ไปด้วย
+            form.append('adminUser', state.user.name);
 
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
@@ -1314,6 +1333,8 @@
         async function setTermActive(termName) {
             cuteAlert.loading('กำลังอัปเดตสถานะ ⏳');
             const form = new FormData(); form.append('actionType', 'setActive'); form.append('termName', termName);
+            form.append('adminUser', state.user.name);
+
             try {
                 const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                 const json = await res.json();
@@ -1331,6 +1352,7 @@
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบ ⏳');
                     const form = new FormData(); form.append('actionType', 'delete'); form.append('termName', termName);
+                    form.append('adminUser', state.user.name);
                     try {
                         const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -1385,6 +1407,7 @@
                     form.append('oldTermName', oldName);
                     form.append('newTermName', newName);
                     form.append('newStartDate', newDate);
+                    form.append('adminUser', state.user.name);
                     
                     try {
                         const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
@@ -1431,7 +1454,8 @@
                 'history-overview': 'เช็คชื่อประจำวัน',
                 'schedule': 'จัดการตารางสอน', 
                 'report': 'รายงานสถิติ / ดาวน์โหลด Excel',
-                'teacher-summary': 'สรุปสถิติการเช็คชื่อของครู'
+                'teacher-summary': 'สรุปสถิติการเช็คชื่อของครู',
+                'admin-logs': 'System Logs (CMD)'
             };
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
             
@@ -1469,6 +1493,8 @@
                 const dateVal = document.getElementById('summaryDatePicker').value;
                 if(dateVal) loadTeacherSummary(dateVal);
             }
+
+            if(tabId === 'admin-logs') loadAdminLogs();
 
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
@@ -2003,6 +2029,7 @@
                     state.schedule = JSON.parse(JSON.stringify(state.originalSchedule || []));
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
                     state.renamedSubjects = [];
+                    state.pendingMoves = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -2066,10 +2093,33 @@
                 const sourceIndex = state.schedule.findIndex(s => s.day === sourceDay && s.subject === sourceSubject && s.period === sourcePeriod);
                 if (sourceIndex < 0) return;
 
+                // --- โค้ดที่เพิ่มใหม่: บันทึกการย้ายที่แม่นยำ ---
+                if (!state.pendingMoves) state.pendingMoves = [];
+                state.pendingMoves.push({
+                    subject: subjectName,
+                    className: className,
+                    oldDay: sourceDay,
+                    oldPeriod: sourcePeriod,
+                    newDay: targetDay,
+                    newPeriod: targetPeriodString
+                });
+                // ------------------------------------
+
                 if (existingTargetIndex >= 0) {
                     const oldTargetItem = state.schedule[existingTargetIndex];
                     state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                     state.schedule[existingTargetIndex] = { day: sourceDay, subject: oldTargetItem.subject, period: sourcePeriod, className: oldTargetItem.className };
+                    
+                    // --- โค้ดที่เพิ่มใหม่: บันทึกกรณีมีการลากไปทับแล้วสลับที่กัน ---
+                    state.pendingMoves.push({
+                        subject: oldTargetItem.subject,
+                        className: oldTargetItem.className,
+                        oldDay: targetDay,
+                        oldPeriod: targetPeriodString,
+                        newDay: sourceDay,
+                        newPeriod: sourcePeriod
+                    });
+                    // ------------------------------------
                 } else {
                     state.schedule[sourceIndex] = { day: targetDay, subject: subjectName, period: targetPeriodString, className: className };
                 }
@@ -2088,6 +2138,7 @@
                     });
 
                     state.schedule = [];
+                    state.pendingMoves = [];
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -2223,20 +2274,9 @@
             const targetTeacher = state.viewingTeacher || state.user.name;
             cuteAlert.loading(`กำลังบันทึกตารางสอนของ ${targetTeacher} ⏳`);
 
-            const movedClasses = [];
-            state.schedule.forEach(newSch => {
-                const oldSch = state.originalSchedule.find(s => s.subject === newSch.subject && s.className === newSch.className);
-                if (oldSch && (oldSch.day !== newSch.day || oldSch.period !== newSch.period)) {
-                    movedClasses.push({
-                        subject: newSch.subject,
-                        className: newSch.className,
-                        oldDay: oldSch.day,
-                        oldPeriod: oldSch.period,
-                        newDay: newSch.day,
-                        newPeriod: newSch.period
-                    });
-                }
-            });
+            // --- โค้ดที่แก้ไข: ดึงข้อมูลการย้ายที่ถูกบันทึกไว้ตอนลากวาง ---
+            const movedClasses = state.pendingMoves || [];
+            // ------------------------------------------------
             
             const form = new FormData();
             form.append('term', state.selectedTerm);
@@ -2258,6 +2298,11 @@
                     state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     state.renamedSubjects = [];
+                    
+                    // --- เพิ่มบรรทัดนี้: ล้างคิวหลังจากบันทึกเสร็จ ---
+                    state.pendingMoves = []; 
+                    // ---------------------------------------
+                    
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
@@ -2401,6 +2446,7 @@
                 
                 // แก้ไข: เคลียร์การ์ดวิชาด้านซ้ายมือทิ้ง เพราะข้อมูลลงตารางไปหมดแล้ว
                 state.subjects = [];
+                state.pendingMoves = [];
 
                 renderSubjectCards();
                 renderVisualTimetable();
@@ -3400,6 +3446,7 @@
             form.append('actionType', actionType); 
             form.append('studentData', JSON.stringify(newRowData));
             if(actionType === 'edit') form.append('rowIndex', rowIndex);
+            form.append('adminUser', state.user.name);
 
             cuteAlert.loading('กำลังจัดการข้อมูลนักเรียน 📝');
             try {
@@ -3417,7 +3464,13 @@
                     cuteAlert.loading('กำลังนำข้อมูลออก ⏳');
                     const className = document.getElementById('manageClassSelector').value;
                     const form = new FormData();
-                    form.append('term', state.selectedTerm); form.append('className', className.trim()); form.append('actionType', 'delete'); form.append('studentData', '[]'); form.append('rowIndex', rowIndex);
+                    form.append('term', state.selectedTerm);
+                    form.append('className', className.trim());
+                    form.append('actionType', 'delete');
+                    form.append('studentData', '[]');
+                    form.append('rowIndex', rowIndex);
+                    form.append('adminUser', state.user.name);
+
                     try {
                         const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -3462,6 +3515,7 @@
                     cuteAlert.loading('กำลังสร้างห้องเรียนใหม่ ⏳');
                     const form = new FormData();
                     form.append('term', state.selectedTerm); form.append('actionType', 'addClass'); form.append('className', newClass);
+                    form.append('adminUser', state.user.name);
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -3477,11 +3531,19 @@
             const className = document.getElementById('manageClassSelector').value;
             if (!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการลบก่อน'); return; }
 
-            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, `การลบห้องเรียนจะทำให้ข้อมูลนักเรียนในห้องนี้ของภาคเรียน ${state.selectedTerm} หายไปทั้งหมด`, 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
+            // --- แก้ไขข้อความแจ้งเตือนตรงนี้ ---
+            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, `ยืนยันการนำห้องเรียนนี้ออกจากระบบหรือไม่? (ลบได้เฉพาะห้องที่ไม่มีนักเรียนเท่านั้น)`, 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบห้องเรียน ⏳');
                     const form = new FormData();
-                    form.append('term', state.selectedTerm); form.append('actionType', 'deleteClass'); form.append('className', className);
+                    form.append('term', state.selectedTerm); 
+                    form.append('actionType', 'deleteClass'); 
+                    form.append('className', className);
+                    
+                    // --- เพิ่มบรรทัดนี้: ส่งชื่อ User ไปบันทึก Log ---
+                    form.append('adminUser', state.user.name);
+                    // -----------------------------------------
+
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -3490,7 +3552,7 @@
                             if (state.classes.length > 0) { document.getElementById('manageClassSelector').value = state.classes[0]; loadManageStudents(); }
                             else document.getElementById('manageTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
                             cuteAlert.success('ลบสำเร็จ! ✅', `นำห้องเรียน ${className} ออกจากระบบแล้ว`);
-                        } else cuteAlert.error('ข้อผิดพลาด', json.message);
+                        } else cuteAlert.error('ข้อผิดพลาด', json.message); // จะแสดง Error ที่เราตั้งไว้เมื่อห้องไม่ว่าง
                     } catch (e) { cuteAlert.error('Error', 'ไม่สามารถลบห้องเรียนได้'); }
                 }
             });
@@ -3863,6 +3925,7 @@
                 form.append('className', className.trim()); 
                 form.append('actionType', 'import'); 
                 form.append('studentData', JSON.stringify(parsedStudents));
+                form.append('adminUser', state.user.name);
 
                 try {
                     const res = await fetch(`${API_URL}?action=manageStudent`, { method: 'POST', body: form });
@@ -3942,6 +4005,7 @@
                     form.append('actionType', 'editClass'); 
                     form.append('oldClassName', oldClassName);
                     form.append('newClassName', newClassName);
+                    form.append('adminUser', state.user.name);
                     
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
@@ -4149,6 +4213,7 @@
             form.append('type', type);
             if (type === 'makeup') form.append('substituteFor', subFor);
             form.append('note', note);
+            form.append('adminUser', state.user.name);
 
             try {
                 const res = await fetch(`${API_URL}?action=saveCalendarSetting`, { method: 'POST', body: form });
@@ -4188,6 +4253,7 @@
                     cuteAlert.loading('กำลังลบข้อมูล...');
                     const form = new FormData();
                     form.append('date', dateStr);
+                    form.append('adminUser', state.user.name);
                     try {
                         const res = await fetch(`${API_URL}?action=deleteCalendarSetting`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -4201,6 +4267,38 @@
                     } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
                 }
             });
+        }
+
+        async function loadAdminLogs() {
+            const container = document.getElementById('logOutputContainer');
+            container.innerHTML = '<div class="text-yellow-400">C:\\SchoolSystem\\Logs> Fetching system events...</div>';
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getAdminLogs&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    let html = '';
+                    if (json.data.length === 0) {
+                        html = '<div class="text-gray-500">No system logs found.</div>';
+                    } else {
+                        json.data.forEach(log => {
+                            // [Timestamp] [User]: Action
+                            html += `<div class="mb-1"><span class="text-gray-500">[${log[0]}]</span> <span class="text-blue-400">${log[1]}</span>: <span class="text-emerald-300">${log[2]}</span></div>`;
+                        });
+                    }
+                    html += `<div class="mt-4"><span class="text-gray-400">C:\\SchoolSystem\\Logs></span> <span class="animate-pulse bg-emerald-500 w-2 h-4 inline-block align-middle"></span></div>`;
+                    container.innerHTML = html;
+                    
+                    // เลื่อน Scroll ลงไปล่างสุดเสมอ
+                    const terminal = document.getElementById('terminalWindow');
+                    terminal.scrollTop = terminal.scrollHeight;
+                } else {
+                    container.innerHTML = `<div class="text-red-500">Error: ${json.message}</div>`;
+                }
+            } catch (e) {
+                container.innerHTML = '<div class="text-red-500">Fatal Error: Connection to backend failed.</div>';
+            }
         }
     </script>
 </body>
