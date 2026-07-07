@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -228,32 +228,8 @@
                     
                     <!-- พื้นที่สำหรับวาดกราฟวงกลม -->
                     <div class="flex flex-col items-center mb-6"> 
-                        <div class="flex flex-col items-center mb-6 w-full"> 
-                            <div class="flex flex-col md:flex-row items-end justify-center gap-6 md:gap-12 mb-6">
-                                <div class="flex flex-col items-center">
-                                    <h4 class="font-bold text-school-navy mb-3"><i class="fas fa-calendar-day mr-1"></i> รายวัน (วันนี้)</h4>
-                                    <div class="relative" style="width: 220px; height: 220px;">
-                                        <canvas id="dailyPieChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col items-center mt-4 md:mt-0">
-                                    <h4 class="font-bold text-school-navy mb-3"><i class="fas fa-calendar-week mr-1"></i> รายสัปดาห์</h4>
-                                    <div class="relative" style="width: 160px; height: 160px;">
-                                        <canvas id="weeklyPieChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col items-center mt-4 md:mt-0">
-                                    <h4 class="font-bold text-school-navy mb-3"><i class="fas fa-calendar-week mr-1"></i> รายเดือน</h4>
-                                    <div class="relative" style="width: 110px; height: 110px;">
-                                        <canvas id="monthlyPieChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex justify-center items-center gap-6 text-sm font-bold text-gray-600 bg-gray-50 px-5 py-2.5 rounded-full border border-gray-200 shadow-sm mt-2">
-                                <div class="flex items-center"><span class="w-3.5 h-3.5 rounded-full bg-emerald-500 mr-2 border border-emerald-600"></span> เช็คแล้ว (คาบ)</div>
-                                <div class="flex items-center"><span class="w-3.5 h-3.5 rounded-full bg-red-500 mr-2 border border-red-600"></span> ยังไม่เช็ค (คาบ)</div>
-                            </div>
+                        <div style="width: 300px; height: 300px;">
+                            <canvas id="teacherSummaryPieChart"></canvas>
                         </div>
                         
                         <div class="w-full mt-6 border-t border-gray-100 pt-6">
@@ -943,9 +919,7 @@
         const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
         const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
         let fpMain, fpHistory, fpOverview, fpSummary; // เพิ่ม fpSummary
-        let dailyChart = null;
-        let weeklyChart = null;
-        let monthlyChart = null;
+        let teacherSummaryChart = null; // เพิ่มตัวแปรเก็บกราฟ
 
         const cuteAlert = {
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-gray-100 rounded-full"></div><div class="absolute inset-0 border-4 border-school-navy rounded-full border-t-transparent animate-spin"></div><i class="fas fa-hourglass-half text-xl md:text-2xl text-school-blue"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
@@ -2510,19 +2484,14 @@
 
         async function loadAttendanceOverview() {
             if(!state.overviewDate || !state.selectedTerm) return;
-            
-            // 🚀 แก้ไขที่ 1: ย้าย Pop-up โหลดขึ้นมาบรรทัดแรกสุด เพื่อให้แสดงผลทันทีที่ผู้ใช้คลิก
-            cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
-
             const targetDate = new Date(state.overviewDate);
+            // --- [แก้ไข] ใช้ getEffectiveDayName เพื่อให้ API ส่งวันชดเชยไปโหลดตารางให้ถูก ---
             let dayOfWeek = getEffectiveDayName(state.overviewDate);
             
             if (dayOfWeek === "holiday") {
                 document.getElementById('overviewTableBody').innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500 bg-red-50 rounded-b-xl"><div class="text-4xl mb-3">🏖️</div>วันนี้เป็นวันหยุด</td></tr>`;
-                document.getElementById('ovTotal').innerText = '0'; 
-                document.getElementById('ovChecked').innerText = '0'; 
-                document.getElementById('ovMissing').innerText = '0';
-                Swal.close(); // 🚀 เพิ่มคำสั่งปิด Pop-up หากเป็นวันหยุด
+                document.getElementById('ovTotal').innerText = '0'; document.getElementById('ovChecked').innerText = '0'; document.getElementById('ovMissing').innerText = '0';
+                Swal.close();
                 return;
             }
             const displayDateStr = `${targetDate.getDate()} ${THAI_MONTHS[targetDate.getMonth()]} ${targetDate.getFullYear() + 543}`;
@@ -2530,6 +2499,9 @@
 
             const tbody = document.getElementById('overviewTableBody');
             tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
+            
+            // --- จุดที่ 1: เรียก Pop-up โหลดขึ้นมาบังหน้าจอ ---
+            cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
 
             try {
                 const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
@@ -3614,73 +3586,60 @@
         }
 
         function renderTeacherSummaryChart(data) {
-            // ล้างกราฟเก่าทิ้ง
-            if (dailyChart) dailyChart.destroy();
-            if (weeklyChart) weeklyChart.destroy();
-            if (monthlyChart) monthlyChart.destroy();
+            const ctx = document.getElementById('teacherSummaryPieChart').getContext('2d');
+            
+            if (teacherSummaryChart) {
+                teacherSummaryChart.destroy();
+            }
+            
+            const checkedCount = data.checkedCount || 0;
+            const uncheckedCount = data.uncheckedCount || 0;
+            const total = checkedCount + uncheckedCount;
+            
+            const chartData = total === 0 ? [1] : [checkedCount, uncheckedCount];
+            const bgColors = total === 0 ? ['#e2e8f0'] : ['#10b981', '#ef4444'];
+            const labels = total === 0 ? ['ไม่มีข้อมูลตารางสอนในวันนี้'] : ['เช็คชื่อแล้ว (คาบ)', 'ยังไม่เช็คชื่อ (คาบ)'];
 
-            // ฟังก์ชันช่วยสร้างกราฟ
-            const createChart = (canvasId, statData) => {
-                const ctx = document.getElementById(canvasId).getContext('2d');
-                const checked = Math.max(0, statData.checked || 0);
-                const unchecked = Math.max(0, statData.unchecked || 0);
-                const total = checked + unchecked;
-                
-                const chartData = total === 0 ? [1] : [checked, unchecked];
-                const bgColors = total === 0 ? ['#e2e8f0'] : ['#10b981', '#ef4444'];
-                const labels = total === 0 ? ['ไม่มีคาบสอน'] : ['เช็คแล้ว', 'ยังไม่เช็ค'];
-
-                return new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: chartData,
-                            backgroundColor: bgColors,
-                            borderWidth: 2,
-                            borderColor: '#ffffff',
-                            hoverOffset: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%', // 🚀 ทำให้เส้นกราฟบางลงดู Modern ขึ้น
-                        layout: { padding: 5 },
-                        plugins: {
-                            legend: { 
-                                display: false // 🚀 ปิด Legend ตัวอักษรเพื่อไม่ให้กินพื้นที่กราฟ
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        if(total === 0) return ' ไม่มีข้อมูลตารางสอน';
-                                        let label = context.label || '';
-                                        let val = context.raw || 0;
-                                        let percent = Math.round((val / total) * 100);
-                                        return ` ${label}: ${val} คาบ (${percent}%)`;
-                                    }
+            teacherSummaryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Sarabun' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if(total === 0) return ' ไม่มีข้อมูล';
+                                    let label = context.label || '';
+                                    let val = context.raw || 0;
+                                    let percent = Math.round((val / total) * 100);
+                                    return ` ${label}: ${val} คาบ (${percent}%)`;
                                 }
                             }
                         }
                     }
-                });
-            };
+                }
+            });
 
-            // สร้างกราฟทั้ง 3 ตัวโดยใช้ข้อมูลที่ส่งมาจาก Backend
-            dailyChart = createChart('dailyPieChart', data.stats.daily);
-            weeklyChart = createChart('weeklyPieChart', data.stats.weekly);
-            monthlyChart = createChart('monthlyPieChart', data.stats.monthly);
-
-            // ส่วนตารางสรุปด้านล่าง ยังคงใช้งานลอจิกเดิม
+            // อัปเดตตารางหัวข้อ
             const thead = document.querySelector('#teacherSummaryTableBody').previousElementSibling;
             if (thead) {
                 thead.innerHTML = `
                     <tr>
                         <th class="px-4 py-3 min-w-[150px]">ชื่อ-สกุล ครูผู้สอน</th>
-                        <th class="px-4 py-3 text-center w-32">ภาพรวมเทอมนี้</th>
+                        <th class="px-4 py-3 text-center w-32">สถิติ</th>
                         <th class="px-4 py-3 text-center w-24">วันนี้</th>
-                        <th class="px-4 py-3 min-w-[300px]">สถานะคาบเรียนของวันนี้</th>
+                        <th class="px-4 py-3 min-w-[300px]">สถานะรายวิชา / ห้องเรียน</th>
                     </tr>
                 `;
             }
@@ -3698,7 +3657,7 @@
             
             summaryList.forEach(item => {
                 let classStatusHtml = '';
-                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, '"');
+                const safeTeacherName = item.teacherName.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                 
                 if (item.totalClasses === 0) {
                     classStatusHtml = '<span class="text-xs text-gray-400 font-light italic">ไม่มีคาบสอนในวันนี้</span>';
@@ -3715,7 +3674,7 @@
                         const dotColor = cls.isChecked ? 'bg-emerald-500' : 'bg-red-500';
                         const textColor = cls.isChecked ? 'text-emerald-700' : 'text-red-700';
                         const bgColor = cls.isChecked ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200';
-                        const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, '"');
+                        const safeSubject = cls.subject.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
                         classStatusHtml += `
                             <div onclick="showSubjectDetail('${safeSubject}', '${cls.className}', '${cls.period}', ${cls.isChecked}, '${currentDateStr}', '${safeTeacherName}')" class="cursor-pointer hover:opacity-75 transition-opacity flex items-center text-[11px] border ${bgColor} px-2.5 py-1 rounded-full shadow-sm" title="วิชา: ${cls.subject}">
@@ -3729,12 +3688,13 @@
 
                 const rowBg = (item.totalClasses > 0 && item.checkedClasses < item.totalClasses) ? 'bg-red-50/30' : 'bg-white';
 
+                // --- สร้าง UI สำหรับสถิติรวม ---
                 let overallStatHtml = '';
                 if (item.hasTermStartDate) {
                     let percentColor = item.overallPercent >= 80 ? 'text-emerald-600' : (item.overallPercent >= 50 ? 'text-orange-500' : 'text-red-500');
                     overallStatHtml = `
                         <div class="text-sm font-black ${percentColor}">${item.overallPercent}%</div>
-                        <div class="text-[10px] text-gray-500 font-medium">${item.checkedDays} / ${item.expectedDays} คาบ</div>
+                        <div class="text-[10px] text-gray-500 font-medium">${item.checkedDays} / ${item.expectedDays} วัน</div>
                     `;
                 } else {
                     overallStatHtml = `<span class="text-[10px] text-gray-400">ไม่ได้ตั้งวันเปิดเทอม</span>`;
