@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -2484,19 +2484,14 @@
 
         async function loadAttendanceOverview() {
             if(!state.overviewDate || !state.selectedTerm) return;
-            
-            // 🚀 แก้ไขที่ 1: ย้าย Pop-up โหลดขึ้นมาบรรทัดแรกสุด เพื่อให้แสดงผลทันทีที่ผู้ใช้คลิก
-            cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
-
             const targetDate = new Date(state.overviewDate);
+            // --- [แก้ไข] ใช้ getEffectiveDayName เพื่อให้ API ส่งวันชดเชยไปโหลดตารางให้ถูก ---
             let dayOfWeek = getEffectiveDayName(state.overviewDate);
             
             if (dayOfWeek === "holiday") {
                 document.getElementById('overviewTableBody').innerHTML = `<tr><td colspan="4" class="py-12 text-center text-red-500 bg-red-50 rounded-b-xl"><div class="text-4xl mb-3">🏖️</div>วันนี้เป็นวันหยุด</td></tr>`;
-                document.getElementById('ovTotal').innerText = '0'; 
-                document.getElementById('ovChecked').innerText = '0'; 
-                document.getElementById('ovMissing').innerText = '0';
-                Swal.close(); // 🚀 เพิ่มคำสั่งปิด Pop-up หากเป็นวันหยุด
+                document.getElementById('ovTotal').innerText = '0'; document.getElementById('ovChecked').innerText = '0'; document.getElementById('ovMissing').innerText = '0';
+                Swal.close();
                 return;
             }
             const displayDateStr = `${targetDate.getDate()} ${THAI_MONTHS[targetDate.getMonth()]} ${targetDate.getFullYear() + 543}`;
@@ -2504,6 +2499,9 @@
 
             const tbody = document.getElementById('overviewTableBody');
             tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-gray-500"><div class="loader mx-auto mb-3"></div>กำลังตรวจสอบสถานะ...</td></tr>`;
+            
+            // --- จุดที่ 1: เรียก Pop-up โหลดขึ้นมาบังหน้าจอ ---
+            cuteAlert.loading('กำลังตรวจสอบข้อมูลการเช็คชื่อ กรุณารอสักครู่... ⏳');
 
             try {
                 const res = await fetch(`${API_URL}?action=getAttendanceOverview&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(state.user.name)}&date=${encodeURIComponent(state.overviewDate)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&_t=${new Date().getTime()}`);
