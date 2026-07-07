@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div>
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div>
             </div>
         </div>
     </aside>
@@ -3531,12 +3531,19 @@
             const className = document.getElementById('manageClassSelector').value;
             if (!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนที่ต้องการลบก่อน'); return; }
 
-            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, `การลบห้องเรียนจะทำให้ข้อมูลนักเรียนในห้องนี้ของภาคเรียน ${state.selectedTerm} หายไปทั้งหมด`, 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
+            // --- แก้ไขข้อความแจ้งเตือนตรงนี้ ---
+            cuteAlert.confirm(`ลบห้องเรียน ${className}?`, `ยืนยันการนำห้องเรียนนี้ออกจากระบบหรือไม่? (ลบได้เฉพาะห้องที่ไม่มีนักเรียนเท่านั้น)`, 'ใช่, ลบห้องเรียนนี้! 🗑️', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบห้องเรียน ⏳');
                     const form = new FormData();
-                    form.append('term', state.selectedTerm); form.append('actionType', 'deleteClass'); form.append('className', className);
+                    form.append('term', state.selectedTerm); 
+                    form.append('actionType', 'deleteClass'); 
+                    form.append('className', className);
+                    
+                    // --- เพิ่มบรรทัดนี้: ส่งชื่อ User ไปบันทึก Log ---
                     form.append('adminUser', state.user.name);
+                    // -----------------------------------------
+
                     try {
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -3545,7 +3552,7 @@
                             if (state.classes.length > 0) { document.getElementById('manageClassSelector').value = state.classes[0]; loadManageStudents(); }
                             else document.getElementById('manageTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-10 text-gray-400">กรุณาเลือกห้องเรียน</td></tr>';
                             cuteAlert.success('ลบสำเร็จ! ✅', `นำห้องเรียน ${className} ออกจากระบบแล้ว`);
-                        } else cuteAlert.error('ข้อผิดพลาด', json.message);
+                        } else cuteAlert.error('ข้อผิดพลาด', json.message); // จะแสดง Error ที่เราตั้งไว้เมื่อห้องไม่ว่าง
                     } catch (e) { cuteAlert.error('Error', 'ไม่สามารถลบห้องเรียนได้'); }
                 }
             });
