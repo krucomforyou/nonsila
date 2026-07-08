@@ -167,6 +167,9 @@
             </a>
             
             <div class="px-6 text-[10px] font-bold text-school-brass mt-6 mb-2 uppercase tracking-wider">ข้อมูลส่วนกลาง</div>
+            <a href="#" data-tab="substitute" onclick="switchTab('substitute')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
+                <i class="fas fa-exchange-alt w-6 text-center mr-2"></i> จัดการสอนแทน
+            </a>
             <a href="#" onclick="openManageStudentModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-users w-6 text-center mr-2"></i> ฐานข้อมูลนักเรียน
             </a>
@@ -196,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -594,6 +597,45 @@
                     <div class="text-gray-500 mb-2">Microsoft Windows [Version 10.0.19045.2965]<br>(c) Microsoft Corporation. All rights reserved.</div>
                     <div id="logOutputContainer">
                         <div class="animate-pulse">C:\\SchoolSystem\\Logs> Loading module...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-substitute" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8 hide-scrollbar">
+                <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 md:p-6 max-w-4xl mx-auto">
+                    <h3 class="text-xl font-bold text-school-navy mb-4"><i class="fas fa-exchange-alt text-purple-500 mr-2"></i> จัดการระบบสอนแทนชั่วคราว</h3>
+                    <p class="text-sm text-gray-500 mb-6">ตั้งค่าให้ครูท่านอื่นรับผิดชอบเช็คชื่อและสอนแทนในวันที่กำหนด (ข้อมูลประวัติการสอนแทนจะถูกเปลี่ยนสถานะเป็น Expired อัตโนมัติเมื่อข้ามวัน)</p>
+                    
+                    <div class="bg-purple-50 border border-purple-200 p-5 rounded-xl mb-6 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">1. วันที่ต้องการให้สอนแทน</label>
+                                <input type="date" id="subDate" onchange="loadTeacherSubjectsForSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 text-gray-700">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">2. ครูเจ้าของวิชา (เดิม)</label>
+                                <select id="subOriginalTeacher" onchange="loadTeacherSubjectsForSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กำลังโหลดรายชื่อครู...</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">3. เลือกวิชาที่ต้องการฝากสอน (อิงตามตารางสอนของครูเดิม)</label>
+                                <select id="subSubjectList" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">4. ครูผู้รับหน้าที่สอนแทน (ใหม่)</label>
+                                <select id="subSubstituteTeacher" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กำลังโหลดรายชื่อครู...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-5 text-right flex justify-end">
+                            <button onclick="submitSubstitute()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition transform hover:-translate-y-0.5 flex items-center">
+                                <i class="fas fa-save mr-2"></i> บันทึกข้อมูลสอนแทน
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1198,6 +1240,14 @@
                     }
                     
                     document.getElementById('adminTeacherSelector').innerHTML = opts;
+                    const subOrig = document.getElementById('subOriginalTeacher');
+                    const subSub = document.getElementById('subSubstituteTeacher');
+                    if (subOrig && subSub) {
+                        let tOpts = '<option value="">เลือกครู...</option>';
+                        state.teachers.forEach(t => tOpts += `<option value="${t}">${t}</option>`);
+                        subOrig.innerHTML = tOpts;
+                        subSub.innerHTML = tOpts;
+                    }
                 } else {
                     document.getElementById('adminTeacherSelector').innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
@@ -1502,6 +1552,7 @@
                 'manage-time': 'แก้ไขเวลาย้อนหลัง',
                 'history-overview': 'เช็คชื่อประจำวัน',
                 'schedule': 'จัดการตารางสอน', 
+                'substitute': 'จัดการสอนแทน',
                 'report': 'รายงานสถิติ / ดาวน์โหลด Excel',
                 'teacher-summary': 'สรุปสถิติการเช็คชื่อของครู',
                 'admin-logs': 'System Logs (CMD)'
@@ -4593,6 +4644,86 @@
                 }
             } catch (e) {
                 container.innerHTML = '<div class="text-red-500">Fatal Error: Connection to backend failed.</div>';
+            }
+        }
+
+        // ==========================================
+        // ระบบจัดการสอนแทน (Substitute)
+        // ==========================================
+        async function loadTeacherSubjectsForSub() {
+            const dateStr = document.getElementById('subDate').value;
+            const teacher = document.getElementById('subOriginalTeacher').value;
+            const sel = document.getElementById('subSubjectList');
+            
+            if (!dateStr || !teacher) {
+                sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+                return;
+            }
+            
+            sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+            try {
+                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    const dayName = getEffectiveDayName(dateStr);
+                    const subjects = json.data.filter(s => s.day === dayName && s.className !== '-');
+                    
+                    if (subjects.length === 0) {
+                        sel.innerHTML = `<option value="">-- ไม่พบวิชาสอนในวัน${dayName} สำหรับครู ${teacher} --</option>`;
+                    } else {
+                        let opts = '<option value="">-- เลือกวิชาที่ต้องการให้สอนแทน --</option>';
+                        subjects.forEach(s => {
+                            opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                        });
+                        sel.innerHTML = opts;
+                    }
+                } else {
+                    sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+            }
+        }
+
+        async function submitSubstitute() {
+            const dateStr = document.getElementById('subDate').value;
+            const originalT = document.getElementById('subOriginalTeacher').value;
+            const substituteT = document.getElementById('subSubstituteTeacher').value;
+            const subjectVal = document.getElementById('subSubjectList').value;
+            
+            if (!dateStr || !originalT || !substituteT || !subjectVal) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลทั้ง 4 ข้อให้ครบถ้วน');
+                return;
+            }
+            if (originalT === substituteT) {
+                cuteAlert.error('ข้อมูลไม่ถูกต้อง', 'ครูเจ้าของวิชาและครูผู้สอนแทน ต้องไม่ใช่คนเดียวกัน');
+                return;
+            }
+            
+            const [subj, period, cls] = subjectVal.split('|');
+            
+            cuteAlert.loading('กำลังบันทึกข้อมูลการสอนแทน... ⏳');
+            const form = new FormData();
+            form.append('term', state.selectedTerm);
+            form.append('date', dateStr);
+            form.append('originalTeacher', originalT);
+            form.append('substituteTeacher', substituteT);
+            form.append('subject', subj);
+            form.append('period', period);
+            form.append('className', cls);
+            
+            try {
+                const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    cuteAlert.success('บันทึกสำเร็จ!', 'ครูผู้สอนแทนจะเห็นวิชานี้ในหน้าเช็คชื่อของตนเองแล้ว');
+                    document.getElementById('subSubjectList').value = ''; // เคลียร์ค่าหลังบันทึกเสร็จ
+                } else {
+                    cuteAlert.error('ผิดพลาด', json.message);
+                }
+            } catch(e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
             }
         }
     </script>
