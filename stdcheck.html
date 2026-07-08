@@ -94,6 +94,30 @@
             background: #fff; border-radius: 50%; width: 14px; height: 14px;
             display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 10;
         }
+
+        /* เพิ่มแอนิเมชันเลื่อนขึ้น/ลงให้ปฏิทิน */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideDownFade {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUpFade 0.3s ease-out; }
+        .animate-slide-down { animation: slideDownFade 0.3s ease-out; }
+
+        /* เมาส์ชี้ให้เป็นรูปมือจับบนคอมพิวเตอร์ */
+        .flatpickr-calendar.swipeable { 
+            cursor: grab; 
+            -webkit-user-select: none; /* สำหรับ Safari/Chrome */
+            -moz-user-select: none;    /* สำหรับ Firefox */
+            -ms-user-select: none;     /* สำหรับ Edge/IE */
+            user-select: none;         /* มาตรฐาน */
+        }
+        .flatpickr-calendar.swipeable:active { 
+            cursor: grabbing; 
+        }
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
@@ -143,6 +167,9 @@
             </a>
             
             <div class="px-6 text-[10px] font-bold text-school-brass mt-6 mb-2 uppercase tracking-wider">ข้อมูลส่วนกลาง</div>
+            <a href="#" data-tab="substitute" onclick="switchTab('substitute')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent admin-only" style="display:none;">
+                <i class="fas fa-exchange-alt w-6 text-center mr-2"></i> จัดการสอนแทน
+            </a>
             <a href="#" onclick="openManageStudentModal()" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-users w-6 text-center mr-2"></i> ฐานข้อมูลนักเรียน
             </a>
@@ -574,6 +601,69 @@
                 </div>
             </div>
 
+            <div id="tab-substitute" class="tab-content hidden absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8 hide-scrollbar">
+                <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 md:p-6 max-w-4xl mx-auto">
+                    <h3 class="text-xl font-bold text-school-navy mb-4"><i class="fas fa-exchange-alt text-purple-500 mr-2"></i> จัดการระบบสอนแทนชั่วคราว</h3>
+                    <p class="text-sm text-gray-500 mb-6">ตั้งค่าให้ครูท่านอื่นรับผิดชอบเช็คชื่อและสอนแทนในวันที่กำหนด (ข้อมูลประวัติการสอนแทนจะถูกเปลี่ยนสถานะเป็น Expired อัตโนมัติเมื่อข้ามวัน)</p>
+                    
+                    <div class="bg-purple-50 border border-purple-200 p-5 rounded-xl mb-6 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">1. วันที่ต้องการให้สอนแทน</label>
+                                <input type="date" id="subDate" onchange="loadTeacherSubjectsForSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 text-gray-700">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">2. ครูเจ้าของวิชา (เดิม)</label>
+                                <select id="subOriginalTeacher" onchange="loadTeacherSubjectsForSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กำลังโหลดรายชื่อครู...</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">3. เลือกวิชาที่ต้องการฝากสอน (อิงตามตารางสอนของครูเดิม)</label>
+                                <select id="subSubjectList" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">4. ครูผู้รับหน้าที่สอนแทน (ใหม่)</label>
+                                <select id="subSubstituteTeacher" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                    <option value="">กำลังโหลดรายชื่อครู...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-5 text-right flex justify-end">
+                            <button onclick="submitSubstitute()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition transform hover:-translate-y-0.5 flex items-center">
+                                <i class="fas fa-save mr-2"></i> บันทึกข้อมูลสอนแทน
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 border-t border-gray-100 pt-6">
+                        <h4 class="text-base font-bold text-school-navy mb-3"><i class="fas fa-history text-gray-500 mr-2"></i> รายการประวัติการตั้งค่าการสอนแทนทั้งหมด</h4>
+                        <div class="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr class="bg-gray-50 text-school-navy text-xs font-bold border-b border-gray-200">
+                                        <th class="px-4 py-3 w-32">วันที่สอนแทน</th>
+                                        <th class="px-4 py-3">รายละเอียดวิชาที่สอนแทน</th>
+                                        <th class="px-4 py-3 w-40">ครูผู้ฝากสอน</th>
+                                        <th class="px-4 py-3 w-40">ครูผู้สอนแทน</th>
+                                        <th class="px-4 py-3 text-center w-24">สถานะใช้งาน</th>
+                                        <th class="px-4 py-3 text-center w-24">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="substituteHistoryTableBody" class="text-sm text-gray-600">
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">กำลังโหลดประวัติข้อมูล...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -822,6 +912,45 @@
         </div>
     </div>
 
+    <!-- EDIT SUBSTITUTE MODAL -->
+    <div id="editSubstituteModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col">
+            <div class="bg-purple-600 px-6 py-4 border-b border-purple-700 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-white"><i class="fas fa-edit mr-2"></i> แก้ไขข้อมูลการสอนแทน</h3>
+                 <button onclick="closeEditSubstituteModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 bg-purple-50 flex-1">
+                <input type="hidden" id="editSubRowIndex">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">1. วันที่ต้องการให้สอนแทน</label>
+                        <input type="date" id="editSubDate" onchange="loadTeacherSubjectsForEditSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 text-gray-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">2. ครูเจ้าของวิชา (เดิม)</label>
+                        <select id="editSubOriginalTeacher" onchange="loadTeacherSubjectsForEditSub()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">3. เลือกวิชาที่ต้องการฝากสอน</label>
+                        <select id="editSubSubjectList" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                            <option value="">กำลังโหลดวิชา...</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">4. ครูผู้รับหน้าที่สอนแทน (ใหม่)</label>
+                        <select id="editSubSubstituteTeacher" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+                <button onclick="closeEditSubstituteModal()" class="px-5 py-2 text-gray-600 text-sm font-bold hover:bg-gray-100 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                <button onclick="submitEditSubstitute()" class="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-purple-700 transition transform hover:-translate-y-0.5 flex items-center"><i class="fas fa-save mr-2"></i> บันทึกการแก้ไข</button>
+            </div>
+        </div>
+    </div>
+
     <div id="calendarSettingsModal" class="modal fixed inset-0 z-[160] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
         <div class="modal-content bg-white w-full max-w-2xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-school-navy px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
@@ -936,7 +1065,44 @@
             loading: (text) => { return Swal.fire({ html: `<div class="p-5 text-center"><div class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 relative flex items-center justify-center"><div class="absolute inset-0 border-4 border-gray-100 rounded-full"></div><div class="absolute inset-0 border-4 border-school-navy rounded-full border-t-transparent animate-spin"></div><i class="fas fa-hourglass-half text-xl md:text-2xl text-school-blue"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">กำลังทำงาน...</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, showConfirmButton: false, allowOutsideClick: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
             success: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-bounce border border-emerald-100"><i class="fas fa-check"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, timer: 2000, showConfirmButton: false, scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
             error: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm animate-pulse border border-red-100"><i class="fas fa-times"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, confirmButtonText: 'ตกลง', confirmButtonColor: '#1a3a6e', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
-            confirm: (title, text, btnText, colorClass = '#1a3a6e') => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-school-bg text-school-blue rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm border border-gray-200"><i class="fas fa-question"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, showCancelButton: true, confirmButtonColor: colorClass, cancelButtonColor: '#9ca3af', confirmButtonText: btnText, cancelButtonText: 'ยกเลิก', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); },
+            confirm: (title, text, btnText, colorClass = '#1a3a6e') => { 
+                let btnTailwind = 'bg-school-navy hover:bg-school-navyLight text-white';
+                let iconColor = 'text-school-blue';
+                let iconClass = 'fa-question';
+                
+                if (colorClass === '#ef4444') {
+                    btnTailwind = 'bg-red-500 hover:bg-red-600 text-white';
+                    iconColor = 'text-red-500';
+                    iconClass = 'fa-trash-alt';
+                } else if (colorClass === '#f59e0b') {
+                    btnTailwind = 'bg-orange-500 hover:bg-orange-600 text-white';
+                    iconColor = 'text-orange-500';
+                    iconClass = 'fa-exclamation';
+                }
+
+                return Swal.fire({ 
+                    html: `
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 md:w-20 md:h-20 bg-gray-50 ${iconColor} rounded-full flex items-center justify-center mb-4 text-3xl md:text-4xl shadow-sm border border-gray-200">
+                            <i class="fas ${iconClass}"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-school-navy mb-1">${title}</h3>
+                        <p class="text-sm text-gray-500">${text}</p>
+                    </div>`, 
+                    showCancelButton: true, 
+                    confirmButtonText: btnText, 
+                    cancelButtonText: 'ยกเลิก', 
+                    buttonsStyling: false, 
+                    scrollbarPadding: false, 
+                    heightAuto: false, 
+                    customClass: { 
+                        popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
+                        actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                        confirmButton: `px-5 py-2.5 ${btnTailwind} text-sm font-bold rounded-xl shadow-md transition w-full`,
+                        cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                    }
+                }); 
+            },
             warning: (title, text) => { return Swal.fire({ html: `<div class="p-4 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl md:text-4xl shadow-sm border border-orange-100"><i class="fas fa-exclamation"></i></div><h3 class="text-lg md:text-xl font-bold text-school-navy mb-2">${title}</h3><p class="text-xs md:text-sm text-gray-500 font-sans">${text}</p></div>`, confirmButtonText: 'ตกลง', confirmButtonColor: '#f59e0b', scrollbarPadding: false, heightAuto: false, customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 w-11/12 md:w-auto' }}); }
         };
 
@@ -1174,6 +1340,14 @@
                     }
                     
                     document.getElementById('adminTeacherSelector').innerHTML = opts;
+                    const subOrig = document.getElementById('subOriginalTeacher');
+                    const subSub = document.getElementById('subSubstituteTeacher');
+                    if (subOrig && subSub) {
+                        let tOpts = '<option value="">เลือกครู...</option>';
+                        state.teachers.forEach(t => tOpts += `<option value="${t}">${t}</option>`);
+                        subOrig.innerHTML = tOpts;
+                        subSub.innerHTML = tOpts;
+                    }
                 } else {
                     document.getElementById('adminTeacherSelector').innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
@@ -1478,6 +1652,7 @@
                 'manage-time': 'แก้ไขเวลาย้อนหลัง',
                 'history-overview': 'เช็คชื่อประจำวัน',
                 'schedule': 'จัดการตารางสอน', 
+                'substitute': 'จัดการสอนแทน',
                 'report': 'รายงานสถิติ / ดาวน์โหลด Excel',
                 'teacher-summary': 'สรุปสถิติการเช็คชื่อของครู',
                 'admin-logs': 'System Logs (CMD)'
@@ -1521,6 +1696,10 @@
 
             if(tabId === 'admin-logs') loadAdminLogs();
 
+            if (tabId === 'substitute') {
+                loadSubstituteHistory();
+            }
+
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
                 const overlay = document.getElementById('mobileOverlay');
@@ -1560,12 +1739,76 @@
                 
                 // 1. ปิดการเปิดปฏิทินอัตโนมัติเพื่อจัดการเอง
                 clickOpens: false, 
-                
-                // 2. ดักจับการคลิกที่ช่อง input เพื่อสลับสถานะ เปิด/ปิด (Toggle)
+            
                 onReady: function(selectedDates, dateStr, instance) {
                     instance.element.addEventListener('click', function() {
                         instance.toggle();
                     });
+
+                    // --- เริ่มส่วนดักจับการ Swipe ทั้งมือถือและคอมพิวเตอร์ ---
+                    const calendar = instance.calendarContainer;
+                    calendar.classList.add('swipeable'); // ใส่ class เพื่อให้เมาส์เป็นรูปมือ
+
+                    let startY = 0;
+                    let isDragging = false;
+                    const threshold = 40; // ระยะลากขั้นต่ำ (พิกเซล) ยิ่งน้อยยิ่งเซนซิทีฟ
+
+                    // --- สำหรับมือถือ (Touch Events) ---
+                    calendar.addEventListener('touchstart', (e) => {
+                        startY = e.touches[0].clientY; // เปลี่ยนมาใช้แกน Y
+                        isDragging = true;
+                    }, { passive: true });
+
+                    calendar.addEventListener('touchend', (e) => {
+                        if (!isDragging) return;
+                        handleSwipe(e.changedTouches[0].clientY);
+                        isDragging = false;
+                    }, { passive: true });
+
+                    // --- สำหรับคอมพิวเตอร์ (Mouse Events) ---
+                    calendar.addEventListener('mousedown', (e) => {
+                        startY = e.clientY;
+                        isDragging = true;
+                    });
+
+                    calendar.addEventListener('mouseup', (e) => {
+                        if (!isDragging) return;
+                        handleSwipe(e.clientY);
+                        isDragging = false;
+                    });
+
+                    // ถ้ายกเมาส์ออกนอกกรอบปฏิทินให้ยกเลิกการลาก
+                    calendar.addEventListener('mouseleave', () => {
+                        isDragging = false;
+                    });
+
+                    // --- ฟังก์ชันคำนวณทิศทางและเปลี่ยนเดือน ---
+                    function handleSwipe(endY) {
+                        const diffY = startY - endY;
+                        const daysContainer = calendar.querySelector('.flatpickr-innerContainer');
+
+                        if (diffY > threshold) {
+                            // ลากขึ้น (นิ้วเลื่อนขึ้น) -> ไปเดือนถัดไป
+                            instance.changeMonth(1);
+                            triggerAnimation(daysContainer, 'animate-slide-up');
+                        } else if (diffY < -threshold) {
+                            // ลากลง (นิ้วเลื่อนลง) -> ไปเดือนก่อนหน้า
+                            instance.changeMonth(-1);
+                            triggerAnimation(daysContainer, 'animate-slide-down');
+                        }
+                    }
+
+                    // ฟังก์ชันสั่งให้ CSS แอนิเมชันทำงาน
+                    function triggerAnimation(element, animationClass) {
+                        if (!element) return;
+                        // ล้างคลาสเก่าออกก่อน
+                        element.classList.remove('animate-slide-up', 'animate-slide-down');
+                        // บังคับให้เบราว์เซอร์รับรู้การเปลี่ยนแปลงเพื่อเริ่มแอนิเมชันใหม่
+                        void element.offsetWidth;
+                        // ใส่คลาสแอนิเมชันเข้าไปใหม่
+                        element.classList.add(animationClass);
+                    }
+                    // --- จบส่วน Swipe ---
                 },
                 
                 // --- [แก้ไข] ลอจิกการห้ามคลิก (Disable) ---
@@ -2722,12 +2965,17 @@
                 const actionBtn = isActivity 
                     ? `<span class="text-gray-400 text-xs bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">คาบกิจกรรม</span>`
                     : (item.isChecked 
-                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="inline-flex items-center justify-center gap-1.5 text-school-navy bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-eye text-school-blue"></i> ดูข้อมูล</button>` 
-                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="inline-flex items-center justify-center gap-1.5 text-white bg-school-blue hover:bg-[#345ba8] px-4 py-2 rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
+                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}', '${item.originalTeacher || ''}')" class="inline-flex items-center justify-center gap-1.5 text-school-navy bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-eye text-school-blue"></i> ดูข้อมูล</button>` 
+                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}', '${item.originalTeacher || ''}')" class="inline-flex items-center justify-center gap-1.5 text-white bg-school-blue hover:bg-[#345ba8] px-4 py-2 rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
 
+                let subjectDisplay = `${item.subject} <div class="text-sm font-normal text-gray-500 mt-1">${item.period}</div>`;
+                if (item.isSubstitute) {
+                    subjectDisplay += `<div class="mt-1"><span class="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200 shadow-sm"><i class="fas fa-exchange-alt mr-1"></i>สอนแทน (${item.originalTeacher})</span></div>`;
+                }
+                
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                    <td class="px-4 py-4 text-school-navy font-bold">${item.subject} <div class="text-sm font-normal text-gray-500 mt-1">${item.period}</div></td>
+                    <td class="px-4 py-4 text-school-navy font-bold">${subjectDisplay}</td>
                     <td class="px-4 py-4 text-gray-700">${isActivity ? 'กิจกรรม' : item.className}</td>
                     <td class="px-4 py-4 text-center">${statusBadge}</td>
                     <td class="px-4 py-4 text-center">${actionBtn}</td>
@@ -2753,13 +3001,14 @@
                 }, 300);
             };
 
-            // หากข้ามมาจากหน้ารวมของครูท่านอื่น ให้ทำการดึงตารางสอนใหม่ก่อนข้ามหน้า
-            if (teacherName && state.viewingTeacher !== teacherName && checkAdminPermission()) {
+            // หากข้ามมาจากหน้ารวมของครูท่านอื่น หรือ เป็นวิชาที่รับสอนแทน (teacherName จะไม่ว่างและไม่ตรงกับชื่อตัวเอง)
+            if (teacherName && state.viewingTeacher !== teacherName) {
                 state.viewingTeacher = teacherName;
                 const adminSel = document.getElementById('adminTeacherSelector');
                 if(adminSel) adminSel.value = teacherName;
                 
                 cuteAlert.loading(`กำลังดึงตารางสอนของ ${teacherName}...`);
+                // ดึงตารางสอนของครูเจ้าของวิชามาเตรียมไว้ เพื่อให้ตอนกดบันทึก ข้อมูลวิ่งกลับไปเข้าฐานข้อมูลที่ถูกต้อง
                 fetchSchedule().then(() => {
                     Swal.close();
                     executeJump();
@@ -2941,6 +3190,7 @@
             form.append('records', JSON.stringify(state.attendance));
             // เปลี่ยนจากการส่งชื่อ user ที่ล็อกอิน เป็นชื่อครูที่กำลังถูกเลือกดูตารางสอนอยู่
             form.append('recordedBy', state.viewingTeacher || state.user.name);
+            form.append('actualUser', state.user.name);
 
             let retryCount = 0; const maxRetries = 1; let isSuccess = false;
             cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
@@ -2957,8 +3207,10 @@
                     
                     if (json.status === 'success') {
                         isSuccess = true;
-                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
-                        if (state.overviewDate === state.currentDate) loadAttendanceOverview();
+                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(() => {
+                            switchTab('history-overview');
+                        });
+                        if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
                         fetchCalendarStatus();
 
                         warmedDates.delete(state.currentDate); 
@@ -3745,10 +3997,12 @@
         async function loadTeacherSummary(dateStr, forceRefresh = false) {
             if (!state.selectedTerm) return;
             
+            // ย้ายคำสั่งเรียก Pop-up ออกมาด้านนอก เพื่อให้แสดงเสมอเมื่อมีการเปลี่ยนวันที่หรือโหลดข้อมูล
+            if (!Swal.isVisible()) cuteAlert.loading('กำลังโหลดข้อมูลสถิติ... ⏳');
+
             if (forceRefresh) {
                 warmedDates.delete(dateStr);
                 saveWarmedDatesMemory(warmedDates);
-                if (!Swal.isVisible()) cuteAlert.loading('กำลังโหลดข้อมูลสถิติ...');
             }
             
             try {
@@ -4419,26 +4673,7 @@
         }
 
         function deleteCalendarSetting(dateStr) {
-            Swal.fire({
-                html: `
-                    <div class="flex flex-col items-center">
-                        <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 text-3xl shadow-sm border border-red-100">
-                            <i class="fas fa-trash-alt"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-school-navy mb-1">ลบการตั้งค่า?</h3>
-                        <p class="text-sm text-gray-500">ยืนยันการลบการตั้งค่าของวันที่ <span class="font-bold text-school-blue">${dateStr}</span></p>
-                    </div>`,
-                showCancelButton: true, 
-                confirmButtonText: 'ใช่, ลบเลย! <i class="fas fa-trash-alt ml-1"></i>', 
-                cancelButtonText: 'ยกเลิก',
-                buttonsStyling: false,
-                customClass: { 
-                    popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
-                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
-                    confirmButton: 'px-5 py-2.5 bg-red-500 text-white text-sm font-bold rounded-xl shadow-md hover:bg-red-600 transition w-full',
-                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
-                }
-            }).then(async (result) => {
+            cuteAlert.confirm('ลบการตั้งค่า?', `ยืนยันการลบการตั้งค่าของวันที่ <span class="font-bold text-school-blue">${dateStr}</span>`, 'ใช่, ลบเลย!', '#ef4444').then(async (result) => {
                 if (result.isConfirmed) {
                     cuteAlert.loading('กำลังลบข้อมูล...');
                     const form = new FormData();
@@ -4498,6 +4733,269 @@
             } catch (e) {
                 container.innerHTML = '<div class="text-red-500">Fatal Error: Connection to backend failed.</div>';
             }
+        }
+
+        // ==========================================
+        // ระบบจัดการสอนแทน (Substitute)
+        // ==========================================
+        async function loadTeacherSubjectsForSub() {
+            const dateStr = document.getElementById('subDate').value;
+            const teacher = document.getElementById('subOriginalTeacher').value;
+            const sel = document.getElementById('subSubjectList');
+            
+            if (!dateStr || !teacher) {
+                sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+                return;
+            }
+            
+            sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+            try {
+                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    const dayName = getEffectiveDayName(dateStr);
+                    const subjects = json.data.filter(s => s.day === dayName && s.className !== '-');
+                    
+                    if (subjects.length === 0) {
+                        sel.innerHTML = `<option value="">-- ไม่พบวิชาสอนในวัน${dayName} สำหรับครู ${teacher} --</option>`;
+                    } else {
+                        let opts = '<option value="">-- เลือกวิชาที่ต้องการให้สอนแทน --</option>';
+                        subjects.forEach(s => {
+                            opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                        });
+                        sel.innerHTML = opts;
+                    }
+                } else {
+                    sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+            }
+        }
+
+        let subActionType = 'add';
+        let subEditRowIndex = '';
+
+        async function submitSubstitute() {
+            const dateStr = document.getElementById('subDate').value;
+            const originalT = document.getElementById('subOriginalTeacher').value;
+            const substituteT = document.getElementById('subSubstituteTeacher').value;
+            const subjectVal = document.getElementById('subSubjectList').value;
+            
+            if (!dateStr || !originalT || !substituteT || !subjectVal) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลทั้ง 4 ข้อให้ครบถ้วน');
+                return;
+            }
+            if (originalT === substituteT) {
+                cuteAlert.error('ข้อมูลไม่ถูกต้อง', 'ครูเจ้าของวิชาและครูผู้สอนแทน ต้องไม่ใช่คนเดียวกัน');
+                return;
+            }
+            
+            const [subj, period, cls] = subjectVal.split('|');
+            
+            cuteAlert.loading('กำลังบันทึกข้อมูลการสอนแทน... ⏳');
+            const form = new FormData();
+            form.append('term', state.selectedTerm);
+            form.append('date', dateStr);
+            form.append('originalTeacher', originalT);
+            form.append('substituteTeacher', substituteT);
+            form.append('subject', subj);
+            form.append('period', period);
+            form.append('className', cls);
+            
+            try {
+                const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    cuteAlert.success('บันทึกสำเร็จ!', json.message);
+                    
+                    document.getElementById('subDate').value = '';
+                    document.getElementById('subOriginalTeacher').value = '';
+                    document.getElementById('subSubstituteTeacher').value = '';
+                    document.getElementById('subSubjectList').innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+
+                    loadSubstituteHistory();
+                } else {
+                    cuteAlert.error('ผิดพลาด', json.message || json.error || 'ไม่สามารถบันทึกข้อมูลได้');
+                }
+            } catch(e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            }
+        }
+
+        async function loadSubstituteHistory() {
+            const tbody = document.getElementById('substituteHistoryTableBody');
+            if (!tbody) return;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getSubstituteHistory&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success' && json.data.length > 0) {
+                    let html = '';
+                    json.data.forEach(item => {
+                        let statusBadge = '';
+                        if (item.status === 'Active') {
+                            statusBadge = `<span class="bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold border border-green-200 shadow-xs"><i class="fas fa-check-circle mr-1"></i>Active</span>`;
+                        } else {
+                            statusBadge = `<span class="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full text-xs font-bold border border-gray-200"><i class="fas fa-times-circle mr-1"></i>Expired</span>`;
+                        }
+                        
+                        const dateParts = item.date.split('-');
+                        const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : item.date;
+
+                        html += `
+                        <tr class="border-b border-gray-100 hover:bg-purple-50/30 transition-colors">
+                            <td class="px-4 py-3 font-bold text-gray-700 whitespace-nowrap align-middle">${displayDate}</td>
+                            <td class="px-4 py-3 align-middle">
+                                <div class="font-bold text-school-navy truncate max-w-[200px]" title="${item.subject}">${item.subject}</div>
+                                <div class="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">คาบ: ${item.period} | ห้องเรียน: ${item.className}</div>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600 align-middle">${item.originalTeacher}</td>
+                            <td class="px-4 py-3 text-purple-700 font-bold align-middle">${item.substituteTeacher}</td>
+                            <td class="px-4 py-3 text-center align-middle">${statusBadge}</td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap align-middle">
+                                <button onclick="editSubstitute(${item.rowIndex}, '${item.date}', '${item.originalTeacher}', '${item.substituteTeacher}', '${item.subject}|${item.period}|${item.className}')" class="text-blue-500 hover:text-blue-700 bg-white border border-blue-100 hover:bg-blue-50 w-7 h-7 rounded shadow-sm inline-flex items-center justify-center mr-1" title="แก้ไข"><i class="fas fa-edit text-xs"></i></button>
+                                <button onclick="deleteSubstitute(${item.rowIndex})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm inline-flex items-center justify-center" title="ลบ"><i class="fas fa-trash text-xs"></i></button>
+                            </td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400"><i class="fas fa-folder-open block text-2xl mb-2 text-gray-300"></i>ไม่พบข้อมูลประวัติการสอนแทนในระบบ</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">ไม่สามารถเชื่อมต่อเพื่อดึงประวัติได้</td></tr>`;
+            }
+        }
+
+        async function editSubstitute(rowIndex, date, origTeacher, subTeacher, subjectVal) {
+            document.getElementById('editSubRowIndex').value = rowIndex;
+            document.getElementById('editSubDate').value = date;
+            
+            const tOpts = document.getElementById('subOriginalTeacher').innerHTML;
+            document.getElementById('editSubOriginalTeacher').innerHTML = tOpts;
+            document.getElementById('editSubSubstituteTeacher').innerHTML = tOpts;
+            
+            document.getElementById('editSubOriginalTeacher').value = origTeacher;
+            document.getElementById('editSubSubstituteTeacher').value = subTeacher;
+            
+            cuteAlert.loading('กำลังเตรียมข้อมูลแก้ไข...');
+            await loadTeacherSubjectsForEditSub(subjectVal);
+            Swal.close();
+            
+            document.getElementById('editSubstituteModal').classList.add('active');
+        }
+
+        function closeEditSubstituteModal() {
+            document.getElementById('editSubstituteModal').classList.remove('active');
+        }
+
+        async function loadTeacherSubjectsForEditSub(preselectVal = null) {
+            const dateStr = document.getElementById('editSubDate').value;
+            const teacher = document.getElementById('editSubOriginalTeacher').value;
+            const sel = document.getElementById('editSubSubjectList');
+            
+            if (!dateStr || !teacher) {
+                sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+                return;
+            }
+            
+            sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+            try {
+                const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    const dayName = getEffectiveDayName(dateStr);
+                    const subjects = json.data.filter(s => s.day === dayName && s.className !== '-');
+                    
+                    if (subjects.length === 0) {
+                        sel.innerHTML = `<option value="">-- ไม่พบวิชาสอนในวัน${dayName} สำหรับครู ${teacher} --</option>`;
+                    } else {
+                        let opts = '<option value="">-- เลือกวิชาที่ต้องการให้สอนแทน --</option>';
+                        subjects.forEach(s => {
+                            opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                        });
+                        sel.innerHTML = opts;
+                        if(preselectVal) sel.value = preselectVal;
+                    }
+                } else {
+                    sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+            }
+        }
+
+        async function submitEditSubstitute() {
+            const rowIndex = document.getElementById('editSubRowIndex').value;
+            const dateStr = document.getElementById('editSubDate').value;
+            const originalT = document.getElementById('editSubOriginalTeacher').value;
+            const substituteT = document.getElementById('editSubSubstituteTeacher').value;
+            const subjectVal = document.getElementById('editSubSubjectList').value;
+            
+            if (!dateStr || !originalT || !substituteT || !subjectVal) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+            if (originalT === substituteT) {
+                cuteAlert.error('ข้อมูลไม่ถูกต้อง', 'ครูเจ้าของวิชาและครูผู้สอนแทน ต้องไม่ใช่คนเดียวกัน');
+                return;
+            }
+            
+            const [subj, period, cls] = subjectVal.split('|');
+            
+            cuteAlert.loading('กำลังบันทึกการแก้ไข... ⏳');
+            const form = new FormData();
+            form.append('term', state.selectedTerm);
+            form.append('date', dateStr);
+            form.append('originalTeacher', originalT);
+            form.append('substituteTeacher', substituteT);
+            form.append('subject', subj);
+            form.append('period', period);
+            form.append('className', cls);
+            form.append('actionType', 'edit');
+            form.append('rowIndex', rowIndex);
+            
+            try {
+                const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    closeEditSubstituteModal();
+                    cuteAlert.success('บันทึกสำเร็จ!', json.message);
+                    loadSubstituteHistory(); 
+                } else {
+                    cuteAlert.error('ผิดพลาด', json.message || json.error || 'ไม่สามารถบันทึกข้อมูลได้');
+                }
+            } catch(e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            }
+        }
+
+        function deleteSubstitute(rowIndex) {
+            cuteAlert.confirm('ลบรายการสอนแทน?', 'ยืนยันการลบประวัติการฝากสอนนี้', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบข้อมูล...');
+                    const form = new FormData();
+                    form.append('actionType', 'delete');
+                    form.append('rowIndex', rowIndex);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            cuteAlert.success('สำเร็จ!', json.message);
+                            loadSubstituteHistory();
+                        } else {
+                            cuteAlert.error('ผิดพลาด', json.message);
+                        }
+                    } catch(e) {
+                        cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+                    }
+                }
+            });
         }
     </script>
 </body>
