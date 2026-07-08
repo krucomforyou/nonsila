@@ -196,7 +196,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2810,12 +2810,17 @@
                 const actionBtn = isActivity 
                     ? `<span class="text-gray-400 text-xs bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">คาบกิจกรรม</span>`
                     : (item.isChecked 
-                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="inline-flex items-center justify-center gap-1.5 text-school-navy bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-eye text-school-blue"></i> ดูข้อมูล</button>` 
-                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}')" class="inline-flex items-center justify-center gap-1.5 text-white bg-school-blue hover:bg-[#345ba8] px-4 py-2 rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
+                        ? `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}', '${item.originalTeacher || ''}')" class="inline-flex items-center justify-center gap-1.5 text-school-navy bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-eye text-school-blue"></i> ดูข้อมูล</button>` 
+                        : `<button onclick="jumpToCheckAttendance('${dateStr}', '${item.subject}', '${item.period}', '${item.className}', '${item.originalTeacher || ''}')" class="inline-flex items-center justify-center gap-1.5 text-white bg-school-blue hover:bg-[#345ba8] px-4 py-2 rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap transform hover:-translate-y-0.5"><i class="fas fa-edit"></i> เช็คชื่อเลย</button>`);
 
+                let subjectDisplay = `${item.subject} <div class="text-sm font-normal text-gray-500 mt-1">${item.period}</div>`;
+                if (item.isSubstitute) {
+                    subjectDisplay += `<div class="mt-1"><span class="bg-purple-100 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200 shadow-sm"><i class="fas fa-exchange-alt mr-1"></i>สอนแทน (${item.originalTeacher})</span></div>`;
+                }
+                
                 html += `
                 <tr class="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                    <td class="px-4 py-4 text-school-navy font-bold">${item.subject} <div class="text-sm font-normal text-gray-500 mt-1">${item.period}</div></td>
+                    <td class="px-4 py-4 text-school-navy font-bold">${subjectDisplay}</td>
                     <td class="px-4 py-4 text-gray-700">${isActivity ? 'กิจกรรม' : item.className}</td>
                     <td class="px-4 py-4 text-center">${statusBadge}</td>
                     <td class="px-4 py-4 text-center">${actionBtn}</td>
@@ -2841,13 +2846,14 @@
                 }, 300);
             };
 
-            // หากข้ามมาจากหน้ารวมของครูท่านอื่น ให้ทำการดึงตารางสอนใหม่ก่อนข้ามหน้า
-            if (teacherName && state.viewingTeacher !== teacherName && checkAdminPermission()) {
+            // หากข้ามมาจากหน้ารวมของครูท่านอื่น หรือ เป็นวิชาที่รับสอนแทน (teacherName จะไม่ว่างและไม่ตรงกับชื่อตัวเอง)
+            if (teacherName && state.viewingTeacher !== teacherName) {
                 state.viewingTeacher = teacherName;
                 const adminSel = document.getElementById('adminTeacherSelector');
                 if(adminSel) adminSel.value = teacherName;
                 
                 cuteAlert.loading(`กำลังดึงตารางสอนของ ${teacherName}...`);
+                // ดึงตารางสอนของครูเจ้าของวิชามาเตรียมไว้ เพื่อให้ตอนกดบันทึก ข้อมูลวิ่งกลับไปเข้าฐานข้อมูลที่ถูกต้อง
                 fetchSchedule().then(() => {
                     Swal.close();
                     executeJump();
