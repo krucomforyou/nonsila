@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -637,6 +637,29 @@
                             </button>
                         </div>
                     </div>
+
+                    <div class="mt-8 border-t border-gray-100 pt-6">
+                        <h4 class="text-base font-bold text-school-navy mb-3"><i class="fas fa-history text-gray-500 mr-2"></i> รายการประวัติการตั้งค่าการสอนแทนทั้งหมด</h4>
+                        <div class="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50 text-school-navy text-xs font-bold border-b border-gray-200">
+                                        <th class="px-4 py-3">วันที่สอนแทน</th>
+                                        <th class="px-4 py-3">รายละเอียดวิชาที่สอนแทน</th>
+                                        <th class="px-4 py-3">ครูผู้ฝากสอน</th>
+                                        <th class="px-4 py-3">ครูผู้สอนแทน</th>
+                                        <th class="px-4 py-3 text-center">สถานะใช้งาน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="substituteHistoryTableBody" class="text-sm text-gray-600">
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-8 text-center text-gray-400">กำลังโหลดประวัติข้อมูล...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1595,6 +1618,10 @@
             }
 
             if(tabId === 'admin-logs') loadAdminLogs();
+
+            if (tabId === 'substitute') {
+                loadSubstituteHistory();
+            }
 
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
@@ -4719,11 +4746,57 @@
                 if (json.status === 'success') {
                     cuteAlert.success('บันทึกสำเร็จ!', 'ครูผู้สอนแทนจะเห็นวิชานี้ในหน้าเช็คชื่อของตนเองแล้ว');
                     document.getElementById('subSubjectList').value = ''; // เคลียร์ค่าหลังบันทึกเสร็จ
+
+                    loadSubstituteHistory();
                 } else {
                     cuteAlert.error('ผิดพลาด', json.message);
                 }
             } catch(e) {
                 cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            }
+        }
+
+        // ฟังก์ชันดึงประวัติการสอนแทนมาแสดงผลในตารางหน้าเว็บแอดมิน
+        async function loadSubstituteHistory() {
+            const tbody = document.getElementById('substituteHistoryTableBody');
+            if (!tbody) return;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=getSubstituteHistory&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success' && json.data.length > 0) {
+                    let html = '';
+                    json.data.forEach(item => {
+                        let statusBadge = '';
+                        if (item.status === 'Active') {
+                            statusBadge = `<span class="bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold border border-green-200 shadow-xs"><i class="fas fa-check-circle mr-1"></i>Active</span>`;
+                        } else {
+                            statusBadge = `<span class="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full text-xs font-bold border border-gray-200"><i class="fas fa-times-circle mr-1"></i>Expired</span>`;
+                        }
+                        
+                        // ฟอร์แมตวันที่ให้แสดงผลเป็น วว/ดด/ปปปป สวยงาม
+                        const dateParts = item.date.split('-');
+                        const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : item.date;
+
+                        html += `
+                        <tr class="border-b border-gray-100 hover:bg-purple-50/30 transition-colors">
+                            <td class="px-4 py-3.5 font-bold text-gray-700">${displayDate}</td>
+                            <td class="px-4 py-3.5">
+                                <div class="font-bold text-school-navy">${item.subject}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">คาบ: ${item.period} | ห้องเรียน: ${item.className} (เทอม ${item.term})</div>
+                            </td>
+                            <td class="px-4 py-3.5 text-gray-600">${item.originalTeacher}</td>
+                            <td class="px-4 py-3.5 text-purple-700 font-bold">${item.substituteTeacher}</td>
+                            <td class="px-4 py-3.5 text-center">${statusBadge}</td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400"><i class="fas fa-folder-open block text-2xl mb-2 text-gray-300"></i>ไม่พบข้อมูลประวัติการสอนแทนในระบบ</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">ไม่สามารถเชื่อมต่อเพื่อดึงประวัติได้</td></tr>`;
             }
         }
     </script>
