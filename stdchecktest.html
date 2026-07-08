@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1561,11 +1561,40 @@
                 // 1. ปิดการเปิดปฏิทินอัตโนมัติเพื่อจัดการเอง
                 clickOpens: false, 
                 
-                // 2. ดักจับการคลิกที่ช่อง input เพื่อสลับสถานะ เปิด/ปิด (Toggle)
                 onReady: function(selectedDates, dateStr, instance) {
                     instance.element.addEventListener('click', function() {
                         instance.toggle();
                     });
+
+                    // --- เริ่มส่วนที่เพิ่มใหม่: ดักจับการสไลด์ (Swipe) ---
+                    let touchStartX = 0;
+                    let touchEndX = 0;
+
+                    // เมื่อเริ่มแตะหน้าจอ
+                    instance.calendarContainer.addEventListener('touchstart', function(e) {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, { passive: true });
+
+                    // เมื่อปล่อยนิ้ว
+                    instance.calendarContainer.addEventListener('touchend', function(e) {
+                        touchEndX = e.changedTouches[0].screenX;
+                        handleSwipe();
+                    }, { passive: true });
+
+                    // ฟังก์ชันคำนวณทิศทางการสไลด์
+                    function handleSwipe() {
+                        const swipeThreshold = 40; // ระยะสไลด์ขั้นต่ำ (พิกเซล) ปรับลด/เพิ่มได้ตามต้องการ
+                        
+                        if (touchEndX < touchStartX - swipeThreshold) {
+                            // สไลด์ไปทางซ้าย -> เลื่อนไปเดือนถัดไป
+                            instance.changeMonth(1); 
+                        }
+                        
+                        if (touchEndX > touchStartX + swipeThreshold) {
+                            // สไลด์ไปทางขวา -> เลื่อนกลับไปเดือนก่อนหน้า
+                            instance.changeMonth(-1); 
+                        }
+                    }
                 },
                 
                 // --- [แก้ไข] ลอจิกการห้ามคลิก (Disable) ---
