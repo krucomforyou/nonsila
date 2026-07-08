@@ -172,7 +172,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1103,9 +1103,34 @@
                             
                             if (resJson.status === "success") {
                                 localStorage.setItem('school_user_session', JSON.stringify(resJson.userData));
-                                // เมื่อสำเร็จ เรียก cuteAlert.success
-                                cuteAlert.success('เข้าสู่ระบบสำเร็จ! 🎉', 'กำลังพาท่านเข้าสู่ระบบเช็คชื่อ...').then(() => {
-                                    window.location.reload(); 
+                                cuteAlert.success('เข้าสู่ระบบสำเร็จ! 🎉', 'กำลังเข้าสู่ระบบ...').then(async () => {
+                                    
+                                    // 1. อัปเดตข้อมูลผู้ใช้บนหน้าจอทันทีโดยไม่ต้องรีเฟรช
+                                    state.user = resJson.userData;
+                                    state.viewingTeacher = state.user.name;
+                                    document.getElementById('sidebarUserName').innerText = state.user.name || 'ไม่ระบุชื่อ';
+                                    
+                                    // 2. เรียกฟังก์ชันเตรียมข้อมูลเริ่มต้น (เหมือนตอนหน้าเว็บโหลด)
+                                    cuteAlert.loading('กำลังเตรียมข้อมูลระบบ กรุณารอสักครู่... ⏳');
+                                    await fetchTerms(); 
+                                    fetchClasses(); 
+                                    
+                                    const promises = [fetchCalendarSettings(), fetchSchedule()];
+                                    
+                                    if (checkAdminPermission()) {
+                                        const selCont = document.getElementById('adminTeacherSelectorContainer');
+                                        if (selCont) {
+                                            selCont.classList.remove('hidden');
+                                            selCont.classList.add('flex');
+                                        }
+                                        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+                                        promises.push(fetchTeachers());
+                                    }
+                                    
+                                    await Promise.all(promises);
+                                    warmUpCache(state.currentDate);
+                                    switchTab('history-overview');
+                                    Swal.close(); // ปิดหน้าต่างโหลด
                                 });
                             } else {
                                 // รหัสผิด เรียก cuteAlert.error และเมื่อกดปิดให้เปิด popup ล็อกอินใหม่
