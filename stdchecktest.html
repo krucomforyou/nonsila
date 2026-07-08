@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -649,6 +649,7 @@
                                         <th class="px-4 py-3">ครูผู้ฝากสอน</th>
                                         <th class="px-4 py-3">ครูผู้สอนแทน</th>
                                         <th class="px-4 py-3 text-center">สถานะใช้งาน</th>
+                                        <th class="px-4 py-3 text-center">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="substituteHistoryTableBody" class="text-sm text-gray-600">
@@ -3130,7 +3131,9 @@
                     
                     if (json.status === 'success') {
                         isSuccess = true;
-                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message);
+                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(() => {
+                            switchTab('history-overview');
+                        });
                         if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
                         fetchCalendarStatus();
 
@@ -4714,6 +4717,9 @@
             }
         }
 
+        let subActionType = 'add';
+        let subEditRowIndex = '';
+
         async function submitSubstitute() {
             const dateStr = document.getElementById('subDate').value;
             const originalT = document.getElementById('subOriginalTeacher').value;
@@ -4741,14 +4747,17 @@
             form.append('period', period);
             form.append('className', cls);
             
+            // เพิ่มตัวแปรสำหรับแก้ไข
+            form.append('actionType', subActionType);
+            if(subActionType === 'edit') form.append('rowIndex', subEditRowIndex);
+            
             try {
                 const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') {
-                    cuteAlert.success('บันทึกสำเร็จ!', 'ครูผู้สอนแทนจะเห็นวิชานี้ในหน้าเช็คชื่อของตนเองแล้ว');
-                    document.getElementById('subSubjectList').value = ''; // เคลียร์ค่าหลังบันทึกเสร็จ
-
-                    loadSubstituteHistory();
+                    cuteAlert.success('บันทึกสำเร็จ!', json.message);
+                    resetSubstituteForm(); // รีเซ็ตฟอร์มกลับเป็นโหมด Add
+                    loadSubstituteHistory(); // โหลดตารางใหม่
                 } else {
                     cuteAlert.error('ผิดพลาด', json.message || json.error || 'ไม่สามารถบันทึกข้อมูลได้');
                 }
@@ -4757,7 +4766,6 @@
             }
         }
 
-        // ฟังก์ชันดึงประวัติการสอนแทนมาแสดงผลในตารางหน้าเว็บแอดมิน
         async function loadSubstituteHistory() {
             const tbody = document.getElementById('substituteHistoryTableBody');
             if (!tbody) return;
@@ -4776,10 +4784,10 @@
                             statusBadge = `<span class="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full text-xs font-bold border border-gray-200"><i class="fas fa-times-circle mr-1"></i>Expired</span>`;
                         }
                         
-                        // ฟอร์แมตวันที่ให้แสดงผลเป็น วว/ดด/ปปปป สวยงาม
                         const dateParts = item.date.split('-');
                         const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : item.date;
 
+                        // เพิ่มปุ่มแก้ไข/ลบ
                         html += `
                         <tr class="border-b border-gray-100 hover:bg-purple-50/30 transition-colors">
                             <td class="px-4 py-3.5 font-bold text-gray-700">${displayDate}</td>
@@ -4790,15 +4798,95 @@
                             <td class="px-4 py-3.5 text-gray-600">${item.originalTeacher}</td>
                             <td class="px-4 py-3.5 text-purple-700 font-bold">${item.substituteTeacher}</td>
                             <td class="px-4 py-3.5 text-center">${statusBadge}</td>
+                            <td class="px-4 py-3.5 text-center whitespace-nowrap">
+                                <button onclick="editSubstitute(${item.rowIndex}, '${item.date}', '${item.originalTeacher}', '${item.substituteTeacher}', '${item.subject}|${item.period}|${item.className}')" class="text-blue-500 hover:text-blue-700 bg-white border border-blue-100 hover:bg-blue-50 w-7 h-7 rounded shadow-sm inline-flex items-center justify-center mr-1" title="แก้ไข"><i class="fas fa-edit text-xs"></i></button>
+                                <button onclick="deleteSubstitute(${item.rowIndex})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm inline-flex items-center justify-center" title="ลบ"><i class="fas fa-trash text-xs"></i></button>
+                            </td>
                         </tr>`;
                     });
                     tbody.innerHTML = html;
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400"><i class="fas fa-folder-open block text-2xl mb-2 text-gray-300"></i>ไม่พบข้อมูลประวัติการสอนแทนในระบบ</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400"><i class="fas fa-folder-open block text-2xl mb-2 text-gray-300"></i>ไม่พบข้อมูลประวัติการสอนแทนในระบบ</td></tr>`;
                 }
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">ไม่สามารถเชื่อมต่อเพื่อดึงประวัติได้</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">ไม่สามารถเชื่อมต่อเพื่อดึงประวัติได้</td></tr>`;
             }
+        }
+
+        async function editSubstitute(rowIndex, date, origTeacher, subTeacher, subjectVal) {
+            document.getElementById('subDate').value = date;
+            document.getElementById('subOriginalTeacher').value = origTeacher;
+            
+            subActionType = 'edit';
+            subEditRowIndex = rowIndex;
+            
+            cuteAlert.loading('กำลังโหลดข้อมูลวิชา...');
+            await loadTeacherSubjectsForSub();
+            
+            document.getElementById('subSubjectList').value = subjectVal;
+            document.getElementById('subSubstituteTeacher').value = subTeacher;
+            
+            const btn = document.querySelector('button[onclick="submitSubstitute()"]');
+            if(btn) {
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> อัปเดตข้อมูลสอนแทน';
+                btn.classList.replace('bg-purple-600', 'bg-blue-600');
+                btn.classList.replace('hover:bg-purple-700', 'hover:bg-blue-700');
+            }
+            
+            if(!document.getElementById('btnCancelSubEdit')) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.id = 'btnCancelSubEdit';
+                cancelBtn.className = 'bg-gray-500 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-md transition ml-2';
+                cancelBtn.innerHTML = '<i class="fas fa-times mr-2"></i> ยกเลิก';
+                cancelBtn.onclick = resetSubstituteForm;
+                btn.parentNode.appendChild(cancelBtn);
+            }
+            
+            Swal.close();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function resetSubstituteForm() {
+            subActionType = 'add';
+            subEditRowIndex = '';
+            document.getElementById('subDate').value = '';
+            document.getElementById('subOriginalTeacher').value = '';
+            document.getElementById('subSubjectList').innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+            document.getElementById('subSubstituteTeacher').value = '';
+            
+            const btn = document.querySelector('button[onclick="submitSubstitute()"]');
+            if(btn) {
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> บันทึกข้อมูลสอนแทน';
+                btn.classList.replace('bg-blue-600', 'bg-purple-600');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-purple-700');
+            }
+            
+            const cancelBtn = document.getElementById('btnCancelSubEdit');
+            if(cancelBtn) cancelBtn.remove();
+        }
+
+        function deleteSubstitute(rowIndex) {
+            cuteAlert.confirm('ลบรายการสอนแทน?', 'ยืนยันการลบประวัติการฝากสอนนี้', 'ใช่, ลบเลย! 🗑️', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังลบข้อมูล...');
+                    const form = new FormData();
+                    form.append('actionType', 'delete');
+                    form.append('rowIndex', rowIndex);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            cuteAlert.success('สำเร็จ!', json.message);
+                            loadSubstituteHistory();
+                        } else {
+                            cuteAlert.error('ผิดพลาด', json.message);
+                        }
+                    } catch(e) {
+                        cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+                    }
+                }
+            });
         }
     </script>
 </body>
