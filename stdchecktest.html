@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -620,7 +620,7 @@
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">3. เลือกวิชาที่ต้องการฝากสอน (อิงตามตารางสอนของครูเดิม)</label>
-                                <select id="subSubjectList" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                                <select id="subSubjectList" onchange="loadAvailableSubstitutes(false)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
                                     <option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>
                                 </select>
                             </div>
@@ -933,7 +933,7 @@
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-xs font-bold text-gray-700 mb-1">3. เลือกวิชาที่ต้องการฝากสอน</label>
-                        <select id="editSubSubjectList" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                        <select id="editSubSubjectList" onchange="loadAvailableSubstitutes(true)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 bg-white">
                             <option value="">กำลังโหลดวิชา...</option>
                         </select>
                     </div>
@@ -4764,6 +4764,7 @@
         // ระบบจัดการสอนแทน (Substitute)
         // ==========================================
         async function loadTeacherSubjectsForSub() {
+            document.getElementById('subSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
             const dateStr = document.getElementById('subDate').value;
             const teacher = document.getElementById('subOriginalTeacher').value;
             const sel = document.getElementById('subSubjectList');
@@ -4903,23 +4904,25 @@
             
             const tOpts = document.getElementById('subOriginalTeacher').innerHTML;
             document.getElementById('editSubOriginalTeacher').innerHTML = tOpts;
-            document.getElementById('editSubSubstituteTeacher').innerHTML = tOpts;
-            
             document.getElementById('editSubOriginalTeacher').value = origTeacher;
-            document.getElementById('editSubSubstituteTeacher').value = subTeacher;
             
             cuteAlert.loading('กำลังเตรียมข้อมูลแก้ไข...');
-            await loadTeacherSubjectsForEditSub(subjectVal);
-            Swal.close();
             
+            // โหลดวิชาของครูท่านนั้น
+            await loadTeacherSubjectsForEditSub(subjectVal);
+            
+            // โหลดรายชื่อครูที่ว่างสำหรับคาบนั้น
+            await loadAvailableSubstitutes(true);
+            
+            // เลือกครูสอนแทน
+            document.getElementById('editSubSubstituteTeacher').value = subTeacher;
+            
+            Swal.close();
             document.getElementById('editSubstituteModal').classList.add('active');
         }
 
-        function closeEditSubstituteModal() {
-            document.getElementById('editSubstituteModal').classList.remove('active');
-        }
-
         async function loadTeacherSubjectsForEditSub(preselectVal = null) {
+            document.getElementById('editSubSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
             const dateStr = document.getElementById('editSubDate').value;
             const teacher = document.getElementById('editSubOriginalTeacher').value;
             const sel = document.getElementById('editSubSubjectList');
@@ -5027,6 +5030,47 @@
                     }
                 }
             });
+        }
+
+        async function loadAvailableSubstitutes(isEdit = false) {
+            const prefix = isEdit ? 'editSub' : 'sub';
+            const dateStr = document.getElementById(`${prefix}Date`).value;
+            const origTeacher = document.getElementById(`${prefix}OriginalTeacher`).value;
+            const subjectVal = document.getElementById(`${prefix}SubjectList`).value;
+            const subSelect = document.getElementById(`${prefix}SubstituteTeacher`);
+            
+            if (!dateStr || !origTeacher || !subjectVal) {
+                subSelect.innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
+                return;
+            }
+            
+            const [subj, period, cls] = subjectVal.split('|');
+            subSelect.innerHTML = '<option value="">กำลังค้นหาครูที่ว่าง...</option>';
+            
+            try {
+                const dayOfWeek = getEffectiveDayName(dateStr);
+                const res = await fetch(`${API_URL}?action=getAvailableSubstitutes&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&period=${encodeURIComponent(period)}&originalTeacher=${encodeURIComponent(origTeacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    if (json.data.length === 0) {
+                        subSelect.innerHTML = '<option value="">-- ไม่มีครูที่ว่างในคาบนี้เลย --</option>';
+                    } else {
+                        // เรียงลำดับจากคนที่ว่างเยอะสุด ไปน้อยสุด
+                        json.data.sort((a, b) => b.freePeriods - a.freePeriods);
+                        
+                        let opts = '<option value="">-- เลือกครูผู้รับสอนแทน --</option>';
+                        json.data.forEach(t => {
+                            opts += `<option value="${t.teacher}">${t.teacher} (ว่าง ${t.freePeriods} คาบ)</option>`;
+                        });
+                        subSelect.innerHTML = opts;
+                    }
+                } else {
+                    subSelect.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                }
+            } catch (e) {
+                subSelect.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+            }
         }
     </script>
 </body>
