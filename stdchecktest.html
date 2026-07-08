@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1657,6 +1657,14 @@
         }
 
         function switchTab(tabId) {
+            // [แก้ไขปัญหาปฏิทินติดสีครูคนอื่น] รีเซ็ตกลับเป็นตัวเอง หากเปลี่ยนแท็บกลับมาหน้าเช็คชื่อประจำวัน
+            if (tabId === 'history-overview' && state.viewingTeacher !== state.user.name) {
+                state.viewingTeacher = state.user.name;
+                const adminSel = document.getElementById('adminTeacherSelector');
+                if (adminSel) adminSel.value = state.user.name;
+                fetchSchedule();
+            }
+
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
             
@@ -3232,19 +3240,33 @@
                     
                     if (json.status === 'success') {
                         isSuccess = true;
+                        
+                        // [แก้ไขปัญหาปฏิทินติดสีครูคนอื่น] เช็คว่าเป็นการบันทึกสอนแทนหรือไม่
+                        let wasSubstituting = false;
+                        if (state.viewingTeacher !== state.user.name) {
+                            state.viewingTeacher = state.user.name;
+                            const adminSel = document.getElementById('adminTeacherSelector');
+                            if (adminSel) adminSel.value = state.user.name;
+                            wasSubstituting = true;
+                        }
+
                         cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(() => {
                             switchTab('history-overview');
                         });
-                        if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
-                        fetchCalendarStatus();
+                        
+                        // ถ้าเพิ่งสอนแทนเสร็จ ให้โหลดตารางและสีปฏิทินตัวเองกลับมาใหม่
+                        if (wasSubstituting) {
+                            fetchSchedule().then(() => {
+                                if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
+                            });
+                        } else {
+                            if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
+                            fetchCalendarStatus();
+                        }
 
                         warmedDates.delete(state.currentDate); 
                         saveWarmedDatesMemory(warmedDates);
-                        
-                        // --- แก้ไขบรรทัดนี้: ใส่ค่า true ลงไปเพื่อให้โหลดเฉพาะวันที่เพิ่งบันทึก ---
                         warmUpCache(state.currentDate, true); 
-                        // --------------------------------------------------------
-
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
