@@ -94,6 +94,22 @@
             background: #fff; border-radius: 50%; width: 14px; height: 14px;
             display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 10;
         }
+
+        /* เพิ่มแอนิเมชันเลื่อนขึ้น/ลงให้ปฏิทิน */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideDownFade {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUpFade 0.3s ease-out; }
+        .animate-slide-down { animation: slideDownFade 0.3s ease-out; }
+
+        /* เมาส์ชี้ให้เป็นรูปมือจับบนคอมพิวเตอร์ */
+        .flatpickr-calendar.swipeable { cursor: grab; }
+        .flatpickr-calendar.swipeable:active { cursor: grabbing; }
     </style>
 </head>
 <body class="flex h-[100dvh] overflow-hidden text-gray-800">
@@ -172,7 +188,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1560,41 +1576,76 @@
                 
                 // 1. ปิดการเปิดปฏิทินอัตโนมัติเพื่อจัดการเอง
                 clickOpens: false, 
-                
+            
                 onReady: function(selectedDates, dateStr, instance) {
                     instance.element.addEventListener('click', function() {
                         instance.toggle();
                     });
 
-                    // --- เริ่มส่วนที่เพิ่มใหม่: ดักจับการสไลด์ (Swipe) ---
-                    let touchStartX = 0;
-                    let touchEndX = 0;
+                    // --- เริ่มส่วนดักจับการ Swipe ทั้งมือถือและคอมพิวเตอร์ ---
+                    const calendar = instance.calendarContainer;
+                    calendar.classList.add('swipeable'); // ใส่ class เพื่อให้เมาส์เป็นรูปมือ
 
-                    // เมื่อเริ่มแตะหน้าจอ
-                    instance.calendarContainer.addEventListener('touchstart', function(e) {
-                        touchStartX = e.changedTouches[0].screenX;
+                    let startY = 0;
+                    let isDragging = false;
+                    const threshold = 40; // ระยะลากขั้นต่ำ (พิกเซล) ยิ่งน้อยยิ่งเซนซิทีฟ
+
+                    // --- สำหรับมือถือ (Touch Events) ---
+                    calendar.addEventListener('touchstart', (e) => {
+                        startY = e.touches[0].clientY; // เปลี่ยนมาใช้แกน Y
+                        isDragging = true;
                     }, { passive: true });
 
-                    // เมื่อปล่อยนิ้ว
-                    instance.calendarContainer.addEventListener('touchend', function(e) {
-                        touchEndX = e.changedTouches[0].screenX;
-                        handleSwipe();
+                    calendar.addEventListener('touchend', (e) => {
+                        if (!isDragging) return;
+                        handleSwipe(e.changedTouches[0].clientY);
+                        isDragging = false;
                     }, { passive: true });
 
-                    // ฟังก์ชันคำนวณทิศทางการสไลด์
-                    function handleSwipe() {
-                        const swipeThreshold = 40; // ระยะสไลด์ขั้นต่ำ (พิกเซล) ปรับลด/เพิ่มได้ตามต้องการ
-                        
-                        if (touchEndX < touchStartX - swipeThreshold) {
-                            // สไลด์ไปทางซ้าย -> เลื่อนไปเดือนถัดไป
-                            instance.changeMonth(1); 
-                        }
-                        
-                        if (touchEndX > touchStartX + swipeThreshold) {
-                            // สไลด์ไปทางขวา -> เลื่อนกลับไปเดือนก่อนหน้า
-                            instance.changeMonth(-1); 
+                    // --- สำหรับคอมพิวเตอร์ (Mouse Events) ---
+                    calendar.addEventListener('mousedown', (e) => {
+                        startY = e.clientY;
+                        isDragging = true;
+                    });
+
+                    calendar.addEventListener('mouseup', (e) => {
+                        if (!isDragging) return;
+                        handleSwipe(e.clientY);
+                        isDragging = false;
+                    });
+
+                    // ถ้ายกเมาส์ออกนอกกรอบปฏิทินให้ยกเลิกการลาก
+                    calendar.addEventListener('mouseleave', () => {
+                        isDragging = false;
+                    });
+
+                    // --- ฟังก์ชันคำนวณทิศทางและเปลี่ยนเดือน ---
+                    function handleSwipe(endY) {
+                        const diffY = startY - endY;
+                        const daysContainer = calendar.querySelector('.flatpickr-innerContainer');
+
+                        if (diffY > threshold) {
+                            // ลากขึ้น (นิ้วเลื่อนขึ้น) -> ไปเดือนถัดไป
+                            instance.changeMonth(1);
+                            triggerAnimation(daysContainer, 'animate-slide-up');
+                        } else if (diffY < -threshold) {
+                            // ลากลง (นิ้วเลื่อนลง) -> ไปเดือนก่อนหน้า
+                            instance.changeMonth(-1);
+                            triggerAnimation(daysContainer, 'animate-slide-down');
                         }
                     }
+
+                    // ฟังก์ชันสั่งให้ CSS แอนิเมชันทำงาน
+                    function triggerAnimation(element, animationClass) {
+                        if (!element) return;
+                        // ล้างคลาสเก่าออกก่อน
+                        element.classList.remove('animate-slide-up', 'animate-slide-down');
+                        // บังคับให้เบราว์เซอร์รับรู้การเปลี่ยนแปลงเพื่อเริ่มแอนิเมชันใหม่
+                        void element.offsetWidth;
+                        // ใส่คลาสแอนิเมชันเข้าไปใหม่
+                        element.classList.add(animationClass);
+                    }
+                    // --- จบส่วน Swipe ---
                 },
                 
                 // --- [แก้ไข] ลอจิกการห้ามคลิก (Disable) ---
