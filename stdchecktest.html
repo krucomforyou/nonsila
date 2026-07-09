@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1462,7 +1462,11 @@
         }
 
         // โค้ดส่วน Modals Manage Term เดิม
-        function openManageTermModal() { renderManageTermTable(); document.getElementById('manageTermModal').classList.add('active'); }
+        function openManageTermModal() {
+            history.pushState({ modalOpen: true }, "");
+            renderManageTermTable();
+            document.getElementById('manageTermModal').classList.add('active');
+        }
         function closeManageTermModal() { document.getElementById('manageTermModal').classList.remove('active'); }
         
         function renderManageTermTable() {
@@ -2618,6 +2622,7 @@
         }
 
         function openTimetableSettingsModal() {
+            history.pushState({ modalOpen: true }, "");
             if(!checkAdminPermission()) return;
             document.getElementById('stgColWidth').value = state.timetableConfig.colWidth;
             document.getElementById('stgRowHeight').value = state.timetableConfig.rowHeight;
@@ -2680,6 +2685,7 @@
         // ระบบใหม่: วางข้อมูลจาก Excel (Import Schedule)
         // ==========================================
         function openImportScheduleModal() {
+            history.pushState({ modalOpen: true }, "");
             if(!checkAdminPermission()) return;
             document.getElementById('pasteScheduleArea').value = '';
             document.getElementById('importScheduleModal').classList.add('active');
@@ -3212,6 +3218,7 @@
         }
 
         function openNoteModal(index) {
+            history.pushState({ modalOpen: true }, "");
             document.getElementById('noteStudentIndex').value = index;
             document.getElementById('noteTextarea').value = state.attendance[index].note !== undefined && state.attendance[index].note !== null ? String(state.attendance[index].note) : '';
             const nameParts = state.students[index].slice(2).filter(Boolean);
@@ -3850,6 +3857,7 @@
 
         // โค้ดส่วน Modals Manage Student เดิม
         function openManageStudentModal() { 
+            history.pushState({ modalOpen: true }, "");
             document.getElementById('manageStudentModal').classList.add('active'); 
             const isAdmin = checkAdminPermission();
             document.querySelectorAll('.admin-only, .admin-class-btn').forEach(el => el.style.display = isAdmin ? 'flex' : 'none');
@@ -3932,6 +3940,7 @@
         }
 
         function openEditStudentForm(actionType, rowIndex = null) {
+            history.pushState({ modalOpen: true }, "");
             if (!checkAdminPermission()) return;
             const className = document.getElementById('manageClassSelector').value;
             if(!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
@@ -4419,6 +4428,7 @@
         // ระบบวางข้อมูลรายชื่อนักเรียนจาก Excel
         // ==========================================
         function openImportStudentModal() {
+            history.pushState({ modalOpen: true }, "");
             if (!checkAdminPermission()) return;
             const className = document.getElementById('manageClassSelector').value;
             if(!className) { 
@@ -4705,6 +4715,7 @@
         }
 
         function openCalendarSettingsModal() {
+            history.pushState({ modalOpen: true }, "");
             document.getElementById('calSetDate').value = '';
             document.getElementById('calSetNote').value = '';
             document.getElementById('calSetType').value = 'holiday';
@@ -4919,6 +4930,7 @@
             form.append('subject', subj);
             form.append('period', period);
             form.append('className', cls);
+            form.append('adminUser', state.user.name);
             
             try {
                 const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
@@ -5009,6 +5021,16 @@
             
             Swal.close();
             document.getElementById('editSubstituteModal').classList.add('active');
+            history.pushState({ modalOpen: true }, "");
+        }
+
+        function closeEditSubstituteModal() {
+            document.getElementById('editSubstituteModal').classList.remove('active');
+            
+            // 🟢 ตรวจสอบว่าถ้าปิดด้วยปุ่ม ให้ย้อนประวัติเบราว์เซอร์กลับไป 1 สเต็ป (ป้องกันต้องกด back ซ้ำซ้อน)
+            if (history.state && history.state.modalOpen) {
+                history.back();
+            }
         }
 
         async function loadTeacherSubjectsForEditSub(preselectVal = null) {
@@ -5078,6 +5100,7 @@
             form.append('className', cls);
             form.append('actionType', 'edit');
             form.append('rowIndex', rowIndex);
+            form.append('adminUser', state.user.name);
             
             try {
                 const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
@@ -5103,7 +5126,8 @@
                     const form = new FormData();
                     form.append('actionType', 'delete');
                     form.append('rowIndex', rowIndex);
-                    
+                    form.append('adminUser', state.user.name);
+
                     try {
                         const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -5162,6 +5186,29 @@
                 subSelect.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
             }
         }
+
+        // 🟢 ดักจับการกดปุ่ม Back ของมือถือ / เบราว์เซอร์
+        window.addEventListener('popstate', function(event) {
+            // ค้นหา Modal ทั้งหมดในระบบที่กำลังเปิดอยู่ (มีคลาส active)
+            const activeModals = document.querySelectorAll('.modal.active');
+            
+            if (activeModals.length > 0) {
+                // วนลูปปิด Modal ทุกตัวที่กำลังเปิดอยู่
+                activeModals.forEach(modal => {
+                    modal.classList.remove('active');
+                });
+                
+                // คืนค่า overflow ให้ body (จำเป็นสำหรับ Modal ที่มีการล็อกหน้าจอ เช่น manageStudentModal)
+                document.body.style.overflow = '';
+            }
+            
+            // (ทางเลือกเสริม) ปิด SweetAlert2 ด้วยถ้ากำลังเปิดอยู่
+            if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+                Swal.close();
+            }
+        });
+
+        
     </script>
 </body>
 </html>
