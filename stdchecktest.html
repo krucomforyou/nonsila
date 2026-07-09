@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -4992,34 +4992,39 @@
             document.getElementById('editSubRowIndex').value = rowIndex;
             document.getElementById('editSubDate').value = date;
             
+            // 1. ดึงรายชื่อครูทั้งหมดจากช่องด้านบนมาใส่ได้เลยทันทีไม่ต้องรอ API
             const tOpts = document.getElementById('subOriginalTeacher').innerHTML;
             document.getElementById('editSubOriginalTeacher').innerHTML = tOpts;
             document.getElementById('editSubOriginalTeacher').value = origTeacher;
             
-            cuteAlert.loading('กำลังเตรียมข้อมูลแก้ไข...');
+            // 2. สร้างตัวเลือกจำลองจากข้อมูลในตาราง เพื่อให้ Dropdown แสดงผลทันที
+            const selSubj = document.getElementById('editSubSubjectList');
+            const [subj, period, cls] = subjectVal.split('|');
+            selSubj.innerHTML = `<option value="${subjectVal}">${subj} ${period} (ห้อง ${cls})</option>`;
             
-            // โหลดวิชาของครูท่านนั้น
-            await loadTeacherSubjectsForEditSub(subjectVal);
+            const selSub = document.getElementById('editSubSubstituteTeacher');
+            selSub.innerHTML = `<option value="${subTeacher}">${subTeacher} (ผู้สอนแทนเดิม)</option>`;
             
-            // โหลดรายชื่อครูที่ว่างสำหรับคาบนั้น
-            await loadAvailableSubstitutes(true);
-            
-            const subSelect = document.getElementById('editSubSubstituteTeacher');
-            const optionExists = Array.from(subSelect.options).some(opt => opt.value === subTeacher);
-            
-            // ถ้าไม่มีชื่อครูคนนี้ใน Dropdown (เพราะระบบมองว่าติดสอนไปแล้วจาก Record นี้เอง) ให้เพิ่มกลับเข้าไป
-            if (!optionExists) {
-                const newOption = document.createElement('option');
-                newOption.value = subTeacher;
-                newOption.text = `${subTeacher} (ผู้สอนแทนเดิม)`;
-                subSelect.appendChild(newOption);
-            }
-            
-            // เลือกครูสอนแทน
-            subSelect.value = subTeacher;
-            
-            Swal.close();
+            // 3. เปิดหน้าต่าง Modal ให้เด้งขึ้นมา "ทันที" (เหมือนหน้านักเรียน)
             document.getElementById('editSubstituteModal').classList.add('active');
+            
+            // 4. แอบโหลดข้อมูล List เต็มๆ มาเติมในพื้นหลัง (Background Fetching)
+            const saveBtn = document.querySelector('#editSubstituteModal .bg-purple-600');
+            const originalBtnHtml = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> โหลดข้อมูลเพิ่ม...';
+            saveBtn.disabled = true; // ล็อกปุ่มไว้แป๊บเดียวระหว่างดึงรายชื่อเพิ่ม
+
+            try {
+                // โหลดรายการวิชา และ รายชื่อครูที่ว่าง โดยส่งค่า preselect ไปด้วย
+                await loadTeacherSubjectsForEditSub(subjectVal);
+                await loadAvailableSubstitutes(true, subTeacher);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                // คืนสถานะปุ่มกลับมาให้กดบันทึกได้
+                saveBtn.innerHTML = originalBtnHtml;
+                saveBtn.disabled = false;
+            }
         }
 
         function closeEditSubstituteModal() {
@@ -5027,7 +5032,6 @@
         }
 
         async function loadTeacherSubjectsForEditSub(preselectVal = null) {
-            document.getElementById('editSubSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
             const dateStr = document.getElementById('editSubDate').value;
             const teacher = document.getElementById('editSubOriginalTeacher').value;
             const sel = document.getElementById('editSubSubjectList');
@@ -5037,7 +5041,12 @@
                 return;
             }
             
-            sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+            // *ถ้าไม่ได้โหลดพื้นหลัง (ไม่มี preselect) ค่อยแสดงข้อความกำลังโหลด
+            if (!preselectVal) {
+                document.getElementById('editSubSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
+                sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+            }
+            
             try {
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
@@ -5054,13 +5063,13 @@
                             opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
                         });
                         sel.innerHTML = opts;
-                        if(preselectVal) sel.value = preselectVal;
+                        if(preselectVal) sel.value = preselectVal; // เลือกค่าเดิมให้ทันที
                     }
                 } else {
-                    sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
+                    if (!preselectVal) sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
                 }
             } catch(e) {
-                sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+                if (!preselectVal) sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
             }
         }
 
@@ -5138,7 +5147,7 @@
             });
         }
 
-        async function loadAvailableSubstitutes(isEdit = false) {
+        async function loadAvailableSubstitutes(isEdit = false, preselectTeacher = null) {
             const prefix = isEdit ? 'editSub' : 'sub';
             const dateStr = document.getElementById(`${prefix}Date`).value;
             const origTeacher = document.getElementById(`${prefix}OriginalTeacher`).value;
@@ -5151,7 +5160,9 @@
             }
             
             const [subj, period, cls] = subjectVal.split('|');
-            subSelect.innerHTML = '<option value="">กำลังค้นหาครูที่ว่าง...</option>';
+            
+            // *ถ้าไม่ได้โหลดพื้นหลัง ค่อยแสดงข้อความกำลังค้นหา
+            if (!preselectTeacher) subSelect.innerHTML = '<option value="">กำลังค้นหาครูที่ว่าง...</option>';
             
             try {
                 const dayOfWeek = getEffectiveDayName(dateStr);
@@ -5171,11 +5182,23 @@
                         });
                         subSelect.innerHTML = opts;
                     }
+
+                    // *แทรกชื่อครูคนเดิมกลับเข้าไป หากไม่มีในลิสต์ (พร้อมเลือกค่าให้)
+                    if (preselectTeacher) {
+                        const optionExists = Array.from(subSelect.options).some(opt => opt.value === preselectTeacher);
+                        if (!optionExists) {
+                            const newOption = document.createElement('option');
+                            newOption.value = preselectTeacher;
+                            newOption.text = `${preselectTeacher} (ผู้สอนแทนเดิม)`;
+                            subSelect.appendChild(newOption);
+                        }
+                        subSelect.value = preselectTeacher;
+                    }
                 } else {
-                    subSelect.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                    if (!preselectTeacher) subSelect.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
                 }
             } catch (e) {
-                subSelect.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+                if (!preselectTeacher) subSelect.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
             }
         }
     </script>
