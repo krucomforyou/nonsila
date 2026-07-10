@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -661,6 +661,34 @@
                         </div>
                     </div>
 
+                </div>
+            </div>
+
+            <div id="editTermModal" class="modal fixed inset-0 z-[170] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+                <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+                    <div class="bg-school-bg px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                        <h3 class="font-bold text-lg text-school-navy"><i class="fas fa-edit mr-2 text-school-blue"></i> แก้ไขภาคเรียน</h3>
+                        <button onclick="closeEditTermModal()" class="text-gray-400 hover:text-red-500 focus:outline-none bg-white rounded-full p-1 shadow-sm border border-gray-100">
+                            <i class="fas fa-times text-lg w-6 h-6 flex items-center justify-center"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-3 overflow-y-auto flex-1 bg-white hide-scrollbar text-left">
+                        <input type="hidden" id="hiddenOldTermName">
+                        <input type="hidden" id="hiddenOldTermDate">
+                        <div>
+                            <label class="block text-xs font-bold text-school-navy mb-1">ชื่อภาคเรียน</label>
+                            <input type="text" id="modalEditTermName" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-school-navy mb-1">วันเปิดภาคเรียน</label>
+                            <input type="date" id="modalEditTermDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50 text-gray-600">
+                        </div>
+                        <p class="text-[10px] text-red-500 mt-2 leading-tight">* หมายเหตุ: หากภาคเรียนนี้มีข้อมูลอยู่แล้ว จะไม่สามารถเปลี่ยน "ชื่อภาคเรียน" ได้ (เปลี่ยนได้แค่วันที่)</p>
+                    </div>
+                    <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                        <button onclick="closeEditTermModal()" class="px-5 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                        <button onclick="submitEditTerm()" class="px-6 py-2 bg-school-navy text-white text-sm font-bold rounded-lg shadow-md hover:bg-school-navyLight transition">บันทึกข้อมูล</button>
+                    </div>
                 </div>
             </div>
 
@@ -1599,73 +1627,70 @@
             });
         }
 
+        // ฟังก์ชันเปิด Modal แก้ไขภาคเรียน
         function promptEditTerm(oldName, oldStartDate) {
-            Swal.fire({
-                title: '<i class="fas fa-edit text-school-blue mb-2 text-3xl"></i><br>แก้ไขภาคเรียน',
-                html: `
-                    <div class="text-left mt-2">
-                        <label class="block text-xs font-bold text-school-navy mb-1">ชื่อภาคเรียน</label>
-                        <input type="text" id="editTermName" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white mb-3" value="${oldName}">
-                        
-                        <label class="block text-xs font-bold text-school-navy mb-1">วันเปิดภาคเรียน</label>
-                        <input type="date" id="editTermDate" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white text-gray-600" value="${oldStartDate}">
-                        <p class="text-[10px] text-red-500 mt-2">* หมายเหตุ: หากภาคเรียนนี้มีข้อมูลอยู่แล้ว จะไม่สามารถเปลี่ยน "ชื่อภาคเรียน" ได้ (เปลี่ยนได้แค่วันที่)</p>
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก',
-                customClass: {
-                    popup: 'rounded-2xl shadow-2xl font-sans w-11/12 max-w-sm',
-                    confirmButton: 'px-5 py-2.5 bg-school-blue text-white text-sm font-bold rounded-xl shadow-md hover:bg-[#345ba8] transition',
-                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition'
-                },
-                preConfirm: () => {
-                    const newName = document.getElementById('editTermName').value.trim();
-                    const newDate = document.getElementById('editTermDate').value;
-                    if (!newName) {
-                        Swal.showValidationMessage('กรุณากรอกชื่อภาคเรียน');
-                        return false;
-                    }
-                    return { newName, newDate };
-                }
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const { newName, newDate } = result.value;
-                    
-                    // ถ้าไม่ได้เปลี่ยนอะไรเลย
-                    if (newName === oldName && newDate === oldStartDate) return;
+            document.getElementById('hiddenOldTermName').value = oldName;
+            document.getElementById('hiddenOldTermDate').value = oldStartDate || '';
+            document.getElementById('modalEditTermName').value = oldName;
+            document.getElementById('modalEditTermDate').value = oldStartDate || '';
+            
+            // เรียกแสดง Modal แบบเดียวกับหน้านักเรียน
+            document.getElementById('editTermModal').classList.add('active');
+        }
 
-                    cuteAlert.loading('กำลังบันทึกข้อมูล ⏳');
+        // ฟังก์ชันปิด Modal
+        function closeEditTermModal() {
+            document.getElementById('editTermModal').classList.remove('active');
+        }
+
+        // ฟังก์ชันบันทึกข้อมูลเมื่อกดปุ่มใน Modal
+        async function submitEditTerm() {
+            const oldName = document.getElementById('hiddenOldTermName').value;
+            const oldStartDate = document.getElementById('hiddenOldTermDate').value;
+            const newName = document.getElementById('modalEditTermName').value.trim();
+            const newDate = document.getElementById('modalEditTermDate').value;
+
+            if (!newName) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกชื่อภาคเรียน');
+                return;
+            }
+
+            // ถ้าไม่ได้เปลี่ยนอะไรเลย ให้ปิดหน้าต่างไปเลย
+            if (newName === oldName && newDate === oldStartDate) {
+                closeEditTermModal();
+                return;
+            }
+
+            // ปิด Modal และแสดง Loading
+            closeEditTermModal();
+            cuteAlert.loading('กำลังบันทึกข้อมูล ⏳');
+            
+            const form = new FormData();
+            form.append('actionType', 'edit');
+            form.append('oldTermName', oldName);
+            form.append('newTermName', newName);
+            form.append('newStartDate', newDate);
+            form.append('adminUser', state.user.name);
+            
+            try {
+                const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    await fetchTerms();
+                    renderManageTermTable();
+                    cuteAlert.success('สำเร็จ!', json.message);
                     
-                    const form = new FormData();
-                    form.append('actionType', 'edit');
-                    form.append('oldTermName', oldName);
-                    form.append('newTermName', newName);
-                    form.append('newStartDate', newDate);
-                    form.append('adminUser', state.user.name);
-                    
-                    try {
-                        const res = await fetch(`${API_URL}?action=manageTerm`, { method: 'POST', body: form });
-                        const json = await res.json();
-                        
-                        if (json.status === 'success') {
-                            await fetchTerms();
-                            renderManageTermTable();
-                            cuteAlert.success('สำเร็จ!', json.message);
-                            
-                            // ถ้าแก้ชื่อเทอมที่กำลังเปิดใช้อยู่ ให้รีเฟรชหน้าเว็บ
-                            if (oldName === state.selectedTerm && oldName !== newName) {
-                                setTimeout(() => window.location.reload(), 1500);
-                            }
-                        } else {
-                            cuteAlert.error('ผิดพลาด', json.message);
-                        }
-                    } catch (e) {
-                        cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว');
+                    // ถ้าแก้ชื่อเทอมที่กำลังเปิดใช้อยู่ ให้รีเฟรชหน้าเว็บ
+                    if (oldName === state.selectedTerm && oldName !== newName) {
+                        setTimeout(() => window.location.reload(), 1500);
                     }
+                } else {
+                    cuteAlert.error('ผิดพลาด', json.message);
                 }
-            });
+            } catch (e) {
+                cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว');
+            }
         }
 
         function switchTab(tabId) {
