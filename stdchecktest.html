@@ -199,7 +199,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1002,6 +1002,55 @@
                 </button>
             </div>
             
+        </div>
+    </div>
+
+    <!-- EDIT CALENDAR MODAL -->
+    <div id="editCalendarModal" class="modal fixed inset-0 z-[170] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
+        <div class="modal-content bg-white w-full max-w-md mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-school-bg px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                 <h3 class="font-bold text-lg text-school-navy"><i class="fas fa-edit mr-2 text-school-blue"></i> แก้ไขวันหยุด / วันเรียนชดเชย</h3>
+                 <button onclick="closeEditCalendarModal()" class="text-gray-400 hover:text-red-500 focus:outline-none bg-white rounded-full p-1 shadow-sm border border-gray-100">
+                     <i class="fas fa-times text-lg w-6 h-6 flex items-center justify-center"></i>
+                 </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-white hide-scrollbar">
+                <div class="space-y-4 text-left">
+                    <div>
+                        <label class="block text-xs font-bold text-school-navy mb-1">วันที่ (ไม่อนุญาตให้เปลี่ยนวันที่)</label>
+                        <!-- แสดงวันที่แบบสวยงาม แต่ช่องแก้ไขจริงจะซ่อนไว้ -->
+                        <input type="text" id="modalCalDateDisplay" class="w-full border border-gray-200 rounded-lg p-2.5 text-sm bg-gray-100 text-gray-500 font-bold cursor-not-allowed outline-none" readonly>
+                        <input type="hidden" id="modalCalDateHidden">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-school-navy mb-1">ประเภท</label>
+                        <select id="modalCalType" onchange="toggleModalSubstituteDay()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                            <option value="holiday">🏖️ วันหยุด (ไม่คิดสถิติ)</option>
+                            <option value="makeup">🔄 วันเรียนชดเชย</option>
+                        </select>
+                    </div>
+                    <div id="modalSubstituteDayContainer" class="hidden">
+                        <label class="block text-xs font-bold text-school-navy mb-1">ชดเชยแทนตารางเรียนวัน...</label>
+                        <select id="modalCalSubstitute" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                            <option value="จันทร์">วันจันทร์</option>
+                            <option value="อังคาร">วันอังคาร</option>
+                            <option value="พุธ">วันพุธ</option>
+                            <option value="พฤหัสบดี">วันพฤหัสบดี</option>
+                            <option value="ศุกร์">วันศุกร์</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-school-navy mb-1">หมายเหตุ / ชื่อวันหยุด (ถ้ามี)</label>
+                        <input type="text" id="modalCalNote" placeholder="เช่น วันมาฆบูชา, ชดเชยกีฬาสี..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white">
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                <button onclick="closeEditCalendarModal()" class="px-5 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                <button onclick="submitEditCalendarSetting()" class="px-6 py-2 bg-school-navy text-white text-sm font-bold rounded-lg shadow-md hover:bg-school-navyLight transition flex items-center">
+                    <i class="fas fa-save mr-2"></i> บันทึกการแก้ไข
+                </button>
+            </div>
         </div>
     </div>
 
@@ -5265,43 +5314,68 @@
             const setting = state.calendarSettings[dateStr];
             if (!setting) return;
             
-            // 1. นำข้อมูลเดิมไปเติมในฟอร์มด้านบน
-            document.getElementById('calSetDate').value = dateStr;
-            document.getElementById('calSetType').value = setting.type;
+            // แปลงวันที่เพื่อนำไปแสดงผลสวยๆ ใน Modal
+            const d = new Date(dateStr);
+            const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const displayDate = isNaN(d.getTime()) ? dateStr : `${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()+543}`;
             
-            // เปิด/ปิด ช่องเลือกวันชดเชยให้ตรงกับข้อมูลเดิม
+            // นำข้อมูลไปเติมใน Modal
+            document.getElementById('modalCalDateDisplay').value = displayDate;
+            document.getElementById('modalCalDateHidden').value = dateStr;
+            document.getElementById('modalCalType').value = setting.type;
+            
             if (setting.type === 'makeup') {
-                document.getElementById('calSetSubstitute').value = setting.substituteFor || 'จันทร์';
-                document.getElementById('substituteDayContainer').classList.remove('hidden');
+                document.getElementById('modalCalSubstitute').value = setting.substituteFor || 'จันทร์';
+                document.getElementById('modalSubstituteDayContainer').classList.remove('hidden');
             } else {
-                document.getElementById('substituteDayContainer').classList.add('hidden');
+                document.getElementById('modalSubstituteDayContainer').classList.add('hidden');
             }
             
-            document.getElementById('calSetNote').value = setting.note || '';
+            document.getElementById('modalCalNote').value = setting.note || '';
             
-            // 2. สั่งให้เลื่อนหน้าจอกลับขึ้นไปด้านบนสุดแบบนุ่มนวล (Smooth Scroll)
-            const tabContainer = document.getElementById('tab-calendar-settings');
-            if (tabContainer) {
-                tabContainer.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-            
-            // 3. แสดงแจ้งเตือนแบบ Toast (มุมขวาบน) เพื่อให้ครูทราบว่าต้องแก้ตรงไหน
-            const Toast = Swal.mixin({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-            Toast.fire({
-                icon: 'info',
-                title: 'ดึงข้อมูลสำเร็จ กรุณาแก้ไขที่ฟอร์มด้านบนสุดครับ'
-            });
-            
-            // โฟกัสไปที่กล่องข้อความเพื่อให้พร้อมพิมพ์
-            setTimeout(() => {
-                document.getElementById('calSetNote').focus();
-            }, 500);
+            // เปิดหน้าต่าง Modal
+            document.getElementById('editCalendarModal').classList.add('active');
+        }
+
+        function toggleModalSubstituteDay() {
+            const type = document.getElementById('modalCalType').value;
+            const subCont = document.getElementById('modalSubstituteDayContainer');
+            if (type === 'makeup') subCont.classList.remove('hidden');
+            else subCont.classList.add('hidden');
+        }
+
+        function closeEditCalendarModal() {
+            document.getElementById('editCalendarModal').classList.remove('active');
+        }
+
+        async function submitEditCalendarSetting() {
+            const dateStr = document.getElementById('modalCalDateHidden').value;
+            const type = document.getElementById('modalCalType').value;
+            const subFor = document.getElementById('modalCalSubstitute').value;
+            const note = document.getElementById('modalCalNote').value.trim();
+
+            if (!dateStr) return;
+
+            cuteAlert.loading('กำลังบันทึกข้อมูล...');
+            const form = new FormData();
+            form.append('date', dateStr);
+            form.append('type', type);
+            if (type === 'makeup') form.append('substituteFor', subFor);
+            form.append('note', note);
+            form.append('adminUser', state.user.name);
+
+            try {
+                const res = await fetch(`${API_URL}?action=saveCalendarSetting`, { method: 'POST', body: form });
+                const json = await res.json();
+                if (json.status === 'success') {
+                    closeEditCalendarModal();
+                    await fetchCalendarSettings();
+                    renderCalendarSettingsTable();
+                    cuteAlert.success('สำเร็จ!', 'บันทึกการแก้ไขปฏิทินเรียบร้อยแล้ว').then(() => {
+                        window.location.reload(); 
+                    });
+                } else { cuteAlert.error('ผิดพลาด', json.message); }
+            } catch (e) { cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'); }
         }
     </script>
 </body>
