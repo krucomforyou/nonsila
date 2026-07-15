@@ -196,7 +196,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2098,7 +2098,8 @@
                     sel.innerHTML = '<option value="">เลือกห้องก่อน...</option>';
                     return;
                 }
-                const classSchedules = state.schedule.filter(s => s.className === classFilter && s.className !== '-');
+                // แยกห้องออกมาตรวจสอบ
+                const classSchedules = state.schedule.filter(s => s.className.split(',').map(c=>c.trim()).includes(classFilter) && s.className !== '-');
                 if (classSchedules.length === 0) {
                     sel.innerHTML = `<option value="">-- ไม่มีวิชาที่สอนห้องนี้ --</option>`;
                 } else {
@@ -2163,15 +2164,20 @@
                  return;
             }
             
-            const uniqueClasses = [...new Set(state.schedule.map(s => s.className).filter(c => c !== '-'))];
+            const uniqueClasses = new Set();
+            state.schedule.forEach(s => {
+                if (s.className !== '-') {
+                    s.className.split(',').forEach(c => uniqueClasses.add(c.trim()));
+                }
+            });
             
-            if (uniqueClasses.length === 0) {
+            if (uniqueClasses.size === 0) {
                  sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
                  return;
             }
 
             let opts = '<option value="">-- เลือกห้องเรียน --</option>';
-            uniqueClasses.sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
+            Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
             sel.innerHTML = opts;
 
             if (prevVal && uniqueClasses.includes(prevVal)) {
@@ -3178,7 +3184,12 @@
                 const res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(state.currentClass.trim())}&subject=${encodeURIComponent(state.currentSubject)}&teacher=${encodeURIComponent(state.viewingTeacher || state.user.name)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
-                state.attendance = state.students.map(row => ({ id: getStudentUniqueId(row), status: null, note: '' }));
+                state.attendance = state.students.map(row => ({ 
+                    id: getStudentUniqueId(row), 
+                    status: null, 
+                    note: '', 
+                    className: row[5] || state.currentClass 
+                }));
 
                 if (json.status === 'success' && json.data && json.data.length > 0) {
                     const targetDateStr = state.currentDate;
@@ -3225,9 +3236,17 @@
                 const statusText = row[4] || 'กำลังศึกษา';
                 const isActive = statusText === 'กำลังศึกษา';
                 
+                const isCombinedClass = state.currentClass.includes(',');
+                const stuClass = row[5] || '';
+                
                 // จัดรูปแบบชื่อ (ขีดเส้นแดงทับถ้าไม่ Active)
                 let nameStyle = isActive ? 'font-medium text-gray-800' : 'text-red-500 line-through decoration-red-500 decoration-2 opacity-70 font-medium';
                 let displayInfo = `<span class="${nameStyle}">${fullName}</span> <span class="text-[10px] md:text-xs text-gray-400 ml-1 block sm:inline">${code ? '(' + code + ')' : ''}</span>`;
+                
+                // หากเป็นการสอนรวม ให้โชว์ป้ายชื่อห้องด้านหลังของแต่ละคน
+                if (isCombinedClass && stuClass) {
+                    displayInfo += ` <span class="text-[10px] bg-blue-100 text-school-blue px-1.5 py-0.5 rounded ml-1 font-bold border border-blue-200">${stuClass}</span>`;
+                }
                 
                 // ใส่ป้ายกำกับหลังชื่อให้เห็นชัดๆ
                 if (!isActive) {
@@ -3427,7 +3446,7 @@
                         s.day === dayName && 
                         s.subject === r.subject && 
                         s.period === r.period && 
-                        s.className === cls
+                        s.className.split(',').map(c => c.trim()).includes(cls)
                     );
                 });
                 // --------------------------------------------------------
