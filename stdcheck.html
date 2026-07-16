@@ -1508,9 +1508,20 @@
                 cuteAlert.loading(`กำลังเปลี่ยนเป็นภาคเรียน ${state.selectedTerm}`);
                 await fetchClasses();
                 await fetchSchedule();
+                await fetchCalendarSettings(); // เพิ่มบรรทัดนี้ เพื่อดึงวันหยุดของเทอมใหม่
                 
-                const isOverview = !document.getElementById('tab-history-overview').classList.contains('hidden');
-                if(isOverview) loadAttendanceOverview();
+                // ค้นหาแท็บที่กำลังเปิดอยู่ และรีเฟรชข้อมูลให้ตรงกับเทอมใหม่
+                const activeTabEl = document.querySelector('.tab-content:not(.hidden)');
+                if (activeTabEl) {
+                    const activeTabId = activeTabEl.id.replace('tab-', '');
+                    
+                    if (activeTabId === 'history-overview') loadAttendanceOverview();
+                    else if (activeTabId === 'calendar-settings') renderCalendarSettingsTable();
+                    else if (activeTabId === 'admin-logs') loadAdminLogs();
+                    else if (activeTabId === 'substitute') loadSubstituteHistory();
+                    else if (activeTabId === 'manage-student') loadManageStudents();
+                    else if (activeTabId === 'manage-term') renderManageTermTable();
+                }
 
                 Swal.close();
             }
@@ -4756,7 +4767,7 @@
         // ==========================================
         async function fetchCalendarSettings() {
             try {
-                const res = await fetch(`${API_URL}?action=getCalendarSettings&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getCalendarSettings&term=${encodeURIComponent(state.selectedTerm)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
                     state.calendarSettings = json.data;
@@ -4823,6 +4834,7 @@
             if (type === 'makeup') form.append('substituteFor', subFor);
             form.append('note', note);
             form.append('adminUser', state.user.name);
+            form.append('term', state.selectedTerm);
 
             try {
                 const res = await fetch(`${API_URL}?action=saveCalendarSetting`, { method: 'POST', body: form });
@@ -4842,6 +4854,8 @@
                     const form = new FormData();
                     form.append('date', dateStr);
                     form.append('adminUser', state.user.name);
+                    form.append('term', state.selectedTerm);
+                    
                     try {
                         const res = await fetch(`${API_URL}?action=deleteCalendarSetting`, { method: 'POST', body: form });
                         const json = await res.json();
@@ -4860,7 +4874,7 @@
             container.innerHTML = '<div class="text-yellow-400">C:\\SchoolSystem\\Logs> Fetching system events...</div>';
             
             try {
-                const res = await fetch(`${API_URL}?action=getAdminLogs&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getAdminLogs&term=${encodeURIComponent(state.selectedTerm)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 if (json.status === 'success') {
@@ -4994,7 +5008,7 @@
             if (!tbody) return;
             
             try {
-                const res = await fetch(`${API_URL}?action=getSubstituteHistory&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getSubstituteHistory&term=${encodeURIComponent(state.selectedTerm)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 if (json.status === 'success' && json.data.length > 0) {
@@ -5189,6 +5203,7 @@
                     form.append('actionType', 'delete');
                     form.append('rowIndex', rowIndex);
                     form.append('adminUser', state.user.name);
+                    form.append('term', state.selectedTerm);
                     
                     try {
                         const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
@@ -5316,6 +5331,7 @@
             if (type === 'makeup') form.append('substituteFor', subFor);
             form.append('note', note);
             form.append('adminUser', state.user.name);
+            form.append('term', state.selectedTerm);
 
             try {
                 const res = await fetch(`${API_URL}?action=saveCalendarSetting`, { method: 'POST', body: form });
