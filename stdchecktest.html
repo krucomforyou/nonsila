@@ -198,7 +198,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -519,13 +519,20 @@
                     </div>
                     
                     <div class="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-8 bg-school-bg p-4 rounded-xl border border-gray-200 shadow-inner items-end">
-                         <div class="w-full md:w-1/2">
+                         <!-- เพิ่ม Dropdown เลือกครู สำหรับแอดมิน -->
+                         <div id="adminReportTeacherSelectorContainer" class="w-full md:w-1/3 hidden">
+                             <label class="block text-xs font-bold text-school-navy mb-1">เลือกครู (Admin)</label>
+                             <select id="adminReportTeacherSelector" onchange="onReportTeacherChange()" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white">
+                                 <option value="">กำลังโหลดรายชื่อ...</option>
+                             </select>
+                         </div>
+                         <div class="w-full md:w-1/3" id="reportClassContainer">
                              <label class="block text-xs font-bold text-school-navy mb-1">เลือกห้องเรียน</label>
                              <select id="reportClassSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white" onchange="populateSubjectDropdown('reportSubjectSel', null, this.value); resetReportButtons();">
                                  <option value="">-- เลือกห้อง --</option>
                              </select>
                          </div>
-                         <div class="w-full md:w-1/2">
+                         <div class="w-full md:w-1/3" id="reportSubjectContainer">
                              <label class="block text-xs font-bold text-school-navy mb-1">เลือกวิชาที่สอน</label>
                              <select id="reportSubjectSel" class="border border-gray-300 p-2.5 rounded-lg w-full outline-none focus:ring-2 focus:ring-school-navy text-sm bg-white" onchange="resetReportButtons();">
                                  <option value="">เลือกห้องก่อน...</option>
@@ -1313,6 +1320,10 @@
                         }
                     });
                     
+                    // แสดง Dropdown เลือกครูในหน้ารายงาน
+                    const reportTeacherCont = document.getElementById('adminReportTeacherSelectorContainer');
+                    if (reportTeacherCont) reportTeacherCont.classList.remove('hidden');
+                    
                     const rightPanel = document.getElementById('scheduleRightPanel');
                     if (rightPanel) {
                         if (state.isScheduleLocked) {
@@ -1460,6 +1471,9 @@
                     }
                     
                     document.getElementById('adminTeacherSelector').innerHTML = opts;
+                    const reportTeacherSel = document.getElementById('adminReportTeacherSelector');
+                    if (reportTeacherSel) reportTeacherSel.innerHTML = opts;
+                    
                     const subOrig = document.getElementById('subOriginalTeacher');
                     const subSub = document.getElementById('subSubstituteTeacher');
                     if (subOrig && subSub) {
@@ -1482,6 +1496,10 @@
             if (val && val !== state.viewingTeacher) {
                 state.viewingTeacher = val;
                 
+                // ซิงค์ค่าไปยังหน้ารายงาน
+                const reportTeacherSel = document.getElementById('adminReportTeacherSelector');
+                if (reportTeacherSel) reportTeacherSel.value = val;
+                
                 const schTitleEl = document.getElementById('scheduleTitleText');
                 if (schTitleEl) {
                     if (state.viewingTeacher !== state.user.name) {
@@ -1499,6 +1517,45 @@
                 await fetchSchedule();
                 
                 // เพิ่มการรีเซ็ตหน้าจอรายงาน เพื่อให้วิชาเปลี่ยนตามครูที่ถูกเลือก
+                populateReportClassDropdown();
+                const reportResult = document.getElementById('reportResult');
+                if (reportResult) reportResult.classList.add('hidden');
+                resetReportButtons();
+                
+                Swal.close();
+            }
+        }
+
+        // ฟังก์ชันใหม่ เมื่อเปลี่ยนชื่อครูในแท็บ "รายงานสถิติ"
+        async function onReportTeacherChange() {
+            const val = document.getElementById('adminReportTeacherSelector').value;
+            if (val && val !== state.viewingTeacher) {
+                state.viewingTeacher = val;
+                
+                // ซิงค์ค่าไปยังหน้าตารางสอนด้วย
+                const adminTeacherSel = document.getElementById('adminTeacherSelector');
+                if (adminTeacherSel) adminTeacherSel.value = val;
+
+                // เปลี่ยนหัวข้อหน้าตารางสอนเผื่อไว้
+                const schTitleEl = document.getElementById('scheduleTitleText');
+                if (schTitleEl) {
+                    if (state.viewingTeacher !== state.user.name) {
+                        schTitleEl.innerText = `ตารางสอนของ: ${state.viewingTeacher}`;
+                        schTitleEl.classList.remove('text-school-navy');
+                        schTitleEl.classList.add('text-school-blue');
+                    } else {
+                        schTitleEl.innerText = `ตารางสอนส่วนตัว`;
+                        schTitleEl.classList.add('text-school-navy');
+                        schTitleEl.classList.remove('text-school-blue');
+                    }
+                }
+
+                cuteAlert.loading(`กำลังโหลดตารางของ ${state.viewingTeacher} ⏳`);
+                
+                // ต้องดึงตารางสอนใหม่เพื่อให้ Dropdown ห้องและวิชาเปลี่ยนตามครูคนใหม่
+                await fetchSchedule();
+                
+                // รีเซ็ต Dropdown หน้ารายงาน
                 populateReportClassDropdown();
                 const reportResult = document.getElementById('reportResult');
                 if (reportResult) reportResult.classList.add('hidden');
