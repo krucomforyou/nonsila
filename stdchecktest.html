@@ -198,7 +198,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -486,7 +486,7 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <div class="flex gap-2 admin-only" style="display:none;">
                                     <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
-                                    <button onclick="clearSchedule()" class="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                                 </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
@@ -1304,7 +1304,25 @@
                 document.getElementById('sidebarUserImg').src = imgUrl;
                 
                 if(checkAdminPermission()) {
-                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        // ป้องกันไม่ให้แสดงปุ่มแก้ไขตอนหน้าโหลดแรก (ติดล็อคอยู่)
+                        if (el.classList.contains('schedule-edit-tool') || el.id === 'scheduleLeftPanel') {
+                            el.style.display = state.isScheduleLocked ? 'none' : 'flex';
+                        } else {
+                            el.style.display = 'flex';
+                        }
+                    });
+                    
+                    const rightPanel = document.getElementById('scheduleRightPanel');
+                    if (rightPanel) {
+                        if (state.isScheduleLocked) {
+                            rightPanel.classList.remove('xl:w-3/4');
+                            rightPanel.classList.add('w-full');
+                        } else {
+                            rightPanel.classList.remove('w-full');
+                            rightPanel.classList.add('xl:w-3/4');
+                        }
+                    }
                 } else {
                     const rightPanel = document.getElementById('scheduleRightPanel');
                     if (rightPanel) {
@@ -2560,14 +2578,39 @@
         // ========================================================
         function toggleScheduleLock() {
             state.isScheduleLocked = !state.isScheduleLocked;
-            const btn = document.getElementById('btnLockSchedule');
+            const btnLock = document.getElementById('btnLockSchedule');
+            const leftPanel = document.getElementById('scheduleLeftPanel');
+            const rightPanel = document.getElementById('scheduleRightPanel');
+
             if (state.isScheduleLocked) {
-                btn.innerHTML = '<i class="fas fa-lock"></i> ล็อคตาราง';
-                btn.className = 'text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex';
+                // ล็อคตาราง
+                btnLock.innerHTML = '<i class="fas fa-lock"></i> ล็อคตาราง';
+                btnLock.className = 'text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex';
+                
+                // ซ่อนแผงด้านซ้ายและขยายแผงด้านขวา
+                if (leftPanel) leftPanel.style.display = 'none';
+                if (rightPanel) {
+                    rightPanel.classList.remove('xl:w-3/4');
+                    rightPanel.classList.add('w-full');
+                }
             } else {
-                btn.innerHTML = '<i class="fas fa-unlock"></i> ปลดล็อค';
-                btn.className = 'text-xs text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shadow-sm items-center gap-1 transition flex';
+                // ปลดล็อค
+                btnLock.innerHTML = '<i class="fas fa-unlock"></i> ปลดล็อค';
+                btnLock.className = 'text-xs text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shadow-sm items-center gap-1 transition flex';
+                
+                // แสดงแผงด้านซ้ายและหดแผงด้านขวาให้มีที่ว่าง
+                if (leftPanel) leftPanel.style.display = 'flex';
+                if (rightPanel) {
+                    rightPanel.classList.remove('w-full');
+                    rightPanel.classList.add('xl:w-3/4');
+                }
             }
+
+            // ซ่อนหรือแสดงกลุ่มปุ่มแก้ไข (ลบ, บันทึก, ตั้งค่าตาราง)
+            document.querySelectorAll('.schedule-edit-tool').forEach(tool => {
+                tool.style.display = state.isScheduleLocked ? 'none' : 'flex';
+            });
+
             renderSubjectCards();
             renderVisualTimetable();
         }
