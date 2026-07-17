@@ -198,7 +198,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1497,6 +1497,13 @@
 
                 cuteAlert.loading(`กำลังโหลดตารางของ ${state.viewingTeacher} ⏳`);
                 await fetchSchedule();
+                
+                // เพิ่มการรีเซ็ตหน้าจอรายงาน เพื่อให้วิชาเปลี่ยนตามครูที่ถูกเลือก
+                populateReportClassDropdown();
+                const reportResult = document.getElementById('reportResult');
+                if (reportResult) reportResult.classList.add('hidden');
+                resetReportButtons();
+                
                 Swal.close();
             }
         }
@@ -3548,7 +3555,7 @@
                     rawStudents = stuJson.data.slice(1);
                 } else if(stuJson.status !== 'success') { cuteAlert.error('พบข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลนักเรียนได้'); return; }
 
-                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let res = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.viewingTeacher || state.user.name)}&_t=${new Date().getTime()}`);
                 let json = await res.json();
                 let reportData = (json.status === 'success') ? json.data : [];
 
@@ -3806,7 +3813,7 @@
                         <div class="mb-4 text-center w-full">
                             <h2 class="text-xl font-bold text-gray-900 mb-1">รายงานบันทึกเวลาเรียน</h2>
                             <p class="text-sm text-gray-600">วิชา: <span class="font-bold">${subj}</span> &nbsp;|&nbsp; ห้องเรียน: <span class="font-bold">${cls}</span> &nbsp;|&nbsp; ภาคเรียนที่: <span class="font-bold">${term}</span></p>
-                            <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.user ? state.user.name : ''}</span></p>
+                            <p class="text-sm text-gray-600">ครูผู้สอน: <span class="font-bold">${state.viewingTeacher || (state.user ? state.user.name : '')}</span></p>
                             ${totalChunks > 1 ? `<p class="text-xs text-gray-500 mt-1">แผ่นที่ ${chunkIndex + 1} / ${totalChunks}</p>` : ''}
                         </div>
                         <table class="report-table">
@@ -3914,7 +3921,7 @@
                 if(stuJson.status !== 'success' || !stuJson.data || stuJson.data.length <= 1) { cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่พบข้อมูลนักเรียน'); return; }
                 const rawStudents = stuJson.data.slice(1);
 
-                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.user.name)}&_t=${new Date().getTime()}`);
+                let attRes = await fetch(`${API_URL}?action=getAttendanceReport&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(cls.trim())}&subject=${encodeURIComponent(subj)}&teacher=${encodeURIComponent(state.viewingTeacher || state.user.name)}&_t=${new Date().getTime()}`);
                 let attJson = await attRes.json();
                 let reportData = attJson.data || [];
 
@@ -3965,7 +3972,7 @@
                 excelData.push(["สรุปเวลาเรียน (รูปแบบ .xlsx)"]);
                 excelData.push(["ภาคเรียน:", state.selectedTerm, "", ""]);
                 excelData.push(["วิชา:", subj, "ห้องเรียน:", cls]);
-                excelData.push(["ครูผู้สอน:", state.user.name]); 
+                excelData.push(["ครูผู้สอน:", state.viewingTeacher || state.user.name]);
                 excelData.push([]); 
                 
                 let headerRow1 = ["ลำดับ", "รหัสประจำตัว", "ชื่อ - นามสกุล นักเรียน", "", "เวลาเรียนเต็ม", "สรุปเวลาเรียน", "", "", "เดือน"];
