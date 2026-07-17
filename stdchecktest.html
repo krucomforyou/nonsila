@@ -198,7 +198,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -484,7 +484,10 @@
                         <div id="scheduleRightPanel" class="w-full xl:w-3/4 flex flex-col">
                             <div class="flex justify-between items-center mb-2 shrink-0">
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
-                                <button onclick="clearSchedule()" class="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition admin-only" style="display:none;"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                <div class="flex gap-2 admin-only" style="display:none;">
+                                    <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
+                                    <button onclick="clearSchedule()" class="text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
                                 <!-- ตารางจะถูกสร้างที่นี่ -->
@@ -1094,6 +1097,7 @@
         let state = {
             user: null,
             viewingTeacher: '',
+            isScheduleLocked: true,
             teachers: [],
             terms: [],
             selectedTerm: '',
@@ -2375,12 +2379,16 @@
                 grouped[key].ids.push(sub.id);
             });
 
+            const canEdit = !state.isScheduleLocked && checkAdminPermission(); // เช็คสิทธิ์และสถานะล็อค
+
             container.innerHTML = Object.values(grouped).map(group => `
-                <div draggable="true" ondragstart="drag(event, '${group.name}', '${group.className}', '${group.ids[0]}')" 
-                     class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:bg-blue-50 transition flex items-center group relative mt-2">
+                <div ${canEdit ? `draggable="true" ondragstart="drag(event, '${group.name}', '${group.className}', '${group.ids[0]}')"` : ''} 
+                     class="bg-white border-2 border-school-blue rounded-lg p-3 shadow-sm ${canEdit ? 'cursor-grab active:cursor-grabbing hover:bg-blue-50' : 'opacity-70'} transition flex items-center group relative mt-2">
                     
+                    ${canEdit ? `
                     <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -left-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
                     <button onclick="editSubjectName('${group.name}', '${group.className}')" class="absolute -top-2 left-4 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit"></i></button>
+                    ` : ''}
 
                     <div class="absolute -top-2.5 -right-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
                         ${group.count}
@@ -2548,6 +2556,23 @@
         }
 
         // ========================================================
+        // ฟังก์ชันล็อค/ปลดล็อคตารางสอน (ป้องกันการลากพลาด)
+        // ========================================================
+        function toggleScheduleLock() {
+            state.isScheduleLocked = !state.isScheduleLocked;
+            const btn = document.getElementById('btnLockSchedule');
+            if (state.isScheduleLocked) {
+                btn.innerHTML = '<i class="fas fa-lock"></i> ล็อคตาราง';
+                btn.className = 'text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex';
+            } else {
+                btn.innerHTML = '<i class="fas fa-unlock"></i> ปลดล็อค';
+                btn.className = 'text-xs text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shadow-sm items-center gap-1 transition flex';
+            }
+            renderSubjectCards();
+            renderVisualTimetable();
+        }
+
+        // ========================================================
         // ฟังก์ชันวาดตารางสอนที่ถูกแก้ไขเพื่อรองรับโครงสร้างข้อมูลใหม่
         // ========================================================
         function renderVisualTimetable() {
@@ -2614,7 +2639,9 @@
                         nonBreakCounter++;
                         
                         const isAdmin = checkAdminPermission(); // เช็คสิทธิ์
-                        let dropZoneAttr = isAdmin ? `ondragover="allowDrop(event)" ondrop="drop(event, '${day}', ${nonBreakCounter})"` : '';
+                        const canEdit = isAdmin && !state.isScheduleLocked; // ต้องเป็น Admin และปลดล็อคตารางอยู่
+                        
+                        let dropZoneAttr = canEdit ? `ondragover="allowDrop(event)" ondrop="drop(event, '${day}', ${nonBreakCounter})"` : '';
 
                         if (item) {
                             let classPill = '';
@@ -2624,12 +2651,11 @@
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
 
-                            // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin
-                            let dragAttr = isAdmin ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
-                            let removeBtn = isAdmin ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
-                            // เพิ่มตัวแปรปุ่ม Edit ขยับมาทางซ้าย (right-7)
-                            let editBtn = isAdmin ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
-                            let hoverClass = isAdmin ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
+                            // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin และปลดล็อคแล้วเท่านั้น
+                            let dragAttr = canEdit ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
+                            let removeBtn = canEdit ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
+                            let editBtn = canEdit ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
+                            let hoverClass = canEdit ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 ${removeBtn}
@@ -2639,7 +2665,7 @@
                                 </div>
                             </td>`;
                         } else {
-                            if (isAdmin) {
+                            if (canEdit) {
                                 html += `<td ${dropZoneAttr} class="py-2 px-2 border border-gray-100 text-gray-400 bg-gray-50/50 hover:bg-blue-50 transition font-light text-xs border-dashed cursor-pointer" style="height: ${config.rowHeight}px;">
                                     <div class="flex flex-col items-center justify-center opacity-50 hover:opacity-100 transition">
                                         <i class="fas fa-plus mb-1 text-gray-300"></i>
