@@ -62,6 +62,16 @@
         }
         .swal2-container { z-index: 9999 !important; padding-right: 0 !important; font-family: 'Sarabun', sans-serif; }
 
+        /* ซ่อนลูกศรในช่องกรอกคะแนน */
+        input[type=number].hide-arrows::-webkit-inner-spin-button,
+        input[type=number].hide-arrows::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number].hide-arrows {
+            -moz-appearance: textfield;
+        }
+
         .status-btn { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; color: #6b7280; background-color: #f3f4f6; }
         .status-btn.selected { color: white; }
         .status-present { border-color: #10b981; } .status-present.selected { background-color: #10b981; border-color: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
@@ -201,7 +211,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.1</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -359,6 +369,13 @@
                 <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 mb-4 md:mb-6">
                     <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                            <!-- เพิ่ม Dropdown เลือกครู (เฉพาะแอดมิน) -->
+                            <div id="adminGradingTeacherSelectorContainer" class="hidden w-full sm:w-48 relative">
+                                <select id="adminGradingTeacherSelector" onchange="onGradingTeacherChange()" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-indigo-50 hover:bg-white transition font-bold text-school-blue shadow-inner">
+                                    <option value="">กำลังโหลดรายชื่อ...</option>
+                                </select>
+                            </div>
+
                             <div class="w-full sm:w-48 relative">
                                 <select id="gradingClassSelector" onchange="populateSubjectDropdown('gradingSubjectSelector', null, this.value)" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium">
                                     <option value="">-- เลือกห้อง --</option>
@@ -1937,6 +1954,27 @@
                 }
             }
             if(tabId === 'grading') {
+                // ดึงรายชื่อครูใส่ Dropdown แอดมิน
+                const teacherCont = document.getElementById('adminGradingTeacherSelectorContainer');
+                if (teacherCont) {
+                    if (checkAdminPermission()) {
+                        teacherCont.classList.remove('hidden');
+                        const selTeacher = document.getElementById('adminGradingTeacherSelector');
+                        if (selTeacher && selTeacher.options.length <= 1 && state.teachers.length > 0) {
+                            let opts = '';
+                            state.teachers.forEach(t => {
+                                const selected = (t === state.viewingTeacher) ? 'selected' : '';
+                                opts += `<option value="${t}" ${selected}>${t}</option>`;
+                            });
+                            selTeacher.innerHTML = opts;
+                        } else if (selTeacher) {
+                            selTeacher.value = state.viewingTeacher; // ซิงค์ค่าเวลาเปลี่ยนแท็บ
+                        }
+                    } else {
+                        teacherCont.classList.add('hidden');
+                    }
+                }
+
                 // คัดลอกตรรกะมาจากหน้ารายงาน เพื่อโหลดรายชื่อห้องเข้า Dropdown
                 const sel = document.getElementById('gradingClassSelector');
                 if (state.schedule && state.schedule.length > 0) {
@@ -5641,23 +5679,23 @@
                             <td class="px-4 py-3 border-r border-gray-100 text-left font-medium text-gray-800">${fullName}</td>
                             
                             <!-- เทอม 1 -->
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t1_1 !== undefined ? g.t1_1 : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-orange-400 outline-none t1-score" data-index="${index}" oninput="calcTotal(this, 't1', ${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t1_mid !== undefined ? g.t1_mid : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-orange-400 outline-none t1-score" data-index="${index}" oninput="calcTotal(this, 't1', ${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t1_2 !== undefined ? g.t1_2 : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-orange-400 outline-none t1-score" data-index="${index}" oninput="calcTotal(this, 't1', ${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t1_final !== undefined ? g.t1_final : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-orange-400 outline-none t1-score" data-index="${index}" oninput="calcTotal(this, 't1', ${index})"></td>
-                            <td class="p-2 border-r border-gray-100 bg-orange-50 font-bold text-orange-700" id="t1-total-${index}">0</td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t1_1 !== undefined ? g.t1_1 : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all hide-arrows t1-score col-input-0" data-row="${index}" data-col="0" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 0)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t1_mid !== undefined ? g.t1_mid : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all hide-arrows t1-score col-input-1" data-row="${index}" data-col="1" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 1)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t1_2 !== undefined ? g.t1_2 : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all hide-arrows t1-score col-input-2" data-row="${index}" data-col="2" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 2)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t1_final !== undefined ? g.t1_final : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all hide-arrows t1-score col-input-3" data-row="${index}" data-col="3" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 3)"></td>
+                            <td class="p-2 border-r border-gray-100 bg-orange-50 font-black text-orange-700 text-base shadow-inner" id="t1-total-${index}">0</td>
                             
                             <!-- เทอม 2 -->
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t2_1 !== undefined ? g.t2_1 : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-blue-400 outline-none t2-score" data-index="${index}" oninput="calcTotal(${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t2_mid !== undefined ? g.t2_mid : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-blue-400 outline-none t2-score" data-index="${index}" oninput="calcTotal(${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t2_2 !== undefined ? g.t2_2 : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-blue-400 outline-none t2-score" data-index="${index}" oninput="calcTotal(${index})"></td>
-                            <td class="p-1 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t2_final !== undefined ? g.t2_final : ''}" class="w-full text-center border border-gray-200 rounded p-1 text-sm focus:border-blue-400 outline-none t2-score" data-index="${index}" oninput="calcTotal(${index})"></td>
-                            <td class="p-2 border-r border-gray-100 bg-blue-50 font-bold text-blue-700" id="t2-total-${index}">0</td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t2_1 !== undefined ? g.t2_1 : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-blue-50 focus:border-school-blue focus:ring-1 focus:ring-school-blue outline-none transition-all hide-arrows t2-score col-input-4" data-row="${index}" data-col="4" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 4)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t2_mid !== undefined ? g.t2_mid : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-blue-50 focus:border-school-blue focus:ring-1 focus:ring-school-blue outline-none transition-all hide-arrows t2-score col-input-5" data-row="${index}" data-col="5" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 5)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="10" value="${g.t2_2 !== undefined ? g.t2_2 : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-blue-50 focus:border-school-blue focus:ring-1 focus:ring-school-blue outline-none transition-all hide-arrows t2-score col-input-6" data-row="${index}" data-col="6" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 6)"></td>
+                            <td class="p-1.5 border-r border-gray-100"><input type="number" min="0" max="15" value="${g.t2_final !== undefined ? g.t2_final : ''}" class="w-full text-center border border-gray-300 rounded-md py-1.5 text-sm font-semibold text-school-navy focus:bg-blue-50 focus:border-school-blue focus:ring-1 focus:ring-school-blue outline-none transition-all hide-arrows t2-score col-input-7" data-row="${index}" data-col="7" oninput="calcTotal(${index}, this)" onkeydown="handleGradeKey(event, ${index}, 7)"></td>
+                            <td class="p-2 border-r border-gray-100 bg-blue-50 font-black text-blue-700 text-base shadow-inner" id="t2-total-${index}">0</td>
 
                             <!-- สรุปรวมรายปี -->
-                            <td class="p-2 border-r border-gray-100 bg-emerald-50 font-bold text-emerald-700" id="year-total-${index}">0</td>
-                            <td class="p-2 border-r border-gray-100 bg-emerald-50 font-bold text-emerald-700" id="year-grade-${index}">0.00</td>
-                            <td class="p-2 bg-emerald-50 font-bold text-emerald-700" id="year-quality-${index}">0</td>
+                            <td class="p-2 border-r border-gray-100 bg-emerald-50 font-black text-emerald-700 text-base shadow-inner" id="year-total-${index}">0</td>
+                            <td class="p-2 border-r border-gray-100 bg-emerald-50 font-black text-emerald-700 text-base shadow-inner" id="year-grade-${index}">0.00</td>
+                            <td class="p-2 bg-emerald-50 font-black text-emerald-700 text-base shadow-inner" id="year-quality-${index}">0</td>
                         </tr>`;
                     });
                     
@@ -5678,8 +5716,55 @@
             }
         }
 
-        // ฟังก์ชันคำนวณคะแนนรวมและเกรดอัตโนมัติ
-        function calcTotal(index) {
+        // ฟังก์ชันรับการกดปุ่ม Enter เลื่อนลงช่องด้านล่าง
+        function handleGradeKey(e, row, col) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                // หาช่อง input ในคอลัมน์เดียวกัน แต่แถวถัดไป
+                const nextInput = document.querySelector(`.col-input-${col}[data-row="${row + 1}"]`);
+                if (nextInput) {
+                    nextInput.focus();
+                    nextInput.select(); // คลุมดำตัวเลขเดิมให้พร้อมพิมพ์ทับได้เลย
+                }
+            }
+        }
+
+        // ฟังก์ชันเปลี่ยนชื่อครู (เฉพาะ Admin)
+        async function onGradingTeacherChange() {
+            const val = document.getElementById('adminGradingTeacherSelector').value;
+            if (val && val !== state.viewingTeacher) {
+                state.viewingTeacher = val;
+                
+                // ซิงค์ชื่อครูกับหน้าอื่นๆ ด้วย
+                const adminSel = document.getElementById('adminTeacherSelector');
+                if (adminSel) adminSel.value = val;
+                const reportSel = document.getElementById('adminReportTeacherSelector');
+                if (reportSel) reportSel.value = val;
+
+                cuteAlert.loading(`กำลังโหลดตารางสอนของ ${val} ⏳`);
+                await fetchSchedule(); // โหลดตารางสอนใหม่
+                
+                // รีเซ็ตหน้าจอ
+                document.getElementById('gradingSubjectSelector').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+                document.getElementById('gradingTableBody').innerHTML = `<tr><td colspan="15" class="py-20 text-center"><div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-school-bg border border-gray-200 mb-4 shadow-sm"><i class="fas fa-list-ol text-2xl text-school-brass"></i></div><p class="text-gray-500 font-medium">กรุณาเลือกห้องและวิชาเรียนด้านบน เพื่อกรอกคะแนน</p></td></tr>`;
+                
+                Swal.close();
+            }
+        }
+
+        // ฟังก์ชันคำนวณคะแนนรวมและเกรดอัตโนมัติ (เพิ่มการป้องกันพิมพ์เกินคะแนนเต็ม)
+        function calcTotal(index, element = null) {
+            // ป้องกันพิมพ์เลขเกิน Max 
+            if (element) {
+                const max = parseFloat(element.getAttribute('max'));
+                if (parseFloat(element.value) > max) {
+                    element.value = max; // บังคับคืนค่าสูงสุดทันที
+                }
+                if (parseFloat(element.value) < 0) {
+                    element.value = 0; // ป้องกันค่าติดลบ
+                }
+            }
+
             // คำนวณเทอม 1
             const t1Inputs = document.querySelectorAll(`.t1-score[data-index="${index}"]`);
             let t1Total = 0;
