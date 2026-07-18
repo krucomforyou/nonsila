@@ -211,7 +211,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -371,8 +371,8 @@
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                             
                             <!-- Dropdown เลือกครูแบบใหม่ (แสดงเฉพาะ Admin) -->
-                            <div id="adminGradingTeacherSelectorContainer" class="hidden items-center bg-gray-50 border border-gray-300 rounded-lg px-2 shadow-sm w-full sm:w-auto min-w-[200px]">
-                                <div class="px-2 border-r border-gray-300 py-1.5 shrink-0"><i class="fas fa-user-tie text-school-navy text-sm"></i></div>
+                            <div id="adminGradingTeacherSelectorContainer" class="hidden items-center bg-gray-50 border border-gray-300 rounded-lg px-2 shadow-sm w-full xl:w-auto max-w-full xl:max-w-[300px]">
+                                <div class="px-2 border-r border-gray-300 py-2 shrink-0"><i class="fas fa-user-tie text-school-navy text-sm"></i></div>
                                 <select id="adminGradingTeacherSelector" onchange="onGradingTeacherChange()" class="bg-transparent text-sm font-bold text-school-navy py-2 px-2 outline-none cursor-pointer w-full truncate">
                                     <option value="">กำลังโหลดรายชื่อ...</option>
                                 </select>
@@ -764,11 +764,12 @@
                             <table class="w-full text-sm text-left">
                                 <thead class="bg-gray-100 text-school-navy border-b border-gray-200 text-xs">
                                     <tr>
-                                        <th class="px-3 py-2 text-center w-12">ย้าย</th>
-                                        <th class="px-3 py-2 w-1/3">กลุ่มหมวดหมู่ (เช่น ภาคเรียนที่ 1)</th>
-                                        <th class="px-3 py-2 w-1/3">ชื่อช่อง (เช่น กลางปี)</th>
-                                        <th class="px-3 py-2 w-24 text-center">คะแนนเต็ม</th>
-                                        <th class="px-3 py-2 text-center w-12">ลบ</th>
+                                        <th class="px-2 py-2 text-center w-10">ย้าย</th>
+                                        <th class="px-2 py-2 w-1/4">กลุ่มหมวดหมู่ (เช่น ภาคเรียนที่ 1)</th>
+                                        <th class="px-2 py-2 w-1/4">ชื่อช่อง (เช่น กลางปี)</th>
+                                        <th class="px-2 py-2 w-32">ประเภท</th>
+                                        <th class="px-2 py-2 w-20 text-center">คะแนนเต็ม</th>
+                                        <th class="px-2 py-2 text-center w-10">ลบ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="stgGradingBody" class="divide-y divide-gray-100">
@@ -5664,17 +5665,95 @@
         }
 
 
-        // ฟังก์ชันรับการกดปุ่ม Enter เลื่อนลงช่องด้านล่าง
+        // ฟังก์ชันรับการกดปุ่ม Enter เลื่อนลง และลูกศรซ้ายขวา
         function handleGradeKey(e, row, col) {
-            if (e.key === 'Enter' || e.keyCode === 13) {
-                e.preventDefault();
-                // หาช่อง input ในคอลัมน์เดียวกัน แต่แถวถัดไป
-                const nextInput = document.querySelector(`.col-input-${col}[data-row="${row + 1}"]`);
-                if (nextInput) {
-                    nextInput.focus();
-                    nextInput.select(); // คลุมดำตัวเลขเดิมให้พร้อมพิมพ์ทับได้เลย
-                }
+            let nextRow = row;
+            let nextCol = col;
+            
+            if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                e.preventDefault(); nextRow++;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); nextRow--;
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault(); nextCol++;
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault(); nextCol--;
+            } else {
+                return; 
             }
+
+            // ค้นหาช่องถัดไปที่ไม่ติด readonly
+            const nextInput = document.querySelector(`.grading-input[data-row="${nextRow}"][data-col="${nextCol}"]:not([readonly])`);
+            if (nextInput) {
+                nextInput.focus();
+                nextInput.select(); // คลุมดำตัวเลขเดิมให้พร้อมพิมพ์ทับได้เลย
+            }
+        }
+
+        // ฟังก์ชันคำนวณคะแนนรวมและเกรดอัตโนมัติแบบไดนามิก
+        function calcTotal(rowIndex, element = null) {
+            // ป้องกันพิมพ์เลขเกิน Max 
+            if (element) {
+                const max = parseFloat(element.getAttribute('max'));
+                if (parseFloat(element.value) > max) element.value = max;
+                if (parseFloat(element.value) < 0) element.value = 0;
+            }
+
+            // 1. ดึงคะแนนช่อง Input ปกติมาเก็บไว้ก่อน
+            let groupSums = {};
+            let grandTotal = 0;
+
+            state.gradingConfig.forEach((col, colIndex) => {
+                const input = document.querySelector(`.grading-input[data-row="${rowIndex}"][data-col="${colIndex}"]`);
+                let val = input && input.value !== '' ? parseFloat(input.value) : 0;
+                
+                const type = getColTypeFallback(col);
+                if (type === 'input') {
+                    if (!groupSums[col.group]) groupSums[col.group] = 0;
+                    groupSums[col.group] += val;
+                    grandTotal += val;
+                }
+            });
+
+            // 2. อัปเดตช่องที่ต้องคำนวณอัตโนมัติ (ช่อง Readonly)
+            state.gradingConfig.forEach((col, colIndex) => {
+                const type = getColTypeFallback(col);
+                if (type === 'input') return; // ข้ามช่องกรอกปกติ
+
+                const input = document.querySelector(`.grading-input[data-row="${rowIndex}"][data-col="${colIndex}"]`);
+                if (!input) return;
+
+                if (type === 'sum_group') {
+                    input.value = groupSums[col.group] || 0;
+                } else if (type === 'sum_all') {
+                    input.value = grandTotal;
+                } else if (type === 'grade') {
+                    let grade = 0;
+                    if (grandTotal >= 80) grade = 4.0;
+                    else if (grandTotal >= 75) grade = 3.5;
+                    else if (grandTotal >= 70) grade = 3.0;
+                    else if (grandTotal >= 65) grade = 2.5;
+                    else if (grandTotal >= 60) grade = 2.0;
+                    else if (grandTotal >= 55) grade = 1.5;
+                    else if (grandTotal >= 50) grade = 1.0;
+                    else grade = 0;
+                    input.value = grade.toFixed(2);
+                } else if (type === 'quality') {
+                    let grade = 0;
+                    if (grandTotal >= 80) grade = 4.0;
+                    else if (grandTotal >= 75) grade = 3.5;
+                    else if (grandTotal >= 70) grade = 3.0;
+                    else if (grandTotal >= 65) grade = 2.5;
+                    else if (grandTotal >= 60) grade = 2.0;
+                    else if (grandTotal >= 55) grade = 1.5;
+                    else if (grandTotal >= 50) grade = 1.0;
+                    
+                    let quality = Math.floor(grade);
+                    if (quality === 0 && grandTotal > 0) quality = 1;
+                    if (grandTotal === 0) quality = 0;
+                    input.value = quality;
+                }
+            });
         }
 
         // ฟังก์ชันเปลี่ยนชื่อครู (เฉพาะ Admin)
@@ -5706,20 +5785,30 @@
         
         // ค่าเริ่มต้นหากยังไม่เคยมีการตั้งค่าในเทอมนั้นๆ
         const DEFAULT_GRADING_CONFIG = [
-            { group: 'ภาคเรียนที่ 1', name: 'เก็บ 1', max: 10 },
-            { group: 'ภาคเรียนที่ 1', name: 'ก่อนกลางปี', max: 15 },
-            { group: 'ภาคเรียนที่ 1', name: 'เก็บ 2', max: 10 },
-            { group: 'ภาคเรียนที่ 1', name: 'กลางปี', max: 15 },
-            { group: 'ภาคเรียนที่ 1', name: 'รวม', max: 50 },
-            { group: 'ภาคเรียนที่ 2', name: 'เก็บ 1', max: 10 },
-            { group: 'ภาคเรียนที่ 2', name: 'ก่อนปลายปี', max: 15 },
-            { group: 'ภาคเรียนที่ 2', name: 'เก็บ 2', max: 10 },
-            { group: 'ภาคเรียนที่ 2', name: 'ปลายปี', max: 15 },
-            { group: 'ภาคเรียนที่ 2', name: 'รวม', max: 50 },
-            { group: 'รวมประเมินผล', name: 'รวม 2 ภาค', max: 100 },
-            { group: 'รวมประเมินผล', name: 'ผลการเรียน', max: 4 },
-            { group: 'รวมประเมินผล', name: 'ระดับคุณภาพ', max: 4 }
+            { group: 'ภาคเรียนที่ 1', name: 'เก็บ 1', max: 10, type: 'input' },
+            { group: 'ภาคเรียนที่ 1', name: 'ก่อนกลางปี', max: 15, type: 'input' },
+            { group: 'ภาคเรียนที่ 1', name: 'เก็บ 2', max: 10, type: 'input' },
+            { group: 'ภาคเรียนที่ 1', name: 'กลางปี', max: 15, type: 'input' },
+            { group: 'ภาคเรียนที่ 1', name: 'รวม', max: 50, type: 'sum_group' },
+            { group: 'ภาคเรียนที่ 2', name: 'เก็บ 1', max: 10, type: 'input' },
+            { group: 'ภาคเรียนที่ 2', name: 'ก่อนปลายปี', max: 15, type: 'input' },
+            { group: 'ภาคเรียนที่ 2', name: 'เก็บ 2', max: 10, type: 'input' },
+            { group: 'ภาคเรียนที่ 2', name: 'ปลายปี', max: 15, type: 'input' },
+            { group: 'ภาคเรียนที่ 2', name: 'รวม', max: 50, type: 'sum_group' },
+            { group: 'รวมประเมินผล', name: 'รวม 2 ภาค', max: 100, type: 'sum_all' },
+            { group: 'รวมประเมินผล', name: 'ผลการเรียน', max: 4, type: 'grade' },
+            { group: 'รวมประเมินผล', name: 'ระดับคุณภาพ', max: 4, type: 'quality' }
         ];
+
+        // ตัวช่วยสำหรับข้อมูลเก่าที่ยังไม่มี type
+        function getColTypeFallback(col) {
+            if (col.type) return col.type;
+            if (col.name.includes('ผลการเรียน')) return 'grade';
+            if (col.name.includes('ระดับคุณภาพ')) return 'quality';
+            if (col.name.includes('รวม 2') || col.name.includes('รวมประเมินผล')) return 'sum_all';
+            if (col.name.includes('รวม')) return 'sum_group';
+            return 'input';
+        }
 
         // ฟังก์ชันวาดหัวตารางแบบไดนามิก
         function renderGradingTableHead() {
@@ -5808,18 +5897,21 @@
                         // วนลูปวาดช่องกรอกคะแนนตาม Config แบบไดนามิก
                         state.gradingConfig.forEach((col, colIndex) => {
                             let val = scores[colIndex] !== undefined && scores[colIndex] !== null ? scores[colIndex] : '';
+                            const colType = getColTypeFallback(col);
+                            const isCalcCol = colType !== 'input'; // ถ้าไม่ใช่ input จะถูกล็อกและคำนวณอัตโนมัติ
                             
-                            // จัดสีช่องถ้าเป็นคอลัมน์รวม
-                            let isTotalCol = col.name.includes('รวม') || col.name.includes('ผลการเรียน') || col.name.includes('ระดับคุณภาพ');
-                            let inputStyle = isTotalCol ? 'bg-gray-50 text-school-navy border-gray-300 shadow-inner' : 'bg-white text-school-navy border-gray-300 focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500';
+                            let inputStyle = isCalcCol 
+                                ? 'bg-gray-100 text-school-navy border-transparent shadow-inner cursor-not-allowed text-base font-black' 
+                                : 'bg-white text-school-navy border-gray-300 focus:bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 hover:border-orange-300';
                             
                             html += `
                             <td class="p-1.5 border-r border-gray-100 text-center min-w-[70px]">
                                 <input type="number" min="0" max="${col.max}" value="${val}" 
                                 class="w-full text-center border rounded-md py-1.5 text-sm font-semibold outline-none transition-all hide-arrows grading-input col-input-${colIndex} ${inputStyle}" 
                                 data-row="${rowIndex}" data-col="${colIndex}" 
-                                oninput="checkGradeMax(this)" 
-                                onkeydown="handleGradeKey(event, ${rowIndex}, ${colIndex})">
+                                oninput="calcTotal(${rowIndex}, this)" 
+                                onkeydown="handleGradeKey(event, ${rowIndex}, ${colIndex})"
+                                ${isCalcCol ? 'readonly tabindex="-1"' : ''}>
                             </td>`;
                         });
                         
@@ -5950,19 +6042,29 @@
         function closeGradingSettingsModal() { document.getElementById('gradingSettingsModal').classList.remove('active'); }
 
         function renderGradingSettingsTable(configArray) {
-            // เซฟใส่ Temp ไว้อีดิทใน Modal ไม่ให้กระทบของจริงจนกว่าจะกดเซฟ
             state.tempGradingConfig = JSON.parse(JSON.stringify(configArray)); 
             
             const tbody = document.getElementById('stgGradingBody');
-            tbody.innerHTML = state.tempGradingConfig.map((p, idx) => `
+            tbody.innerHTML = state.tempGradingConfig.map((p, idx) => {
+                const cType = getColTypeFallback(p);
+                return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100" draggable="true" ondragstart="dragRow(event, ${idx})" ondragover="allowDropRow(event)" ondrop="dropRow(event, ${idx})">
-                    <td class="px-3 py-2 text-center text-gray-400 cursor-grab active:cursor-grabbing"><i class="fas fa-grip-vertical"></i></td>
-                    <td class="px-3 py-2"><input type="text" value="${p.group}" onchange="updateGradingCol(${idx}, 'group', this.value)" class="w-full border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-school-blue"></td>
-                    <td class="px-3 py-2"><input type="text" value="${p.name}" onchange="updateGradingCol(${idx}, 'name', this.value)" class="w-full border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-school-blue"></td>
-                    <td class="px-3 py-2 text-center"><input type="number" min="0" value="${p.max}" onchange="updateGradingCol(${idx}, 'max', this.value)" class="w-full text-center border border-gray-300 rounded p-1.5 text-sm outline-none focus:border-school-blue"></td>
-                    <td class="px-3 py-2 text-center"><button onclick="removeGradingCol(${idx})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
-                </tr>`
-            ).join('');
+                    <td class="px-2 py-2 text-center text-gray-400 cursor-grab active:cursor-grabbing"><i class="fas fa-grip-vertical"></i></td>
+                    <td class="px-2 py-2"><input type="text" value="${p.group}" onchange="updateGradingCol(${idx}, 'group', this.value)" class="w-full border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue"></td>
+                    <td class="px-2 py-2"><input type="text" value="${p.name}" onchange="updateGradingCol(${idx}, 'name', this.value)" class="w-full border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue"></td>
+                    <td class="px-2 py-2">
+                        <select onchange="updateGradingCol(${idx}, 'type', this.value)" class="w-full border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue bg-white">
+                            <option value="input" ${cType === 'input' ? 'selected' : ''}>กรอกคะแนน</option>
+                            <option value="sum_group" ${cType === 'sum_group' ? 'selected' : ''}>รวมหมวดนี้</option>
+                            <option value="sum_all" ${cType === 'sum_all' ? 'selected' : ''}>รวมทั้งหมด</option>
+                            <option value="grade" ${cType === 'grade' ? 'selected' : ''}>เกรด (0-4)</option>
+                            <option value="quality" ${cType === 'quality' ? 'selected' : ''}>คุณภาพ (1-4)</option>
+                        </select>
+                    </td>
+                    <td class="px-2 py-2 text-center"><input type="number" min="0" value="${p.max}" onchange="updateGradingCol(${idx}, 'max', this.value)" class="w-full text-center border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue"></td>
+                    <td class="px-2 py-2 text-center"><button onclick="removeGradingCol(${idx})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-7 h-7 rounded shadow-sm flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
+                </tr>`;
+            }).join('');
         }
 
         function updateGradingCol(idx, key, value) {
@@ -5971,7 +6073,7 @@
         }
 
         function addGradingCol() {
-            state.tempGradingConfig.push({ group: 'หมวดหมู่ใหม่', name: 'ช่องใหม่', max: 10 });
+            state.tempGradingConfig.push({ group: 'หมวดหมู่ใหม่', name: 'ช่องใหม่', max: 10, type: 'input' });
             renderGradingSettingsTable(state.tempGradingConfig);
         }
 
