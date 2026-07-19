@@ -217,7 +217,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.8</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -637,7 +637,7 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <div class="flex gap-2 admin-only" style="display:none;">
                                     <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
-                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition" style="display:none;"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                                 </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
@@ -3052,18 +3052,37 @@
                             } else {
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
+                            
+                            // ป้ายแสดงหน่วยกิต
+                            let creditBadge = item.credit ? `<div class="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 inline-block shadow-sm ml-1">${item.credit} นก.</div>` : '';
 
-                            // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin และปลดล็อคแล้วเท่านั้น
+                            // กำหนดการลาก เฉพาะตอนเป็น Admin และปลดล็อคแล้วเท่านั้น
                             let dragAttr = canEdit ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
-                            let removeBtn = canEdit ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
-                            let editBtn = canEdit ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
                             let hoverClass = canEdit ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
+                            // เช็คสิทธิ์ว่าใครสามารถแก้ไขหน่วยกิตได้บ้าง (ครูเจ้าของวิชา หรือ แอดมิน)
+                            const isOwner = (state.viewingTeacher === state.user.name);
+                            const canEditCredit = isOwner || checkAdminPermission();
+                            
+                            // จัดกลุ่มปุ่ม Action ทั้งหมด (ลบ, แก้ไขชื่อ, หน่วยกิต)
+                            let actionButtons = `<div class="absolute top-1 right-1 flex flex-row-reverse gap-1 opacity-0 group-hover:opacity-100 transition z-10">`;
+                            if (canEdit) {
+                                actionButtons += `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-red-100" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>`;
+                                actionButtons += `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-blue-100" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>`;
+                            }
+                            if (canEditCredit) {
+                                actionButtons += `<button onclick="editSubjectCredit('${item.subject}', '${item.className}', '${item.credit || ''}')" class="text-amber-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-amber-100" title="กำหนดหน่วยกิต"><i class="fas fa-award text-[10px]"></i></button>`;
+                            }
+                            actionButtons += `</div>`;
+
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
-                                ${removeBtn}
-                                ${editBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
+                                ${actionButtons}
+                                <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
-                                    ${classPill}
+                                    <div class="flex items-center justify-center flex-wrap">
+                                        ${classPill}
+                                        ${creditBadge}
+                                    </div>
                                 </div>
                             </td>`;
                         } else {
@@ -5188,6 +5207,46 @@
                 }
             });
         }
+
+
+        function editSubjectCredit(subject, className, currentCredit) {
+            Swal.fire({
+                title: '<i class="fas fa-award text-amber-500 mb-2 text-3xl"></i><br>กำหนดหน่วยกิต',
+                html: `<p class="text-sm text-gray-500 mb-2">ระบุหน่วยกิตวิชา <span class="text-school-navy font-bold">${subject}</span> <br>ห้อง <span class="text-school-navy font-bold">${className === '-' ? 'กิจกรรม' : className}</span></p>`,
+                input: 'text',
+                inputValue: currentCredit,
+                inputPlaceholder: 'เช่น 1.0 หรือ 1.5...',
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                cancelButtonText: 'ยกเลิก',
+                heightAuto: false,
+                scrollbarPadding: false,
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 mt-2 text-center focus:border-amber-500 focus:outline-none w-[85%] text-school-navy font-bold mx-auto block transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-md hover:bg-amber-600 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const newCredit = result.value.trim();
+                    // อัปเดตในตารางสอน
+                    state.schedule.forEach(s => {
+                        if (s.subject === subject && s.className === className) {
+                            s.credit = newCredit;
+                        }
+                    });
+                    
+                    // รีเฟรชหน้าจอให้แสดงหน่วยกิตทันที
+                    renderVisualTimetable();
+                    
+                    // บันทึกลงฐานข้อมูลทันทีอัตโนมัติ (แม้ตารางจะล็อคอยู่)
+                    saveScheduleToDB();
+                }
+            });
+        }
+
 
         function goToTodayOverview() {
             const today = new Date();
