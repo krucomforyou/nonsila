@@ -214,7 +214,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -6373,10 +6373,26 @@
             const className = document.getElementById('manageClassSelector').value;
             if (!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
 
-            let optionsHtml = '<option value="">-- ไม่ระบุ / ยกเลิกครูประจำชั้น --</option>';
-            state.teachers.forEach(t => {
-                optionsHtml += `<option value="${t}">${t}</option>`;
+            // ดึงรายชื่อครูที่เคยเลือกไว้ เพื่อนำมาติ๊กถูกให้โดยอัตโนมัติ
+            const hrDisplay = document.getElementById('homeroomTeacherDisplay').innerText;
+            let currentTeachers = [];
+            if (hrDisplay && hrDisplay.includes('ครูประจำชั้น:')) {
+                const tStr = hrDisplay.split('ครูประจำชั้น:')[1].trim();
+                currentTeachers = tStr.split(',').map(t => t.trim());
+            }
+
+            // สร้าง Checkbox จากรายชื่อครูทั้งหมด
+            let checkboxesHtml = '<div class="text-left max-h-48 overflow-y-auto mt-3 border border-gray-200 rounded-xl p-3 bg-gray-50 hide-scrollbar">';
+            state.teachers.forEach((t) => {
+                const isChecked = currentTeachers.includes(t) ? 'checked' : '';
+                checkboxesHtml += `
+                    <label class="flex items-center space-x-3 mb-2 cursor-pointer p-2 hover:bg-purple-50 rounded-lg transition">
+                        <input type="checkbox" class="hr-teacher-cb form-checkbox h-5 w-5 text-purple-600 rounded focus:ring-purple-500" value="${t}" ${isChecked}>
+                        <span class="text-sm font-medium text-gray-700">${t}</span>
+                    </label>
+                `;
             });
+            checkboxesHtml += '</div>';
 
             Swal.fire({
                 html: `
@@ -6386,9 +6402,11 @@
                         </div>
                         <h3 class="text-xl font-bold text-school-navy mb-1">ตั้งครูประจำชั้น</h3>
                         <p class="text-sm text-gray-500">ห้องเรียน <span class="font-bold text-school-blue">${className}</span></p>
-                        <select id="swalHomeroomTeacher" class="border-2 border-gray-200 rounded-xl px-4 py-3 text-center focus:border-purple-500 focus:outline-none w-[85%] text-school-navy font-bold text-sm mx-auto block mt-4 mb-2 shadow-inner transition-colors">
-                            ${optionsHtml}
-                        </select>
+                        
+                        <div class="w-[90%] mt-2">
+                            <p class="text-xs text-left font-bold text-purple-600 mb-1">เลือกครูประจำชั้น (เลือกได้มากกว่า 1 คน):</p>
+                            ${checkboxesHtml}
+                        </div>
                     </div>`,
                 showCancelButton: true, 
                 confirmButtonText: 'บันทึกข้อมูล', 
@@ -6401,7 +6419,10 @@
                     cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
                 },
                 preConfirm: () => {
-                    return document.getElementById('swalHomeroomTeacher').value;
+                    // ดึงค่า checkbox ทั้งหมดที่ถูกติ๊กเลือก
+                    const selected = [];
+                    document.querySelectorAll('.hr-teacher-cb:checked').forEach(cb => selected.push(cb.value));
+                    return selected.join(', '); // รวมชื่อด้วยลูกน้ำ
                 }
             })
             .then(async (result) => {
@@ -6419,7 +6440,6 @@
                         const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
                         const json = await res.json();
                         if (json.status === 'success') { 
-                            // รีเซ็ตแคชเพื่อให้ข้อมูลอัปเดตทันที
                             if (state.studentListCache) delete state.studentListCache[`${state.selectedTerm}_${className.trim()}`];
                             loadManageStudents(); 
                             cuteAlert.success('สำเร็จ! ✨', json.message); 
