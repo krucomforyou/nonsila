@@ -214,7 +214,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -915,9 +915,18 @@
                     
                     <div class="bg-school-bg border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-                            <label class="font-bold text-sm text-school-navy whitespace-nowrap">เลือกห้อง:</label>
-                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <div class="flex flex-col">
+                                <label class="font-bold text-sm text-school-navy whitespace-nowrap">เลือกห้อง:</label>
+                                <div id="homeroomTeacherDisplay" class="text-[10px] text-gray-500 font-bold mt-0.5"></div>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto mt-1 sm:mt-0">
                                 <select id="manageClassSelector" onchange="loadManageStudents()" class="border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy bg-white w-full sm:w-auto min-w-[150px] shadow-inner outline-none"></select>
+                                
+                                <!-- ปุ่มตั้งครูประจำชั้น -->
+                                <button onclick="promptSetHomeroomTeacher()" class="admin-class-btn bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 w-10 h-10 rounded-lg shadow-sm flex items-center justify-center transition" title="ตั้งครูประจำชั้น">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </button>
+
                                 <button onclick="promptAddClass()" class="admin-class-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 w-10 h-10 rounded-lg shadow-sm flex items-center justify-center transition" title="เพิ่มห้องเรียนใหม่">
                                     <i class="fas fa-folder-plus"></i>
                                 </button>
@@ -4333,6 +4342,13 @@
                 // -------------------------------
 
                 if (json.status === 'success') {
+                    // --- อัปเดตการแสดงชื่อครูประจำชั้น ---
+                    const hrDisplay = document.getElementById('homeroomTeacherDisplay');
+                    if(hrDisplay) {
+                        hrDisplay.innerHTML = json.homeroomTeacher 
+                            ? `<i class="fas fa-user-tie text-purple-500 mr-1"></i>ครูประจำชั้น: <span class="text-purple-700">${json.homeroomTeacher}</span>` 
+                            : `<i class="fas fa-user-times text-gray-400 mr-1"></i>ยังไม่ระบุครูประจำชั้น`;
+                    }
                     if (json.data.length > 0) {
                         state.headers = json.data[0]; state.manageData = json.data.slice(1); renderManageTable();
                     } else {
@@ -6309,6 +6325,110 @@
                     </td>
                 </tr>
             `;
+        }
+
+        // ==========================================
+        // ควบคุมการกด Enter หน้าบันทึกคะแนน ให้เลื่อนลงด้านล่าง
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const gradingTableBody = document.getElementById('gradingTableBody');
+            if (gradingTableBody) {
+                gradingTableBody.addEventListener('keydown', function(e) {
+                    // ดักจับปุ่ม Enter (บนมือถือมักจะส่งค่าเป็น Enter)
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault(); // ยกเลิกการเปลี่ยนช่องไปด้านขวา
+                        
+                        const currentInput = e.target;
+                        if (currentInput.tagName.toLowerCase() !== 'input') return;
+
+                        const td = currentInput.closest('td');
+                        const tr = td.closest('tr');
+                        if (!td || !tr) return;
+
+                        const cellIndex = Array.from(tr.children).indexOf(td);
+                        const nextRow = tr.nextElementSibling;
+                        
+                        // เลื่อนไปยังแถวถัดไปในคอลัมน์เดียวกัน
+                        if (nextRow) {
+                            const nextTd = nextRow.children[cellIndex];
+                            if (nextTd) {
+                                const nextInput = nextTd.querySelector('input');
+                                if (nextInput) {
+                                    nextInput.focus();
+                                    nextInput.select(); // คลุมดำตัวเลขเดิมให้พร้อมพิมพ์ทับ
+                                } else {
+                                    currentInput.blur(); // ซ่อนคีย์บอร์ดหากไม่เจอช่อง
+                                }
+                            }
+                        } else {
+                            currentInput.blur(); // ซ่อนคีย์บอร์ดเมื่อถึงคนสุดท้าย
+                        }
+                    }
+                });
+            }
+        });
+
+        function promptSetHomeroomTeacher() {
+            if (!checkAdminPermission()) return;
+            const className = document.getElementById('manageClassSelector').value;
+            if (!className) { cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกห้องเรียนก่อน'); return; }
+
+            let optionsHtml = '<option value="">-- ไม่ระบุ / ยกเลิกครูประจำชั้น --</option>';
+            state.teachers.forEach(t => {
+                optionsHtml += `<option value="${t}">${t}</option>`;
+            });
+
+            Swal.fire({
+                html: `
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mb-4 text-3xl shadow-sm border border-purple-100">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-school-navy mb-1">ตั้งครูประจำชั้น</h3>
+                        <p class="text-sm text-gray-500">ห้องเรียน <span class="font-bold text-school-blue">${className}</span></p>
+                        <select id="swalHomeroomTeacher" class="border-2 border-gray-200 rounded-xl px-4 py-3 text-center focus:border-purple-500 focus:outline-none w-[85%] text-school-navy font-bold text-sm mx-auto block mt-4 mb-2 shadow-inner transition-colors">
+                            ${optionsHtml}
+                        </select>
+                    </div>`,
+                showCancelButton: true, 
+                confirmButtonText: 'บันทึกข้อมูล', 
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false,
+                customClass: { 
+                    popup: 'rounded-3xl shadow-2xl border border-gray-100 font-sans pt-6 pb-4 w-11/12 max-w-sm',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-purple-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-purple-700 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                },
+                preConfirm: () => {
+                    return document.getElementById('swalHomeroomTeacher').value;
+                }
+            })
+            .then(async (result) => {
+                if (result.isConfirmed) {
+                    const teacherName = result.value;
+                    cuteAlert.loading('กำลังบันทึกข้อมูล ⏳');
+                    const form = new FormData();
+                    form.append('term', state.selectedTerm); 
+                    form.append('actionType', 'setHomeroomTeacher'); 
+                    form.append('className', className);
+                    form.append('teacherName', teacherName);
+                    form.append('adminUser', state.user.name);
+                    
+                    try {
+                        const res = await fetch(`${API_URL}?action=manageClass`, { method: 'POST', body: form });
+                        const json = await res.json();
+                        if (json.status === 'success') { 
+                            // รีเซ็ตแคชเพื่อให้ข้อมูลอัปเดตทันที
+                            if (state.studentListCache) delete state.studentListCache[`${state.selectedTerm}_${className.trim()}`];
+                            loadManageStudents(); 
+                            cuteAlert.success('สำเร็จ! ✨', json.message); 
+                        } else {
+                            cuteAlert.error('ข้อผิดพลาด', json.message);
+                        }
+                    } catch (e) { cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว'); }
+                }
+            });
         }
     </script>
 </body>
