@@ -220,7 +220,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -7194,6 +7194,223 @@
             } catch (e) {
                 console.error(e);
                 cuteAlert.error('เกิดข้อผิดพลาด', 'ไม่สามารถสร้างไฟล์ Excel ได้');
+            }
+        }
+
+        // ==========================================
+        // ระบบโหลดและประมวลผลตาราง สรุปผลการเรียน (ปพ.6)
+        // ==========================================
+        async function loadConsolidatedGrades() {
+            const className = document.getElementById('summaryGradeClassSelector').value;
+            if (!className || !state.selectedTerm) {
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกระดับชั้นและตรวจสอบภาคเรียนก่อนค้นหา');
+                return;
+            }
+
+            const tbody = document.getElementById('summaryGradesTableBody');
+            // แสดง Loader แบบเรียบหรูระหว่างรอข้อมูล
+            tbody.innerHTML = '<tr><td colspan="100" class="py-20 text-center"><div class="loader mx-auto mb-4 w-10 h-10 border-4"></div><p class="text-school-navy font-bold">กำลังประมวลผลข้อมูล ปพ.6...</p></td></tr>';
+
+            try {
+                const res = await fetch(`${API_URL}?action=getConsolidatedGrades&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    const { students, subjects } = json.data;
+                    if (!students || students.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="100" class="py-20 text-center text-red-500 font-bold"><i class="fas fa-exclamation-circle text-3xl mb-2"></i><br>ไม่พบข้อมูลนักเรียนในห้องนี้</td></tr>';
+                        return;
+                    }
+                    renderConsolidatedGradesTable(students, subjects);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="100" class="py-20 text-center text-red-500"><i class="fas fa-times-circle text-3xl mb-2"></i><br>${json.message}</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="100" class="py-20 text-center text-red-500"><i class="fas fa-wifi text-3xl mb-2"></i><br>เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย</td></tr>';
+            }
+        }
+
+        function renderConsolidatedGradesTable(students, subjects) {
+            const topHeader = document.getElementById('summaryTopSubjectHeader');
+            const subHeaders = document.getElementById('summarySubjectHeaders');
+            const credHeaders = document.getElementById('summaryCreditHeaders');
+
+            // 1. สร้างหัวตาราง (Dynamic Headers) ตามจำนวนวิชา
+            if (subjects.length > 0) {
+                topHeader.colSpan = subjects.length * 2;
+                let subHtml = '';
+                let credHtml = '';
+                subjects.forEach(subj => {
+                    const creditText = subj.credit ? `(${subj.credit} นก.)` : '';
+                    subHtml += `<th colspan="2" class="border border-school-navyLight py-1 px-2 whitespace-nowrap min-w-[80px]">${subj.name}<br><span class="text-[10px] text-blue-200 font-normal">${creditText}</span></th>`;
+                    credHtml += `<th class="border border-school-navyLight px-1 w-10">เกรด</th><th class="border border-school-navyLight px-1 w-12">ระดับ</th>`;
+                });
+                subHeaders.innerHTML = subHtml;
+                credHeaders.innerHTML = credHtml;
+            } else {
+                topHeader.colSpan = 2;
+                subHeaders.innerHTML = '<th colspan="2" class="border border-school-navyLight py-1 px-2">ไม่มีข้อมูลวิชา</th>';
+                credHeaders.innerHTML = '<th class="border border-school-navyLight px-1 w-10">-</th><th class="border border-school-navyLight px-1 w-12">-</th>';
+            }
+
+            // 2. สร้างข้อมูลรายบุคคลและคำนวณเกรดเฉลี่ยอัตโนมัติ
+            const tbody = document.getElementById('summaryGradesTableBody');
+            let html = '';
+
+            students.forEach((stu) => {
+                let rowHtml = `<tr class="hover:bg-blue-50 transition-colors">
+                    <td class="border border-gray-200 py-2 text-center text-school-navy font-bold sticky left-0 bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] z-10">${stu.no || '-'}</td>
+                    <td class="border border-gray-200 py-2 text-center text-school-blue font-mono text-xs sticky left-[50px] bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] z-10">${stu.id || '-'}</td>
+                    <td class="border border-gray-200 py-2 px-3 text-left whitespace-nowrap font-medium text-gray-800 sticky left-[110px] bg-white shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)] z-10">${stu.fullName}</td>`;
+
+                let totalGradePoint = 0;
+                let totalCredit = 0;
+                let totalRawScore = 0;
+
+                if (subjects.length > 0) {
+                    subjects.forEach(subj => {
+                        const gradeStr = stu.grades[subj.name] || '';
+                        let gradeNum = parseFloat(gradeStr);
+                        let creditNum = parseFloat(subj.credit) || 1.0; 
+
+                        // คำนวณ GPA และระดับคุณภาพอัจฉริยะ
+                        let level = '-';
+                        let levelColor = 'text-gray-500';
+                        
+                        if (!isNaN(gradeNum)) {
+                            totalGradePoint += (gradeNum * creditNum);
+                            totalCredit += creditNum;
+                            totalRawScore += (gradeNum * 20); // จำลองคะแนนดิบเบื้องต้น (ถ้าไม่มีเก็บแยก)
+
+                            if (gradeNum >= 3.5) { level = 'ดีเยี่ยม'; levelColor = 'text-emerald-600'; }
+                            else if (gradeNum >= 2.5) { level = 'ดี'; levelColor = 'text-blue-600'; }
+                            else if (gradeNum >= 1) { level = 'ผ่าน'; levelColor = 'text-amber-600'; }
+                            else { level = 'ไม่ผ่าน'; levelColor = 'text-red-600'; }
+                        }
+
+                        const gradeDisplay = gradeStr ? `<span class="font-black text-school-navy">${gradeStr}</span>` : '-';
+                        rowHtml += `
+                            <td class="border border-gray-200 py-2 text-center">${gradeDisplay}</td>
+                            <td class="border border-gray-200 py-2 text-center text-xs font-bold ${levelColor}">${gradeStr ? level : '-'}</td>
+                        `;
+                    });
+                } else {
+                    rowHtml += `<td class="border border-gray-200 py-2 text-center" colspan="2">-</td>`;
+                }
+
+                let gpa = totalCredit > 0 ? (totalGradePoint / totalCredit).toFixed(2) : '-';
+                
+                rowHtml += `
+                    <td class="border border-gray-200 py-2 text-center text-xs font-bold text-gray-400">-</td>
+                    <td class="border border-gray-200 py-2 text-center text-xs font-bold text-gray-400">-</td>
+                    <td class="border border-gray-200 py-2 text-center text-xs font-bold text-emerald-600">ผ</td>
+                    <td class="border border-gray-200 py-2 text-center font-bold text-school-brass">${totalCredit > 0 ? Math.round(totalRawScore) : '-'}</td>
+                    <td class="border border-gray-200 py-2 text-center font-black text-school-blue bg-blue-50">${gpa}</td>
+                    <td class="border border-gray-200 py-2 text-center text-xs font-bold text-emerald-600">${gpa !== '-' ? (gpa >= 2.5 ? 'ผ่าน' : 'ปรับปรุง') : '-'}</td>
+                </tr>`;
+                html += rowHtml;
+            });
+
+            tbody.innerHTML = html;
+            
+            // บันทึก State ไว้สำหรับส่งออก Excel
+            state.summaryExportData = { students, subjects, className: document.getElementById('summaryGradeClassSelector').value };
+        }
+
+        function exportSummaryGradesToExcel() {
+            if (!state.summaryExportData || !state.summaryExportData.students || state.summaryExportData.students.length === 0) {
+                cuteAlert.warning('ข้อมูลว่างเปล่า', 'กรุณากดปุ่ม "ค้นหา" เพื่อโหลดข้อมูลขึ้นมาบนตารางก่อนทำการส่งออกครับ');
+                return;
+            }
+            
+            cuteAlert.loading('ระบบกำลังประมวลผลเป็นไฟล์ Excel... 📄');
+            try {
+                const { students, subjects, className } = state.summaryExportData;
+                const excelData = [];
+                
+                // ข้อมูลส่วนหัวเอกสาร
+                excelData.push(["รายงานสรุปผลการเรียน (ประกาศผล ปพ.6)"]);
+                excelData.push(["ภาคเรียน:", state.selectedTerm, "", "ระดับชั้น:", className]);
+                excelData.push([]);
+                
+                // วาดหัวตารางแถวที่ 1
+                let header1 = ["เลขที่", "รหัสประจำตัว", "ชื่อ - นามสกุล"];
+                subjects.forEach(s => { 
+                    header1.push(`${s.name} ${s.credit ? '('+s.credit+' นก.)' : ''}`); 
+                    header1.push(""); // เผื่อช่องว่างสำหรับการ Merge Colspan
+                });
+                header1.push("คุณลักษณะฯ", "อ่าน คิด วิเคราะห์ฯ", "กิจกรรมพัฒนาผู้เรียน", "คะแนนรวม", "เกรดเฉลี่ย (GPA)", "ระดับคุณภาพ");
+                
+                // วาดหัวตารางแถวที่ 2
+                let header2 = ["", "", ""];
+                subjects.forEach(s => { header2.push("เกรด", "ระดับ"); });
+                header2.push("", "", "", "", "", "");
+                
+                excelData.push(header1);
+                excelData.push(header2);
+                
+                // วาดข้อมูลนักเรียน
+                students.forEach(stu => {
+                    let row = [stu.no || '-', stu.id || '-', stu.fullName];
+                    let totalGradePoint = 0;
+                    let totalCredit = 0;
+                    let totalRawScore = 0;
+                    
+                    subjects.forEach(subj => {
+                        const grade = stu.grades[subj.name] || '';
+                        let gradeNum = parseFloat(grade);
+                        let creditNum = parseFloat(subj.credit) || 1.0;
+                        let level = '';
+                        
+                        if (!isNaN(gradeNum)) {
+                            totalGradePoint += (gradeNum * creditNum);
+                            totalCredit += creditNum;
+                            totalRawScore += (gradeNum * 20);
+                            
+                            if (gradeNum >= 3.5) level = 'ดีเยี่ยม';
+                            else if (gradeNum >= 2.5) level = 'ดี';
+                            else if (gradeNum >= 1) level = 'ผ่าน';
+                            else level = 'ไม่ผ่าน';
+                        }
+                        row.push(grade, level);
+                    });
+                    
+                    let gpa = totalCredit > 0 ? (totalGradePoint / totalCredit).toFixed(2) : '-';
+                    let summaryLevel = gpa !== '-' ? (gpa >= 2.5 ? 'ผ่าน' : 'ปรับปรุง') : '-';
+                    
+                    row.push('-', '-', 'ผ', totalCredit > 0 ? Math.round(totalRawScore) : '-', gpa, summaryLevel);
+                    excelData.push(row);
+                });
+                
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+                
+                // การตั้งค่า Merge Cells ให้สวยงามใน Excel
+                const merges = [
+                    { s: {r:0, c:0}, e: {r:0, c:4} }, // ชื่อเอกสาร
+                    { s: {r:3, c:0}, e: {r:4, c:0} }, { s: {r:3, c:1}, e: {r:4, c:1} }, { s: {r:3, c:2}, e: {r:4, c:2} }
+                ];
+                
+                let colIndex = 3;
+                subjects.forEach(s => {
+                    merges.push({ s: {r:3, c:colIndex}, e: {r:3, c:colIndex+1} });
+                    colIndex += 2;
+                });
+                
+                for(let i=0; i<6; i++) {
+                    merges.push({ s: {r:3, c:colIndex+i}, e: {r:4, c:colIndex+i} });
+                }
+                
+                ws['!merges'] = merges;
+                XLSX.utils.book_append_sheet(wb, ws, "สรุปผลการเรียน");
+                
+                const safeName = `สรุปผลการเรียน_${className.replace(/[\\\/]/g, '-')}_${state.selectedTerm.replace(/[\\\/]/g, '-')}`;
+                XLSX.writeFile(wb, `${safeName}.xlsx`);
+                Swal.close();
+                
+            } catch (e) {
+                console.error(e);
+                cuteAlert.error('ข้อผิดพลาด', 'เกิดความผิดพลาดในขั้นตอนการแปลงไฟล์ Excel');
             }
         }
     </script>
