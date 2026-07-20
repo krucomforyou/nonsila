@@ -183,7 +183,10 @@
             <a href="#" data-tab="trait-grading" onclick="switchTab('trait-grading')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-medal w-6 text-center mr-2"></i> บันทึกคุณลักษณะ
             </a>
-            
+            <a href="#" data-tab="summary-grades" onclick="switchTab('summary-grades')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
+                <i class="fas fa-file-invoice w-6 text-center mr-2"></i> สรุปผลการเรียน
+            </a>
+
             <div class="px-6 text-[10px] font-bold text-school-brass mt-6 mb-2 uppercase tracking-wider">ข้อมูลส่วนกลาง</div>
             <a href="#" data-tab="schedule" onclick="switchTab('schedule')" class="sidebar-item flex items-center px-6 py-3 text-sm border-l-4 border-transparent">
                 <i class="fas fa-calendar-alt w-6 text-center mr-2"></i> ตารางสอน
@@ -217,7 +220,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.8</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.9</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -502,6 +505,75 @@
                 </div>
             </div>
 
+            <!-- TAB สรุปผลการเรียน (ปพ.6) -->
+            <div id="tab-summary-grades" class="tab-content hidden absolute inset-0 overflow-y-auto p-2 sm:p-4 md:p-6 pb-32 md:pb-8 hide-scrollbar">
+                <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 mb-4 md:mb-6">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                            <h3 class="text-lg font-bold text-school-navy flex items-center shrink-0">
+                                <i class="fas fa-file-invoice text-school-brass mr-2"></i> ประกาศผลการเรียน
+                            </h3>
+                            <div class="w-full sm:w-48 relative ml-0 sm:ml-4">
+                                <select id="summaryGradeClassSelector" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-gray-50 hover:bg-white transition font-medium">
+                                    <option value="">-- เลือกระดับชั้น --</option>
+                                    <!-- ตัวเลือกจะถูกสร้างผ่าน JS ตัวเดียวกับตารางสอน -->
+                                </select>
+                            </div>
+                            <button onclick="loadConsolidatedGrades()" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                                <i class="fas fa-search"></i> ค้นหา
+                            </button>
+                        </div>
+                        <button onclick="exportSummaryGradesToExcel()" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                            <i class="fas fa-file-excel"></i> ส่งออก Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden relative min-h-[500px]">
+                    <div class="overflow-x-auto hide-scrollbar w-full h-[60vh] xl:h-[70vh]">
+                        <table class="w-full text-xs text-center border-collapse whitespace-nowrap table-fixed">
+                            <thead class="bg-school-navy text-white sticky top-0 z-20">
+                                <!-- แถวที่ 1 -->
+                                <tr>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-10 sticky left-0 bg-school-navy z-30">เลขที่</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-16 sticky left-[40px] bg-school-navy z-30">รหัส</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-4 w-48 sticky left-[104px] bg-school-navy z-30 text-left">ชื่อ - นามสกุล</th>
+                                    <th colspan="8" class="border border-school-navyLight py-1.5 bg-[#2a5298]">ความสามารถการเรียนรู้ตามหลักสูตร รายวิชาพื้นฐาน</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-16 bg-amber-500 text-school-navy">คุณลักษณะ<br>อันพึงประสงค์</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-16 bg-amber-400 text-school-navy">อ่าน คิด<br>วิเคราะห์ฯ</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-16 bg-[#f0d070] text-school-navy">กิจกรรม<br>พัฒนาผู้เรียน</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-12 bg-gray-100 text-school-navy">คะแนน<br>รวม</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-12 bg-gray-200 text-school-navy">เกรด<br>เฉลี่ย</th>
+                                    <th rowspan="3" class="border border-school-navyLight px-2 w-16 bg-gray-300 text-school-navy">ระดับคุณภาพ</th>
+                                </tr>
+                                <!-- แถวที่ 2 (รายวิชา ไดนามิก) -->
+                                <tr id="summarySubjectHeaders" class="bg-[#345ba8]">
+                                    <th colspan="2" class="border border-school-navyLight py-1 w-16">ท11101</th>
+                                    <th colspan="2" class="border border-school-navyLight py-1 w-16">ค11101</th>
+                                    <th colspan="2" class="border border-school-navyLight py-1 w-16">อ11101</th>
+                                    <th colspan="2" class="border border-school-navyLight py-1 w-16">ว11101</th>
+                                </tr>
+                                <!-- แถวที่ 3 (หน่วยกิต ไดนามิก) -->
+                                <tr id="summaryCreditHeaders" class="bg-[#1a3a6e] text-[10px]">
+                                    <th class="border border-school-navyLight px-1 w-8">เกรด</th><th class="border border-school-navyLight px-1 w-8">ระดับ</th>
+                                    <th class="border border-school-navyLight px-1 w-8">เกรด</th><th class="border border-school-navyLight px-1 w-8">ระดับ</th>
+                                    <th class="border border-school-navyLight px-1 w-8">เกรด</th><th class="border border-school-navyLight px-1 w-8">ระดับ</th>
+                                    <th class="border border-school-navyLight px-1 w-8">เกรด</th><th class="border border-school-navyLight px-1 w-8">ระดับ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryGradesTableBody" class="divide-y divide-gray-200 bg-white">
+                                <tr>
+                                    <td colspan="17" class="py-20 text-center text-gray-500 font-medium">
+                                        <div class="text-4xl mb-3"><i class="fas fa-clipboard-check text-school-brass"></i></div>
+                                        กรุณาเลือกระดับชั้นและกดค้นหา เพื่อดึงข้อมูลประมวลผล
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- TAB 2: ตรวจสอบการเช็คชื่อภาพรวมรายวัน -->
             <div id="tab-history-overview" class="tab-content absolute inset-0 overflow-y-auto p-4 md:p-6 pb-32 md:pb-8 hide-scrollbar">
                 <div class="bg-white rounded-xl shadow-soft border border-gray-100 p-4 md:p-6 max-w-4xl mx-auto">
@@ -636,8 +708,9 @@
                             <div class="flex justify-between items-center mb-2 shrink-0">
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <div class="flex gap-2 admin-only" style="display:none;">
+                                    <button onclick="saveScheduleToDB()" id="btnSaveCreditOnly" class="text-xs text-white bg-amber-500 hover:bg-amber-600 px-4 py-1.5 rounded-lg shadow-md items-center gap-2 transition animate-bounce" style="display:none;"><i class="fas fa-save"></i> บันทึกหน่วยกิต</button>
                                     <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
-                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition" style="display:none;"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                                 </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
@@ -2073,6 +2146,7 @@
                 'attendance': 'บันทึกเวลาเรียนประจำวัน', 
                 'grading': 'บันทึกคะแนนนักเรียน',
                 'trait-grading': 'บันทึกคุณลักษณะ (ครูประจำชั้น)',
+                'summary-grades': 'สรุปผลการเรียน (ประกาศผล)',
                 'schedule': 'จัดการตารางสอน', 
                 'substitute': 'จัดการสอนแทน',
                 'report': 'รายงานบันทึกเวลาเรียน',
@@ -2121,6 +2195,19 @@
                         }
                     } else {
                         teacherCont.classList.add('hidden');
+                    }
+                }
+
+                if (tabId === 'summary-grades') {
+                    const sel = document.getElementById('summaryGradeClassSelector');
+                    if (state.schedule && state.schedule.length > 0) {
+                        const uniqueClasses = new Set();
+                        state.schedule.forEach(s => {
+                            if (s.className !== '-') s.className.split(',').forEach(c => uniqueClasses.add(c.trim()));
+                        });
+                        let opts = '<option value="">-- เลือกระดับชั้น --</option>';
+                        Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
+                        if (sel.options.length <= 1) sel.innerHTML = opts;
                     }
                 }
 
@@ -3052,18 +3139,37 @@
                             } else {
                                 classPill = `<div class="text-[11px] font-medium text-white bg-emerald-500 rounded px-2 py-0.5 mt-1 inline-block shadow-sm">กิจกรรม</div>`;
                             }
+                            
+                            // ป้ายแสดงหน่วยกิต
+                            let creditBadge = item.credit ? `<div class="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 inline-block shadow-sm ml-1">${item.credit} นก.</div>` : '';
 
-                            // กำหนดการลาก และปุ่มลบ เฉพาะตอนเป็น Admin และปลดล็อคแล้วเท่านั้น
+                            // กำหนดการลาก เฉพาะตอนเป็น Admin และปลดล็อคแล้วเท่านั้น
                             let dragAttr = canEdit ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
-                            let removeBtn = canEdit ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
-                            let editBtn = canEdit ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
                             let hoverClass = canEdit ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
+                            // เช็คสิทธิ์ว่าใครสามารถแก้ไขหน่วยกิตได้บ้าง (ครูเจ้าของวิชา หรือ แอดมิน)
+                            const isOwner = (state.viewingTeacher === state.user.name);
+                            const canEditCredit = isOwner || checkAdminPermission();
+                            
+                            // จัดกลุ่มปุ่ม Action ทั้งหมด (ลบ, แก้ไขชื่อ, หน่วยกิต)
+                            let actionButtons = `<div class="absolute top-1 right-1 flex flex-row-reverse gap-1 opacity-0 group-hover:opacity-100 transition z-10">`;
+                            if (canEdit) {
+                                actionButtons += `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-red-100" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>`;
+                                actionButtons += `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-blue-100" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>`;
+                            }
+                            if (canEditCredit) {
+                                actionButtons += `<button onclick="editSubjectCredit('${item.subject}', '${item.className}', '${item.credit || ''}')" class="text-amber-500 bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-amber-100" title="กำหนดหน่วยกิต"><i class="fas fa-award text-[10px]"></i></button>`;
+                            }
+                            actionButtons += `</div>`;
+
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
-                                ${removeBtn}
-                                ${editBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
+                                ${actionButtons}
+                                <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
-                                    ${classPill}
+                                    <div class="flex items-center justify-center flex-wrap">
+                                        ${classPill}
+                                        ${creditBadge}
+                                    </div>
                                 </div>
                             </td>`;
                         } else {
@@ -3122,6 +3228,7 @@
                     state.pendingMoves = []; 
                     // ---------------------------------------
                     
+                    document.getElementById('btnSaveCreditOnly').style.display = 'none'; // ซ่อนปุ่มเมื่อเซฟสำเร็จ
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
@@ -5188,6 +5295,46 @@
                 }
             });
         }
+
+
+        function editSubjectCredit(subject, className, currentCredit) {
+            Swal.fire({
+                title: '<i class="fas fa-award text-amber-500 mb-2 text-3xl"></i><br>กำหนดหน่วยกิต',
+                html: `<p class="text-sm text-gray-500 mb-2">ระบุหน่วยกิตวิชา <span class="text-school-navy font-bold">${subject}</span> <br>ห้อง <span class="text-school-navy font-bold">${className === '-' ? 'กิจกรรม' : className}</span></p>`,
+                input: 'text',
+                inputValue: currentCredit,
+                inputPlaceholder: 'เช่น 1.0 หรือ 1.5...',
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                cancelButtonText: 'ยกเลิก',
+                heightAuto: false,
+                scrollbarPadding: false,
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans',
+                    input: 'border-2 border-gray-200 rounded-xl px-4 py-3 mt-2 text-center focus:border-amber-500 focus:outline-none w-[85%] text-school-navy font-bold mx-auto block transition-colors',
+                    actions: 'flex gap-3 w-[85%] justify-center mt-4 mx-auto',
+                    confirmButton: 'px-5 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-md hover:bg-amber-600 transition w-full',
+                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 border border-gray-300 transition w-full'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const newCredit = result.value.trim();
+                    // อัปเดตในตารางสอน
+                    state.schedule.forEach(s => {
+                        if (s.subject === subject && s.className === className) {
+                            s.credit = newCredit;
+                        }
+                    });
+                    
+                    // รีเฟรชหน้าจอให้แสดงหน่วยกิตทันที
+                    renderVisualTimetable();
+                    
+                    // เก็บค่าไว้ชั่วคราวและแสดงปุ่มให้ผู้ใช้กดเซฟเอง
+                    document.getElementById('btnSaveCreditOnly').style.display = 'flex';
+                }
+            });
+        }
+
 
         function goToTodayOverview() {
             const today = new Date();
