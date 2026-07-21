@@ -220,7 +220,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.8</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -519,13 +519,13 @@
                                     <!-- ตัวเลือกจะถูกสร้างผ่าน JS ตัวเดียวกับตารางสอน -->
                                 </select>
                             </div>
-                            <!-- เพิ่มปุ่มค้นหาและรีเซ็ท -->
-                            <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                <button onclick="loadConsolidatedGrades()" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
-                                    <i class="fas fa-search"></i> ค้นหา
+                            <!-- เพิ่มปุ่มโหลดประวัติและประมวลผลใหม่ -->
+                            <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0 flex-wrap sm:flex-nowrap">
+                                <button onclick="loadConsolidatedGrades(false)" class="w-full sm:w-auto bg-school-blue hover:bg-[#345ba8] text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-search"></i> ค้นหา (ดึงข้อมูลล่าสุด)
                                 </button>
-                                <button onclick="resetSummaryGradesView()" class="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
-                                    <i class="fas fa-sync-alt"></i> รีเซ็ท
+                                <button onclick="loadConsolidatedGrades(true)" class="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2" title="ดึงเกรดใหม่ทั้งหมดและบันทึก">
+                                    <i class="fas fa-calculator"></i> ประมวลผลใหม่
                                 </button>
                             </div>
                         </div>
@@ -6972,116 +6972,36 @@
             }
         }
 
-        async function loadConsolidatedGrades() {
+        async function loadConsolidatedGrades(forceRefresh = false) {
             const className = document.getElementById('summaryGradeClassSelector').value;
-            
-            if (!className || !state.selectedTerm) {
-                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกระดับชั้นก่อนทำการค้นหา');
-                return;
+            if (!className) { 
+                cuteAlert.error('แจ้งเตือน', 'กรุณาเลือกระดับชั้นก่อนทำการดึงข้อมูลครับ'); 
+                return; 
             }
 
-            // --- จุดที่ 1: เพิ่ม Loading Pop-up ก่อนเริ่มดึงข้อมูล ---
-            cuteAlert.loading('กำลังดึงข้อมูลและประมวลผลการเรียน... ⏳');
+            // เรียกใช้ Pop-up การทำงานเดียวกันกับ ปพ.5
+            cuteAlert.loading(`กำลัง${forceRefresh ? 'ประมวลผลใหม่' : 'ดึงข้อมูล'} ปพ.6 ห้อง ${className} 🚀`);
 
             try {
-                const res = await fetch(`${API_URL}?action=getConsolidatedGrades&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className)}&_t=${new Date().getTime()}`);
+                const res = await fetch(`${API_URL}?action=getConsolidatedGrades&term=${encodeURIComponent(state.selectedTerm)}&className=${encodeURIComponent(className)}&forceRefresh=${forceRefresh}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
-                // --- จุดที่ 2: ปิด Loading ทันทีที่ข้อมูลตอบกลับมาสำเร็จ ---
-                Swal.close();
-
                 if (json.status === 'success') {
-                    const students = json.data.students || [];
-                    const subjects = json.data.subjects || [];
-                    
-                    // 3. จัดการโครงสร้างหัวตาราง (รายวิชา และ หน่วยกิต)
-                    const topHeader = document.getElementById('summaryTopSubjectHeader');
-                    const subjHeadersRow = document.getElementById('summarySubjectHeaders');
-                    const creditHeadersRow = document.getElementById('summaryCreditHeaders');
-                    
-                    if (subjects.length > 0) {
-                        // ปรับขนาดความกว้างของคอลัมน์ด้านบนสุดให้ครอบคลุมวิชาทั้งหมด
-                        if (topHeader) topHeader.colSpan = subjects.length; 
-                        
-                        let subjHtml = '';
-                        let creditHtml = '';
-                        
-                        // วนลูปวาดหัวคอลัมน์วิชา
-                        subjects.forEach(sub => {
-                            subjHtml += `<th class="border border-school-navyLight py-2 min-w-[80px] bg-[#345ba8] text-white">${sub.name}</th>`;
-                            creditHtml += `<th class="border border-school-navyLight px-1 w-[1%] bg-[#1a3a6e] text-white text-[10px] font-normal">นก. ${sub.credit || '-'}</th>`;
-                        });
-                        
-                        if (subjHeadersRow) subjHeadersRow.innerHTML = subjHtml;
-                        if (creditHeadersRow) creditHeadersRow.innerHTML = creditHtml;
-                    } else {
-                        if (topHeader) topHeader.colSpan = 1;
-                        if (subjHeadersRow) subjHeadersRow.innerHTML = `<th class="border border-school-navyLight py-1 min-w-[80px] text-gray-400">-</th>`;
-                        if (creditHeadersRow) creditHeadersRow.innerHTML = `<th class="border border-school-navyLight px-1 text-gray-400">-</th>`;
+                    // เรียกฟังก์ชันที่คุณใช้วาดตารางในโค้ดเดิมของคุณ (เช่น renderSummaryGradesTable)
+                    if (typeof renderSummaryGradesTable === 'function') {
+                        renderSummaryGradesTable(json.data.students, json.data.subjects); 
                     }
                     
-                    // 4. จัดการข้อมูลผลการเรียนของนักเรียนแต่ละคน (Table Body)
-                    const tbody = document.getElementById('summaryGradesTableBody');
-                    
-                    if (students.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="100" class="py-20 text-center text-gray-500 font-medium">
-                                    <div class="text-4xl mb-3"><i class="fas fa-folder-open text-school-brass"></i></div>
-                                    ไม่พบข้อมูลนักเรียนในห้องเรียนนี้
-                                </td>
-                            </tr>`;
-                        return;
-                    }
-                    
-                    let html = '';
-                    students.forEach(stu => {
-                        let rowHtml = `
-                            <tr class="hover:bg-blue-50 transition-colors border-b border-gray-200 bg-white">
-                                <td class="border border-gray-200 text-center py-2 text-school-navy font-bold sticky left-0 bg-white z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)]">${stu.no || '-'}</td>
-                                <td class="border border-gray-200 text-center sticky left-[50px] bg-white z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)]">${stu.id || '-'}</td>
-                                <td class="border border-gray-200 text-left px-4 whitespace-nowrap sticky left-[110px] bg-white z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.05)]">${stu.fullName}</td>
-                        `;
-                        
-                        let totalScore = 0;
-                        let subjectCount = 0;
-                        
-                        // นำคะแนนแต่ละวิชามาใส่ในตาราง
-                        subjects.forEach(sub => {
-                            const grade = stu.grades[sub.name] !== undefined ? stu.grades[sub.name] : '';
-                            rowHtml += `<td class="border border-gray-200 text-center font-bold text-gray-700">${grade}</td>`;
-                            
-                            if (grade && !isNaN(parseFloat(grade))) {
-                                totalScore += parseFloat(grade);
-                                subjectCount++;
-                            }
-                        });
-                        
-                        let gpa = subjectCount > 0 ? (totalScore / subjectCount).toFixed(2) : '';
-                        
-                        rowHtml += `
-                                <td class="border border-gray-200 text-center text-gray-400">-</td>
-                                <td class="border border-gray-200 text-center text-gray-400">-</td>
-                                <td class="border border-gray-200 text-center text-gray-400">-</td>
-                                <td class="border border-gray-200 text-center font-bold text-school-navy bg-gray-50">${totalScore > 0 ? totalScore.toFixed(1) : ''}</td>
-                                <td class="border border-gray-200 text-center font-bold text-school-blue bg-gray-50">${gpa}</td>
-                                <td class="border border-gray-200 text-center font-bold text-emerald-600 bg-gray-50">-</td>
-                            </tr>
-                        `;
-                        
-                        html += rowHtml;
-                    });
-                    
-                    tbody.innerHTML = html;
-                    
+                    // แจ้งเวลาที่บันทึกล่าสุด
+                    let updateText = json.lastUpdated ? `<br><span class="text-xs text-gray-500">อัปเดตล่าสุด: ${json.lastUpdated}</span>` : '';
+                    cuteAlert.success('สำเร็จ! ✨', `โหลดข้อมูลผลการเรียนเรียบร้อยแล้ว${updateText}`);
                 } else {
-                    cuteAlert.error('พบข้อผิดพลาด', json.message || 'ดึงข้อมูลล้มเหลว');
+                    cuteAlert.error('ข้อผิดพลาด', json.message);
+                    document.getElementById('summaryGradesTableBody').innerHTML = `<tr><td colspan="100" class="py-20 text-center text-red-500">พบข้อผิดพลาด: ${json.message}</td></tr>`;
                 }
-            } catch (err) {
-                // --- จุดที่ 5: ปิด Loading กรณีเกิด Error เพื่อไม่ให้หน้าจอค้าง ---
-                Swal.close();
-                cuteAlert.error('ข้อผิดพลาดเครือข่าย', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
-                console.error("Error loading consolidated grades:", err);
+            } catch (e) {
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                document.getElementById('summaryGradesTableBody').innerHTML = `<tr><td colspan="100" class="py-20 text-center text-red-500">ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้</td></tr>`;
             }
         }
 
