@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -955,19 +955,19 @@
             
             <!-- TEACHER MAX SCORE MODAL -->
             <div id="teacherMaxScoreModal" class="modal fixed inset-0 z-[170] flex items-center justify-center bg-school-navy/80 backdrop-blur-sm px-4">
-                <div class="modal-content bg-white w-full max-w-md mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
+                <!-- เปลี่ยนความกว้างจาก max-w-md เป็น max-w-3xl เพื่อรองรับตาราง -->
+                <div class="modal-content bg-white w-full max-w-3xl mx-auto rounded-2xl shadow-2xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
                     <div class="bg-school-navy px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
-                        <h3 class="font-bold text-lg text-white"><i class="fas fa-edit mr-2 text-school-brassLight"></i> ตั้งค่าคะแนนเต็ม</h3>
+                        <h3 class="font-bold text-lg text-white"><i class="fas fa-edit mr-2 text-school-brassLight"></i> ตั้งค่าคะแนนเต็มรายวิชา</h3>
                         <button onclick="closeTeacherMaxScoreModal()" class="text-white/70 hover:text-white focus:outline-none"><i class="fas fa-times text-xl"></i></button>
                     </div>
                     <div class="p-6 overflow-y-auto bg-gray-50 flex-1 hide-scrollbar">
-                        <div class="bg-yellow-50 border border-yellow-200 text-yellow-700 p-3 rounded-lg text-sm mb-4">
+                        <div class="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded-lg text-sm mb-4">
                             <i class="fas fa-info-circle mr-1"></i> ปรับแก้คะแนนเต็มสำหรับวิชา: <span id="teacherMaxScoreSubjectDisplay" class="font-bold text-school-navy"></span>
                         </div>
-                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm p-4">
-                            <div id="teacherMaxScoreInputs" class="space-y-3">
-                                <!-- JS จะใส่ช่องกรอกคะแนนที่นี่ -->
-                            </div>
+                        <!-- ตัด p-4 ออกเพื่อให้ตารางชิดขอบ -->
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm" id="teacherMaxScoreInputs">
+                            <!-- JS จะใส่ช่องกรอกคะแนนที่นี่ -->
                         </div>
                     </div>
                     <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
@@ -6185,29 +6185,119 @@
 
             document.getElementById('teacherMaxScoreSubjectDisplay').innerText = subj;
             const container = document.getElementById('teacherMaxScoreInputs');
-            container.innerHTML = '';
 
             let hasEditable = false;
+            const groups = {};
+
+            // จัดกลุ่มข้อมูลตามหมวดหมู่
             state.gradingConfig.forEach((col, idx) => {
-                if (col.allowTeacherEdit && col.type === 'input') {
-                    hasEditable = true;
-                    container.innerHTML += `
-                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <span class="text-sm font-bold text-school-navy">${col.group} - ${col.name}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-500">คะแนนเต็ม:</span>
-                                <input type="number" id="tMax_${idx}" value="${col.max}" class="w-16 border border-gray-300 rounded p-1.5 text-center outline-none focus:border-school-blue font-bold text-school-blue">
-                            </div>
-                        </div>
-                    `;
+                if (!groups[col.group]) groups[col.group] = { items: [], maxInfo: 0 };
+                
+                if (col.type === 'sum_group') {
+                    groups[col.group].maxInfo = col.max;
+                } else if (col.type === 'input') {
+                    groups[col.group].items.push({ ...col, originalIndex: idx });
+                    if (col.allowTeacherEdit) hasEditable = true;
                 }
             });
 
             if (!hasEditable) {
-                container.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">แอดมินไม่ได้อนุญาตให้แก้ไขคะแนนเต็มในวิชานี้</p>';
+                container.innerHTML = '<p class="text-center text-gray-500 text-sm py-8">แอดมินไม่ได้อนุญาตให้แก้ไขคะแนนเต็มในวิชานี้</p>';
+                document.getElementById('teacherMaxScoreModal').classList.add('active');
+                return;
             }
 
+            let html = `
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-100 text-school-navy border-b border-gray-200 text-xs">
+                    <tr>
+                        <th class="px-4 py-3 w-1/3">กลุ่มหมวดหมู่</th>
+                        <th class="px-4 py-3 w-1/3">ชื่อช่อง</th>
+                        <th class="px-4 py-3 w-1/3 text-center">คะแนนเต็ม</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+            `;
+
+            Object.keys(groups).forEach(groupName => {
+                const group = groups[groupName];
+                const hasEditableInGroup = group.items.some(item => item.allowTeacherEdit);
+                
+                // ข้ามกลุ่มที่ไม่มีให้แก้ไขเลย เพื่อความสะอาดตา
+                if (!hasEditableInGroup) return;
+
+                // หัวกลุ่ม
+                html += `
+                    <tr class="bg-blue-50/30">
+                        <td colspan="3" class="px-4 py-2 border-y border-gray-200 flex justify-between items-center">
+                            <span class="font-bold text-school-navy"><i class="fas fa-folder-open text-school-brass mr-1"></i> ${groupName}</span>
+                            <span class="text-xs text-gray-600 font-medium bg-white px-2 py-1 rounded-lg border border-gray-200 shadow-sm">
+                                รวมต้องไม่เกิน: <span class="font-bold text-school-navy">${group.maxInfo}</span> 
+                                <span class="mx-1">|</span>
+                                กรอกแล้ว: <span id="sum_${groupName}" class="font-bold text-emerald-600">0</span>
+                            </span>
+                        </td>
+                    </tr>
+                `;
+
+                // รายการในกลุ่ม
+                group.items.forEach(item => {
+                    if (item.allowTeacherEdit) {
+                        html += `
+                        <tr class="hover:bg-gray-50 transition-colors bg-white">
+                            <td class="px-4 py-2 text-gray-500 pl-8"><i class="fas fa-level-up-alt rotate-90 mr-1 opacity-50"></i> ${item.group}</td>
+                            <td class="px-4 py-2 font-medium text-gray-700">${item.name}</td>
+                            <td class="px-4 py-2 text-center">
+                                <input type="number" min="0" id="tMax_${item.originalIndex}" value="${item.max}" 
+                                    class="w-20 text-center border border-gray-300 rounded-lg p-1.5 outline-none focus:border-school-blue focus:ring-1 focus:ring-school-blue font-bold text-school-navy transition-all tmax-input-${groupName}"
+                                    oninput="calcTeacherMaxGroup('${groupName}', ${group.maxInfo})">
+                            </td>
+                        </tr>`;
+                    } else {
+                        html += `
+                        <tr class="bg-gray-50/50">
+                            <td class="px-4 py-2 text-gray-400 pl-8"><i class="fas fa-level-up-alt rotate-90 mr-1 opacity-50"></i> ${item.group}</td>
+                            <td class="px-4 py-2 text-gray-400">${item.name} <i class="fas fa-lock text-[10px] ml-1" title="แอดมินล็อคไว้"></i></td>
+                            <td class="px-4 py-2 text-center">
+                                <input type="number" value="${item.max}" class="w-20 text-center border border-transparent bg-transparent rounded-lg p-1.5 font-bold text-gray-400 tmax-input-${groupName}" readonly>
+                            </td>
+                        </tr>`;
+                    }
+                });
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+
+            // คำนวณยอดรวมตอนเปิดครั้งแรก
+            Object.keys(groups).forEach(groupName => {
+                if (groups[groupName].items.some(item => item.allowTeacherEdit)) {
+                    calcTeacherMaxGroup(groupName, groups[groupName].maxInfo);
+                }
+            });
+
             document.getElementById('teacherMaxScoreModal').classList.add('active');
+        }
+
+        // ฟังก์ชันคำนวณยอดรวมแบบเรียลไทม์ (ป้องกันการกรอกเกิน)
+        function calcTeacherMaxGroup(groupName, maxAllowed) {
+            const inputs = document.querySelectorAll(`.tmax-input-${groupName}`);
+            let sum = 0;
+            inputs.forEach(input => {
+                sum += parseFloat(input.value) || 0;
+            });
+
+            const sumDisplay = document.getElementById(`sum_${groupName}`);
+            if (sumDisplay) {
+                sumDisplay.innerText = sum;
+                if (sum > maxAllowed) {
+                    sumDisplay.classList.remove('text-emerald-600', 'text-school-blue');
+                    sumDisplay.classList.add('text-red-500', 'animate-pulse');
+                } else {
+                    sumDisplay.classList.remove('text-red-500', 'animate-pulse', 'text-school-blue');
+                    sumDisplay.classList.add('text-emerald-600');
+                }
+            }
         }
 
         function closeTeacherMaxScoreModal() {
@@ -6217,6 +6307,38 @@
         async function saveTeacherMaxScore() {
             const subj = document.getElementById('gradingSubjectSelector').value;
             if (!subj) return;
+
+            // --- เพิ่มระบบตรวจสอบไม่ให้คะแนนรวมเกิน (Validation) ---
+            let isInvalid = false;
+            const groups = {};
+            
+            // 1. หาคะแนนเต็มที่อนุญาตของแต่ละกลุ่ม
+            state.gradingConfig.forEach(col => {
+                if (!groups[col.group]) groups[col.group] = { sum: 0, maxAllowed: 0 };
+                if (col.type === 'sum_group') groups[col.group].maxAllowed = col.max;
+            });
+
+            // 2. คำนวณผลรวมจากการกรอกล่าสุด + ค่าเดิมที่ล็อกไว้
+            state.gradingConfig.forEach((col, idx) => {
+                if (col.allowTeacherEdit && col.type === 'input') {
+                    const input = document.getElementById(`tMax_${idx}`);
+                    if (input) groups[col.group].sum += parseFloat(input.value) || 0;
+                } else if (!col.allowTeacherEdit && col.type === 'input') {
+                    groups[col.group].sum += col.max;
+                }
+            });
+
+            // 3. แจ้งเตือนถ้าเกิน
+            for (const [groupName, groupData] of Object.entries(groups)) {
+                if (groupData.maxAllowed > 0 && groupData.sum > groupData.maxAllowed) {
+                    isInvalid = true;
+                    cuteAlert.error('ไม่สามารถบันทึกได้', `หมวดหมู่ "${groupName}" มีคะแนนรวม (${groupData.sum}) เกินกว่าคะแนนเต็มที่กำหนดไว้ (${groupData.maxAllowed})`);
+                    break;
+                }
+            }
+
+            if (isInvalid) return;
+            // --------------------------------------------------
 
             // อัปเดตค่ากลับเข้าไปใน state
             state.gradingConfig.forEach((col, idx) => {
@@ -6250,6 +6372,9 @@
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch (e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
+
+
+
 
         // โหลดข้อมูลนักเรียนและวาดตารางกรอกคะแนน
         async function loadGradingStudents() {
