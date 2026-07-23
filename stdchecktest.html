@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -6193,20 +6193,25 @@
 
             let hasEditable = false;
             state.gradingConfig.forEach((col, idx) => {
-            // ต้องเช็คทั้งว่าเป็นช่องกรอกคะแนน และแอดมินต้องอนุญาตให้ครูแก้ไขได้ด้วย
-            if (col.allowTeacherEdit && col.type === 'input') {
-                hasEditable = true;
-                container.innerHTML += `
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-                        <span class="text-sm font-bold text-school-navy">${col.group} - ${col.name}</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-gray-500">คะแนนเต็ม:</span>
-                            <input type="number" id="tMax_${idx}" value="${col.max}" class="w-16 border border-gray-300 rounded p-1.5 text-center outline-none focus:border-school-blue font-bold text-school-blue">
+                // 1. ดึงประเภทคอลัมน์ที่แท้จริง (ป้องกันข้อมูลเก่าที่ไม่มี type)
+                const colType = getColTypeFallback(col);
+                
+                // 2. ตรวจสอบค่า allowTeacherEdit ให้ครอบคลุมทั้ง Boolean(true) และ String("true")
+                const isAllowEdit = (col.allowTeacherEdit === true || String(col.allowTeacherEdit).toLowerCase() === 'true');
+
+                if (isAllowEdit && colType === 'input') {
+                    hasEditable = true;
+                    container.innerHTML += `
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <span class="text-sm font-bold text-school-navy">${col.group} - ${col.name}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500">คะแนนเต็ม:</span>
+                                <input type="number" id="tMax_${idx}" value="${col.max}" class="w-16 border border-gray-300 rounded p-1.5 text-center outline-none focus:border-school-blue font-bold text-school-blue">
+                            </div>
                         </div>
-                    </div>
-                `;
-            }
-        });
+                    `;
+                }
+            });
 
             if (!hasEditable) {
                 container.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">ไม่มีช่องสำหรับกรอกคะแนนที่สามารถปรับคะแนนเต็มได้</p>';
@@ -6224,8 +6229,11 @@
             if (!subj) return;
 
             state.gradingConfig.forEach((col, idx) => {
-                // อัปเดตค่าเฉพาะช่องที่แอดมินอนุญาตให้ครูแก้ไขได้จริง ๆ
-                if (col.allowTeacherEdit && col.type === 'input') {
+                // เช็คด้วยวิธีเดียวกันกับหน้าแสดงผล
+                const colType = getColTypeFallback(col);
+                const isAllowEdit = (col.allowTeacherEdit === true || String(col.allowTeacherEdit).toLowerCase() === 'true');
+
+                if (isAllowEdit && colType === 'input') {
                     const input = document.getElementById(`tMax_${idx}`);
                     if (input) col.max = parseFloat(input.value) || 0;
                 }
