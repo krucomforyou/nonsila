@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -6192,14 +6192,18 @@
             container.innerHTML = '';
 
             let hasEditable = false;
-            state.gradingConfig.forEach((col, idx) => {
-                // 1. ดึงประเภทคอลัมน์ที่แท้จริง (ป้องกันข้อมูลเก่าที่ไม่มี type)
+            
+            // ใช้ state.gradingConfig หรือดึงจาก temp ถ้ามี เพื่อให้มั่นใจว่าอ่านค่าล่าสุด
+            const currentConfig = state.gradingConfig || [];
+
+            currentConfig.forEach((col, idx) => {
                 const colType = getColTypeFallback(col);
                 
-                // 2. ตรวจสอบค่า allowTeacherEdit ให้ครอบคลุมทั้ง Boolean(true) และ String("true")
-                const isAllowEdit = (col.allowTeacherEdit === true || String(col.allowTeacherEdit).toLowerCase() === 'true');
+                // ตรวจสอบสถานะ allowTeacherEdit ให้รองรับทั้ง boolean และ string อย่างยืดหยุ่น
+                const isAllowEdit = (col.allowTeacherEdit === true || col.allowTeacherEdit === 'true' || col.allowTeacherEdit === 1);
 
-                if (isAllowEdit && colType === 'input') {
+                // เงื่อนไข: ถ้าเป็นช่องกรอกคะแนน (input) และแอดมินอนุญาต หรือเปิดใช้งานส่วนกลาง ให้แสดงผล
+                if (colType === 'input' && (isAllowEdit || col.allowTeacherEdit === undefined)) {
                     hasEditable = true;
                     container.innerHTML += `
                         <div class="flex items-center justify-between border-b border-gray-100 pb-2">
@@ -6229,11 +6233,10 @@
             if (!subj) return;
 
             state.gradingConfig.forEach((col, idx) => {
-                // เช็คด้วยวิธีเดียวกันกับหน้าแสดงผล
                 const colType = getColTypeFallback(col);
-                const isAllowEdit = (col.allowTeacherEdit === true || String(col.allowTeacherEdit).toLowerCase() === 'true');
+                const isAllowEdit = (col.allowTeacherEdit === true || col.allowTeacherEdit === 'true' || col.allowTeacherEdit === 1);
 
-                if (isAllowEdit && colType === 'input') {
+                if (colType === 'input' && (isAllowEdit || col.allowTeacherEdit === undefined)) {
                     const input = document.getElementById(`tMax_${idx}`);
                     if (input) col.max = parseFloat(input.value) || 0;
                 }
