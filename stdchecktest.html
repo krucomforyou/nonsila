@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -970,9 +970,12 @@
                             <!-- JS จะใส่ช่องกรอกคะแนนที่นี่ -->
                         </div>
                     </div>
-                    <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
-                        <button onclick="closeTeacherMaxScoreModal()" class="px-5 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
-                        <button onclick="saveTeacherMaxScore()" class="px-6 py-2 bg-school-navy text-white text-sm font-bold rounded-lg shadow-md hover:bg-school-navyLight transition"><i class="fas fa-save mr-1"></i> บันทึกข้อมูล</button>
+                    <div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-between items-center shrink-0">
+                        <button onclick="resetTeacherMaxScore()" class="px-4 py-2 text-red-500 text-sm font-bold hover:bg-red-50 border border-red-200 bg-white rounded-lg transition shadow-sm flex items-center"><i class="fas fa-undo mr-2"></i> รีเซ็ตเป็นค่าเริ่มต้น</button>
+                        <div class="flex gap-3">
+                            <button onclick="closeTeacherMaxScoreModal()" class="px-5 py-2 text-gray-600 text-sm font-medium hover:bg-gray-200 border border-gray-300 bg-white rounded-lg transition shadow-sm">ยกเลิก</button>
+                            <button onclick="saveTeacherMaxScore()" class="px-6 py-2 bg-school-navy text-white text-sm font-bold rounded-lg shadow-md hover:bg-school-navyLight transition"><i class="fas fa-save mr-1"></i> บันทึกข้อมูล</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6170,8 +6173,20 @@
                 const res = await fetch(`${API_URL}?action=saveGradingConfig`, { method: 'POST', body: form });
                 const json = await res.json();
                 if (json.status === 'success') { 
+                    // 1. อัปเดต state ตัวจริงให้เป็นค่าล่าสุดทันที
+                    state.gradingConfig = JSON.parse(JSON.stringify(state.tempGradingConfig));
+                    state.gradeCriteria = JSON.parse(JSON.stringify(state.tempGradeCriteria));
+                    state.qualityCriteria = JSON.parse(JSON.stringify(state.tempQualityCriteria));
+                    
                     closeGradingSettingsModal(); 
-                    if(document.getElementById('gradingSubjectSelector').value) loadGradingStudents();
+                    
+                    // 2. รีโหลดนักเรียน หรือวาดหัวตารางใหม่ทันที
+                    if(document.getElementById('gradingSubjectSelector').value) {
+                        loadGradingStudents();
+                    } else {
+                        renderGradingTableHead();
+                    }
+                    
                     cuteAlert.success('สำเร็จ!', 'บันทึกโครงสร้างส่วนกลางเรียบร้อยแล้ว'); 
                 } 
                 else cuteAlert.error('ผิดพลาด', json.message);
@@ -6388,6 +6403,42 @@
                     cuteAlert.success('สำเร็จ!', 'อัปเดตคะแนนเต็มเรียบร้อยแล้ว');
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch (e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+        }
+
+        function resetTeacherMaxScore() {
+            cuteAlert.confirm('รีเซ็ตคะแนน?', 'คะแนนเต็มของวิชานี้จะถูกดึงกลับไปใช้ค่าเริ่มต้นของส่วนกลาง ยืนยันหรือไม่?', 'ใช่, รีเซ็ตเลย!', '#ef4444').then(async (result) => {
+                if (result.isConfirmed) {
+                    cuteAlert.loading('กำลังโหลดค่าเริ่มต้น... ⏳');
+                    try {
+                        // ดึงค่า Config ส่วนกลาง (GLOBAL)
+                        const res = await fetch(`${API_URL}?action=getGradingConfig&term=${encodeURIComponent(state.selectedTerm)}&subject=GLOBAL&_t=${new Date().getTime()}`);
+                        const json = await res.json();
+                        
+                        if (json.status === 'success' && json.data) {
+                            const globalCols = Array.isArray(json.data) ? json.data : json.data.columns;
+                            
+                            // นำคะแนนเต็ม (max) จากส่วนกลางมาทับค่าปัจจุบันใน state เฉพาะช่องที่อนุญาตให้แก้
+                            state.gradingConfig.forEach(col => {
+                                if (col.allowTeacherEdit) {
+                                    const gCol = globalCols.find(g => g.name === col.name && g.group === col.group);
+                                    if (gCol) col.max = gCol.max;
+                                }
+                            });
+                            
+                            Swal.close();
+                            openTeacherMaxScoreModal(); // เปิด Modal ขึ้นมาใหม่เพื่อรีเฟรชตัวเลขในช่องกรอก
+                            
+                            const Toast = Swal.mixin({
+                                toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+                            });
+                            Toast.fire({ icon: 'success', title: 'รีเซ็ตตัวเลขแล้ว กรุณากด "บันทึกข้อมูล" เพื่อยืนยัน' });
+                            
+                        } else {
+                            cuteAlert.error('ผิดพลาด', 'ไม่สามารถโหลดค่าเริ่มต้นได้');
+                        }
+                    } catch (e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
+                }
+            });
         }
 
 
