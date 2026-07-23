@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -893,8 +893,6 @@
                         </div>
                         
                         <div class="flex flex-col lg:flex-row gap-6">
-                            
-                            <!-- จุดแก้ไขที่ 2: เพิ่มความกว้างตารางซ้าย จาก lg:w-3/5 เป็น lg:w-[65%] -->
                             <!-- คอลัมน์ซ้าย: จัดการตาราง -->
                             <div class="w-full lg:w-[65%]">
                                 <div class="flex justify-between items-center mb-2">
@@ -911,8 +909,8 @@
                                                 
                                                 <!-- จุดแก้ไขที่ 3: เพิ่มความกว้าง ประเภท (w-32) และ เต็ม (w-20) -->
                                                 <th class="px-2 py-2 w-32">ประเภท</th>
+                                                <th class="px-2 py-2 w-32">ประเภท</th>
                                                 <th class="px-2 py-2 w-20 text-center">เต็ม(ตั้งต้น)</th>
-                                                
                                                 <th class="px-2 py-2 w-20 text-center" title="อนุญาตให้ครูเจ้าของวิชาแก้ไขคะแนนเต็มได้">ครูแก้ไข</th>
                                                 <th class="px-2 py-2 text-center w-10">ลบ</th>
                                             </tr>
@@ -924,7 +922,6 @@
                                 </div>
                             </div>
 
-                            <!-- จุดแก้ไขที่ 4: ลดความกว้างกล่องขวา จาก lg:w-2/5 เป็น lg:w-[35%] -->
                             <!-- คอลัมน์ขวา: เกณฑ์การประเมิน -->
                             <div class="w-full lg:w-[35%] flex flex-col gap-5">
                                 <div>
@@ -6192,18 +6189,8 @@
             container.innerHTML = '';
 
             let hasEditable = false;
-            
-            // ใช้ state.gradingConfig หรือดึงจาก temp ถ้ามี เพื่อให้มั่นใจว่าอ่านค่าล่าสุด
-            const currentConfig = state.gradingConfig || [];
-
-            currentConfig.forEach((col, idx) => {
-                const colType = getColTypeFallback(col);
-                
-                // ตรวจสอบสถานะ allowTeacherEdit ให้รองรับทั้ง boolean และ string อย่างยืดหยุ่น
-                const isAllowEdit = (col.allowTeacherEdit === true || col.allowTeacherEdit === 'true' || col.allowTeacherEdit === 1);
-
-                // เงื่อนไข: ถ้าเป็นช่องกรอกคะแนน (input) และแอดมินอนุญาต หรือเปิดใช้งานส่วนกลาง ให้แสดงผล
-                if (colType === 'input' && (isAllowEdit || col.allowTeacherEdit === undefined)) {
+            state.gradingConfig.forEach((col, idx) => {
+                if (col.allowTeacherEdit && col.type === 'input') {
                     hasEditable = true;
                     container.innerHTML += `
                         <div class="flex items-center justify-between border-b border-gray-100 pb-2">
@@ -6218,7 +6205,7 @@
             });
 
             if (!hasEditable) {
-                container.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">ไม่มีช่องสำหรับกรอกคะแนนที่สามารถปรับคะแนนเต็มได้</p>';
+                container.innerHTML = '<p class="text-center text-gray-500 text-sm py-4">แอดมินไม่ได้อนุญาตให้แก้ไขคะแนนเต็มในวิชานี้</p>';
             }
 
             document.getElementById('teacherMaxScoreModal').classList.add('active');
@@ -6232,11 +6219,9 @@
             const subj = document.getElementById('gradingSubjectSelector').value;
             if (!subj) return;
 
+            // อัปเดตค่ากลับเข้าไปใน state
             state.gradingConfig.forEach((col, idx) => {
-                const colType = getColTypeFallback(col);
-                const isAllowEdit = (col.allowTeacherEdit === true || col.allowTeacherEdit === 'true' || col.allowTeacherEdit === 1);
-
-                if (colType === 'input' && (isAllowEdit || col.allowTeacherEdit === undefined)) {
+                if (col.allowTeacherEdit && col.type === 'input') {
                     const input = document.getElementById(`tMax_${idx}`);
                     if (input) col.max = parseFloat(input.value) || 0;
                 }
@@ -6250,9 +6235,9 @@
             };
 
             const form = new FormData();
-            form.append('term', state.selectedTerm);
-            form.append('subject', subj);
-            form.append('isGlobal', 'false'); 
+            form.append('term', state.selectedTerm); 
+            form.append('subject', subj); 
+            form.append('isGlobal', 'false'); // บังคับส่งว่านี่คือการตั้งค่ารายวิชา
             form.append('config', JSON.stringify(configToSave));
 
             try {
@@ -6260,8 +6245,8 @@
                 const json = await res.json();
                 if (json.status === 'success') {
                     closeTeacherMaxScoreModal();
-                    renderGradingTableHead();
-                    loadGradingStudents();
+                    renderGradingTableHead(); 
+                    loadGradingStudents(); 
                     cuteAlert.success('สำเร็จ!', 'อัปเดตคะแนนเต็มเรียบร้อยแล้ว');
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch (e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
@@ -6550,11 +6535,11 @@
             const tbody = document.getElementById('stgGradingBody');
             tbody.innerHTML = state.tempGradingConfig.map((p, idx) => {
                 const cType = getColTypeFallback(p);
-                // เช็คสถานะ Toggle เดิมว่าเปิดหรือปิดอยู่
                 const isAllowEdit = p.allowTeacherEdit ? 'checked' : '';
                 
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100" ondragstart="dragRow(event, ${idx})" ondragover="allowDropRow(event)" ondrop="dropRow(event, ${idx})">
+                    <!-- คอลัมน์อื่นๆ ก่อนหน้า -->
                     <td class="px-2 py-2 text-center text-gray-400 cursor-grab active:cursor-grabbing" 
                         onmousedown="this.parentElement.setAttribute('draggable', 'true')" 
                         onmouseup="this.parentElement.removeAttribute('draggable')" 
@@ -6573,13 +6558,14 @@
                         </select>
                     </td>
                     <td class="px-1 py-2 text-center"><input type="number" min="0" value="${p.max}" onchange="updateGradingCol(${idx}, 'max', this.value)" class="w-full text-center border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue"></td>
-                    <!-- จุดที่แก้ไข: เพิ่ม Toggle ตรงนี้ -->
+                    
                     <td class="px-2 py-2 text-center">
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" class="sr-only peer" ${isAllowEdit} onchange="updateGradingCol(${idx}, 'allowTeacherEdit', this.checked)">
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                         </label>
                     </td>
+                    
                     <td class="px-1 py-2 text-center"><button onclick="removeGradingCol(${idx})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-6 h-6 rounded shadow-sm flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
                 </tr>`;
             }).join('');
@@ -6618,7 +6604,6 @@
         }
 
         function addGradingColumn() {
-            // จุดที่แก้ไข: เติม allowTeacherEdit: false เข้าไปเป็นค่าเริ่มต้น
             state.tempGradingConfig.push({ group: 'หมวดหมู่ใหม่', name: 'ช่องใหม่', max: 10, type: 'input', allowTeacherEdit: false });
             renderGradingSettingsTable();
         }
