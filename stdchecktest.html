@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -6189,52 +6189,59 @@
             let hasEditable = false;
             const groups = {};
 
-            // จัดกลุ่มข้อมูลตามหมวดหมู่
+            // 1. จัดกลุ่มข้อมูลตามหมวดหมู่ (ใช้ getColTypeFallback ป้องกัน error ข้อมูลเก่า)
             state.gradingConfig.forEach((col, idx) => {
+                const cType = getColTypeFallback(col); 
                 if (!groups[col.group]) groups[col.group] = { items: [], maxInfo: 0 };
                 
-                if (col.type === 'sum_group') {
+                if (cType === 'sum_group') {
                     groups[col.group].maxInfo = col.max;
-                } else if (col.type === 'input') {
+                } else if (cType === 'input') {
                     groups[col.group].items.push({ ...col, originalIndex: idx });
                     if (col.allowTeacherEdit) hasEditable = true;
                 }
             });
 
+            // 2. ถ้าแอดมินไม่ได้เปิดสิทธิ์ให้แก้เลย
             if (!hasEditable) {
                 container.innerHTML = '<p class="text-center text-gray-500 text-sm py-8">แอดมินไม่ได้อนุญาตให้แก้ไขคะแนนเต็มในวิชานี้</p>';
                 document.getElementById('teacherMaxScoreModal').classList.add('active');
                 return;
             }
 
+            // 3. วาดตาราง (แสดงแค่ 2 คอลัมน์ตามต้องการ)
             let html = `
-            <table class="w-full text-sm text-left">
+            <table class="w-full text-sm text-left border border-gray-200">
                 <thead class="bg-gray-100 text-school-navy border-b border-gray-200 text-xs">
                     <tr>
-                        <th class="px-4 py-3 w-1/3">กลุ่มหมวดหมู่</th>
-                        <th class="px-4 py-3 w-1/3">ชื่อช่อง</th>
-                        <th class="px-4 py-3 w-1/3 text-center">คะแนนเต็ม</th>
+                        <th class="px-4 py-3 w-2/3">ชื่อช่องเก็บคะแนน</th>
+                        <th class="px-4 py-3 w-1/3 text-center border-l border-gray-200">คะแนนเต็ม</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
             `;
 
+            let groupIndex = 0; // ใช้ Index เป็นตัวอ้างอิงแทนชื่อที่มีเว้นวรรค
+            
             Object.keys(groups).forEach(groupName => {
                 const group = groups[groupName];
                 const hasEditableInGroup = group.items.some(item => item.allowTeacherEdit);
                 
-                // ข้ามกลุ่มที่ไม่มีให้แก้ไขเลย เพื่อความสะอาดตา
+                // ข้ามกลุ่มที่ไม่มีให้แก้ไขเลย
                 if (!hasEditableInGroup) return;
 
-                // หัวกลุ่ม
+                const safeGroup = 'grp_' + groupIndex;
+                groupIndex++;
+
+                // หัวกลุ่ม (ครอบ 2 คอลัมน์)
                 html += `
-                    <tr class="bg-blue-50/30">
-                        <td colspan="3" class="px-4 py-2 border-y border-gray-200 flex justify-between items-center">
+                    <tr class="bg-blue-50/40 border-y border-gray-200">
+                        <td colspan="2" class="px-4 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <span class="font-bold text-school-navy"><i class="fas fa-folder-open text-school-brass mr-1"></i> ${groupName}</span>
-                            <span class="text-xs text-gray-600 font-medium bg-white px-2 py-1 rounded-lg border border-gray-200 shadow-sm">
-                                รวมต้องไม่เกิน: <span class="font-bold text-school-navy">${group.maxInfo}</span> 
+                            <span class="text-xs text-gray-600 font-medium bg-white px-2 py-1 rounded-lg border border-blue-100 shadow-sm whitespace-nowrap">
+                                ยอดรวมต้องไม่เกิน: <span class="font-bold text-school-navy">${group.maxInfo}</span> 
                                 <span class="mx-1">|</span>
-                                กรอกแล้ว: <span id="sum_${groupName}" class="font-bold text-emerald-600">0</span>
+                                กรอกแล้ว: <span id="sum_${safeGroup}" class="font-bold text-emerald-600">0</span>
                             </span>
                         </td>
                     </tr>
@@ -6245,21 +6252,24 @@
                     if (item.allowTeacherEdit) {
                         html += `
                         <tr class="hover:bg-gray-50 transition-colors bg-white">
-                            <td class="px-4 py-2 text-gray-500 pl-8"><i class="fas fa-level-up-alt rotate-90 mr-1 opacity-50"></i> ${item.group}</td>
-                            <td class="px-4 py-2 font-medium text-gray-700">${item.name}</td>
-                            <td class="px-4 py-2 text-center">
+                            <td class="px-4 py-3 pl-8 font-medium text-gray-700">
+                                <i class="fas fa-level-up-alt rotate-90 mr-2 text-gray-300"></i>${item.name}
+                            </td>
+                            <td class="px-4 py-2 text-center border-l border-gray-100">
                                 <input type="number" min="0" id="tMax_${item.originalIndex}" value="${item.max}" 
-                                    class="w-20 text-center border border-gray-300 rounded-lg p-1.5 outline-none focus:border-school-blue focus:ring-1 focus:ring-school-blue font-bold text-school-navy transition-all tmax-input-${groupName}"
-                                    oninput="calcTeacherMaxGroup('${groupName}', ${group.maxInfo})">
+                                    class="w-20 text-center border border-gray-300 rounded-lg p-1.5 outline-none focus:border-school-blue focus:ring-1 focus:ring-school-blue font-bold text-school-navy transition-all tmax-input-${safeGroup}"
+                                    oninput="calcTeacherMaxGroup('${safeGroup}', ${group.maxInfo})">
                             </td>
                         </tr>`;
                     } else {
                         html += `
                         <tr class="bg-gray-50/50">
-                            <td class="px-4 py-2 text-gray-400 pl-8"><i class="fas fa-level-up-alt rotate-90 mr-1 opacity-50"></i> ${item.group}</td>
-                            <td class="px-4 py-2 text-gray-400">${item.name} <i class="fas fa-lock text-[10px] ml-1" title="แอดมินล็อคไว้"></i></td>
-                            <td class="px-4 py-2 text-center">
-                                <input type="number" value="${item.max}" class="w-20 text-center border border-transparent bg-transparent rounded-lg p-1.5 font-bold text-gray-400 tmax-input-${groupName}" readonly>
+                            <td class="px-4 py-3 pl-8 text-gray-400">
+                                <i class="fas fa-level-up-alt rotate-90 mr-2 text-gray-300"></i>${item.name} 
+                                <i class="fas fa-lock text-[10px] ml-1" title="ช่องนี้ถูกล็อกโดยแอดมิน"></i>
+                            </td>
+                            <td class="px-4 py-2 text-center border-l border-gray-100">
+                                <input type="number" value="${item.max}" class="w-20 text-center border border-transparent bg-transparent rounded-lg p-1.5 font-bold text-gray-400 tmax-input-${safeGroup}" readonly tabindex="-1">
                             </td>
                         </tr>`;
                     }
@@ -6269,10 +6279,13 @@
             html += `</tbody></table>`;
             container.innerHTML = html;
 
-            // คำนวณยอดรวมตอนเปิดครั้งแรก
+            // 4. คำนวณยอดรวมตอนเปิด Popup ครั้งแรก
+            groupIndex = 0;
             Object.keys(groups).forEach(groupName => {
                 if (groups[groupName].items.some(item => item.allowTeacherEdit)) {
-                    calcTeacherMaxGroup(groupName, groups[groupName].maxInfo);
+                    const safeGroup = 'grp_' + groupIndex;
+                    calcTeacherMaxGroup(safeGroup, groups[groupName].maxInfo);
+                    groupIndex++;
                 }
             });
 
@@ -6280,14 +6293,14 @@
         }
 
         // ฟังก์ชันคำนวณยอดรวมแบบเรียลไทม์ (ป้องกันการกรอกเกิน)
-        function calcTeacherMaxGroup(groupName, maxAllowed) {
-            const inputs = document.querySelectorAll(`.tmax-input-${groupName}`);
+        function calcTeacherMaxGroup(safeGroup, maxAllowed) {
+            const inputs = document.querySelectorAll(`.tmax-input-${safeGroup}`);
             let sum = 0;
             inputs.forEach(input => {
                 sum += parseFloat(input.value) || 0;
             });
 
-            const sumDisplay = document.getElementById(`sum_${groupName}`);
+            const sumDisplay = document.getElementById(`sum_${safeGroup}`);
             if (sumDisplay) {
                 sumDisplay.innerText = sum;
                 if (sum > maxAllowed) {
@@ -6308,41 +6321,45 @@
             const subj = document.getElementById('gradingSubjectSelector').value;
             if (!subj) return;
 
-            // --- เพิ่มระบบตรวจสอบไม่ให้คะแนนรวมเกิน (Validation) ---
+            // --- ตรวจสอบ Validate ไม่ให้บันทึกถ้าคะแนนรวมเกิน ---
             let isInvalid = false;
             const groups = {};
             
-            // 1. หาคะแนนเต็มที่อนุญาตของแต่ละกลุ่ม
+            // 1. หาคะแนนเต็มที่อนุญาตของแต่ละกลุ่ม (ช่อง รวมหมวดนี้)
             state.gradingConfig.forEach(col => {
+                const cType = getColTypeFallback(col);
                 if (!groups[col.group]) groups[col.group] = { sum: 0, maxAllowed: 0 };
-                if (col.type === 'sum_group') groups[col.group].maxAllowed = col.max;
+                if (cType === 'sum_group') groups[col.group].maxAllowed = col.max;
             });
 
-            // 2. คำนวณผลรวมจากการกรอกล่าสุด + ค่าเดิมที่ล็อกไว้
+            // 2. คำนวณผลรวมจากการกรอกล่าสุด (ทั้งช่องที่แก้ไขได้ และช่องที่แอดมินล็อกไว้)
             state.gradingConfig.forEach((col, idx) => {
-                if (col.allowTeacherEdit && col.type === 'input') {
+                const cType = getColTypeFallback(col);
+                if (col.allowTeacherEdit && cType === 'input') {
                     const input = document.getElementById(`tMax_${idx}`);
                     if (input) groups[col.group].sum += parseFloat(input.value) || 0;
-                } else if (!col.allowTeacherEdit && col.type === 'input') {
+                } else if (!col.allowTeacherEdit && cType === 'input') {
                     groups[col.group].sum += col.max;
                 }
             });
 
-            // 3. แจ้งเตือนถ้าเกิน
+            // 3. แจ้งเตือนถ้ามีหมวดหมู่ไหนที่คะแนนเกิน
             for (const [groupName, groupData] of Object.entries(groups)) {
                 if (groupData.maxAllowed > 0 && groupData.sum > groupData.maxAllowed) {
                     isInvalid = true;
-                    cuteAlert.error('ไม่สามารถบันทึกได้', `หมวดหมู่ "${groupName}" มีคะแนนรวม (${groupData.sum}) เกินกว่าคะแนนเต็มที่กำหนดไว้ (${groupData.maxAllowed})`);
+                    cuteAlert.error('ไม่สามารถบันทึกได้', `หมวดหมู่ "${groupName}" มีคะแนนรวม (${groupData.sum}) เกินกว่าคะแนนเต็มที่ตั้งไว้ (${groupData.maxAllowed}) กรุณาตรวจสอบให้ถูกต้อง`);
                     break;
                 }
             }
 
+            // ถ้ามีช่องที่ผิดพลาด ให้หยุดการบันทึกทันที
             if (isInvalid) return;
             // --------------------------------------------------
 
-            // อัปเดตค่ากลับเข้าไปใน state
+            // อัปเดตค่ากลับเข้าไปในตัวแปร state ของระบบ
             state.gradingConfig.forEach((col, idx) => {
-                if (col.allowTeacherEdit && col.type === 'input') {
+                const cType = getColTypeFallback(col);
+                if (col.allowTeacherEdit && cType === 'input') {
                     const input = document.getElementById(`tMax_${idx}`);
                     if (input) col.max = parseFloat(input.value) || 0;
                 }
@@ -6358,7 +6375,7 @@
             const form = new FormData();
             form.append('term', state.selectedTerm); 
             form.append('subject', subj); 
-            form.append('isGlobal', 'false'); // บังคับส่งว่านี่คือการตั้งค่ารายวิชา
+            form.append('isGlobal', 'false'); // บังคับส่งว่าเป็นค่ารายวิชา
             form.append('config', JSON.stringify(configToSave));
 
             try {
@@ -6372,7 +6389,6 @@
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch (e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
-
 
 
 
