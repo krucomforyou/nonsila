@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -6075,17 +6075,15 @@
             html += `</tr><tr>`;
 
             // แถวที่ 2 (ชื่อคอลัมน์ย่อย และคะแนนเต็ม)
-            cols.forEach((col, index) => { // เพิ่มตัวแปร index เข้ามา
-                // เน้นสีให้คอลัมน์ที่ชื่อว่า "รวม" หรือคล้ายๆ กัน
+            cols.forEach((col, index) => { // ⚠️ เพิ่มตัวแปร index เข้ามาตรงนี้
                 let isTotalCol = col.name.includes('รวม') || col.name.includes('ผลการเรียน') || col.name.includes('ระดับคุณภาพ');
                 let cellClass = isTotalCol ? 'font-bold bg-gray-50' : 'font-medium';
                 
                 let maxScoreDisplay = '';
-                if (col.allowTeacherEdit) {
-                    // ถ้าแอดมินอนุญาต ให้แสดงช่อง Input เล็กๆ ให้ครูแก้ไขคะแนนเต็มได้
-                    maxScoreDisplay = `(<input type="number" value="${col.max}" class="w-12 border border-gray-300 rounded text-center text-xs outline-none text-school-blue bg-yellow-50 hide-arrows" onchange="updateTeacherMaxScore(${index}, this.value)">)`;
+                // ⚠️ เช็คว่าแอดมินอนุญาตให้แก้ และต้องเป็นช่องกรอกคะแนน (input) เท่านั้น
+                if (col.allowTeacherEdit && col.type === 'input') {
+                    maxScoreDisplay = `(<input type="number" value="${col.max}" class="w-10 border border-gray-300 rounded text-center text-[11px] outline-none text-school-blue bg-yellow-50 hide-arrows shadow-inner" onchange="updateTeacherMaxScore(${index}, this.value)">)`;
                 } else {
-                    // ถ้าไม่อนุญาต ให้แสดงตัวเลขตายตัวเหมือนเดิม
                     maxScoreDisplay = `(<span class="text-school-blue">${col.max}</span>)`;
                 }
 
@@ -6372,7 +6370,9 @@
             const tbody = document.getElementById('stgGradingBody');
             tbody.innerHTML = state.tempGradingConfig.map((p, idx) => {
                 const cType = getColTypeFallback(p);
-                // จุดแก้ไขการลาก: ใช้ onmousedown เพื่อเปิดโหมด Draggable เฉพาะตอนคลิก 6 จุด
+                // เช็คสถานะ Toggle เดิมว่าเปิดหรือปิดอยู่
+                const isAllowEdit = p.allowTeacherEdit ? 'checked' : '';
+                
                 return `
                 <tr class="hover:bg-gray-50 border-b border-gray-100" ondragstart="dragRow(event, ${idx})" ondragover="allowDropRow(event)" ondrop="dropRow(event, ${idx})">
                     <td class="px-2 py-2 text-center text-gray-400 cursor-grab active:cursor-grabbing" 
@@ -6393,6 +6393,13 @@
                         </select>
                     </td>
                     <td class="px-1 py-2 text-center"><input type="number" min="0" value="${p.max}" onchange="updateGradingCol(${idx}, 'max', this.value)" class="w-full text-center border border-gray-300 rounded p-1.5 text-xs outline-none focus:border-school-blue"></td>
+                    <!-- จุดที่แก้ไข: เพิ่ม Toggle ตรงนี้ -->
+                    <td class="px-2 py-2 text-center">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" ${isAllowEdit} onchange="updateGradingCol(${idx}, 'allowTeacherEdit', this.checked)">
+                            <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </td>
                     <td class="px-1 py-2 text-center"><button onclick="removeGradingCol(${idx})" class="text-red-500 hover:text-red-700 bg-white border border-red-100 hover:bg-red-50 w-6 h-6 rounded shadow-sm flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
                 </tr>`;
             }).join('');
@@ -6431,7 +6438,8 @@
         }
 
         function addGradingColumn() {
-            state.tempGradingConfig.push({ group: 'หมวดหมู่ใหม่', name: 'ช่องใหม่', max: 10, type: 'input' });
+            // จุดที่แก้ไข: เติม allowTeacherEdit: false เข้าไปเป็นค่าเริ่มต้น
+            state.tempGradingConfig.push({ group: 'หมวดหมู่ใหม่', name: 'ช่องใหม่', max: 10, type: 'input', allowTeacherEdit: false });
             renderGradingSettingsTable();
         }
 
