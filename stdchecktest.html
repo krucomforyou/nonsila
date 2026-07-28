@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -817,7 +817,7 @@
                                 <!-- คอนเทนเนอร์สำหรับแถวรายการแบบไดนามิก -->
                                 <div id="substituteRowsContainer" class="space-y-2">
                                     <div class="substitute-row flex flex-col sm:flex-row gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-200">
-                                        <select class="sub-subject-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
+                                        <select onchange="loadAvailableSubstitutesForRow(this)" class="sub-subject-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
                                             <option value="">-- เลือกวิชา (เลือกครูเดิมก่อน) --</option>
                                         </select>
                                         <select class="sub-teacher-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
@@ -5604,8 +5604,8 @@
         async function loadTeacherSubjectsForSub() {
             const dateStr = document.getElementById('subDate').value;
             const teacher = document.getElementById('subOriginalTeacher').value;
-            // เปลี่ยนมาค้นหา select ของรายวิชาทุกตัวในฟอร์มแทน
             const subjectSelects = document.querySelectorAll('.sub-subject-select'); 
+            const teacherSelects = document.querySelectorAll('.sub-teacher-select'); // ดึงช่องเลือกครูมาเคลียร์ค่า
 
             if (!dateStr || !teacher) {
                 subjectSelects.forEach(sel => sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>');
@@ -5613,6 +5613,10 @@
             }
 
             subjectSelects.forEach(sel => sel.innerHTML = '<option value="">กำลังโหลดวิชา...</option>');
+            
+            // รีเซ็ตครูเป็นค่าตั้งต้นก่อน
+            const baseTeacherOpts = '<option value="">-- เลือกครูสอนแทน --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+            teacherSelects.forEach(sel => sel.innerHTML = baseTeacherOpts);
 
             try {
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
@@ -5628,12 +5632,11 @@
                     } else {
                         opts = '<option value="">-- เลือกวิชา --</option>';
                         availableSubjects.forEach(s => {
-                            // ผูก data-class ไว้ให้ submitSubstitute() เรียกใช้งานได้ถูกต้อง
-                            opts += `<option value="${s.subject}|${s.period}" data-class="${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                            // เก็บโครงสร้าง value เป็น: ชื่อวิชา|คาบเรียน|ห้องเรียน (เพื่อใช้ส่งไปเช็คคาบว่าง และบันทึก)
+                            opts += `<option value="${s.subject}|${s.period}|${s.className}" data-class="${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
                         });
                     }
                     
-                    // อัปเดตรายวิชาลงไปในทุกแถวที่มีอยู่
                     subjectSelects.forEach(sel => sel.innerHTML = opts);
                 }
             } catch (e) {
@@ -5656,7 +5659,7 @@
             newRow.className = "substitute-row flex flex-col sm:flex-row gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-200";
             
             newRow.innerHTML = `
-                <select class="sub-subject-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
+                <select onchange="loadAvailableSubstitutesForRow(this)" class="sub-subject-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
                     ${firstSubjectSelect ? firstSubjectSelect.innerHTML : '<option value="">-- เลือกวิชา --</option>'}
                 </select>
                 <select class="sub-teacher-select w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-school-navy outline-none bg-white shadow-sm">
@@ -5668,6 +5671,56 @@
             `;
             
             container.appendChild(newRow);
+        }
+
+        // ฟังก์ชันใหม่: โหลดรายชื่อครูที่ว่างสำหรับวิชาในแต่ละแถว
+        async function loadAvailableSubstitutesForRow(selectElem) {
+            // หาว่า `<select>` ที่ถูกเปลี่ยน อยู่ในแถว (Row) ไหน
+            const row = selectElem.closest('.substitute-row');
+            const teacherSelect = row.querySelector('.sub-teacher-select');
+            
+            const dateStr = document.getElementById('subDate').value;
+            const origTeacher = document.getElementById('subOriginalTeacher').value;
+            const subjectVal = selectElem.value;
+
+            // ถ้ายกเลิกการเลือกวิชา หรือ ข้อมูลไม่ครบ ให้คืนค่ารายชื่อครูแบบปกติ (ยังไม่เช็คคาบว่าง)
+            if (!dateStr || !origTeacher || !subjectVal) {
+                teacherSelect.innerHTML = '<option value="">-- เลือกครูสอนแทน --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+                return;
+            }
+
+            // หั่นข้อความเพื่อเอา คาบเรียน ออกมาส่งให้ Backend หาคาบว่าง (โครงสร้าง: ชื่อวิชา|คาบเรียน|ห้อง)
+            const parts = subjectVal.split('|');
+            const period = parts[1]; 
+            
+            teacherSelect.innerHTML = '<option value="">กำลังเช็คตารางว่าง...</option>';
+            
+            try {
+                const dayOfWeek = getEffectiveDayName(dateStr);
+                const res = await fetch(`${API_URL}?action=getAvailableSubstitutes&term=${encodeURIComponent(state.selectedTerm)}&date=${encodeURIComponent(dateStr)}&dayOfWeek=${encodeURIComponent(dayOfWeek)}&period=${encodeURIComponent(period)}&originalTeacher=${encodeURIComponent(origTeacher)}&_t=${new Date().getTime()}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    // เรียงให้ครูที่ว่างมากที่สุด (หรือว่างในคาบนั้นพอดี) ขึ้นก่อน
+                    json.data.sort((a, b) => b.freePeriods - a.freePeriods);
+
+                    let opts = '<option value="">-- เลือกครูผู้รับสอนแทน --</option>';
+                    json.data.forEach(t => {
+                        opts += `<option value="${t.teacher}">${t.teacher} (ว่าง ${t.freePeriods} คาบ : ว่างคาบ ${t.freePeriodsText})</option>`;
+                    });
+                    
+                    // กรณีที่ไม่มีใครว่างในคาบนั้นเลย ให้คืนรายชื่อทั้งหมดแทน เผื่อแอดมินต้องการบังคับเลือกให้สอนชนกัน
+                    if (json.data.length === 0) {
+                        opts = '<option value="">-- ไม่มีครูว่าง (เลือกเอง) --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+                    }
+                    
+                    teacherSelect.innerHTML = opts;
+                } else {
+                    teacherSelect.innerHTML = '<option value="">-- เลือกครูสอนแทน --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+                }
+            } catch (e) {
+                teacherSelect.innerHTML = '<option value="">-- เลือกครูสอนแทน --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+            }
         }
 
         // ปรับปรุงฟังก์ชันบันทึกข้อมูล
