@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -1857,12 +1857,25 @@
                     if (reportTeacherSel) reportTeacherSel.innerHTML = opts;
                     
                     const subOrig = document.getElementById('subOriginalTeacher');
-                    const subSub = document.getElementById('subSubstituteTeacher');
-                    if (subOrig && subSub) {
+                    if (subOrig) {
                         let tOpts = '<option value="">เลือกครู...</option>';
                         state.teachers.forEach(t => tOpts += `<option value="${t}">${t}</option>`);
                         subOrig.innerHTML = tOpts;
-                        subSub.innerHTML = tOpts;
+                        
+                        // เติมรายชื่อครูให้ช่อง "เลือกครูสอนแทน" (ทุกแถวที่มีในฟอร์ม)
+                        document.querySelectorAll('.sub-teacher-select').forEach(sel => {
+                            sel.innerHTML = '<option value="">-- เลือกครูสอนแทน --</option>' + state.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+                        });
+                    }
+
+                    // สำหรับฟอร์มแก้ไขใน Modal (ยังใช้ ID เดิมอยู่)
+                    const editSubOrig = document.getElementById('editSubOriginalTeacher');
+                    const editSubSub = document.getElementById('editSubSubstituteTeacher');
+                    if (editSubOrig && editSubSub) {
+                        let tOpts = '<option value="">เลือกครู...</option>';
+                        state.teachers.forEach(t => tOpts += `<option value="${t}">${t}</option>`);
+                        editSubOrig.innerHTML = tOpts;
+                        editSubSub.innerHTML = tOpts;
                     }
                 } else {
                     document.getElementById('adminTeacherSelector').innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
@@ -5589,39 +5602,42 @@
         // ระบบจัดการสอนแทน (Substitute)
         // ==========================================
         async function loadTeacherSubjectsForSub() {
-            document.getElementById('subSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาที่ต้องการฝากสอนก่อน</option>';
             const dateStr = document.getElementById('subDate').value;
             const teacher = document.getElementById('subOriginalTeacher').value;
-            const sel = document.getElementById('subSubjectList');
-            
+            // เปลี่ยนมาค้นหา select ของรายวิชาทุกตัวในฟอร์มแทน
+            const subjectSelects = document.querySelectorAll('.sub-subject-select'); 
+
             if (!dateStr || !teacher) {
-                sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+                subjectSelects.forEach(sel => sel.innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>');
                 return;
             }
-            
-            sel.innerHTML = '<option value="">กำลังโหลดข้อมูลตารางสอน...</option>';
+
+            subjectSelects.forEach(sel => sel.innerHTML = '<option value="">กำลังโหลดวิชา...</option>');
+
             try {
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacher)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 
                 if (json.status === 'success') {
-                    const dayName = getEffectiveDayName(dateStr);
-                    const subjects = json.data.filter(s => s.day === dayName && s.className !== '-');
+                    const dayOfWeek = getEffectiveDayName(dateStr);
+                    const availableSubjects = json.data.filter(s => s.day === dayOfWeek && s.className !== '-');
                     
-                    if (subjects.length === 0) {
-                        sel.innerHTML = `<option value="">-- ไม่พบวิชาสอนในวัน${dayName} สำหรับครู ${teacher} --</option>`;
+                    let opts = '';
+                    if (availableSubjects.length === 0) {
+                        opts = `<option value="">-- ไม่มีวิชาสอนในวัน${dayOfWeek} --</option>`;
                     } else {
-                        let opts = '<option value="">-- เลือกวิชาที่ต้องการให้สอนแทน --</option>';
-                        subjects.forEach(s => {
-                            opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                        opts = '<option value="">-- เลือกวิชา --</option>';
+                        availableSubjects.forEach(s => {
+                            // ผูก data-class ไว้ให้ submitSubstitute() เรียกใช้งานได้ถูกต้อง
+                            opts += `<option value="${s.subject}|${s.period}" data-class="${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
                         });
-                        sel.innerHTML = opts;
                     }
-                } else {
-                    sel.innerHTML = '<option value="">ไม่สามารถโหลดตารางสอนได้</option>';
+                    
+                    // อัปเดตรายวิชาลงไปในทุกแถวที่มีอยู่
+                    subjectSelects.forEach(sel => sel.innerHTML = opts);
                 }
-            } catch(e) {
-                sel.innerHTML = '<option value="">เชื่อมต่อล้มเหลว</option>';
+            } catch (e) {
+                subjectSelects.forEach(sel => sel.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>');
             }
         }
 
