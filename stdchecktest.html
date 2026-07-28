@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -5603,8 +5603,7 @@
                     } else {
                         let opts = '<option value="">-- เลือกวิชาที่ต้องการให้สอนแทน --</option>';
                         subjects.forEach(s => {
-                            // 👇 แก้ไขบรรทัดนี้: เพิ่ม data-subject, data-period และ data-class เข้าไป
-                            opts += `<option value="${s.subject}|${s.period}|${s.className}" data-subject="${s.subject}" data-period="${s.period}" data-class="${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
+                            opts += `<option value="${s.subject}|${s.period}|${s.className}">${s.subject} ${s.period} (ห้อง ${s.className})</option>`;
                         });
                         sel.innerHTML = opts;
                     }
@@ -5619,98 +5618,57 @@
         let subActionType = 'add';
         let subEditRowIndex = '';
 
-        // 1. ฟังก์ชันสร้างรายการ Checkbox วิชา
-        function renderSubjectCheckboxes(subjects) {
-            const container = document.getElementById('subSubjectListContainer');
-            if (!subjects || subjects.length === 0) {
-                container.innerHTML = '<div class="text-gray-400 text-center text-xs py-4">ไม่พบตารางสอนของครูท่านนี้ในวันที่เลือก</div>';
-                return;
-            }
-
-            let html = `
-            <div class="flex items-center mb-2 pb-2 border-b border-gray-200">
-                <input type="checkbox" id="selectAllSubjects" onchange="toggleAllSubjects(this)" class="mr-2 w-4 h-4 text-school-blue rounded cursor-pointer">
-                <label for="selectAllSubjects" class="text-sm font-bold text-school-navy cursor-pointer">เลือกทั้งหมด</label>
-            </div>`;
-
-            subjects.forEach((s, idx) => {
-                html += `
-                <label class="flex items-center p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer transition shadow-sm bg-white/50">
-                    <input type="checkbox" name="subSubjectCheckbox" value="${s.subject}|${s.period}" data-subject="${s.subject}" data-period="${s.period}" data-class="${s.className}" onchange="loadAvailableSubstitutes(false)" class="mr-3 w-4 h-4 text-school-blue rounded focus:ring-school-blue cursor-pointer">
-                    <div class="flex flex-col">
-                        <span class="text-sm font-bold text-school-navy">${s.subject} <span class="text-xs text-gray-500 font-normal ml-1">(${s.period})</span></span>
-                        <span class="text-[10px] text-white bg-school-blue px-1.5 py-0.5 rounded w-max mt-0.5 shadow-sm">ห้อง ${s.className === '-' ? 'กิจกรรม' : s.className}</span>
-                    </div>
-                </label>`;
-            });
-            container.innerHTML = html;
-        }
-
-        // ฟังก์ชันช่วยเหลือสำหรับปุ่ม "เลือกทั้งหมด"
-        function toggleAllSubjects(source) {
-            const checkboxes = document.querySelectorAll("input[name='subSubjectCheckbox']");
-            checkboxes.forEach(cb => cb.checked = source.checked);
-            loadAvailableSubstitutes(false);
-        }
-
         async function submitSubstitute() {
-            const dateVal = document.getElementById('subDate').value;
-            const origTeacher = document.getElementById('subOriginalTeacher').value;
-            const subTeacher = document.getElementById('subSubstituteTeacher').value;
-            const subjectSelect = document.getElementById('subSubjectList');
+            const dateStr = document.getElementById('subDate').value;
+            const originalT = document.getElementById('subOriginalTeacher').value;
+            const substituteT = document.getElementById('subSubstituteTeacher').value;
+            const subjectVal = document.getElementById('subSubjectList').value;
             const leaveReason = document.getElementById('subLeaveReason').value;
-            const note = document.getElementById('subNote').value;
-
-            if (!dateVal || !origTeacher || !subTeacher || !subjectSelect.value) {
-                cuteAlert.warning('ข้อมูลไม่ครบ', 'กรุณาระบุข้อมูลให้ครบถ้วนทุกช่อง');
-                return;
-            }
-
-            if (origTeacher === subTeacher) {
-                cuteAlert.warning('ข้อมูลไม่ถูกต้อง', 'ครูผู้สอนแทนต้องไม่ใช่คนเดียวกับครูเจ้าของวิชา');
-                return;
-            }
-
-            // ดึงข้อมูลวิชาที่เลือกจาก Dropdown
-            const selectedOption = subjectSelect.options[subjectSelect.selectedIndex];
-            const subjectName = selectedOption.getAttribute('data-subject');
-            const periodName = selectedOption.getAttribute('data-period');
-            const className = selectedOption.getAttribute('data-class');
-
-            cuteAlert.loading('กำลังบันทึกข้อมูลการสอนแทน... ⏳');
+            const leaveNote = document.getElementById('subNote').value;
             
+            if (!dateStr || !originalT || !substituteT || !subjectVal) {
+                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลทั้ง 4 ข้อให้ครบถ้วน');
+                return;
+            }
+            if (originalT === substituteT) {
+                cuteAlert.error('ข้อมูลไม่ถูกต้อง', 'ครูเจ้าของวิชาและครูผู้สอนแทน ต้องไม่ใช่คนเดียวกัน');
+                return;
+            }
+            
+            const [subj, period, cls] = subjectVal.split('|');
+            
+            cuteAlert.loading('กำลังบันทึกข้อมูลการสอนแทน... ⏳');
             const form = new FormData();
             form.append('term', state.selectedTerm);
-            form.append('date', dateVal);
-            form.append('originalTeacher', origTeacher);
-            form.append('substituteTeacher', subTeacher);
-            form.append('subject', subjectName);
-            form.append('period', periodName);
-            form.append('className', className);
-            form.append('leaveReason', leaveReason);
-            form.append('leaveNote', note);
-            form.append('actionType', 'add');
+            form.append('date', dateStr);
+            form.append('originalTeacher', originalT);
+            form.append('substituteTeacher', substituteT);
+            form.append('subject', subj);
+            form.append('period', period);
+            form.append('className', cls);
             form.append('adminUser', state.user.name);
-
+            form.append('leaveReason', leaveReason);
+            form.append('leaveNote', leaveNote);
+            
             try {
                 const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
                 const json = await res.json();
-                
                 if (json.status === 'success') {
-                    cuteAlert.success('สำเร็จ! ✨', json.message);
-                    // เคลียร์ฟอร์ม
-                    document.getElementById('subSubstituteTeacher').value = '';
-                    document.getElementById('subSubjectList').value = '';
-                    document.getElementById('subLeaveReason').value = '';
-                    document.getElementById('subNote').value = '';
+                    cuteAlert.success('บันทึกสำเร็จ!', json.message);
                     
-                    // รีเฟรชตารางประวัติ
+                    document.getElementById('subDate').value = '';
+                    document.getElementById('subOriginalTeacher').value = '';
+                    document.getElementById('subSubstituteTeacher').value = '';
+                    document.getElementById('subSubjectList').innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
+
                     loadSubstituteHistory();
+                    if (typeof fetchCalendarStatus === 'function') fetchCalendarStatus();
+                    if (typeof loadAttendanceOverview === 'function') loadAttendanceOverview(true);
                 } else {
-                    cuteAlert.error('ข้อผิดพลาด', json.message);
+                    cuteAlert.error('ผิดพลาด', json.message || json.error || 'ไม่สามารถบันทึกข้อมูลได้');
                 }
-            } catch (e) {
-                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            } catch(e) {
+                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
             }
         }
 
