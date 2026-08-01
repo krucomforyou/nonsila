@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -5619,56 +5619,81 @@
         let subEditRowIndex = '';
 
         async function submitSubstitute() {
-            const dateStr = document.getElementById('subDate').value;
-            const originalT = document.getElementById('subOriginalTeacher').value;
-            const substituteT = document.getElementById('subSubstituteTeacher').value;
-            const subjectVal = document.getElementById('subSubjectList').value;
+            const date = document.getElementById('subDate').value;
+            const originalTeacher = document.getElementById('subOriginalTeacher').value;
+            const substituteTeacher = document.getElementById('subSubstituteTeacher').value;
+            const selectEl = document.getElementById('subSubjectList');
             const leaveReason = document.getElementById('subLeaveReason').value;
-            const leaveNote = document.getElementById('subNote').value;
-            
-            if (!dateStr || !originalT || !substituteT || !subjectVal) {
-                cuteAlert.error('ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลทั้ง 4 ข้อให้ครบถ้วน');
+            const note = document.getElementById('subNote').value;
+
+            if (!date || !originalTeacher || !substituteTeacher || !selectEl.value) {
+                cuteAlert.warning('ข้อมูลไม่ครบ', 'กรุณาระบุ วันที่, ครูเจ้าของวิชา, วิชาที่ฝากสอน และครูผู้สอนแทน ให้ครบถ้วน');
                 return;
             }
-            if (originalT === substituteT) {
-                cuteAlert.error('ข้อมูลไม่ถูกต้อง', 'ครูเจ้าของวิชาและครูผู้สอนแทน ต้องไม่ใช่คนเดียวกัน');
-                return;
+
+            // 1. ดึงข้อมูลวิชาที่เลือก และสกัดค่าให้ถูกต้อง
+            const selectedOpt = selectEl.options[selectEl.selectedIndex];
+            let subject = "", period = "", className = "";
+            
+            // เช็คว่า Option เก็บค่าไว้รูปแบบไหน (รองรับทั้ง data-attributes, pipe | และ JSON)
+            if (selectedOpt.hasAttribute('data-subject')) {
+                subject = selectedOpt.getAttribute('data-subject');
+                period = selectedOpt.getAttribute('data-period');
+                className = selectedOpt.getAttribute('data-class');
+            } else if (selectEl.value.includes('|')) {
+                const parts = selectEl.value.split('|');
+                subject = parts[0];
+                period = parts[1] || '';
+                className = parts[2] || '';
+            } else {
+                try {
+                    const parsed = JSON.parse(selectEl.value);
+                    subject = parsed.subject || '';
+                    period = parsed.period || '';
+                    className = parsed.className || '';
+                } catch (e) {
+                    subject = selectEl.value; // Fallback
+                }
             }
-            
-            const [subj, period, cls] = subjectVal.split('|');
-            
-            cuteAlert.loading('กำลังบันทึกข้อมูลการสอนแทน... ⏳');
+
+            // 2. แพ็กข้อมูลลง Array เพื่อให้ตรงกับโครงสร้างที่ Backend รอรับ
+            const subjectsDataArray = [{
+                subject: subject,
+                period: period,
+                className: className
+            }];
+
             const form = new FormData();
             form.append('term', state.selectedTerm);
-            form.append('date', dateStr);
-            form.append('originalTeacher', originalT);
-            form.append('substituteTeacher', substituteT);
-            form.append('subject', subj);
-            form.append('period', period);
-            form.append('className', cls);
-            form.append('adminUser', state.user.name);
+            form.append('date', date);
+            form.append('originalTeacher', originalTeacher);
+            form.append('substituteTeacher', substituteTeacher);
             form.append('leaveReason', leaveReason);
-            form.append('leaveNote', leaveNote);
+            form.append('leaveNote', note);
             
+            // 3. จุดสำคัญ: ส่งค่าเป็น JSON String เข้าพารามิเตอร์ 'subjectsData'
+            form.append('subjectsData', JSON.stringify(subjectsDataArray));
+            form.append('adminUser', state.user.name);
+
+            cuteAlert.loading('กำลังบันทึกข้อมูลสอนแทน... ⏳');
             try {
                 const res = await fetch(`${API_URL}?action=assignSubstitute`, { method: 'POST', body: form });
                 const json = await res.json();
+                
                 if (json.status === 'success') {
                     cuteAlert.success('บันทึกสำเร็จ!', json.message);
-                    
-                    document.getElementById('subDate').value = '';
-                    document.getElementById('subOriginalTeacher').value = '';
-                    document.getElementById('subSubstituteTeacher').value = '';
-                    document.getElementById('subSubjectList').innerHTML = '<option value="">กรุณาเลือกวันที่ และ ครูเจ้าของวิชา ก่อน</option>';
-
                     loadSubstituteHistory();
-                    if (typeof fetchCalendarStatus === 'function') fetchCalendarStatus();
-                    if (typeof loadAttendanceOverview === 'function') loadAttendanceOverview(true);
+                    
+                    // เคลียร์ฟอร์มหลังบันทึกเสร็จ
+                    document.getElementById('subSubjectList').value = '';
+                    document.getElementById('subSubstituteTeacher').innerHTML = '<option value="">กรุณาเลือกวิชาก่อน...</option>';
+                    document.getElementById('subLeaveReason').value = '';
+                    document.getElementById('subNote').value = '';
                 } else {
-                    cuteAlert.error('ผิดพลาด', json.message || json.error || 'ไม่สามารถบันทึกข้อมูลได้');
+                    cuteAlert.error('เกิดข้อผิดพลาด', json.message);
                 }
-            } catch(e) {
-                cuteAlert.error('เชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            } catch (error) {
+                cuteAlert.error('การเชื่อมต่อล้มเหลว', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
             }
         }
 
