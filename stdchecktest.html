@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.7</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -3968,7 +3968,7 @@
             form.append('actualUser', state.user.name);
 
             let retryCount = 0; const maxRetries = 1; let isSuccess = false;
-            cuteAlert.loading('กำลังจัดเก็บข้อมูลเข้าสู่ระบบ 🚀');
+            cuteAlert.loading('กำลังจัดเก็บข้อมูลการเช็คชื่อ 🚀');
 
             while (retryCount <= maxRetries && !isSuccess) {
                 if (retryCount > 0) {
@@ -3992,23 +3992,26 @@
                             wasSubstituting = true;
                         }
 
-                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(() => {
-                            switchTab('history-overview');
-                        });
-                        
-                        // ถ้าเพิ่งสอนแทนเสร็จ ให้โหลดตารางและสีปฏิทินตัวเองกลับมาใหม่
-                        if (wasSubstituting) {
-                            fetchSchedule().then(() => {
-                                if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
-                            });
-                        } else {
-                            if (state.overviewDate === state.currentDate) loadAttendanceOverview(true);
-                            fetchCalendarStatus();
-                        }
-
+                        // ล้างแคชล่วงหน้า
                         warmedDates.delete(state.currentDate); 
                         saveWarmedDatesMemory(warmedDates);
-                        warmUpCache(state.currentDate, true); 
+
+                        // ใช้ .then(async () => {...}) เพื่อเรียงลำดับการทำงาน ป้องกันหน้าต่างค้าง
+                        cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(async () => {
+                            
+                            if (wasSubstituting) {
+                                // ถ้าเป็นการสอนแทน ต้องรอโหลดตารางสอนตัวเองกลับมาก่อนสลับแท็บ
+                                cuteAlert.loading('กำลังอัปเดตตารางสอนของท่าน... ⏳');
+                                await fetchSchedule();
+                                Swal.close();
+                            } else {
+                                fetchCalendarStatus();
+                            }
+                            
+                            // สลับแท็บ (ฟังก์ชันนี้จะเรียกข้อมูลล่าสุดมาอัปเดตแบบเงียบๆ ไม่ให้มีหน้าต่างรบกวน)
+                            switchTab('history-overview');
+                            warmUpCache(state.currentDate, true); 
+                        });
                     } else {
                         if(json.message.includes("ระบบคิวหนาแน่น") || json.message.includes("ระบบไม่ว่าง")) {
                             if (retryCount === maxRetries) {
