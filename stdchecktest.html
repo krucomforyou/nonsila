@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.5</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.6</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2812,11 +2812,27 @@
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacherToFetch)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
-                    state.schedule = json.data; // Now has day, subject, period, className
-                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); 
+                    let placedSchedule = [];
+                    let unplacedSubjects = [];
                     
-                    state.subjects = []; 
-                    state.originalSubjects = []; 
+                    // แยกระหว่างวิชาที่มีลงตารางแล้ว กับวิชาที่รอจัดลงตาราง (day และ period เป็นค่าว่าง)
+                    json.data.forEach(item => {
+                        if (item.day && item.period) {
+                            placedSchedule.push(item);
+                        } else {
+                            unplacedSubjects.push({
+                                id: Date.now() + Math.random(),
+                                name: item.subject,
+                                className: item.className
+                            });
+                        }
+                    });
+
+                    state.schedule = placedSchedule; 
+                    state.originalSchedule = JSON.parse(JSON.stringify(placedSchedule)); 
+                    
+                    state.subjects = unplacedSubjects; 
+                    state.originalSubjects = JSON.parse(JSON.stringify(unplacedSubjects)); 
                     
                     renderSubjectCards();
                     renderVisualTimetable();
@@ -3241,7 +3257,18 @@
             const form = new FormData();
             form.append('term', state.selectedTerm);
             form.append('teacher', targetTeacher);
-            form.append('scheduleData', JSON.stringify(state.schedule));
+            
+            // นำวิชาที่ลงตารางแล้ว (state.schedule) และวิชาที่รอในกล่อง (state.subjects) มารวมกันเพื่อบันทึก
+            const fullScheduleToSave = [...state.schedule];
+            state.subjects.forEach(sub => {
+                fullScheduleToSave.push({
+                    day: '',
+                    subject: sub.name,
+                    period: '',
+                    className: sub.className
+                });
+            });
+            form.append('scheduleData', JSON.stringify(fullScheduleToSave));
 
             if (state.renamedSubjects && state.renamedSubjects.length > 0) {
                 form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
