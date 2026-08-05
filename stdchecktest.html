@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -696,8 +696,7 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <div class="flex gap-2 admin-only" style="display:none;">
                                     <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
-                                    <button onclick="clearSchedule()" class="schedule-edit-tool admin-only text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex" style="display:none;"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
-                                    <button onclick="promptTransferSubject()" class="schedule-edit-tool admin-only text-xs text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm items-center gap-1 transition flex" style="display:none;"><i class="fas fa-exchange-alt"></i> โอนย้ายวิชา</button>
+                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                                 </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
@@ -2811,11 +2810,19 @@
                 const res = await fetch(`${API_URL}?action=getSchedule&term=${encodeURIComponent(state.selectedTerm)}&teacher=${encodeURIComponent(teacherToFetch)}&_t=${new Date().getTime()}`);
                 const json = await res.json();
                 if (json.status === 'success') {
-                    state.schedule = json.data; // Now has day, subject, period, className
-                    state.originalSchedule = JSON.parse(JSON.stringify(json.data)); 
+                    state.schedule = [];
+                    state.subjects = [];
+                    // แยกวิชาที่ลงตารางแล้ว กับวิชาที่รอจัด (ไม่มีวัน/คาบ)
+                    json.data.forEach(item => {
+                        if (item.day && item.period) {
+                            state.schedule.push(item);
+                        } else {
+                            state.subjects.push({ id: Date.now() + Math.random(), name: item.subject, className: item.className });
+                        }
+                    });
                     
-                    state.subjects = []; 
-                    state.originalSubjects = []; 
+                    state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
+                    state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     
                     renderSubjectCards();
                     renderVisualTimetable();
@@ -2905,6 +2912,7 @@
                     ${canEdit ? `
                     <button onclick="removeAllSubjectCards('${group.name}', '${group.className}')" class="absolute -top-2 -left-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="ลบวิชานี้ทั้งหมด"><i class="fas fa-times"></i></button>
                     <button onclick="editSubjectName('${group.name}', '${group.className}')" class="absolute -top-2 left-4 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit"></i></button>
+                    <button onclick="promptTransferSubject('${group.name}', '${group.className}')" class="absolute -top-2 left-10 bg-purple-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow text-[10px] z-10" title="โอนย้ายวิชาให้ครูท่านอื่น"><i class="fas fa-exchange-alt"></i></button>
                     ` : ''}
 
                     <div class="absolute -top-2.5 -right-2.5 bg-school-brass text-white rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-md z-10 border-2 border-white">
@@ -3197,11 +3205,13 @@
                             let dragAttr = canEdit ? `draggable="true" ondragstart="dragFromTable(event, '${day}', '${item.subject}', '${item.period}', '${item.className}')"` : '';
                             let removeBtn = canEdit ? `<button onclick="removeScheduleItem('${day}', '${item.subject}', '${item.period}')" class="absolute top-1 right-1 text-red-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-red-100 z-10" title="ลบวิชานี้"><i class="fas fa-times text-[10px]"></i></button>` : '';
                             let editBtn = canEdit ? `<button onclick="editSubjectName('${item.subject}', '${item.className}')" class="absolute top-1 right-7 text-blue-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-blue-100 z-10" title="แก้ไขชื่อวิชา"><i class="fas fa-edit text-[10px]"></i></button>` : '';
+                            let transferBtn = canEdit ? `<button onclick="promptTransferSubject('${item.subject}', '${item.className}')" class="absolute top-1 right-14 text-purple-500 bg-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow border border-purple-100 z-10" title="โอนย้ายวิชา"><i class="fas fa-exchange-alt text-[10px]"></i></button>` : '';
                             let hoverClass = canEdit ? `${conf.hov} cursor-grab active:cursor-grabbing` : '';
 
                             html += `<td ${dropZoneAttr} ${dragAttr} class="p-1 border border-gray-200 bg-white ${hoverClass} transition text-center align-middle relative group" style="height: ${config.rowHeight}px; overflow: hidden;">
                                 ${removeBtn}
-                                ${editBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
+                                ${editBtn}
+                                ${transferBtn} <div class="flex flex-col items-center justify-center w-full h-full py-1 pointer-events-none">
                                     <div class="font-bold text-gray-800 text-sm leading-tight">${item.subject}</div>
                                     ${classPill}
                                 </div>
@@ -3237,10 +3247,14 @@
             const movedClasses = state.pendingMoves || [];
             // ------------------------------------------------
             
+            // เซฟข้อมูลการ์ดที่ยังไม่ได้ลงตารางไปด้วย
+            const unassigned = state.subjects.map(s => ({ day: '', subject: s.name, period: '', className: s.className }));
+            const allScheduleData = [...state.schedule, ...unassigned];
+
             const form = new FormData();
             form.append('term', state.selectedTerm);
             form.append('teacher', targetTeacher);
-            form.append('scheduleData', JSON.stringify(state.schedule));
+            form.append('scheduleData', JSON.stringify(allScheduleData));
 
             if (state.renamedSubjects && state.renamedSubjects.length > 0) {
                 form.append('renamedSubjects', JSON.stringify(state.renamedSubjects));
@@ -3261,6 +3275,12 @@
                     // --- เพิ่มบรรทัดนี้: ล้างคิวหลังจากบันทึกเสร็จ ---
                     state.pendingMoves = []; 
                     // ---------------------------------------
+                    
+                    // เคลียร์ความจำแคชเพื่อบังคับให้หน้า 'สรุปสถิติการเช็คชื่อ' โหลดวิชาใหม่ล่าสุด
+                    if (typeof warmedDates !== 'undefined') {
+                        warmedDates.clear();
+                        saveWarmedDatesMemory(warmedDates);
+                    }
                     
                     cuteAlert.success('สำเร็จ!', json.message);
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
@@ -5335,6 +5355,103 @@
                     }
                 }
             });
+        }
+
+
+        function promptTransferSubject(subject, className) {
+            const currentTeacher = state.viewingTeacher || state.user.name;
+            
+            let opts = '<option value="">-- เลือกครูผู้รับโอน --</option>';
+            state.teachers.forEach(t => {
+                if (t !== currentTeacher) {
+                    opts += `<option value="${t}">${t}</option>`;
+                }
+            });
+
+            Swal.fire({
+                title: '<i class="fas fa-exchange-alt text-purple-500 mb-2 text-3xl"></i><br>โอนย้ายวิชา',
+                html: `
+                    <p class="text-sm text-gray-500 mb-4">โอนวิชา <span class="text-school-navy font-bold">${subject}</span> (ห้อง ${className === '-' ? 'กิจกรรม' : className})<br>จากครู <span class="font-bold">${currentTeacher}</span> ไปยังครูท่านอื่น</p>
+                    <div class="text-left">
+                        <label class="block text-xs font-bold text-school-navy mb-1">เลือกครูผู้รับโอน:</label>
+                        <select id="transferTargetTeacher" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-gray-50 cursor-pointer">
+                            ${opts}
+                        </select>
+                        <p class="text-[10px] text-orange-500 mt-2">* ประวัติการเช็คชื่อทั้งหมดจะถูกย้ายไปด้วย การ์ดวิชาจะไปอยู่ที่กล่องด้านซ้ายของครูผู้รับโอน รอให้จัดลงตาราง</p>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'ยืนยันการโอนย้าย',
+                cancelButtonText: 'ยกเลิก',
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'rounded-2xl shadow-2xl font-sans w-11/12 max-w-sm',
+                    actions: 'flex gap-3 w-full justify-center mt-4 px-4',
+                    confirmButton: 'px-5 py-2.5 bg-purple-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-purple-700 transition flex-1',
+                    cancelButton: 'px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 transition flex-1'
+                },
+                preConfirm: () => {
+                    const targetTeacher = document.getElementById('transferTargetTeacher').value;
+                    if (!targetTeacher) {
+                        Swal.showValidationMessage('กรุณาเลือกครูผู้รับโอน');
+                        return false;
+                    }
+                    return targetTeacher;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    executeTransferSubject(subject, className, currentTeacher, result.value);
+                }
+            });
+        }
+
+        async function executeTransferSubject(subject, className, sourceTeacher, targetTeacher) {
+            cuteAlert.loading(`กำลังโอนย้ายวิชาไปยัง ${targetTeacher}... ⏳`);
+            
+            const form = new FormData();
+            form.append('term', state.selectedTerm);
+            form.append('sourceTeacher', sourceTeacher);
+            form.append('targetTeacher', targetTeacher);
+            form.append('subject', subject);
+            form.append('className', className);
+            form.append('adminUser', state.user.name);
+
+            try {
+                const res = await fetch(`${API_URL}?action=transferSubject`, { method: 'POST', body: form });
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    // เคลียร์ความจำแคชเพื่อให้อัปเดตหน้าสรุปสถิติใหม่ล่าสุด
+                    if (typeof warmedDates !== 'undefined') {
+                        warmedDates.clear();
+                        saveWarmedDatesMemory(warmedDates);
+                    }
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'โอนย้ายสำเร็จ!',
+                        text: `ย้ายวิชา ${subject} ไปยัง ${targetTeacher} เรียบร้อยแล้ว การ์ดวิชาถูกเก็บไว้ในกล่องรายวิชาด้านซ้าย`,
+                        showCancelButton: true,
+                        confirmButtonText: 'ไปหน้าตารางของครูรับโอน',
+                        cancelButtonText: 'อยู่ในหน้านี้ต่อ',
+                        confirmButtonColor: '#4472c4',
+                        cancelButtonColor: '#64748b'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // ย้ายหน้าไปหาครูที่รับโอน
+                            document.getElementById('adminTeacherSelector').value = targetTeacher;
+                            onTeacherChange();
+                        } else {
+                            // รีเฟรชตารางของครูคนเดิม
+                            fetchSchedule(); 
+                        }
+                    });
+                } else {
+                    cuteAlert.error('ข้อผิดพลาด', json.message);
+                }
+            } catch (e) {
+                cuteAlert.error('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+            }
         }
 
         function goToTodayOverview() {
@@ -7414,130 +7531,6 @@
                 }
             } catch(e) {
                 cuteAlert.error('ข้อผิดพลาด', 'เชื่อมต่อล้มเหลว');
-            }
-        }
-
-        // ==========================================
-        // ระบบโอนย้ายรายวิชา (Transfer Subject)
-        // ==========================================
-        function promptTransferSubject() {
-            if (!checkAdminPermission()) return;
-            
-            // ตรวจสอบว่ามีวิชาในตารางสอนหรือไม่
-            const uniqueSubjects = new Set();
-            state.schedule.forEach(s => {
-                if (s.subject && s.className) {
-                    uniqueSubjects.add(`${s.subject}|${s.className}`);
-                }
-            });
-
-            if (uniqueSubjects.size === 0) {
-                cuteAlert.warning('ไม่มีวิชา', 'ครูท่านนี้ยังไม่มีวิชาในตารางสอน');
-                return;
-            }
-
-            // สร้างตัวเลือกวิชา
-            let subjectOptions = '<option value="">-- เลือกวิชาที่ต้องการโอน --</option>';
-            Array.from(uniqueSubjects).forEach(subKey => {
-                const [subj, cls] = subKey.split('|');
-                subjectOptions += `<option value="${subKey}">${subj} (ห้อง ${cls === '-' ? 'กิจกรรม' : cls})</option>`;
-            });
-
-            // สร้างตัวเลือกครู
-            let teacherOptions = '<option value="">-- เลือกครูผู้รับโอน --</option>';
-            state.teachers.forEach(t => {
-                if (t !== state.viewingTeacher) {
-                    teacherOptions += `<option value="${t}">${t}</option>`;
-                }
-            });
-
-            Swal.fire({
-                title: '<i class="fas fa-exchange-alt text-school-blue mb-2 text-3xl"></i><br>โอนย้ายรายวิชาให้ครูท่านอื่น',
-                html: `
-                    <div class="text-left text-sm mt-4 space-y-4">
-                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 text-blue-800 text-xs">
-                            <i class="fas fa-info-circle mr-1"></i> ระบบจะโอนตารางสอน ประวัติการเช็คชื่อ และสถิติต่างๆ ไปให้ครูท่านใหม่ทั้งหมด
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-school-navy mb-1">1. วิชาที่จะโอน (จาก: ${state.viewingTeacher})</label>
-                            <select id="transferSubjSel" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none">
-                                ${subjectOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-school-navy mb-1">2. ครูผู้รับโอน</label>
-                            <select id="transferTeacherSel" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-school-navy outline-none">
-                                ${teacherOptions}
-                            </select>
-                        </div>
-                        <div class="text-[10px] text-red-500 font-bold mt-2">
-                            * คำเตือน: ระบบจะลบวิชานี้ออกจากตารางสอนของ ${state.viewingTeacher}
-                        </div>
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: '<i class="fas fa-check mr-1"></i> โอนย้ายวิชา',
-                cancelButtonText: 'ยกเลิก',
-                customClass: {
-                    popup: 'rounded-2xl shadow-2xl font-sans w-11/12 max-w-md',
-                    confirmButton: 'px-5 py-2.5 bg-school-navy text-white text-sm font-bold rounded-xl shadow-md hover:bg-school-navyLight transition w-full sm:w-auto',
-                    cancelButton: 'px-5 py-2.5 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-200 border border-gray-300 transition w-full sm:w-auto mt-2 sm:mt-0',
-                    actions: 'flex flex-col sm:flex-row gap-2 w-[90%] mx-auto mt-4'
-                },
-                preConfirm: () => {
-                    const subjValue = document.getElementById('transferSubjSel').value;
-                    const targetTeacher = document.getElementById('transferTeacherSel').value;
-                    
-                    if (!subjValue) {
-                        Swal.showValidationMessage('กรุณาเลือกวิชาที่ต้องการโอน');
-                        return false;
-                    }
-                    if (!targetTeacher) {
-                        Swal.showValidationMessage('กรุณาเลือกครูผู้รับโอน');
-                        return false;
-                    }
-                    return { subjValue, targetTeacher };
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    executeTransferSubject(result.value.subjValue, result.value.targetTeacher);
-                }
-            });
-        }
-
-        async function executeTransferSubject(subjValue, newTeacher) {
-            const [subjectName, className] = subjValue.split('|');
-            const oldTeacher = state.viewingTeacher;
-
-            // ต้องให้กดเซฟตารางก่อนถ้ามีการเปลี่ยนแปลงค้างอยู่ (เพื่อป้องกันข้อมูลคลาดเคลื่อน)
-            if (state.pendingMoves && state.pendingMoves.length > 0) {
-                cuteAlert.warning('ยังไม่ได้บันทึกตาราง', 'คุณมีการแก้ไขตารางสอนที่ยังไม่ได้บันทึก กรุณากด "บันทึกตาราง" ก่อนทำการโอนย้าย');
-                return;
-            }
-
-            cuteAlert.loading(`กำลังโอนย้ายวิชา ${subjectName} ให้ ${newTeacher}... ⏳<br><span class="text-xs text-gray-400 mt-2 block">ขั้นตอนนี้อาจใช้เวลาสักครู่</span>`);
-
-            const form = new FormData();
-            form.append('term', state.selectedTerm);
-            form.append('oldTeacher', oldTeacher);
-            form.append('newTeacher', newTeacher);
-            form.append('subjectName', subjectName);
-            form.append('className', className);
-            form.append('adminUser', state.user.name);
-
-            try {
-                const res = await fetch(`${API_URL}?action=transferSubject`, { method: 'POST', body: form });
-                const json = await res.json();
-                
-                if (json.status === 'success') {
-                    // โหลดตารางสอนใหม่เพื่อสะท้อนการเปลี่ยนแปลง
-                    await fetchSchedule();
-                    cuteAlert.success('โอนย้ายสำเร็จ! 🎉', json.message);
-                } else {
-                    cuteAlert.error('ผิดพลาด', json.message);
-                }
-            } catch (e) {
-                cuteAlert.error('ผิดพลาด', 'เชื่อมต่อระบบล้มเหลว');
             }
         }
 
