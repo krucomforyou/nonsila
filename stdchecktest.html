@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2198,11 +2198,20 @@
         }
 
         function switchTab(tabId) {
-            // [แก้ไขปัญหาปฏิทินติดสีครูคนอื่น] รีเซ็ตกลับเป็นตัวเอง หากเปลี่ยนแท็บกลับมาหน้าเช็คชื่อประจำวัน
-            if (tabId === 'history-overview' && state.viewingTeacher !== state.user.name) {
+            // [แก้ไข] รีเซ็ตกลับเป็นตัวเองทุกครั้งที่เปลี่ยนแท็บไปเมนูอื่น (ยกเว้นกำลังกดข้ามไปเช็คชื่อแทน)
+            if (!window.isJumpingToAttendance && state.user && state.viewingTeacher !== state.user.name) {
                 state.viewingTeacher = state.user.name;
+                
+                // คืนค่า Dropdown ทุกหน้าให้กลับมาเป็นแอดมิน
                 const adminSel = document.getElementById('adminTeacherSelector');
                 if (adminSel) adminSel.value = state.user.name;
+                
+                const reportSel = document.getElementById('adminReportTeacherSelector');
+                if (reportSel) reportSel.value = state.user.name;
+                
+                const gradingSel = document.getElementById('adminGradingTeacherSelector');
+                if (gradingSel) gradingSel.value = state.user.name;
+                
                 fetchSchedule();
             }
 
@@ -3743,7 +3752,12 @@
         function jumpToCheckAttendance(dateStr, subject, period, className, teacherName = null) {
             const executeJump = () => {
                 fpMain.setDate(dateStr, true); 
+                
+                // ใช้ Flag ชั่วคราว ป้องกันไม่ให้ switchTab รีเซ็ตชื่อกลับเป็นแอดมินขณะกำลังเข้าไปเช็คชื่อแทน
+                window.isJumpingToAttendance = true; 
                 switchTab('attendance');
+                window.isJumpingToAttendance = false; 
+                
                 setTimeout(() => {
                     const attSel = document.getElementById('attSubjectSelector');
                     if (attSel) { 
