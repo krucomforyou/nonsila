@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2256,8 +2256,11 @@
         }
 
         function switchTab(tabId) {
+            let isResetting = false; // ตัวแปรเช็คว่ากำลังคืนค่าข้อมูลกลับเป็นแอดมินหรือไม่
+
             // [แก้ไข] รีเซ็ตกลับเป็นตัวเองทุกครั้งที่เปลี่ยนแท็บไปเมนูอื่น (ยกเว้นกำลังกดข้ามไปเช็คชื่อแทน)
             if (!window.isJumpingToAttendance && state.user && state.viewingTeacher !== state.user.name) {
+                isResetting = true;
                 state.viewingTeacher = state.user.name;
                 
                 // คืนค่า Dropdown ทุกหน้าให้กลับมาเป็นแอดมิน
@@ -2335,6 +2338,19 @@
             };
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
             
+            // --- ถ้าระบบกำลังดึงข้อมูลแอดมินกลับมา ให้หยุดการทำคำสั่งซ้ำซ้อนด้านล่าง ---
+            if (isResetting) {
+                if (window.innerWidth < 768) {
+                    const sidebar = document.getElementById('sidebarMenu');
+                    const overlay = document.getElementById('mobileOverlay');
+                    if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+                        sidebar.classList.add('-translate-x-full');
+                        overlay.classList.add('hidden');
+                    }
+                }
+                return;
+            }
+
             if(tabId === 'attendance') {
                 const prevSubj = state.currentSubject;
                 const prevPeriod = state.currentPeriod;
@@ -4101,15 +4117,6 @@
                     if (json.status === 'success') {
                         isSuccess = true;
                         
-                        // [แก้ไขปัญหาปฏิทินติดสีครูคนอื่น] เช็คว่าเป็นการบันทึกสอนแทนหรือไม่
-                        let wasSubstituting = false;
-                        if (state.viewingTeacher !== state.user.name) {
-                            state.viewingTeacher = state.user.name;
-                            const adminSel = document.getElementById('adminTeacherSelector');
-                            if (adminSel) adminSel.value = state.user.name;
-                            wasSubstituting = true;
-                        }
-
                         // ล้างแคชล่วงหน้า
                         warmedDates.delete(state.currentDate); 
                         saveWarmedDatesMemory(warmedDates);
@@ -4117,13 +4124,12 @@
                         // ใช้ .then(async () => {...}) เพื่อเรียงลำดับการทำงาน ป้องกันหน้าต่างค้าง
                         cuteAlert.success('บันทึกสำเร็จ! 🎉', json.message).then(async () => {
                             
-                            // 1. สลับแท็บกลับมาหน้าเช็คชื่อประจำวันทันที
+                            // สลับแท็บกลับมาหน้าเช็คชื่อประจำวันทันที 
+                            // (ระบบ switchTab จะดักจับการคืนค่าแอดมินและโหลดตารางใหม่ให้อัตโนมัติแบบเนียนๆ)
                             switchTab('history-overview');
                             
-                            if (wasSubstituting) {
-                                // 2. ดึงตารางสอนของตนเองกลับมาแบบพื้นหลัง (ไม่ต้องมี Pop-up โหลดขัดจังหวะ)
-                                fetchSchedule();
-                            } else {
+                            // โหลดสีปฏิทินใหม่ (เฉพาะกรณีเช็คชื่อวิชาของตัวเอง)
+                            if (state.viewingTeacher === state.user.name) {
                                 fetchCalendarStatus();
                             }
                             
