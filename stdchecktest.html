@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -702,7 +702,8 @@
                                 <h4 class="font-bold text-school-navy flex items-center"><i class="fas fa-th mr-2 text-school-brass"></i> หน้าตาตารางสอนของคุณ</h4>
                                 <div class="flex gap-2 admin-only" style="display:none;">
                                     <button onclick="toggleScheduleLock()" id="btnLockSchedule" class="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-lock"></i> ล็อคตาราง</button>
-                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
+                                    <!-- เพิ่ม style="display:none;" เพื่อซ่อนปุ่มเริ่มต้น -->
+                                    <button onclick="clearSchedule()" class="schedule-edit-tool text-xs text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 shadow-sm items-center gap-1 transition flex" style="display:none;"><i class="fas fa-trash-alt"></i> ล้างตาราง</button>
                                 </div>
                             </div>
                             <div id="visualTimetable" class="bg-gray-50 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-start min-h-[400px] flex-1 overflow-hidden">
@@ -1886,6 +1887,10 @@
                 const reportTeacherSel = document.getElementById('adminReportTeacherSelector');
                 if (reportTeacherSel) reportTeacherSel.value = val;
                 
+                // ซิงค์ค่าไปยังหน้าบันทึกคะแนน
+                const gradingTeacherSel = document.getElementById('adminGradingTeacherSelector');
+                if (gradingTeacherSel) gradingTeacherSel.value = val;
+                
                 const schTitleEl = document.getElementById('scheduleTitleText');
                 if (schTitleEl) {
                     if (state.viewingTeacher !== state.user.name) {
@@ -1912,15 +1917,18 @@
             }
         }
 
-        // ฟังก์ชันใหม่ เมื่อเปลี่ยนชื่อครูในแท็บ "รายงานสถิติ"
+        // ฟังก์ชันเมื่อเปลี่ยนชื่อครูในแท็บ "รายงานสถิติ"
         async function onReportTeacherChange() {
             const val = document.getElementById('adminReportTeacherSelector').value;
             if (val && val !== state.viewingTeacher) {
                 state.viewingTeacher = val;
                 
-                // ซิงค์ค่าไปยังหน้าตารางสอนด้วย
+                // ซิงค์ค่าไปยังหน้าอื่นๆ
                 const adminTeacherSel = document.getElementById('adminTeacherSelector');
                 if (adminTeacherSel) adminTeacherSel.value = val;
+
+                const gradingTeacherSel = document.getElementById('adminGradingTeacherSelector');
+                if (gradingTeacherSel) gradingTeacherSel.value = val;
 
                 // เปลี่ยนหัวข้อหน้าตารางสอนเผื่อไว้
                 const schTitleEl = document.getElementById('scheduleTitleText');
@@ -1937,15 +1945,65 @@
                 }
 
                 cuteAlert.loading(`กำลังโหลดตารางของ ${state.viewingTeacher} ⏳`);
-                
-                // ต้องดึงตารางสอนใหม่เพื่อให้ Dropdown ห้องและวิชาเปลี่ยนตามครูคนใหม่
                 await fetchSchedule();
                 
-                // รีเซ็ต Dropdown หน้ารายงาน
                 populateReportClassDropdown();
                 const reportResult = document.getElementById('reportResult');
                 if (reportResult) reportResult.classList.add('hidden');
                 resetReportButtons();
+                Swal.close();
+            }
+        }
+
+        // เพิ่มฟังก์ชันใหม่ เมื่อเปลี่ยนชื่อครูในแท็บ "บันทึกคะแนน"
+        async function onGradingTeacherChange() {
+            const val = document.getElementById('adminGradingTeacherSelector').value;
+            if (val && val !== state.viewingTeacher) {
+                state.viewingTeacher = val;
+                
+                // ซิงค์ค่าไปยังหน้าอื่นๆ
+                const adminTeacherSel = document.getElementById('adminTeacherSelector');
+                if (adminTeacherSel) adminTeacherSel.value = val;
+                
+                const reportTeacherSel = document.getElementById('adminReportTeacherSelector');
+                if (reportTeacherSel) reportTeacherSel.value = val;
+
+                // เปลี่ยนหัวข้อตารางสอน
+                const schTitleEl = document.getElementById('scheduleTitleText');
+                if (schTitleEl) {
+                    if (state.viewingTeacher !== state.user.name) {
+                        schTitleEl.innerText = `ตารางสอนของ: ${state.viewingTeacher}`;
+                        schTitleEl.classList.remove('text-school-navy');
+                        schTitleEl.classList.add('text-school-blue');
+                    } else {
+                        schTitleEl.innerText = `ตารางสอนส่วนตัว`;
+                        schTitleEl.classList.add('text-school-navy');
+                        schTitleEl.classList.remove('text-school-blue');
+                    }
+                }
+
+                cuteAlert.loading(`กำลังโหลดตารางของ ${state.viewingTeacher} ⏳`);
+                await fetchSchedule();
+                
+                // รีเซ็ต Dropdown หน้าระบบคะแนน
+                const sel = document.getElementById('gradingClassSelector');
+                if (state.schedule && state.schedule.length > 0) {
+                    const uniqueClasses = new Set();
+                    state.schedule.forEach(s => {
+                        if (s.className !== '-') s.className.split(',').forEach(c => uniqueClasses.add(c.trim()));
+                    });
+                    let opts = '<option value="">-- เลือกห้องเรียน --</option>';
+                    Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
+                    sel.innerHTML = opts;
+                } else {
+                    sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
+                }
+                
+                document.getElementById('gradingSubjectSelector').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+                const head = document.getElementById('gradingTableHead');
+                if(head) head.innerHTML = '';
+                const body = document.getElementById('gradingTableBody');
+                if(body) body.innerHTML = '<tr><td colspan="15" class="py-20 text-center"><p class="text-gray-500 font-medium">กรุณาเลือกห้องและวิชาเรียนด้านบน เพื่อกรอกคะแนน</p></td></tr>';
                 
                 Swal.close();
             }
@@ -2212,7 +2270,38 @@
                 const gradingSel = document.getElementById('adminGradingTeacherSelector');
                 if (gradingSel) gradingSel.value = state.user.name;
                 
-                fetchSchedule();
+                fetchSchedule().then(() => {
+                    // สั่งให้รีเฟรชข้อมูลปฏิทินและตารางตามชื่อแอดมินทันที
+                    if (tabId === 'history-overview') loadAttendanceOverview();
+                    if (tabId === 'teacher-summary' && document.getElementById('summaryDatePicker').value) {
+                        loadTeacherSummary(document.getElementById('summaryDatePicker').value);
+                    }
+                    if (tabId === 'report') {
+                        populateReportClassDropdown();
+                        const reportResult = document.getElementById('reportResult');
+                        if (reportResult) reportResult.classList.add('hidden');
+                        resetReportButtons();
+                    }
+                    // เพิ่มการรีเซ็ตข้อมูลสำหรับหน้าบันทึกคะแนน และหน้าเช็คชื่อ
+                    if (tabId === 'grading') {
+                        const sel = document.getElementById('gradingClassSelector');
+                        if (state.schedule && state.schedule.length > 0) {
+                            const uniqueClasses = new Set();
+                            state.schedule.forEach(s => {
+                                if (s.className !== '-') s.className.split(',').forEach(c => uniqueClasses.add(c.trim()));
+                            });
+                            let opts = '<option value="">-- เลือกห้องเรียน --</option>';
+                            Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
+                            sel.innerHTML = opts;
+                        } else {
+                            sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
+                        }
+                        document.getElementById('gradingSubjectSelector').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
+                    }
+                    if (tabId === 'attendance') {
+                        populateSubjectDropdown('attSubjectSelector', state.currentDate);
+                    }
+                });
             }
 
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -2722,7 +2811,8 @@
             Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
             sel.innerHTML = opts;
 
-            if (prevVal && uniqueClasses.includes(prevVal)) {
+            // เปลี่ยนจาก .includes เป็น .has เพราะ uniqueClasses เป็นชนิด Set
+            if (prevVal && uniqueClasses.has(prevVal)) {
                 sel.value = prevVal;
                 const subjSel = document.getElementById('reportSubjectSel');
                 const prevSubj = subjSel.value;
