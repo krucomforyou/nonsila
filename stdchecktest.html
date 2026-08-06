@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -4804,12 +4804,12 @@
         async function loadTeacherSummary(dateStr, forceRefresh = false) {
             if (!state.selectedTerm) return;
             
-            // ย้ายคำสั่งเรียก Pop-up ออกมาด้านนอก เพื่อให้แสดงเสมอเมื่อมีการเปลี่ยนวันที่หรือโหลดข้อมูล
             if (!Swal.isVisible()) cuteAlert.loading('กำลังโหลดข้อมูลสถิติ... ⏳');
 
             if (forceRefresh) {
-                warmedDates.delete(dateStr);
-                saveWarmedDatesMemory(warmedDates);
+                // --- เปลี่ยนแปลง: ล้างหน่วยความจำในหน้าเว็บทั้งหมด เพื่อให้ระบบกางข้อมูลใหม่ ---
+                if (typeof warmedDates !== 'undefined') warmedDates.clear();
+                localStorage.removeItem('stdcheck_warmed_dates');
             }
             
             try {
@@ -4822,6 +4822,22 @@
                 if (json.status === 'success') {
                     renderTeacherSummaryChart(json.data);
                     if (Swal.isVisible()) Swal.close();
+                    
+                    // --- เพิ่มเติม: แจ้งเตือนเมื่อรีเฟรช และกระตุ้น Queue โหลดใหม่ ---
+                    if (forceRefresh) {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'ดึงข้อมูลใหม่ครบทุกวันเรียบร้อย',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            customClass: { popup: 'font-sans text-sm rounded-xl border border-gray-100 shadow-lg' }
+                        });
+                        
+                        // สั่งให้ Background Queue ไปไล่ดึงสถิติของวันอื่นๆ มารอไว้เงียบๆ
+                        if (typeof warmUpCache === 'function') warmUpCache(dateStr);
+                    }
                 } else {
                     if (Swal.isVisible()) Swal.close();
                     cuteAlert.error('พบข้อผิดพลาด', json.message);
