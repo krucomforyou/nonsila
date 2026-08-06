@@ -2256,11 +2256,8 @@
         }
 
         function switchTab(tabId) {
-            let isResetting = false; // ตัวแปรเช็คว่ากำลังคืนค่าข้อมูลกลับเป็นแอดมินหรือไม่
-
-            // [แก้ไข] รีเซ็ตกลับเป็นตัวเองทุกครั้งที่เปลี่ยนแท็บไปเมนูอื่น (ยกเว้นกำลังกดข้ามไปเช็คชื่อแทน)
+            // ถ้าระบบกำลังคืนค่าจากโหมดสวมรอย ให้ดึงตารางให้เสร็จก่อนแล้วค่อยเปลี่ยนแท็บ
             if (!window.isJumpingToAttendance && state.user && state.viewingTeacher !== state.user.name) {
-                isResetting = true;
                 state.viewingTeacher = state.user.name;
                 
                 // คืนค่า Dropdown ทุกหน้าให้กลับมาเป็นแอดมิน
@@ -2273,38 +2270,13 @@
                 const gradingSel = document.getElementById('adminGradingTeacherSelector');
                 if (gradingSel) gradingSel.value = state.user.name;
                 
+                // แสดงโหลดและดึงตารางแอดมินกลับมา จากนั้นเรียก switchTab ซ้ำ (Recursive)
+                cuteAlert.loading('กำลังโหลดตารางส่วนตัวของคุณ...');
                 fetchSchedule().then(() => {
-                    // สั่งให้รีเฟรชข้อมูลปฏิทินและตารางตามชื่อแอดมินทันที
-                    if (tabId === 'history-overview') loadAttendanceOverview();
-                    if (tabId === 'teacher-summary' && document.getElementById('summaryDatePicker').value) {
-                        loadTeacherSummary(document.getElementById('summaryDatePicker').value);
-                    }
-                    if (tabId === 'report') {
-                        populateReportClassDropdown();
-                        const reportResult = document.getElementById('reportResult');
-                        if (reportResult) reportResult.classList.add('hidden');
-                        resetReportButtons();
-                    }
-                    // เพิ่มการรีเซ็ตข้อมูลสำหรับหน้าบันทึกคะแนน และหน้าเช็คชื่อ
-                    if (tabId === 'grading') {
-                        const sel = document.getElementById('gradingClassSelector');
-                        if (state.schedule && state.schedule.length > 0) {
-                            const uniqueClasses = new Set();
-                            state.schedule.forEach(s => {
-                                if (s.className !== '-') s.className.split(',').forEach(c => uniqueClasses.add(c.trim()));
-                            });
-                            let opts = '<option value="">-- เลือกห้องเรียน --</option>';
-                            Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
-                            sel.innerHTML = opts;
-                        } else {
-                            sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
-                        }
-                        document.getElementById('gradingSubjectSelector').innerHTML = '<option value="">เลือกห้องก่อน...</option>';
-                    }
-                    if (tabId === 'attendance') {
-                        populateSubjectDropdown('attSubjectSelector', state.currentDate);
-                    }
+                    Swal.close();
+                    switchTab(tabId); // เรียกฟังก์ชันเดิมซ้ำ คราวนี้ state จะตรงกันแล้ว จะหลุดเข้าเงื่อนไขปกติ
                 });
+                return; // หยุดการทำงานในรอบแรกทิ้งไปเลย
             }
 
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -2338,19 +2310,7 @@
             };
             if(tabTitles[tabId]) document.getElementById('topHeaderTitle').innerText = tabTitles[tabId];
             
-            // --- ถ้าระบบกำลังดึงข้อมูลแอดมินกลับมา ให้หยุดการทำคำสั่งซ้ำซ้อนด้านล่าง ---
-            if (isResetting) {
-                if (window.innerWidth < 768) {
-                    const sidebar = document.getElementById('sidebarMenu');
-                    const overlay = document.getElementById('mobileOverlay');
-                    if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
-                        sidebar.classList.add('-translate-x-full');
-                        overlay.classList.add('hidden');
-                    }
-                }
-                return;
-            }
-
+            // โหลดข้อมูลตามแท็บที่ถูกเปิด
             if(tabId === 'attendance') {
                 const prevSubj = state.currentSubject;
                 const prevPeriod = state.currentPeriod;
@@ -2369,10 +2329,8 @@
                 }
             }
             if(tabId === 'grading') {
-                // ดึงรายชื่อครูใส่ Dropdown แอดมิน
                 const teacherCont = document.getElementById('adminGradingTeacherSelectorContainer');
                 if (teacherCont) {
-                    // ... (โค้ดส่วนนี้ให้คงไว้เหมือนเดิม) ...
                     if (checkAdminPermission()) {
                         teacherCont.classList.remove('hidden');
                         const selTeacher = document.getElementById('adminGradingTeacherSelector');
@@ -2384,16 +2342,15 @@
                             });
                             selTeacher.innerHTML = opts;
                         } else if (selTeacher) {
-                            selTeacher.value = state.viewingTeacher; // ซิงค์ค่าเวลาเปลี่ยนแท็บ
+                            selTeacher.value = state.viewingTeacher; 
                         }
                     } else {
                         teacherCont.classList.add('hidden');
                     }
                 }
 
-                // คัดลอกตรรกะมาจากหน้ารายงาน เพื่อโหลดรายชื่อห้องเข้า Dropdown
                 const sel = document.getElementById('gradingClassSelector');
-                const prevClass = sel.value; // 1. เพิ่มบรรทัดนี้: จำค่าห้องเรียนเดิมที่เคยเลือกไว้
+                const prevClass = sel.value; 
 
                 if (state.schedule && state.schedule.length > 0) {
                     const uniqueClasses = new Set();
@@ -2404,10 +2361,11 @@
                     Array.from(uniqueClasses).sort().forEach(c => { opts += `<option value="${c}">${c}</option>`; });
                     sel.innerHTML = opts;
                     
-                    // 2. เพิ่มบล็อกนี้: คืนค่าห้องเรียนเดิมกลับไปใน Dropdown หากเคยเลือกไว้แล้ว
                     if (prevClass && uniqueClasses.has(prevClass)) {
                         sel.value = prevClass;
                     }
+                } else {
+                    sel.innerHTML = '<option value="">-- ไม่พบตารางสอน --</option>';
                 }
             }
             if(tabId === 'history-overview') {
@@ -2456,6 +2414,7 @@
                 autoLoadTraitStudents();
             }
 
+            // ซ่อน Sidebar ในหน้าจอมือถือ
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('sidebarMenu');
                 const overlay = document.getElementById('mobileOverlay');
