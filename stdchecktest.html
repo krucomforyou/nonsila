@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -7650,29 +7650,43 @@
         // ==========================================
         function openTransferSubjectModal() {
             if (!checkAdminPermission()) return;
-            if (!state.schedule || state.schedule.length === 0) {
-                cuteAlert.warning('ตารางว่างเปล่า', `ครู ${state.viewingTeacher} ไม่มีวิชาในตารางสอน ไม่สามารถย้ายได้`);
-                return;
-            }
-
+            
             // กำหนดชื่อครูตั้งต้นที่จะย้ายออก
             document.getElementById('transferOldTeacherDisplay').innerText = state.viewingTeacher;
 
-            // โหลดรายชื่อวิชา (รวมเป็น 1 รายการต่อ 1 ห้อง ป้องกันแสดงคาบซ้ำกัน)
+            // โหลดรายชื่อวิชา
             const selSubject = document.getElementById('transferSubjectSelector');
             const uniqueSubjects = new Set();
             
-            state.schedule.forEach(s => {
-                if (s.subject && s.className) {
-                    uniqueSubjects.add(`${s.subject}|${s.className}`); // ใช้ชื่อวิชาและห้องเป็น Key
-                }
-            });
+            // 1. ดึงจาก "ตารางสอนหลัก" (กรองเอาวิชากิจกรรม "-" ออกไป)
+            if (state.schedule) {
+                state.schedule.forEach(s => {
+                    if (s.subject && s.className && s.className !== '-') {
+                        uniqueSubjects.add(`${s.subject}|${s.className}`); // ใช้ชื่อวิชาและห้องเป็น Key
+                    }
+                });
+            }
+
+            // 2. ดึงจาก "การ์ดวิชาที่ยังไม่ได้ลงตาราง" ฝั่งซ้ายมือ (กรองเอากิจกรรม "-" ออกไปเช่นกัน)
+            if (state.subjects) {
+                state.subjects.forEach(s => {
+                    if (s.name && s.className && s.className !== '-') {
+                        uniqueSubjects.add(`${s.name}|${s.className}`); // การ์ดซ้ายมือจะใช้คีย์ s.name
+                    }
+                });
+            }
+
+            // ตรวจสอบว่ามีวิชาให้ย้ายหรือไม่
+            if (uniqueSubjects.size === 0) {
+                cuteAlert.warning('ไม่มีวิชา', `ครู ${state.viewingTeacher} ไม่มีวิชาเรียน (ที่ไม่ใช่กิจกรรม) ให้ย้ายได้ครับ`);
+                return;
+            }
 
             let optSubjects = '<option value="">-- เลือกวิชาและห้องเรียน --</option>';
             Array.from(uniqueSubjects).sort().forEach(item => {
                 const parts = item.split('|');
                 const subjName = parts[0];
-                const clsName = parts[1] === '-' ? 'กิจกรรม' : `ห้อง ${parts[1]}`;
+                const clsName = `ห้อง ${parts[1]}`; // ใส่คำว่าห้องได้เลย เพราะกิจกรรมโดนกรองทิ้งไปแล้ว
                 // บันทึก Value เป็น JSON เพื่อให้แตกค่าง่ายตอนส่ง
                 optSubjects += `<option value='{"subject":"${subjName}","className":"${parts[1]}"}'>วิชา: ${subjName} (${clsName})</option>`;
             });
