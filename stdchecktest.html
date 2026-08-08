@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -3152,7 +3152,17 @@
                 }
 
                 if (data.id) state.subjects = state.subjects.filter(s => String(s.id) !== String(data.id));
-            } 
+
+                // --- [เพิ่มโค้ดส่วนนี้] จดจำวิชาที่เพิ่งถูกจัดลงตาราง เพื่อไปเปลี่ยนเลขคาบในฐานข้อมูลอดีต ---
+                if (!state.placedCards) state.placedCards = [];
+                state.placedCards.push({
+                    subject: subjectName,
+                    className: className,
+                    newDay: targetDay,
+                    newPeriod: targetPeriodString
+                });
+                // ---------------------------------------------------------------------
+            }
             else if (data.source === 'table') {
                 const sourceDay = data.sourceDay;
                 const sourceSubject = data.sourceSubject;
@@ -3410,6 +3420,12 @@
                 form.append('movedClasses', JSON.stringify(movedClasses));
             }
 
+            // --- [เพิ่มโค้ดส่วนนี้] ส่งข้อมูลไปอัปเดตคาบเรียนในอดีต ---
+            if (state.placedCards && state.placedCards.length > 0) {
+                form.append('placedCards', JSON.stringify(state.placedCards));
+            }
+            // ---------------------------------------------
+
             try {
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
@@ -3417,6 +3433,7 @@
                     state.originalSchedule = JSON.parse(JSON.stringify(state.schedule)); 
                     state.originalSubjects = JSON.parse(JSON.stringify(state.subjects)); 
                     state.renamedSubjects = [];
+                    state.placedCards = [];
                     
                     // --- เพิ่มบรรทัดนี้: ล้างคิวหลังจากบันทึกเสร็จ ---
                     state.pendingMoves = []; 
