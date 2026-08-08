@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.2</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -2431,13 +2431,21 @@
                     fpOverview.setDate(today);
                     state.overviewDate = fpOverview.formatDate(today, "Y-m-d");
                 }
-                loadAttendanceOverview();
+                // --- [แก้ไข] เช็คว่ามีคำสั่งบังคับรีเฟรชจากการแก้ไขตารางสอนหรือไม่ ---
+                const forceOv = window.needOverviewRefresh ? true : false;
+                loadAttendanceOverview(forceOv);
+                window.needOverviewRefresh = false; // รีเซ็ตค่า
             }
             if(tabId === 'report') populateReportClassDropdown();
 
             if(tabId === 'teacher-summary') {
                 const dateVal = document.getElementById('summaryDatePicker').value;
-                if(dateVal) loadTeacherSummary(dateVal);
+                if(dateVal) {
+                    // --- [แก้ไข] เช็คว่ามีคำสั่งล้างแคชจากการย้าย/บันทึกวิชาหรือไม่ ---
+                    const forceSum = window.needSummaryRefresh ? 'all' : 'false';
+                    loadTeacherSummary(dateVal, forceSum);
+                    window.needSummaryRefresh = false; // รีเซ็ตค่า
+                }
             }
 
             if(tabId === 'admin-logs') loadAdminLogs();
@@ -3418,6 +3426,14 @@
                     populateSubjectDropdown('attSubjectSelector', state.currentDate);
                     populateSubjectDropdown('manageTimeSubject', state.currentDate);
                     populateReportClassDropdown(); 
+
+                    // --- [เพิ่มโค้ดส่วนนี้] บังคับให้ระบบล้างแคชเมื่อเปิดหน้าสถิติใหม่ ---
+                    if (typeof warmedDates !== 'undefined') warmedDates.clear();
+                    localStorage.removeItem('stdcheck_warmed_dates');
+                    window.needSummaryRefresh = true;
+                    window.needOverviewRefresh = true;
+                    // --------------------------------------------------------
+
                 } else cuteAlert.error('ผิดพลาด', json.message);
             } catch(e) { cuteAlert.error('ผิดพลาด', 'เชื่อมต่อล้มเหลว'); }
         }
@@ -7717,6 +7733,13 @@
                         if (json.status === 'success') {
                             // โหลดตารางใหม่เพื่อให้ข้อมูลบนจออัปเดตหายไปจากครูเดิมทันที
                             await fetchSchedule(); 
+
+                            // --- [เพิ่มโค้ดส่วนนี้] บังคับให้ระบบล้างแคชเมื่อเปิดหน้าสถิติใหม่ ---
+                            if (typeof warmedDates !== 'undefined') warmedDates.clear();
+                            localStorage.removeItem('stdcheck_warmed_dates');
+                            window.needSummaryRefresh = true;
+                            window.needOverviewRefresh = true;
+                            // --------------------------------------------------------
                             
                             cuteAlert.success('ย้ายสำเร็จ! 🎉', json.message).then(() => {
                                 // เพื่อให้เห็นผลลัพธ์ชัดเจน จะเปลี่ยนหน้าไปดูตารางครูคนใหม่ให้เลยก็ได้ (ตัวเลือกเสริม)
