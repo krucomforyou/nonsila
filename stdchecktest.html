@@ -267,7 +267,7 @@
                 <button onclick="goToMainWeb()" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs py-2.5 rounded shadow transition flex items-center justify-center gap-2">
                     <i class="fas fa-arrow-left"></i> กลับหน้าเว็บหลัก
                 </button>
-                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.3</div> <!-- zzzผผผ -->
+                <div class="text-[10px] text-white/50 text-center mt-1 font-mono">Version 1.0.4</div> <!-- zzzผผผ -->
             </div>
         </div>
     </aside>
@@ -3077,6 +3077,10 @@
         function removeAllSubjectCards(name, className) {
             state.subjects = state.subjects.filter(s => !(s.name === name && s.className === className));
             renderSubjectCards();
+            
+            // เพิ่มการเก็บประวัติวิชาที่ถูกลบ เพื่อส่งไปลบข้อมูลเช็คชื่อ
+            if (!state.deletedSubjects) state.deletedSubjects = [];
+            state.deletedSubjects.push({ name: name, className: className });
         }
 
         function allowDrop(ev) { ev.preventDefault(); }
@@ -3100,6 +3104,7 @@
                     state.subjects = JSON.parse(JSON.stringify(state.originalSubjects || []));
                     state.renamedSubjects = [];
                     state.pendingMoves = [];
+                    state.deletedSubjects = []; // เพิ่มล้างรายการวิชาที่ถูกลบทิ้ง
                     renderSubjectCards();
                     renderVisualTimetable();
                 }
@@ -3426,6 +3431,12 @@
             }
             // ---------------------------------------------
 
+            // --- [เพิ่มโค้ดส่วนนี้] ส่งรายวิชาที่ถูกลบไปล้างประวัติการเช็คชื่อ ---
+            if (state.deletedSubjects && state.deletedSubjects.length > 0) {
+                form.append('deletedSubjects', JSON.stringify(state.deletedSubjects));
+            }
+            // ---------------------------------------------
+
             try {
                 const res = await fetch(`${API_URL}?action=saveSchedule`, { method: 'POST', body: form });
                 const json = await res.json();
@@ -3437,6 +3448,7 @@
                     
                     // --- เพิ่มบรรทัดนี้: ล้างคิวหลังจากบันทึกเสร็จ ---
                     state.pendingMoves = []; 
+                    state.deletedSubjects = []; // เพิ่มล้างรายการวิชาที่ถูกลบ
                     // ---------------------------------------
                     
                     cuteAlert.success('สำเร็จ!', json.message);
