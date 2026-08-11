@@ -5004,52 +5004,87 @@
 
         async function submitActivity(e) {
             e.preventDefault();
+            
             const btn = document.getElementById('btn-submit-act'); 
             btn.disabled = true; 
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึก...'; 
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังอัปโหลดภาพ...'; 
             lucide.createIcons();
-            
-            try {
-                let finalUrls = [];
-                const titleText = document.getElementById('act-title').value;
-                const dateText = document.getElementById('act-date').value;
 
-                if (pendingActFiles.length > 0) {
-                    const ACT_FOLDER_ID = '1TDzWv4DpAC2yjwntwr15BbiSaHoIai1z'; 
-                    finalUrls = await uploadFileInQueue(pendingActFiles, ACT_FOLDER_ID, titleText, dateText);
-                } else {
-                    throw new Error("กรุณาเลือกรูปภาพอย่างน้อย 1 รูป");
+            try {
+                let imageUrls = [];
+                // ID โฟลเดอร์กิจกรรม (ACT_FOLDER_ID) เพื่อใช้อัปโหลด
+                const actFolderId = '1TDzWv4DpAC2yjwntwr15BbiSaHoIai1z'; 
+
+                // 1. กระบวนการอัปโหลดภาพที่เลือกใหม่ (ถ้ามี)
+                if (pendingActFiles && pendingActFiles.length > 0) {
+                    for (let i = 0; i < pendingActFiles.length; i++) {
+                        let base64Data = await fileToBase64(pendingActFiles[i]);
+                        
+                        let uploadPayload = {
+                            action: "upload_single_image",
+                            folderId: actFolderId,
+                            title: document.getElementById('act-title').value,
+                            createFolder: true, // ให้ระบบสร้างโฟลเดอร์แยก
+                            date: document.getElementById('act-date').value,
+                            imageObj: {
+                                name: pendingActFiles[i].name,
+                                mimeType: pendingActFiles[i].type,
+                                base64: base64Data
+                            }
+                        };
+                        
+                        // ส่งภาพไปอัปโหลดทีละภาพแล้วเก็บ URL
+                        const upRes = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(uploadPayload) });
+                        const upData = await upRes.json();
+                        
+                        if (upData.status === "success" && upData.url) {
+                            imageUrls.push(upData.url);
+                        }
+                    }
                 }
 
-                Swal.fire({ title: 'กำลังบันทึกข้อมูลหลัก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึกข้อมูล...'; 
 
+                // 2. จัดเตรียมข้อมูลส่งให้ Backend (เช็คว่าเป็นแก้ไขหรือเพิ่มใหม่)
                 const payload = { 
-                    action: editActId ? "edit_activity" : "add_activity", // เปลี่ยนตรงนี้
-                    id: editActId, // เพิ่มบรรทัดนี้
+                    action: editActId ? "edit_activity" : "add_activity",
+                    id: editActId, 
                     title: document.getElementById('act-title').value, 
                     date: document.getElementById('act-date').value,
-                    uploadedUrls: imageUrls, 
-                    retainedImageUrls: editActId ? retainedActImages : undefined // เพิ่มบรรทัดนี้
-                };
+                    uploadedUrls: imageUrls, // ส่ง URL ที่ได้จากการอัปโหลดด้านบน
+                    retainedImageUrls: editActId ? retainedActImages : undefined // ส่งรูปภาพเดิมไป (กรณีแก้ไข)
+                }; 
 
+                // 3. ยิงคำสั่งบันทึกไปยัง Google Sheet
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
                 const data = await res.json();
                 
-                if(data.status === "success") {
-                    showAlert('success', 'สำเร็จ', 'เพิ่มกิจกรรมเรียบร้อยแล้ว');
-                    logSystemActivity("ADD_DATA", "เพิ่มกิจกรรม: " + titleText);
-                    document.getElementById('form-add-activity').reset();
+                if (data.status === "success") {
+                    showAlert('success', 'สำเร็จ', editActId ? 'แก้ไขกิจกรรมเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว');
+                    
+                    // บันทึก Log การทำงาน
+                    logSystemActivity(
+                        editActId ? "EDIT_DATA" : "ADD_DATA", 
+                        (editActId ? "แก้ไขกิจกรรม: " : "เพิ่มกิจกรรม: ") + document.getElementById('act-title').value
+                    );
+                    
+                    toggleForm('form-activity-container'); 
+                    
+                    // รีเซ็ตค่าตัวแปรภาพที่ค้างอยู่
                     pendingActFiles = [];
-                    renderActImagePreview();
-                    toggleForm('form-activity-container');
-                    fetchAllData();
-                } else throw new Error(data.message);
-
-            } catch(err) { 
+                    retainedActImages = [];
+                    if(typeof renderActImagePreview === 'function') renderActImagePreview();
+                    
+                    fetchAllData(); // โหลดตารางใหม่
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (err) {
                 showAlert('error', 'ผิดพลาด', err.message);
             } finally {
+                // คืนค่าปุ่มให้กลับมากดได้
                 btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> บันทึกกิจกรรม';
+                btn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> ${editActId ? "บันทึกการแก้ไข" : "บันทึกกิจกรรม"}`;
                 lucide.createIcons();
             }
         }
