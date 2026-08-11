@@ -4965,14 +4965,12 @@
                 // ส่งข้อมูลหลักไปบันทึก
                 Swal.fire({ title: 'กำลังบันทึกข้อมูลหลัก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
                 
-                const payload = { 
-                    action: editNewsId ? "edit_news" : "add_news", // เปลี่ยนตรงนี้
-                    id: editNewsId, // เพิ่มบรรทัดนี้
-                    title: document.getElementById('news-title').value, 
-                    date: document.getElementById('news-date').value,
-                    content: newsQuillEditor.root.innerHTML,
-                    uploadedUrls: imageUrls, 
-                    retainedImageUrls: editNewsId ? retainedNewsImages : undefined // เพิ่มบรรทัดนี้
+                const payload = {
+                    action: "add_news",
+                    title: titleText,
+                    date: dateText,
+                    content: newsQuillEditor ? newsQuillEditor.root.innerHTML : "",
+                    uploadedUrls: finalUrls // ส่ง URL ที่อัปโหลดเสร็จแล้วไป
                 };
 
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
@@ -5004,87 +5002,50 @@
 
         async function submitActivity(e) {
             e.preventDefault();
-            
             const btn = document.getElementById('btn-submit-act'); 
             btn.disabled = true; 
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังอัปโหลดภาพ...'; 
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึก...'; 
             lucide.createIcons();
-
+            
             try {
-                let imageUrls = [];
-                // ID โฟลเดอร์กิจกรรม (ACT_FOLDER_ID) เพื่อใช้อัปโหลด
-                const actFolderId = '1TDzWv4DpAC2yjwntwr15BbiSaHoIai1z'; 
+                let finalUrls = [];
+                const titleText = document.getElementById('act-title').value;
+                const dateText = document.getElementById('act-date').value;
 
-                // 1. กระบวนการอัปโหลดภาพที่เลือกใหม่ (ถ้ามี)
-                if (pendingActFiles && pendingActFiles.length > 0) {
-                    for (let i = 0; i < pendingActFiles.length; i++) {
-                        let base64Data = await fileToBase64(pendingActFiles[i]);
-                        
-                        let uploadPayload = {
-                            action: "upload_single_image",
-                            folderId: actFolderId,
-                            title: document.getElementById('act-title').value,
-                            createFolder: true, // ให้ระบบสร้างโฟลเดอร์แยก
-                            date: document.getElementById('act-date').value,
-                            imageObj: {
-                                name: pendingActFiles[i].name,
-                                mimeType: pendingActFiles[i].type,
-                                base64: base64Data
-                            }
-                        };
-                        
-                        // ส่งภาพไปอัปโหลดทีละภาพแล้วเก็บ URL
-                        const upRes = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(uploadPayload) });
-                        const upData = await upRes.json();
-                        
-                        if (upData.status === "success" && upData.url) {
-                            imageUrls.push(upData.url);
-                        }
-                    }
+                if (pendingActFiles.length > 0) {
+                    const ACT_FOLDER_ID = '1TDzWv4DpAC2yjwntwr15BbiSaHoIai1z'; 
+                    finalUrls = await uploadFileInQueue(pendingActFiles, ACT_FOLDER_ID, titleText, dateText);
+                } else {
+                    throw new Error("กรุณาเลือกรูปภาพอย่างน้อย 1 รูป");
                 }
 
-                btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึกข้อมูล...'; 
+                Swal.fire({ title: 'กำลังบันทึกข้อมูลหลัก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
 
-                // 2. จัดเตรียมข้อมูลส่งให้ Backend (เช็คว่าเป็นแก้ไขหรือเพิ่มใหม่)
-                const payload = { 
-                    action: editActId ? "edit_activity" : "add_activity",
-                    id: editActId, 
-                    title: document.getElementById('act-title').value, 
-                    date: document.getElementById('act-date').value,
-                    uploadedUrls: imageUrls, // ส่ง URL ที่ได้จากการอัปโหลดด้านบน
-                    retainedImageUrls: editActId ? retainedActImages : undefined // ส่งรูปภาพเดิมไป (กรณีแก้ไข)
-                }; 
+                const payload = {
+                    action: "add_activity",
+                    title: titleText,
+                    date: dateText,
+                    uploadedUrls: finalUrls
+                };
 
-                // 3. ยิงคำสั่งบันทึกไปยัง Google Sheet
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
                 const data = await res.json();
                 
-                if (data.status === "success") {
-                    showAlert('success', 'สำเร็จ', editActId ? 'แก้ไขกิจกรรมเรียบร้อยแล้ว' : 'เพิ่มกิจกรรมเรียบร้อยแล้ว');
-                    
-                    // บันทึก Log การทำงาน
-                    logSystemActivity(
-                        editActId ? "EDIT_DATA" : "ADD_DATA", 
-                        (editActId ? "แก้ไขกิจกรรม: " : "เพิ่มกิจกรรม: ") + document.getElementById('act-title').value
-                    );
-                    
-                    toggleForm('form-activity-container'); 
-                    
-                    // รีเซ็ตค่าตัวแปรภาพที่ค้างอยู่
+                if(data.status === "success") {
+                    showAlert('success', 'สำเร็จ', 'เพิ่มกิจกรรมเรียบร้อยแล้ว');
+                    logSystemActivity("ADD_DATA", "เพิ่มกิจกรรม: " + titleText);
+                    document.getElementById('form-add-activity').reset();
                     pendingActFiles = [];
-                    retainedActImages = [];
-                    if(typeof renderActImagePreview === 'function') renderActImagePreview();
-                    
-                    fetchAllData(); // โหลดตารางใหม่
-                } else {
-                    throw new Error(data.message);
-                }
-            } catch (err) {
+                    renderActImagePreview();
+                    toggleForm('form-activity-container');
+                    fetchAllData();
+                } else throw new Error(data.message);
+
+            } catch(err) { 
                 showAlert('error', 'ผิดพลาด', err.message);
             } finally {
-                // คืนค่าปุ่มให้กลับมากดได้
                 btn.disabled = false;
-                btn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> ${editActId ? "บันทึกการแก้ไข" : "บันทึกกิจกรรม"}`;
+                btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> บันทึกกิจกรรม';
                 lucide.createIcons();
             }
         }
@@ -5114,12 +5075,10 @@
 
                 Swal.fire({ title: 'กำลังบันทึกข้อมูลหลัก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, ...swalTheme });
 
-                const payload = { 
-                    action: editNlId ? "edit_newsletter" : "add_newsletter", // เปลี่ยนตรงนี้
-                    id: editNlId, // เพิ่มบรรทัดนี้
-                    date: document.getElementById('nl-date').value,
-                    uploadedUrls: imageUrls, 
-                    retainedImageUrls: editNlId ? retainedNlImages : undefined // เพิ่มบรรทัดนี้
+                const payload = {
+                    action: "add_newsletter",
+                    date: dateText,
+                    uploadedUrls: finalUrls
                 };
 
                 const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
@@ -5149,63 +5108,23 @@
         function removePendingAnnFile(idx) { pendingAnnFiles.splice(idx, 1); renderAnnImagePreview(); }
 
         async function submitAnnouncement(e) {
-            e.preventDefault();
-            
-            // 1. จัดการปุ่มให้แสดงสถานะกำลังโหลด
-            const btn = document.getElementById('btn-submit-ann');
-            btn.disabled = true; 
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึก...'; 
-            lucide.createIcons();
-
+            e.preventDefault(); const btn = document.getElementById('btn-submit-ann'); btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> กำลังบันทึก...'; lucide.createIcons();
             try {
-                // 2. แปลงไฟล์รูปภาพที่เลือกไว้ให้เป็น Base64
-                let imgObj = null;
-                if (pendingAnnFiles && pendingAnnFiles.length > 0) {
-                    imgObj = {
-                        name: pendingAnnFiles[0].name,
-                        mimeType: pendingAnnFiles[0].type,
-                        base64: await fileToBase64(pendingAnnFiles[0])
-                    };
+                let imgObjs = []; 
+                for(let i=0; i<pendingAnnFiles.length; i++) { 
+                    imgObjs.push(await resizeImage(pendingAnnFiles[i], 1000, 1000)); 
                 }
+                if(imgObjs.length === 0 && (!retainedAnnImages || retainedAnnImages.length === 0)) throw new Error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
+                const payload = { action: editAnnId ? "edit_announcement" : "add_announcement", id: editAnnId, title: document.getElementById('ann-title').value, link: document.getElementById('ann-link').value, isActive: document.getElementById('ann-isactive').checked, date: document.getElementById('ann-date').value, imageObjs: imgObjs, retainedImageUrls: editAnnId ? retainedAnnImages : undefined };
+                const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) }); const data = await res.json();
+                if(data.status === "success") {
+                    showAlert('success','สำเร็จ', editAnnId ? 'แก้ไขข้อมูลเรียบร้อยแล้ว' : 'เพิ่มภาพประกาศเรียบร้อยแล้ว');
+                    //log system
+                    logSystemActivity(editAnnId ? "EDIT_DATA" : "ADD_DATA", (editAnnId ? "แก้ไขภาพประกาศ: " : "เพิ่มภาพประกาศ: ") + document.getElementById('ann-title').value);
+                    toggleForm('form-announcement-container'); fetchAllData(); } else throw new Error(data.message);
+            } catch(err) { showAlert('error','ผิดพลาด', err.message);
 
-                // 3. กำหนด Payload โดยเช็คว่ามี ID ส่งมาด้วยหรือไม่ (เพื่อแยกระหว่างแก้ไขกับสร้างใหม่)
-                const payload = { 
-                    action: editAnnId ? "edit_announcement" : "add_announcement", // เช็ค action
-                    id: editAnnId, // ส่ง ID ไปด้วยถ้าเป็นการแก้ไข
-                    title: document.getElementById('ann-title').value, 
-                    link: document.getElementById('ann-link').value,
-                    date: document.getElementById('ann-date').value,
-                    isActive: document.getElementById('ann-isactive').checked,
-                    imageObjs: imgObj ? [imgObj] : [], 
-                    retainedImageUrls: editAnnId ? retainedAnnImages : undefined // ส่งรูปเดิมไปให้ระบบจัดการ
-                }; 
-
-                // 4. ส่งข้อมูลไปหา Google Apps Script (Backend)
-                const res = await fetch(SCRIPT_URL, { 
-                    method: "POST", 
-                    body: JSON.stringify(payload) 
-                });
-                const data = await res.json();
-                
-                // 5. ตรวจสอบผลลัพธ์
-                if (data.status === "success") {
-                    showAlert('success', 'สำเร็จ', editAnnId ? 'แก้ไขภาพประกาศเรียบร้อยแล้ว' : 'เพิ่มภาพประกาศเรียบร้อยแล้ว');
-                    
-                    // บันทึก Log การทำงาน
-                    logSystemActivity(
-                        editAnnId ? "EDIT_DATA" : "ADD_DATA", 
-                        (editAnnId ? "แก้ไขภาพประกาศ: " : "เพิ่มภาพประกาศ: ") + document.getElementById('ann-title').value
-                    );
-                    
-                    toggleForm('form-announcement-container'); 
-                    fetchAllData(); // โหลดข้อมูลใหม่เพื่ออัปเดตตาราง
-                } else {
-                    throw new Error(data.message);
-                }
-            } catch (err) {
-                showAlert('error', 'ผิดพลาด', err.message);
             } finally {
-                // 6. รีเซ็ตปุ่มกลับสู่สถานะเดิม
                 btn.disabled = false;
                 btn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> ${editAnnId ? "บันทึกการแก้ไข" : "บันทึกประกาศ"}`;
                 lucide.createIcons();
