@@ -87,6 +87,11 @@
             table { border-color: black !important; }
             th, td { border-color: black !important; color: black !important; }
         }
+        
+        /* ปุ่มแก้ไขคะแนนเต็ม (แสดงเมื่อกด Ctrl) */
+        .edit-max-score { display: none; cursor: pointer; color: #a1a1aa; margin-left: 2px; transition: color 0.2s; }
+        .ctrl-pressed .edit-max-score { display: inline-block; }
+        .edit-max-score:hover { color: #18181b; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-zinc-800 bg-zinc-50">
@@ -179,6 +184,12 @@
 
                 <button onclick="switchTab('evaluations-tab')" id="nav-evaluations" class="w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm">
                     <i class="fa-solid fa-star w-4 text-center"></i> ประเมินคุณลักษณะ
+                </button>
+
+                <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2 mt-6">ตรวจสอบ</div>
+
+                <button onclick="switchTab('check-data-tab')" id="nav-check-data" class="w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm">
+                    <i class="fa-solid fa-clipboard-check w-4 text-center"></i> ตรวจสอบการกรอกข้อมูล
                 </button>
 
                 <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2 mt-6">รายงาน</div>
@@ -451,6 +462,46 @@
                 </div>
             </section>
 
+
+            <!-- ================= TAB: CHECK DATA (ตรวจสอบการกรอกข้อมูล) ================= -->
+            <section id="check-data-tab" class="tab-content hidden flex-1 p-4 md:p-8 overflow-y-auto">
+                <div class="max-w-5xl mx-auto flex flex-col gap-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold tracking-tight text-zinc-900">ตรวจสอบการกรอกข้อมูล</h2>
+                            <p class="text-zinc-500 text-sm">ตรวจสอบความครบถ้วนของการกรอกคะแนนรายวิชา (ตามภาคเรียนที่เปิดใช้งาน)</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-zinc-200">
+                        <label class="block text-xs font-medium text-zinc-600 mb-1.5">เลือกชั้นเรียน</label>
+                        <select id="check-class-select" onchange="renderCheckDataTable()" class="w-full sm:w-64 px-3 py-2.5 rounded-md border border-zinc-200 bg-zinc-50 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 font-semibold text-zinc-800">
+                            <option value="">-- เลือกชั้นเรียน --</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
+                        <div class="overflow-x-auto min-h-[400px]">
+                            <table class="w-full text-left text-[14px] whitespace-nowrap">
+                                <thead class="bg-zinc-50/60 border-b border-zinc-200">
+                                    <tr>
+                                        <th class="px-4 py-4 text-center text-zinc-800 font-semibold w-16 border-r border-zinc-100">ลำดับ</th>
+                                        <th class="px-4 py-4 text-zinc-800 font-semibold border-r border-zinc-100 w-32">รหัสวิชา</th>
+                                        <th class="px-4 py-4 text-zinc-800 font-semibold border-r border-zinc-100">ชื่อรายวิชา</th>
+                                        <th class="px-4 py-4 text-zinc-800 font-semibold border-r border-zinc-100 w-48">ครูผู้สอน</th>
+                                        <th class="px-4 py-4 text-center text-zinc-800 font-semibold w-40">สถานะการกรอกข้อมูล</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="check-data-tbody" class="divide-y divide-zinc-100 bg-white">
+                                    <tr><td colspan="4" class="py-12 text-center text-zinc-400">กรุณาเลือกชั้นเรียน</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
             <!-- ================= TAB: REPORTS (ปพ.6) ================= -->
             <section id="reports-tab" class="tab-content hidden flex-1 p-4 md:p-8 overflow-y-auto">
                 <div class="max-w-4xl mx-auto space-y-6">
@@ -722,12 +773,12 @@
                         <!-- 5. Course Settings (รายวิชาตามชั้นเรียน) -->
                         <div class="space-y-3 pt-6 mt-6 border-t border-zinc-100">
                             <div class="flex justify-between items-center">
-                                <h3 class="text-sm font-semibold text-zinc-800">5. โครงสร้างหลักสูตร (กำหนดรายวิชาพื้นฐานแต่ละระดับชั้น)</h3>
+                                <h3 class="text-sm font-semibold text-zinc-800">5. โครงสร้างหลักสูตร (กำหนดรายวิชาและครูผู้สอนแยกแต่ละห้องเรียน)</h3>
                             </div>
                             <div class="space-y-2" id="courses-config-container">
                                 <!-- Dynamic Course Setting Rows -->
                             </div>
-                            <p class="text-[11px] text-zinc-500 mt-2"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> ระบบจะนำรายชื่อระดับชั้นมาจากข้อ 4 โดยอัตโนมัติ เพื่อให้คุณไปกำหนดรายวิชาเตรียมไว้</p>
+                            <p class="text-[11px] text-zinc-500 mt-2"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> ระบบจะนำรายชื่อห้องเรียนมาจากข้อ 4 โดยอัตโนมัติ เพื่อให้คุณไปกำหนดรายวิชาและครูผู้สอนเตรียมไว้</p>
                         </div>
 
                         <!-- 6. Backup Data (เพิ่มใหม่) -->
@@ -887,15 +938,15 @@
                                 </tr>
                                 <tr class="bg-zinc-50/60 text-zinc-600 border-b border-zinc-200">
                                     <!-- เทอม 1 -->
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มเก็บ 1">ก1</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มก่อนกลางปี">กก</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มเก็บ 2">ก2</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มกลางปี">กป</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เก็บ 1">ก1</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="ก่อนกลางปี">กก</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เก็บ 2">ก2</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="กลางปี">กป</th>
                                     <!-- เทอม 2 -->
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มเก็บ 3">ก3</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มหลังกลางปี">หก</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มเก็บ 4">ก4</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เต็มปลายปี">ปป</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เก็บ 3">ก3</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="หลังกลางปี">หก</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="เก็บ 4">ก4</th>
+                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px] border-r border-zinc-100" title="ปลายปี">ปป</th>
                                 </tr>
                             </thead>
                             <tbody id="ac-subjects-tbody" class="divide-y divide-zinc-100 bg-white">
@@ -1039,14 +1090,7 @@
                                     <th class="px-2 py-2 font-medium text-xs">รายวิชา</th>
                                     <th class="px-2 py-2 font-medium w-20 text-xs">ประเภท</th>
                                     <th class="px-2 py-2 font-medium w-16 text-center text-xs">น.ก.</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มเก็บ 1">ก1</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มก่อนกลางปี">กก</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มเก็บ 2">ก2</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มกลางปี">กป</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มเก็บ 3">ก3</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มหลังกลางปี">หก</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มเก็บ 4">ก4</th>
-                                    <th class="px-1 py-2 font-medium w-10 text-center text-[10px]" title="เต็มปลายปี">ปป</th>
+                                    <th class="px-2 py-2 font-medium text-xs w-48">ครูผู้สอน</th>
                                     <th class="px-2 py-2 font-medium w-10 text-center text-xs">ลบ</th>
                                 </tr>
                             </thead>
@@ -1248,6 +1292,27 @@
         </div>
     </div>
 
+    <!-- Edit Max Score Modal -->
+    <div id="edit-max-score-modal" class="hidden fixed inset-0 bg-zinc-950/40 z-[100] flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div id="edit-max-score-box" class="bg-white rounded-2xl shadow-xl w-full max-w-[420px] p-6 relative border border-zinc-200 transform scale-95 transition-all duration-300">
+            <div class="flex gap-4 items-start">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-zinc-50 flex items-center justify-center shrink-0 border border-zinc-100">
+                    <i class="fa-solid fa-gear text-zinc-600 text-lg sm:text-xl"></i>
+                </div>
+                <div class="pt-1 w-full">
+                    <h3 class="text-base sm:text-lg font-bold text-zinc-900 tracking-tight leading-none">แก้ไขคะแนนเต็ม</h3>
+                    <p id="edit-max-score-desc" class="text-sm text-zinc-500 mt-2 leading-relaxed">กรุณากรอกคะแนนเต็มใหม่สำหรับช่องนี้</p>
+                    <input type="number" id="edit-max-score-input" class="w-full mt-4 px-3 py-2 border border-zinc-200 rounded-md focus:border-zinc-900 outline-none text-sm" placeholder="ระบุคะแนนเต็ม">
+                </div>
+            </div>
+            <input type="hidden" id="edit-max-score-key">
+            <div class="mt-6 sm:mt-8 flex w-full gap-3 justify-end">
+                <button type="button" onclick="closeEditMaxScoreModal()" class="px-5 py-2.5 bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 rounded-xl text-sm font-medium transition-all outline-none">ยกเลิก</button>
+                <button type="button" onclick="confirmEditMaxScore()" class="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm outline-none">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         /*
@@ -1320,6 +1385,18 @@
         let classesConfig = [];
         let courseConfig = {}; 
         let academicRecords = {}; 
+
+        // ตรวจจับการกด Ctrl ค้างไว้เพื่อแสดงปุ่มแก้ไขคะแนนเต็ม และซ่อนเมื่อปล่อยปุ่ม
+        document.addEventListener('keydown', (e) => { 
+            if (e.key === 'Control') {
+                document.body.classList.add('ctrl-pressed');
+            }
+        });
+        document.addEventListener('keyup', (e) => { 
+            if (e.key === 'Control') {
+                document.body.classList.remove('ctrl-pressed');
+            }
+        });
 
         window.onload = async () => {
             const savedSchool = sessionStorage.getItem('pp6_current_school');
@@ -1493,7 +1570,7 @@
         }
 
         function switchTab(tabId) {
-            ['students-tab', 'subject-grades-tab', 'activities-grades-tab', 'evaluations-tab', 'reports-tab', 'settings-tab'].forEach(id => {
+            ['students-tab', 'subject-grades-tab', 'activities-grades-tab', 'evaluations-tab', 'check-data-tab', 'reports-tab', 'settings-tab'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
                 const btn = document.getElementById(`nav-${id.replace('-tab', '')}`);
                 if (btn) btn.className = "w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm";
@@ -1512,6 +1589,9 @@
             } else if (tabId === 'evaluations-tab') {
                 document.getElementById('eval-class-select').value = '';
                 onEvalClassChange();
+            } else if (tabId === 'check-data-tab') {
+                document.getElementById('check-class-select').value = '';
+                renderCheckDataTable();
             } else if (tabId === 'reports-tab') {
                 previewReport();
             }
@@ -1525,17 +1605,17 @@
             const modalClassSelect = document.getElementById('modal-std-class');
             const repClassSelect = document.getElementById('report-class-select');
             const sgClassSelect = document.getElementById('sg-class-select');
-            // เพิ่มส่วนนี้
             const actClassSelect = document.getElementById('act-class-select');
             const evalClassSelect = document.getElementById('eval-class-select');
+            const checkClassSelect = document.getElementById('check-class-select');
             
             mainClassFilter.innerHTML = '<option value="all">ทุกระดับชั้น</option>';
             modalClassSelect.innerHTML = '';
             repClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
             sgClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
-            // เพิ่มส่วนนี้
             if(actClassSelect) actClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
             if(evalClassSelect) evalClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
+            if(checkClassSelect) checkClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
 
             const uniqueClasses = [...new Set(classesConfig.map(item => `${item.className}/${item.roomName || '1'}`))].sort();
             uniqueClasses.forEach(clsStr => {
@@ -1543,9 +1623,9 @@
                 modalClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
                 repClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
                 sgClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
-                // เพิ่มส่วนนี้
                 if(actClassSelect) actClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
                 if(evalClassSelect) evalClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
+                if(checkClassSelect) checkClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
             });
             filterReportStudents();
         }
@@ -1643,8 +1723,8 @@
                     valA = (a.code || '').toString(); valB = (b.code || '').toString();
                     return currentSortDirection === 'asc' ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
                 } else if (currentSortColumn === 'hasGrade') {
-                    valA = checkMissingData(a.id, a.class).length === 0 ? 1 : 0; 
-                    valB = checkMissingData(b.id, b.class).length === 0 ? 1 : 0;
+                    valA = checkMissingData(a.id, `${a.class}/${a.room}`).length === 0 ? 1 : 0; 
+                    valB = checkMissingData(b.id, `${b.class}/${b.room}`).length === 0 ? 1 : 0;
                 }
                 if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
                 if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
@@ -1652,7 +1732,7 @@
             });
 
             filtered.forEach((s, index) => {
-                const missingItems = checkMissingData(s.id, s.class);
+                const missingItems = checkMissingData(s.id, `${s.class}/${s.room}`);
                 const isComplete = missingItems.length === 0;
                 
                 let badge = '';
@@ -1714,7 +1794,7 @@
             }
 
             const classLevel = classStr.split('/')[0];
-            const course = courseConfig[classLevel];
+            const course = courseConfig[classStr];
 
             subjSelect.innerHTML = '<option value="">-- เลือกรายวิชา --</option>';
             if (course && course.subjects && course.subjects.length > 0) {
@@ -1742,22 +1822,22 @@
             const classLevel = classStr.split('/')[0];
             
             // นำคะแนนเต็มที่ตั้งไว้มาเปลี่ยนหัวตาราง 
-            const courseSubj = courseConfig[classLevel]?.subjects?.find(s => s.code === subjCode);
+            const courseSubj = courseConfig[classStr]?.subjects?.find(s => s.code === subjCode);
             if (!courseSubj) return;
             const m1 = courseSubj.s1m || 10, m2 = courseSubj.s2m || 15, m3 = courseSubj.s3m || 10, m4 = courseSubj.s4m || 15;
             const m5 = courseSubj.s5m || 10, m6 = courseSubj.s6m || 15, m7 = courseSubj.s7m || 10, m8 = courseSubj.s8m || 15;
             const mt1 = m1 + m2 + m3 + m4, mt2 = m5 + m6 + m7 + m8;
 
-            document.getElementById('sg-th-s1').innerHTML = `เก็บ 1<br>(${m1})`;
-            document.getElementById('sg-th-s2').innerHTML = `ก่อนกลาง<br>(${m2})`;
-            document.getElementById('sg-th-s3').innerHTML = `เก็บ 2<br>(${m3})`;
-            document.getElementById('sg-th-s4').innerHTML = `กลางปี<br>(${m4})`;
+            document.getElementById('sg-th-s1').innerHTML = `เก็บ 1<br>(${m1}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s1m', ${m1})"></i>`;
+            document.getElementById('sg-th-s2').innerHTML = `ก่อนกลาง<br>(${m2}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s2m', ${m2})"></i>`;
+            document.getElementById('sg-th-s3').innerHTML = `เก็บ 2<br>(${m3}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s3m', ${m3})"></i>`;
+            document.getElementById('sg-th-s4').innerHTML = `กลางปี<br>(${m4}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s4m', ${m4})"></i>`;
             document.getElementById('sg-th-t1').innerHTML = `รวม<br>(${mt1})`;
             
-            document.getElementById('sg-th-s5').innerHTML = `เก็บ 3<br>(${m5})`;
-            document.getElementById('sg-th-s6').innerHTML = `หลังกลาง<br>(${m6})`;
-            document.getElementById('sg-th-s7').innerHTML = `เก็บ 4<br>(${m7})`;
-            document.getElementById('sg-th-s8').innerHTML = `ปลายปี<br>(${m8})`;
+            document.getElementById('sg-th-s5').innerHTML = `เก็บ 3<br>(${m5}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s5m', ${m5})"></i>`;
+            document.getElementById('sg-th-s6').innerHTML = `หลังกลาง<br>(${m6}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s6m', ${m6})"></i>`;
+            document.getElementById('sg-th-s7').innerHTML = `เก็บ 4<br>(${m7}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s7m', ${m7})"></i>`;
+            document.getElementById('sg-th-s8').innerHTML = `ปลายปี<br>(${m8}) <i class="fa-solid fa-gear edit-max-score" onclick="changeMaxScore('s8m', ${m8})"></i>`;
             document.getElementById('sg-th-t2').innerHTML = `รวม<br>(${mt2})`;
 
             let targetStudents = students.filter(s => `${s.class}/${s.room}` === classStr);
@@ -1822,23 +1902,111 @@
             recalcAllSgRows(); // บังคับคำนวณใหม่ตามสถานะ Checkbox ปัจจุบัน ทันทีที่โหลดข้อมูลวิชาเสร็จ
         }
 
-        // ฟังก์ชันสำหรับเลื่อนโฟกัสไปช่องด้านล่างเมื่อกด Enter
+        function changeMaxScore(scoreKey, currentMax) {
+            const classStr = document.getElementById('sg-class-select').value;
+            const subjCode = document.getElementById('sg-subject-select').value;
+            if (!classStr || !subjCode) return;
+            
+            // เปิดหน้าต่าง Modal ของระบบ
+            document.getElementById('edit-max-score-key').value = scoreKey;
+            document.getElementById('edit-max-score-desc').innerText = `กรุณากรอกคะแนนเต็มใหม่สำหรับช่องนี้ (ค่าเดิม: ${currentMax})`;
+            const inputEl = document.getElementById('edit-max-score-input');
+            inputEl.value = currentMax;
+            
+            const modal = document.getElementById('edit-max-score-modal');
+            const box = document.getElementById('edit-max-score-box');
+            modal.classList.remove('hidden');
+            setTimeout(() => { 
+                modal.classList.remove('opacity-0'); 
+                box.classList.remove('scale-95'); 
+                box.classList.add('scale-100'); 
+                inputEl.focus(); 
+                inputEl.select();
+            }, 10);
+        }
+
+        function closeEditMaxScoreModal() {
+            const modal = document.getElementById('edit-max-score-modal');
+            const box = document.getElementById('edit-max-score-box');
+            modal.classList.add('opacity-0'); 
+            box.classList.remove('scale-100'); 
+            box.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function confirmEditMaxScore() {
+            const classStr = document.getElementById('sg-class-select').value;
+            const subjCode = document.getElementById('sg-subject-select').value;
+            const classLevel = classStr.split('/')[0];
+            const scoreKey = document.getElementById('edit-max-score-key').value;
+            const newValStr = document.getElementById('edit-max-score-input').value;
+            
+            if (newValStr.trim() === '') {
+                showBlocksAlert('error', 'ข้อมูลไม่ถูกต้อง', 'กรุณากรอกตัวเลขคะแนน');
+                return;
+            }
+            
+            const newVal = parseFloat(newValStr);
+            if (isNaN(newVal) || newVal < 0) {
+                showBlocksAlert('error', 'ข้อมูลไม่ถูกต้อง', 'กรุณากรอกตัวเลขคะแนนให้ถูกต้อง');
+                return;
+            }
+
+            const courseSubj = courseConfig[classStr].subjects.find(s => s.code === subjCode);
+            if (courseSubj) {
+                courseSubj[scoreKey] = newVal;
+                saveAllSystemSettings(false); // บันทึกลงโครงสร้างระบบแบบพื้นหลัง
+                onSGSubjectChange(); // รีเฟรชตารางหน้ากรอกคะแนนให้เป็นค่าใหม่ทันที
+                closeEditMaxScoreModal();
+                showBlocksToast('เปลี่ยนคะแนนเต็มและบันทึกข้อมูลเรียบร้อย', 'success');
+            }
+        }
+
+        // ฟังก์ชันสำหรับเลื่อนโฟกัสไปตามทิศทางลูกศร หรือลงล่างเมื่อกด Enter
         function moveFocusDown(e, currentInput) {
-            if (e.key === 'Enter') {
-                e.preventDefault(); // ป้องกันไม่ให้หน้าเว็บเลื่อนหรือทำงานผิดพลาดเมื่อกด Enter
+            if (['Enter', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault(); 
                 
-                // ค้นหาคลาสของคอลัมน์ปัจจุบัน (เช่น sg-s1-input, sg-s2-input)
-                const colClass = Array.from(currentInput.classList).find(c => c.startsWith('sg-s') && c.endsWith('-input'));
+                const tr = currentInput.closest('tr');
+                const tbody = tr.closest('tbody');
                 
-                if (colClass) {
-                    const inputs = Array.from(document.querySelectorAll('.' + colClass));
-                    const index = inputs.indexOf(currentInput);
-                    
-                    // หากไม่ใช่ช่องสุดท้าย ให้เลื่อนโฟกัสไปช่องถัดไปด้านล่าง
-                    if (index > -1 && index < inputs.length - 1) {
-                        inputs[index + 1].focus();
-                        inputs[index + 1].select(); // คลุมดำตัวเลขเดิม เพื่อให้พิมพ์ทับตัวเลขใหม่ได้ทันที
+                // หาพิกัดแถว 
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                const rowIndex = allRows.indexOf(tr);
+                
+                // หาพิกัดคอลัมน์ (นับเฉพาะช่องกรอกคะแนนในแถวนี้)
+                const inputsInRow = Array.from(tr.querySelectorAll('input[type="number"]'));
+                const colIndex = inputsInRow.indexOf(currentInput);
+                
+                let targetInput = null;
+
+                if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                    // ลงล่าง
+                    if (rowIndex < allRows.length - 1) {
+                        const nextRowInputs = Array.from(allRows[rowIndex + 1].querySelectorAll('input[type="number"]'));
+                        if (nextRowInputs[colIndex]) targetInput = nextRowInputs[colIndex];
                     }
+                } else if (e.key === 'ArrowUp') {
+                    // ขึ้นบน
+                    if (rowIndex > 0) {
+                        const prevRowInputs = Array.from(allRows[rowIndex - 1].querySelectorAll('input[type="number"]'));
+                        if (prevRowInputs[colIndex]) targetInput = prevRowInputs[colIndex];
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    // ไปซ้าย
+                    if (colIndex > 0) {
+                        targetInput = inputsInRow[colIndex - 1];
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    // ไปขวา
+                    if (colIndex < inputsInRow.length - 1) {
+                        targetInput = inputsInRow[colIndex + 1];
+                    }
+                }
+
+                if (targetInput) {
+                    targetInput.focus();
+                    targetInput.select();
                 }
             }
         }
@@ -1846,10 +2014,17 @@
         // ฟังก์ชันป้องกันไม่ให้กรอกคะแนนเกินที่ตั้งไว้ หรือ ต่ำกว่า 0
         function checkMaxScore(input, maxVal) {
             if (input.value !== '' && parseFloat(input.value) > maxVal) {
-                input.value = maxVal;
+                // ไม่ลบทิ้งทั้งหมด แต่ตัดเฉพาะตัวเลขตัวสุดท้ายที่เพิ่งกดแล้วทำให้คะแนนเกินออกไป
+                input.value = input.value.slice(0, -1);
+                
+                // เช็คซ้ำกรณีลากคลุมแล้ว Paste ตัวเลขยาวๆ ถ้ายังเกินอยู่ก็ให้ตัดตัวท้ายออกจนกว่าจะผ่านเกณฑ์
+                while (input.value !== '' && parseFloat(input.value) > maxVal) {
+                    input.value = input.value.slice(0, -1);
+                }
             }
             if (input.value !== '' && parseFloat(input.value) < 0) {
-                input.value = 0;
+                // ป้องกันการพิมพ์ติดลบ
+                input.value = input.value.slice(0, -1);
             }
         }
 
@@ -1860,7 +2035,7 @@
             if (!classStr || !subjCode) return;
 
             const classLevel = classStr.split('/')[0];
-            const course = courseConfig[classLevel];
+            const course = courseConfig[classStr];
             const courseSubj = course.subjects.find(s => s.code === subjCode);
 
             const inputs = document.querySelectorAll('.sg-score-input');
@@ -2089,7 +2264,7 @@
             document.getElementById('ac-activities-tbody').innerHTML = '';
 
             const record = academicRecords[studentId];
-            const stdClassLevel = student.class; 
+            const stdClassLevel = `${student.class}/${student.room}`; 
             const classCourseCfg = courseConfig[stdClassLevel];
 
             // 1. โหลดรายวิชาจากโครงสร้างหลักสูตรเสมอ
@@ -2367,10 +2542,10 @@
             
             const cfg = courseConfig[className];
             if (cfg && cfg.subjects && cfg.subjects.length > 0) {
-                if (cfg.subjects) cfg.subjects.forEach(s => addCourseSubjRow(s.code, s.name, s.type, s.credit, s.s1m, s.s2m, s.s3m, s.s4m, s.s5m, s.s6m, s.s7m, s.s8m));
+                if (cfg.subjects) cfg.subjects.forEach(s => addCourseSubjRow(s.code, s.name, s.type, s.credit, s.teacher, s.s1m, s.s2m, s.s3m, s.s4m, s.s5m, s.s6m, s.s7m, s.s8m));
                 if (cfg.activities) cfg.activities.forEach(a => addCourseActRow(a.name, a.hours));
             } else {
-                addCourseSubjRow('', '', 'พื้นฐาน', '', 10, 15, 10, 15, 10, 15, 10, 15);
+                addCourseSubjRow('', '', 'พื้นฐาน', '', '', 10, 15, 10, 15, 10, 15, 10, 15);
                 addCourseActRow('', '');
             }
 
@@ -2382,7 +2557,7 @@
             document.getElementById('course-modal').classList.add('hidden');
         }
 
-        function addCourseSubjRow(code='', name='', type='พื้นฐาน', credit='', s1m=10, s2m=15, s3m=10, s4m=15, s5m=10, s6m=15, s7m=10, s8m=15) {
+        function addCourseSubjRow(code='', name='', type='พื้นฐาน', credit='', teacher='', s1m=10, s2m=15, s3m=10, s4m=15, s5m=10, s6m=15, s7m=10, s8m=15) {
             const tbody = document.getElementById('ac-course-subjects-tbody');
             const tr = document.createElement('tr');
             tr.className = "hover:bg-zinc-50 transition-colors ac-course-subj-row";
@@ -2390,7 +2565,9 @@
             // แปลงเครื่องหมาย " ให้เป็นรหัส HTML ก่อนใส่ในแอตทริบิวต์ value
             const safeCode = String(code).replace(/"/g, '&quot;');
             const safeName = String(name).replace(/"/g, '&quot;');
+            const safeTeacher = String(teacher || '').replace(/"/g, '&quot;'); // เพิ่มการจัดการชื่อครู
             
+            // เพิ่ม input แบบ hidden สำหรับเก็บค่าคะแนนเต็มไว้ใช้งานเหมือนเดิม
             tr.innerHTML = `
                 <td class="px-2 py-2 text-center text-zinc-400 row-num text-xs"></td>
                 <td class="px-1 py-1"><input type="text" class="inp-code w-full px-1 py-1 border border-zinc-200 focus:border-zinc-900 rounded outline-none bg-white text-xs" placeholder="รหัส" value="${safeCode}" onkeydown="moveCourseFocusDown(event, this, 'inp-code')"></td>
@@ -2402,14 +2579,17 @@
                     </select>
                 </td>
                 <td class="px-1 py-1"><input type="number" class="inp-credit w-full px-1 py-1 border border-zinc-200 focus:border-zinc-900 rounded outline-none bg-white text-center text-xs" placeholder="นก." value="${credit}" onkeydown="moveCourseFocusDown(event, this, 'inp-credit')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s1m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s1m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s1m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s2m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s2m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s2m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s3m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s3m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s3m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s4m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s4m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s4m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s5m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s5m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s5m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s6m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s6m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s6m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s7m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s7m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s7m')"></td>
-                <td class="px-0.5 py-1"><input type="number" class="inp-s8m w-full px-0.5 py-1 border border-zinc-200 rounded text-center text-xs outline-none focus:border-zinc-500" value="${s8m}" onkeydown="moveCourseFocusDown(event, this, 'inp-s8m')"></td>
+                <td class="px-1 py-1"><input type="text" class="inp-teacher w-full px-1 py-1 border border-zinc-200 focus:border-zinc-900 rounded outline-none bg-white text-xs" placeholder="ชื่อครูผู้สอน (เว้นว่างได้)" value="${safeTeacher}" onkeydown="moveCourseFocusDown(event, this, 'inp-teacher')"></td>
+                
+                <input type="hidden" class="inp-s1m" value="${s1m}">
+                <input type="hidden" class="inp-s2m" value="${s2m}">
+                <input type="hidden" class="inp-s3m" value="${s3m}">
+                <input type="hidden" class="inp-s4m" value="${s4m}">
+                <input type="hidden" class="inp-s5m" value="${s5m}">
+                <input type="hidden" class="inp-s6m" value="${s6m}">
+                <input type="hidden" class="inp-s7m" value="${s7m}">
+                <input type="hidden" class="inp-s8m" value="${s8m}">
+                
                 <td class="px-1 py-1 text-center">
                     <button type="button" onclick="this.closest('tr').remove(); updateRowNumbers('ac-course-subjects-tbody');" class="text-red-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
                 </td>
@@ -2449,6 +2629,7 @@
                         name: name,
                         type: r.querySelector('.inp-type').value,
                         credit: parseFloat(r.querySelector('.inp-credit').value) || 0,
+                        teacher: r.querySelector('.inp-teacher').value, // เพิ่มการเซฟชื่อครู
                         s1m: parseFloat(r.querySelector('.inp-s1m').value) || 10,
                         s2m: parseFloat(r.querySelector('.inp-s2m').value) || 15,
                         s3m: parseFloat(r.querySelector('.inp-s3m').value) || 10,
@@ -2483,6 +2664,93 @@
             
             // สั่งบันทึกการตั้งค่าลงระบบอัตโนมัติ
             saveAllSystemSettings(false);
+        }
+
+        function renderCheckDataTable() {
+            const classStr = document.getElementById('check-class-select').value;
+            const tbody = document.getElementById('check-data-tbody');
+
+            if (!classStr) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-zinc-400">กรุณาเลือกชั้นเรียน</td></tr>';
+                return;
+            }
+
+            const classLevel = classStr.split('/')[0];
+            const course = courseConfig[classStr];
+            
+            let targetStudents = students.filter(s => `${s.class}/${s.room}` === classStr);
+
+            if (targetStudents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-zinc-400">ไม่พบนักเรียนในชั้นเรียนนี้</td></tr>';
+                return;
+            }
+
+            if (!course || !course.subjects || course.subjects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-12 text-center text-zinc-400">ไม่พบโครงสร้างรายวิชาสำหรับชั้นเรียนนี้</td></tr>';
+                return;
+            }
+
+            // เช็คว่าเลือกเทอมไหนไว้บ้าง
+            let useT1 = document.getElementById('chk-term1') ? document.getElementById('chk-term1').checked : true;
+            let useT2 = document.getElementById('chk-term2') ? document.getElementById('chk-term2').checked : true;
+            if (localStorage.getItem('pp6_chk_term1') !== null) useT1 = localStorage.getItem('pp6_chk_term1') === 'true';
+            if (localStorage.getItem('pp6_chk_term2') !== null) useT2 = localStorage.getItem('pp6_chk_term2') === 'true';
+
+            let html = '';
+            course.subjects.forEach((subj, idx) => {
+                let isComplete = true;
+
+                // ตรวจสอบนักเรียนทุกคนในห้อง
+                for (let student of targetStudents) {
+                    const record = academicRecords[student.id];
+                    if (!record || !record.subjects) {
+                        isComplete = false;
+                        break;
+                    }
+
+                    const recSubj = record.subjects.find(rs => rs.code === subj.code);
+                    if (!recSubj) {
+                        isComplete = false;
+                        break;
+                    }
+
+                    // ตรวจสอบคะแนนตามเทอมที่เลือก
+                    if (useT1) {
+                        if (recSubj.s1 === '' || recSubj.s1 === undefined ||
+                            recSubj.s2 === '' || recSubj.s2 === undefined ||
+                            recSubj.s3 === '' || recSubj.s3 === undefined ||
+                            recSubj.s4 === '' || recSubj.s4 === undefined) {
+                            isComplete = false;
+                            break;
+                        }
+                    }
+                    if (useT2) {
+                        if (recSubj.s5 === '' || recSubj.s5 === undefined ||
+                            recSubj.s6 === '' || recSubj.s6 === undefined ||
+                            recSubj.s7 === '' || recSubj.s7 === undefined ||
+                            recSubj.s8 === '' || recSubj.s8 === undefined) {
+                            isComplete = false;
+                            break;
+                        }
+                    }
+                }
+
+                const statusHtml = isComplete 
+                    ? `<span class="text-green-600 font-bold"><i class="fa-solid fa-circle-check"></i> กรอกครบแล้ว</span>` 
+                    : `<span class="text-red-500 font-bold"><i class="fa-solid fa-circle-xmark"></i> กรอกยังไม่ครบ</span>`;
+
+                html += `
+                    <tr class="hover:bg-zinc-50 transition-colors">
+                        <td class="px-4 py-3 text-center text-zinc-500 border-r border-zinc-100">${idx + 1}</td>
+                        <td class="px-4 py-3 text-zinc-800 font-medium border-r border-zinc-100">${subj.code}</td>
+                        <td class="px-4 py-3 text-zinc-800 border-r border-zinc-100">${subj.name}</td>
+                        <td class="px-4 py-3 text-zinc-600 border-r border-zinc-100 text-sm">${subj.teacher || '<span class="text-zinc-400 italic">ไม่ได้ระบุ</span>'}</td>
+                        <td class="px-4 py-3 text-center">${statusHtml}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
         }
 
         function filterReportStudents() {
@@ -2577,7 +2845,7 @@
                 termDisplayEl.classList.add('hidden'); // ถ้าเลือกทั้งคู่ หรือไม่เลือกเลย ให้ซ่อน
             }
 
-            const stdClassLevel = student.class;
+            const stdClassLevel = `${student.class}/${student.room}`;
             const classCourseCfg = courseConfig[stdClassLevel];
 
             const subTbody = document.getElementById('r-subjects-tbody');
@@ -2673,7 +2941,7 @@
                 let classmates = students.filter(s => s.class === student.class && s.room === student.room);
                 
                 // ตรวจสอบว่าเพื่อนทุกคนในห้องกรอกข้อมูลครบถ้วนหรือไม่
-                let isClassComplete = classmates.every(c => checkMissingData(c.id, c.class).length === 0);
+                let isClassComplete = classmates.every(c => checkMissingData(c.id, `${c.class}/${c.room}`).length === 0);
                 
                 if (isClassComplete) {
                     // 2. คำนวณ GPA และเก็บคะแนนดิบรายวิชาของเพื่อนทุกคนในห้อง
@@ -2901,6 +3169,16 @@
             }
         }
 
+        function updateFavicon(base64Image) {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+            link.href = base64Image;
+        }
+
         // =====================================================================
         // Settings 
         // =====================================================================
@@ -2909,11 +3187,40 @@
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = e => {
-                    tempLogoBase64 = e.target.result;
-                    document.getElementById('status-school-logo').innerHTML = `<span class="text-zinc-600 font-medium">เปลี่ยนโลโก้แล้ว</span>`;
-                    const img = document.getElementById('preview-school-logo');
-                    img.src = tempLogoBase64;
-                    img.classList.remove('hidden');
+                    const imgObj = new Image();
+                    imgObj.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // กำหนดขนาดกว้าง/ยาวสูงสุด (300px ก็เพียงพอต่อความคมชัดสำหรับหัวกระดาษ ปพ.6)
+                        const MAX_SIZE = 300; 
+                        let width = imgObj.width;
+                        let height = imgObj.height;
+
+                        // คำนวณอัตราส่วนเพื่อย่อขนาดให้สมดุล
+                        if (width > height && width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        } else if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(imgObj, 0, 0, width, height);
+
+                        // บีบอัดภาพเป็น WebP ที่คุณภาพ 80% (ช่วยลดขนาดไฟล์ Base64 ได้มากกว่า 90%)
+                        tempLogoBase64 = canvas.toDataURL('image/webp', 0.8);
+                        
+                        // อัปเดต Favicon ทันทีที่รูปถูกย่อขนาดและแปลงเป็น Base64 เสร็จ
+                        updateFavicon(tempLogoBase64);
+
+                        document.getElementById('status-school-logo').innerHTML = `<span class="text-zinc-600 font-medium">เปลี่ยนโลโก้แล้ว</span>`;
+                        const previewImg = document.getElementById('preview-school-logo');
+                        previewImg.src = tempLogoBase64;
+                        previewImg.classList.remove('hidden');
+                    };
+                    imgObj.src = e.target.result;
                 };
                 reader.readAsDataURL(input.files[0]);
             }
@@ -2934,6 +3241,9 @@
                 logoImg.src = schoolConfig.logo;
                 logoImg.classList.remove('hidden');
                 document.getElementById('status-school-logo').innerText = 'เปลี่ยนโลโก้ใหม่';
+                
+                // โหลด Favicon จากฐานข้อมูลถ้ามี
+                updateFavicon(schoolConfig.logo);
             } else {
                 logoImg.classList.add('hidden');
             }
@@ -2972,17 +3282,18 @@
             const courseContainer = document.getElementById('courses-config-container');
             courseContainer.innerHTML = '';
             
-            const uniqueClassLevels = [...new Set(classesConfig.map(c => c.className))].sort();
+            // เปลี่ยนจากระดับชั้น (className) เป็นดึงตามห้องเรียน (className/roomName)
+            const uniqueClassRooms = [...new Set(classesConfig.map(c => `${c.className}/${c.roomName || '1'}`))].sort(new Intl.Collator('th', {numeric: true}).compare);
             
-            if (uniqueClassLevels.length === 0) {
+            if (uniqueClassRooms.length === 0) {
                 courseContainer.innerHTML = '<p class="text-sm text-zinc-500 italic p-3 text-center bg-zinc-50 border border-zinc-200 border-dashed rounded-md">กรุณาเพิ่มชั้นเรียนในหัวข้อที่ 4 ก่อน</p>';
             } else {
-                uniqueClassLevels.forEach(cls => {
+                uniqueClassRooms.forEach(cls => {
                     const subjCount = courseConfig[cls] && courseConfig[cls].subjects ? courseConfig[cls].subjects.length : 0;
                     courseContainer.innerHTML += `
                         <div class="flex items-center justify-between bg-white p-3 rounded-md border border-zinc-200 shadow-sm">
                             <div class="flex flex-col">
-                                <span class="text-sm font-medium text-zinc-900">ระดับชั้น <span class="text-zinc-600">${cls}</span></span>
+                                <span class="text-sm font-medium text-zinc-900">ห้องเรียน <span class="text-zinc-600">${cls}</span></span>
                                 <span class="text-[11px] text-zinc-500">บันทึกไว้แล้ว ${subjCount} วิชา</span>
                             </div>
                             <button type="button" onclick="openCourseModal('${cls}')" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md text-xs font-medium transition-colors shadow-sm flex items-center gap-1.5">
@@ -3102,14 +3413,12 @@
                 return;
             }
 
-            // 2. เช็คว่ามีการตั้งค่าโครงสร้างรายวิชาของระดับชั้นนี้ค้างไว้หรือไม่
-            // (เช็คเฉพาะในกรณีที่เป็นห้องเดียวของระดับชั้นนั้น ถ้ามีห้องอื่นในระดับชั้นเดียวกันอยู่ จะถือว่าใช้โครงสร้างร่วมกันได้)
-            const otherRoomsInSameLevel = classesConfig.filter((c, i) => c.className === targetClass.className && i !== index);
-            const courseCfg = courseConfig[targetClass.className];
+            // 2. เช็คว่ามีการตั้งค่าโครงสร้างรายวิชาของห้องเรียนนี้ค้างไว้หรือไม่
+            const courseCfg = courseConfig[classStr];
             const hasCourseConfig = courseCfg && ((courseCfg.subjects && courseCfg.subjects.length > 0) || (courseCfg.activities && courseCfg.activities.length > 0));
             
-            if (otherRoomsInSameLevel.length === 0 && hasCourseConfig) {
-                 showBlocksAlert('warning', 'ไม่สามารถลบห้องเรียนได้', `พบการตั้งค่าโครงสร้างรายวิชาของระดับชั้น ${targetClass.className} กรุณาไปลบรายวิชา/กิจกรรมในหัวข้อที่ 5 ออกให้หมดก่อนครับ (เนื่องจากนี่เป็นห้องเรียนสุดท้ายของระดับชั้นนี้)`);
+            if (hasCourseConfig) {
+                 showBlocksAlert('warning', 'ไม่สามารถลบห้องเรียนได้', `พบการตั้งค่าโครงสร้างรายวิชาของห้องเรียน ${classStr} กรุณาไปลบรายวิชา/กิจกรรมในหัวข้อที่ 5 ออกให้หมดก่อนครับ`);
                  return;
             }
 
@@ -3367,7 +3676,7 @@
             }
 
             const classLevel = classStr.split('/')[0];
-            const course = courseConfig[classLevel];
+            const course = courseConfig[classStr];
 
             actSelect.innerHTML = '<option value="">-- เลือกกิจกรรม --</option>';
             if (course && course.activities && course.activities.length > 0) {
@@ -3430,7 +3739,7 @@
             if (!classStr || !actName) return;
 
             const classLevel = classStr.split('/')[0];
-            const course = courseConfig[classLevel];
+            const course = courseConfig[classStr];
             const courseAct = course.activities.find(a => a.name === actName);
 
             const inputs = document.querySelectorAll('.act-result-input');
@@ -3529,7 +3838,7 @@
             if (!classStr) return;
 
             const classLevel = classStr.split('/')[0];
-            const course = courseConfig[classLevel];
+            const course = courseConfig[classStr];
 
             const rows = document.querySelectorAll('#eval-students-tbody tr');
             rows.forEach(tr => {
@@ -3939,9 +4248,10 @@
                     <span class="bg-zinc-100 px-2 py-1 rounded">รหัสวิชา</span> <span class="text-zinc-400">|</span>
                     <span class="bg-zinc-100 px-2 py-1 rounded">รายวิชา</span> <span class="text-zinc-400">|</span>
                     <span class="bg-zinc-100 px-2 py-1 rounded">ประเภท</span> <span class="text-zinc-400">|</span>
-                    <span class="bg-zinc-100 px-2 py-1 rounded">น.ก.</span>
+                    <span class="bg-zinc-100 px-2 py-1 rounded">น.ก.</span> <span class="text-zinc-400">|</span>
+                    <span class="bg-zinc-100 px-2 py-1 rounded">ครูผู้สอน (เว้นได้)</span>
                 `;
-                exampleEl.innerHTML = 'ตัวอย่าง: <span class="font-mono text-zinc-600 ml-1">1	ท11101	ภาษาไทย	พื้นฐาน	1.0</span> <br><span class="text-xs text-blue-500">*ระบบจะกำหนดคะแนนเต็มของแต่ละช่องให้เป็นค่ามาตรฐานอัตโนมัติ</span>';
+                exampleEl.innerHTML = 'ตัวอย่าง: <span class="font-mono text-zinc-600 ml-1">1	ท11101	ภาษาไทย	พื้นฐาน	1.0	ครูสมใจ</span> <br><span class="text-xs text-blue-500">*ระบบจะกำหนดคะแนนเต็มของแต่ละช่องให้เป็นค่ามาตรฐานอัตโนมัติ</span>';
             } else if (type === 'activity') {
                 titleEl.innerText = 'นำเข้ากิจกรรมพัฒนาผู้เรียนจาก Excel';
                 formatEl.innerHTML = `
@@ -3981,15 +4291,16 @@
                 const cols = row.split('\t').map(c => c.trim());
                 
                 if (type === 'subject') {
-                    // ลำดับ | รหัส | ชื่อ | ประเภท | หน่วยกิต
+                    // ลำดับ | รหัส | ชื่อ | ประเภท | หน่วยกิต | ครูผู้สอน
                     if (cols.length >= 3 && cols[1] && cols[2]) {
                         const code = cols[1];
                         const name = cols[2];
                         const subjType = cols[3] || 'พื้นฐาน';
                         const credit = cols[4] || '1.0';
+                        const teacher = cols[5] || '';
                         
                         // เพิ่มวิชาพร้อมใส่ค่าคะแนนมาตรฐาน 10, 15... 
-                        addCourseSubjRow(code, name, subjType, credit, 10, 15, 10, 15, 10, 15, 10, 15);
+                        addCourseSubjRow(code, name, subjType, credit, teacher, 10, 15, 10, 15, 10, 15, 10, 15);
                         addedCount++;
                     }
                 } else if (type === 'activity') {
@@ -4015,27 +4326,53 @@
             }
         }
 
-        // ฟังก์ชันสำหรับเลื่อนโฟกัสไปช่องด้านล่าง (ในหน้าตั้งค่าโครงสร้างวิชา)
+        // ฟังก์ชันสำหรับเลื่อนโฟกัสไปตามทิศทางลูกศร (ในหน้าตั้งค่าโครงสร้างวิชา)
         function moveCourseFocusDown(e, currentInput, colClassName) {
-            if (e.key === 'Enter') {
-                e.preventDefault(); // ป้องกัน Enter ทำงานซ้ำซ้อน
+            if (['Enter', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
                 
-                // หา input ทั้งหมดในตาราง ที่มี class ตรงกัน (คอลัมน์เดียวกัน)
-                const tbody = currentInput.closest('tbody');
-                const inputs = Array.from(tbody.querySelectorAll('.' + colClassName));
-                const index = inputs.indexOf(currentInput);
+                const tr = currentInput.closest('tr');
+                const tbody = tr.closest('tbody');
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                const rowIndex = allRows.indexOf(tr);
                 
-                // หากไม่ใช่แถวสุดท้าย ให้โฟกัสช่องถัดไป (ด้านล่าง)
-                if (index > -1 && index < inputs.length - 1) {
-                    inputs[index + 1].focus();
-                    
-                    // กรณีเป็น input แบบตัวหนังสือ หรือ ตัวเลข ให้คลุมดำเตรียมแก้
-                    if (inputs[index + 1].type !== 'select-one') {
-                        inputs[index + 1].select();
+                // หา input หรือ select ทั้งหมดในแถวนี้ที่สามารถแก้ไขได้
+                const inputsInRow = Array.from(tr.querySelectorAll('input:not([type="hidden"]), select'));
+                const colIndex = inputsInRow.indexOf(currentInput);
+                
+                let targetInput = null;
+
+                if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                    if (rowIndex < allRows.length - 1) {
+                        const nextRowInputs = Array.from(allRows[rowIndex + 1].querySelectorAll('input:not([type="hidden"]), select'));
+                        if (nextRowInputs[colIndex]) targetInput = nextRowInputs[colIndex];
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    if (rowIndex > 0) {
+                        const prevRowInputs = Array.from(allRows[rowIndex - 1].querySelectorAll('input:not([type="hidden"]), select'));
+                        if (prevRowInputs[colIndex]) targetInput = prevRowInputs[colIndex];
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    if (colIndex > 0) targetInput = inputsInRow[colIndex - 1];
+                } else if (e.key === 'ArrowRight') {
+                    if (colIndex < inputsInRow.length - 1) targetInput = inputsInRow[colIndex + 1];
+                }
+                
+                if (targetInput) {
+                    targetInput.focus();
+                    if (targetInput.type !== 'select-one') {
+                        targetInput.select();
                     }
                 }
             }
         }
+
+        // ป้องกันการเปลี่ยนค่าตัวเลขเมื่อหมุนลูกกลิ้งเมาส์ (Scroll Wheel)
+        document.addEventListener('wheel', function(event) {
+            if (document.activeElement.type === 'number') {
+                document.activeElement.blur();
+            }
+        });
     </script>
 </body>
 </html>
