@@ -59,10 +59,6 @@
 
         /* Print CSS for ปพ.6 */
         @media print {
-            @page {
-                size: A4 portrait;
-                margin: 10mm 15mm; 
-            }
             body, html, #app-container, main, #reports-tab, #subject-grades-tab {
                 height: auto !important;
                 overflow: visible !important;
@@ -92,6 +88,45 @@
         .edit-max-score { display: none; cursor: pointer; color: #a1a1aa; margin-left: 2px; transition: color 0.2s; }
         .ctrl-pressed .edit-max-score { display: inline-block; }
         .edit-max-score:hover { color: #18181b; }
+
+        /* การพิมพ์หน้าสรุปผลการเรียนแบบแนวนอน */
+        @media print {
+            body.print-landscape #sidebar,
+            body.print-landscape header,
+            body.print-landscape .no-print-summary { 
+                display: none !important; 
+            }
+            body.print-landscape #class-summary-tab { 
+                display: block !important; 
+                position: absolute; left: 0; top: 0; width: 100%;
+                height: auto !important; /* ป้องกันการจำกัดความสูง */
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            body.print-landscape #summary-print-area {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important; /* ยกเลิก min-h-[297mm] ไม่ให้ดันกระดาษล้นไปหน้า 2 */
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important; /* ลบ padding ให้ออกไปชิดขอบ */
+                margin: 0 !important;
+            }
+            /* บีบช่องว่างตารางลงเล็กน้อย เพื่อให้ข้อมูลบรรจุพอดี 1 หน้า ไม่ล้น */
+            body.print-landscape #summary-table-container th, 
+            body.print-landscape #summary-table-container td {
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+                padding-left: 1px !important;
+                padding-right: 1px !important;
+            }
+        }
+    </style>
+
+    <!-- ไดนามิกสไตล์สำหรับควบคุมแนวตั้ง/แนวนอน -->
+    <style id="page-size-style">
+        @page { size: A4 portrait; margin: 10mm 15mm; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-zinc-800 bg-zinc-50">
@@ -196,6 +231,10 @@
 
                 <button onclick="switchTab('reports-tab')" id="nav-reports" class="w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm">
                     <i class="fa-solid fa-print w-4 text-center"></i> พิมพ์เอกสาร ปพ.6
+                </button>
+
+                <button onclick="switchTab('class-summary-tab')" id="nav-class-summary" class="w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm">
+                    <i class="fa-solid fa-table w-4 text-center"></i> สรุปผลการเรียน (ห้อง)
                 </button>
 
                 <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2 mt-6">ระบบ</div>
@@ -492,6 +531,14 @@
                                 <option value="">-- ครูผู้สอนทั้งหมด --</option>
                             </select>
                         </div>
+                        <div class="w-full sm:w-64">
+                            <label class="block text-xs font-medium text-zinc-600 mb-1.5">สถานะการกรอกข้อมูล</label>
+                            <select id="check-status-select" onchange="renderCheckDataTable()" class="w-full px-3 py-2.5 rounded-md border border-zinc-200 bg-zinc-50 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 font-semibold text-zinc-800">
+                                <option value="all">-- ทั้งหมด --</option>
+                                <option value="complete">กรอกครบแล้ว</option>
+                                <option value="incomplete">กรอกยังไม่ครบ</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
@@ -665,6 +712,35 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= TAB: CLASS SUMMARY (สรุปรวมห้อง) ================= -->
+            <section id="class-summary-tab" class="tab-content hidden flex-1 p-4 md:p-8 overflow-y-auto">
+                <div class="max-w-[1200px] mx-auto space-y-6">
+                    <!-- Controller -->
+                    <div class="no-print-summary bg-white p-4 rounded-xl shadow-sm border border-zinc-200 flex flex-col md:flex-row gap-4 justify-between items-center">
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <label class="font-medium text-sm text-zinc-700 whitespace-nowrap">เลือกชั้นเรียน:</label>
+                            <select id="summary-class-select" onchange="renderClassSummaryTable()" class="w-full sm:w-48 px-3 py-2 rounded-md border border-zinc-200 text-sm outline-none bg-white focus:border-zinc-900">
+                                <option value="">-- เลือกชั้นเรียน --</option>
+                            </select>
+                        </div>
+                        <button onclick="printClassSummary()" class="w-full md:w-auto px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-print"></i> พิมพ์แนวนอน (A4)
+                        </button>
+                    </div>
+
+                    <!-- Printable Table Area -->
+                    <div id="summary-print-area" class="bg-white p-6 shadow-sm border border-zinc-200 mx-auto overflow-x-auto min-h-[297mm]">
+                        <div id="summary-empty-state" class="flex flex-col items-center justify-center py-20 bg-white/90">
+                            <i class="fa-solid fa-table-list text-4xl text-zinc-300 mb-3"></i>
+                            <p class="font-medium text-sm text-zinc-500">กรุณาเลือกชั้นเรียนเพื่อแสดงข้อมูลสรุปผลการเรียน</p>
+                        </div>
+                        <div id="summary-table-container" class="hidden">
+                            <!-- ตารางจะถูกสร้างที่นี่โดย JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -1620,7 +1696,7 @@
         }
 
         function switchTab(tabId) {
-            ['students-tab', 'subject-grades-tab', 'activities-grades-tab', 'evaluations-tab', 'check-data-tab', 'reports-tab', 'settings-tab'].forEach(id => {
+            ['students-tab', 'subject-grades-tab', 'activities-grades-tab', 'evaluations-tab', 'check-data-tab', 'reports-tab', 'class-summary-tab', 'settings-tab'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
                 const btn = document.getElementById(`nav-${id.replace('-tab', '')}`);
                 if (btn) btn.className = "w-full flex items-center gap-3 px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 rounded-lg font-medium transition-all text-sm";
@@ -1642,6 +1718,7 @@
             } else if (tabId === 'check-data-tab') {
                 document.getElementById('check-class-select').value = 'all';
                 if(document.getElementById('check-teacher-select')) document.getElementById('check-teacher-select').value = '';
+                if(document.getElementById('check-status-select')) document.getElementById('check-status-select').value = 'all';
                 renderCheckDataTable();
             } else if (tabId === 'reports-tab') {
                 previewReport();
@@ -1660,6 +1737,7 @@
             const evalClassSelect = document.getElementById('eval-class-select');
             const checkClassSelect = document.getElementById('check-class-select');
             const checkTeacherSelect = document.getElementById('check-teacher-select');
+            const summaryClassSelect = document.getElementById('summary-class-select'); // ++ เพิ่ม
             
             mainClassFilter.innerHTML = '<option value="all">ทุกระดับชั้น</option>';
             modalClassSelect.innerHTML = '';
@@ -1669,6 +1747,7 @@
             if(evalClassSelect) evalClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>';
             if(checkClassSelect) checkClassSelect.innerHTML = '<option value="all">-- ทุกชั้นเรียน --</option>';
             if(checkTeacherSelect) checkTeacherSelect.innerHTML = '<option value="">-- ครูผู้สอนทั้งหมด --</option>';
+            if(summaryClassSelect) summaryClassSelect.innerHTML = '<option value="">-- เลือกชั้นเรียน --</option>'; // ++ เพิ่ม
 
             const uniqueClasses = [...new Set(classesConfig.map(item => `${item.className}/${item.roomName || '1'}`))].sort();
             uniqueClasses.forEach(clsStr => {
@@ -1679,6 +1758,7 @@
                 if(actClassSelect) actClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
                 if(evalClassSelect) evalClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
                 if(checkClassSelect) checkClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`;
+                if(summaryClassSelect) summaryClassSelect.innerHTML += `<option value="${clsStr}">${clsStr}</option>`; // ++ เพิ่ม
             });
 
             // ดึงรายชื่อครูผู้สอนทั้งหมดจากรายวิชามาสร้างเป็นตัวเลือก
@@ -2759,6 +2839,7 @@
         function renderCheckDataTable() {
             const classStr = document.getElementById('check-class-select').value;
             const teacherStr = document.getElementById('check-teacher-select') ? document.getElementById('check-teacher-select').value : '';
+            const statusStr = document.getElementById('check-status-select') ? document.getElementById('check-status-select').value : 'all';
             const tbody = document.getElementById('check-data-tbody');
 
             if (!classStr) {
@@ -2829,6 +2910,10 @@
                             }
                         }
                     }
+
+                    // ตรวจสอบเงื่อนไขตัวกรองสถานะ
+                    if (statusStr === 'complete' && !isComplete) return;
+                    if (statusStr === 'incomplete' && isComplete) return;
 
                     // เปลี่ยนจาก span เป็นปุ่มที่สามารถกดได้ (รองรับ hover สีสันสวยงาม)
                     const statusHtml = isComplete 
@@ -3046,16 +3131,17 @@
                 let isClassComplete = classmates.every(c => checkMissingData(c.id, `${c.class}/${c.room}`).length === 0);
                 
                 if (isClassComplete) {
-                    // 2. คำนวณ GPA และเก็บคะแนนดิบรายวิชาของเพื่อนทุกคนในห้อง
+                    // 2. คำนวณ GPA, เก็บเกรด และคะแนนรวมของเพื่อนทุกคนในห้อง
                     let classGpaList = classmates.map(c => {
                         let cTotalW = 0, cTotalScore = 0;
+                        let subjectGrades = []; // เก็บเกรดรายวิชา
+                        let overallRawTotal = 0; // เก็บผลคะแนนรวมทั้งหมด
                         const cRecord = academicRecords[c.id];
-                        let subjectScores = []; // อาเรย์เก็บคะแนนดิบรายวิชาไว้ใช้เทียบตอน GPA เท่ากัน
                         
                         if (cRecord && classCourseCfg && classCourseCfg.subjects) {
                             classCourseCfg.subjects.forEach(subj => {
                                 let cGrade = 0;
-                                let rawScore = 0; // เก็บผลการเรียน (คะแนนดิบ 100 คะแนน) ของแต่ละวิชา
+                                let rawScore = 0;
                                 const savedSubj = (cRecord.subjects) ? cRecord.subjects.find(rs => rs.code === subj.code) : null;
                                 if (savedSubj) {
                                     cGrade = parseFloat(savedSubj.grade) || 0;
@@ -3064,34 +3150,55 @@
                                 const creditNum = parseFloat(subj.credit) || 0;
                                 cTotalW += creditNum;
                                 cTotalScore += (creditNum * cGrade);
-                                subjectScores.push(rawScore); // เพิ่มคะแนนรายวิชาลงไป
+                                subjectGrades.push(cGrade);
+                                overallRawTotal += rawScore;
                             });
                         }
                         const cGpa = cTotalW > 0 ? (cTotalScore / cTotalW) : 0;
-                        return { id: c.id, gpa: cGpa, subjectScores: subjectScores };
+                        return { id: c.id, gpa: cGpa, subjectGrades: subjectGrades, overallRawTotal: overallRawTotal, totalW: cTotalW };
                     });
 
-                    // 3. เรียงลำดับ GPA จากมากไปน้อย (ถ้า GPA เท่ากัน ให้เทียบผลการเรียนรายวิชาตามลำดับ)
+                    // 3. เรียงลำดับ GPA -> เกรดรายวิชา -> คะแนนรวม
                     classGpaList.sort((a, b) => {
-                        // 3.1 เทียบ GPA ก่อน (เอาค่ามากไว้บน)
-                        if (b.gpa !== a.gpa) {
-                            return b.gpa - a.gpa;
-                        }
-                        // 3.2 ถ้า GPA เท่ากัน ให้เทียบผลการเรียน (คะแนนดิบ) รายวิชาทีละตัวตามลำดับ
-                        const minLength = Math.min(a.subjectScores.length, b.subjectScores.length);
+                        if (b.gpa !== a.gpa) return b.gpa - a.gpa;
+                        
+                        const minLength = Math.min(a.subjectGrades.length, b.subjectGrades.length);
                         for (let i = 0; i < minLength; i++) {
-                            if (b.subjectScores[i] !== a.subjectScores[i]) {
-                                return b.subjectScores[i] - a.subjectScores[i]; // เอาคนที่ได้คะแนนวิชานั้นเยอะกว่าไว้บน
+                            if (b.subjectGrades[i] !== a.subjectGrades[i]) {
+                                return b.subjectGrades[i] - a.subjectGrades[i];
                             }
                         }
-                        return 0; // ถ้าเท่ากันเป๊ะๆ ทั้ง GPA และคะแนนทุกวิชา จะได้ลำดับเดียวกัน
+
+                        if (b.overallRawTotal !== a.overallRawTotal) {
+                            return b.overallRawTotal - a.overallRawTotal;
+                        }
+                        return 0;
                     });
 
-                    // 4. หาอันดับ (หากคะแนนเฉลี่ยเท่ากัน จะได้อันดับเท่ากัน)
+                    // 4. หาอันดับ (แจกอันดับให้ใหม่หากมีข้อมูลไม่ตรงกัน)
                     let currentRank = 1;
                     for (let i = 0; i < classGpaList.length; i++) {
-                        if (i > 0 && classGpaList[i].gpa < classGpaList[i-1].gpa) {
-                            currentRank = i + 1; // ขยับอันดับลงเมื่อคะแนนน้อยกว่าคนก่อนหน้า
+                        if (i > 0) {
+                            const prev = classGpaList[i - 1];
+                            const curr = classGpaList[i];
+                            
+                            let isSame = prev.gpa === curr.gpa;
+                            if (isSame) {
+                                const minLength = Math.min(prev.subjectGrades.length, curr.subjectGrades.length);
+                                for (let j = 0; j < minLength; j++) {
+                                    if (prev.subjectGrades[j] !== curr.subjectGrades[j]) {
+                                        isSame = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isSame) {
+                                isSame = prev.overallRawTotal === curr.overallRawTotal;
+                            }
+                            
+                            if (!isSame) {
+                                currentRank = i + 1;
+                            }
                         }
                         if (classGpaList[i].id === student.id) {
                             calculatedRank = currentRank;
@@ -3969,6 +4076,19 @@
             if(showToast) showBlocksToast('บันทึกผลการประเมินเรียบร้อยแล้ว', 'success');
         }
 
+        // ฟังก์ชันช่วยเปลี่ยนแนวตั้ง/แนวนอนก่อนสั่งพิมพ์
+        function setPrintLayout(layout) {
+            const styleEl = document.getElementById('page-size-style');
+            if (styleEl) {
+                if (layout === 'landscape') {
+                    // เพิ่มระยะขอบบนเป็น 10mm ไม่ให้ชิดขอบเกินไป และขอบด้านอื่น 5mm
+                    styleEl.innerHTML = '@page { size: A4 landscape; margin: 10mm 5mm 5mm 5mm; }';
+                } else {
+                    styleEl.innerHTML = '@page { size: A4 portrait; margin: 10mm 15mm; }';
+                }
+            }
+        }
+
         function printIndividualReport() {
             const studentId = document.getElementById('report-student-select').value;
             
@@ -3978,6 +4098,7 @@
                 return;
             }
             
+            setPrintLayout('portrait'); // กำหนดกระดาษเป็นแนวตั้ง
             // ถ้าเลือกแล้ว ให้ทำการสั่งพิมพ์
             window.print();
         }
@@ -4013,6 +4134,7 @@
             
             // หน่วงเวลาเล็กน้อยให้เบราว์เซอร์จัดเรนเดอร์ DOM ชุดใหญ่เสร็จ ก่อนเรียกหน้าต่าง Print
             setTimeout(() => {
+                setPrintLayout('portrait'); // กำหนดกระดาษเป็นแนวตั้ง
                 window.print();
                 
                 // คืนค่าหน้าจอพรีวิวกลับเป็นสถานะเดิมแบบเนียนๆ
@@ -4564,6 +4686,239 @@
             } else {
                 showBlocksAlert('error', 'รูปแบบไม่ถูกต้อง หรือไม่พบรหัสนักเรียน', 'ไม่พบข้อมูลที่ตรงกับรูปแบบ หรือไม่มีรหัสนักเรียนที่ตรงกับในชั้นเรียนนี้ กรุณาตรวจสอบอีกครั้ง');
             }
+        }
+
+        // =====================================================================
+        // ฟังก์ชันสำหรับหน้ารายงานสรุปผลการเรียน (แบบทั้งห้อง แนวนอน)
+        // =====================================================================
+        function renderClassSummaryTable() {
+            const classStr = document.getElementById('summary-class-select').value;
+            const container = document.getElementById('summary-table-container');
+            const emptyState = document.getElementById('summary-empty-state');
+            
+            if (!classStr) {
+                container.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            const course = courseConfig[classStr];
+            let targetStudents = students.filter(s => `${s.class}/${s.room}` === classStr);
+            // เรียงตามเลขที่
+            targetStudents.sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
+
+            if (targetStudents.length === 0 || !course || !course.subjects || course.subjects.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-zinc-500 italic">ไม่พบข้อมูลนักเรียน หรือ ยังไม่มีการตั้งค่าโครงสร้างรายวิชาสำหรับห้องเรียนนี้</div>';
+                return;
+            }
+
+            // คำนวณอันดับล่วงหน้าเพื่อแสดงในตารางให้ตรงกัน
+            let classGpaList = targetStudents.map(c => {
+                let cTotalW = 0, cTotalScore = 0;
+                let subjectGrades = []; // เก็บเกรดรายวิชา
+                let overallRawTotal = 0; // เก็บผลคะแนนรวมทั้งหมด
+                const cRecord = academicRecords[c.id];
+                
+                if (cRecord && course.subjects) {
+                    course.subjects.forEach(subj => {
+                        let cGrade = 0, rawScore = 0;
+                        const savedSubj = (cRecord.subjects) ? cRecord.subjects.find(rs => rs.code === subj.code) : null;
+                        if (savedSubj) {
+                            cGrade = parseFloat(savedSubj.grade) || 0;
+                            rawScore = parseFloat(savedSubj.score) || 0; 
+                        }
+                        const creditNum = parseFloat(subj.credit) || 0;
+                        cTotalW += creditNum;
+                        cTotalScore += (creditNum * cGrade);
+                        subjectGrades.push(cGrade);
+                        overallRawTotal += rawScore;
+                    });
+                }
+                const cGpa = cTotalW > 0 ? (cTotalScore / cTotalW) : 0;
+                return { id: c.id, gpa: cGpa, subjectGrades: subjectGrades, overallRawTotal: overallRawTotal, totalW: cTotalW };
+            });
+
+            classGpaList.sort((a, b) => {
+                // 1. เรียงตามเกรดเฉลี่ย (GPA) ก่อน
+                if (b.gpa !== a.gpa) return b.gpa - a.gpa;
+                
+                // 2. ถ้า GPA เท่ากัน ให้เทียบจากเกรดแต่ละวิชาเรียงกันไป
+                const minLength = Math.min(a.subjectGrades.length, b.subjectGrades.length);
+                for (let i = 0; i < minLength; i++) {
+                    if (b.subjectGrades[i] !== a.subjectGrades[i]) {
+                        return b.subjectGrades[i] - a.subjectGrades[i];
+                    }
+                }
+
+                // 3. ถ้าเกรดทุกวิชาเท่ากัน ให้เทียบจาก "คะแนนรวม"
+                if (b.overallRawTotal !== a.overallRawTotal) {
+                    return b.overallRawTotal - a.overallRawTotal;
+                }
+                
+                return 0; // ถ้าเท่ากันหมด ได้ลำดับเดียวกัน
+            });
+
+            let studentRanks = {};
+            let currentRank = 1;
+            for (let i = 0; i < classGpaList.length; i++) {
+                if (i > 0) {
+                    const prev = classGpaList[i - 1];
+                    const curr = classGpaList[i];
+                    
+                    // ตรวจสอบว่ามีข้อมูลใดต่างกันไหม (GPA, เกรดแต่ละวิชา, คะแนนรวม)
+                    let isSame = prev.gpa === curr.gpa;
+                    if (isSame) {
+                        const minLength = Math.min(prev.subjectGrades.length, curr.subjectGrades.length);
+                        for (let j = 0; j < minLength; j++) {
+                            if (prev.subjectGrades[j] !== curr.subjectGrades[j]) {
+                                isSame = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (isSame) {
+                        isSame = prev.overallRawTotal === curr.overallRawTotal;
+                    }
+                    
+                    // ถ้าไม่เหมือนกันเป๊ะ ให้ขยับอันดับลงไปตามลำดับคน (i + 1)
+                    if (!isSame) {
+                        currentRank = i + 1;
+                    }
+                }
+                studentRanks[classGpaList[i].id] = (classGpaList[i].totalW > 0) ? currentRank : '-';
+            }
+
+            // สร้าง HTML ตาราง
+            // ตรวจสอบเทอมเพื่อแสดงในหัวข้อ
+            const isTerm1Checked = localStorage.getItem('pp6_chk_term1') === 'true';
+            const isTerm2Checked = localStorage.getItem('pp6_chk_term2') === 'true';
+            let termText = '';
+            if (isTerm1Checked && !isTerm2Checked) termText = 'ภาคเรียนที่ 1 ';
+            else if (!isTerm1Checked && isTerm2Checked) termText = 'ภาคเรียนที่ 2 ';
+
+            let html = '<table class="w-full text-center border-collapse border border-black text-[10px] font-[\'Sarabun\'] text-black table-auto break-words">';
+            
+            // หัวข้อตารางรวม
+            // 1. แก้ไข colspan เป็น 9 เนื่องจากนำช่องคะแนนรวมออก
+            html += `<thead><tr><th colspan="${9 + (course.subjects.length * 2)}" class="py-3 text-[14px] border border-black">
+                        ประกาศผลการเรียนนักเรียนชั้น${classStr.replace('ป.', 'ประถมศึกษาปีที่ ')} ${termText}ประจำปีการศึกษา ${currentYear} ${schoolConfig.name || ''} 
+                        ${schoolConfig.region ? schoolConfig.region : ''}
+                    </th></tr>`;
+            
+            // หัวข้อคอลัมน์แถวบนสุด (แถวที่ 1: ชื่อวิชา)
+            html += '<tr class="bg-zinc-100/30">';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 w-[3%]">เลขที่</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 w-[5%]">เลขประจำตัว</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-2 min-w-[120px] text-center">ชื่อ - นามสกุล</th>';
+            
+            course.subjects.forEach(s => {
+                html += `<th colspan="2" class="border border-black py-1 px-1 font-normal text-[9px] leading-tight">${s.name}</th>`;
+            });
+
+            // 2. เอา w-[4%] ออก และใส่ whitespace-nowrap เพื่อให้คำจัดทรงตาม <br> ที่เรากำหนดเท่านั้น
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">คุณ<br>ลักษณะฯ</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">อ่าน คิด<br>วิเคราะห์ฯ</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">กิจกรรม<br>รวม</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">เกรด<br>เฉลี่ย</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">ระดับ<br>คุณภาพ<br>เฉลี่ย</th>';
+            html += '<th rowspan="4" class="border border-black py-1 px-1 leading-tight text-[10px] whitespace-nowrap">ลำดับ<br>ที่</th>';
+            html += '</tr>';
+
+            // แถวที่ 2: รหัสวิชา
+            html += '<tr class="bg-zinc-100/30">';
+            course.subjects.forEach(s => {
+                html += `<th colspan="2" class="border border-black py-1 px-0.5 font-semibold text-[10px] min-w-[34px]">${s.code}</th>`;
+            });
+            html += '</tr>';
+
+            // แถวที่ 3: หน่วยกิต
+            html += '<tr class="bg-zinc-100/30">';
+            course.subjects.forEach(s => {
+                html += `<th colspan="2" class="border border-black py-1 px-0.5 font-semibold text-[10px]">${s.credit || '-'}</th>`;
+            });
+            html += '</tr>';
+
+            // แถวที่ 4: หัวข้อคอลัมน์ย่อย เกรด/ระดับฯ
+            html += '<tr class="bg-zinc-100/30">';
+            course.subjects.forEach(s => {
+                // บังคับความกว้างแบบเจาะจงให้เท่ากันที่ 24px เพื่อป้องกันเนื้อหาดันให้ขนาดเปลี่ยน
+                html += `<th class="border border-black font-normal py-1 px-0 whitespace-nowrap tracking-tighter" style="font-size: 7px; width: 24px; min-width: 24px; max-width: 24px;">เกรดฯ</th><th class="border border-black font-normal py-1 px-0 whitespace-nowrap tracking-tighter" style="font-size: 7px; width: 24px; min-width: 24px; max-width: 24px;">ระดับฯ</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // ข้อมูลรายบุคคล
+            targetStudents.forEach(student => {
+                const record = academicRecords[student.id];
+                html += '<tr>';
+                html += `<td class="border border-black py-1">${student.number || '-'}</td>`;
+                html += `<td class="border border-black py-1">${student.code || '-'}</td>`;
+                html += `<td class="border border-black py-1 text-left px-2 whitespace-nowrap">${student.prefix}${student.name} ${student.surname}</td>`;
+                
+                let rawTotal = 0, numSubjs = 0;
+
+                course.subjects.forEach(s => {
+                    let score = '', grade = '';
+                    if (record && record.subjects) {
+                        const recSubj = record.subjects.find(rs => rs.code === s.code);
+                        if (recSubj) {
+                            score = recSubj.score !== undefined ? recSubj.score : '';
+                            grade = recSubj.grade || '';
+                        }
+                    }
+                    const q = getQualityFromScore(score);
+                    if (score !== '') {
+                        rawTotal += parseFloat(score);
+                        numSubjs++;
+                    }
+                    html += `<td class="border border-black py-1" style="width: 24px; min-width: 24px; max-width: 24px;">${grade || '-'}</td>`;
+                    html += `<td class="border border-black py-1" style="width: 24px; min-width: 24px; max-width: 24px;">${q.num || '-'}</td>`;
+                });
+
+                const eChar = (record && record.eval && record.eval.char) ? record.eval.char : '-';
+                const eRead = (record && record.eval && record.eval.read) ? record.eval.read : '-';
+                const eAct  = (record && record.eval && record.eval.act)  ? record.eval.act  : '-';
+                
+                // ดึงสถิติ GPA ที่คำนวณไว้ข้างต้น
+                const gpaData = classGpaList.find(c => c.id === student.id);
+                const gpaText = (gpaData && gpaData.totalW > 0) ? gpaData.gpa.toFixed(2) : '-';
+                const avgScore = numSubjs > 0 ? (rawTotal / numSubjs) : 0;
+                const avgQ = numSubjs > 0 ? getQualityFromScore(avgScore) : { num: '-', text: '-' };
+
+                html += `<td class="border border-black py-1 text-[9px]">${eChar}</td>`;
+                html += `<td class="border border-black py-1 text-[9px]">${eRead}</td>`;
+                html += `<td class="border border-black py-1 text-[9px]">${eAct}</td>`;
+                html += `<td class="border border-black py-1 font-bold">${gpaText}</td>`;
+                html += `<td class="border border-black py-1 text-[9px]">${avgQ.text}</td>`;
+                html += `<td class="border border-black py-1">${studentRanks[student.id] || '-'}</td>`;
+                
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function printClassSummary() {
+            const classStr = document.getElementById('summary-class-select').value;
+            if (!classStr) {
+                showBlocksAlert('warning', 'ไม่สามารถพิมพ์ได้', 'กรุณาเลือกชั้นเรียนที่ต้องการพิมพ์สรุปผลก่อนครับ');
+                return;
+            }
+
+            // เพิ่มคลาสเพื่อให้พิมพ์แบบ Landscape โดยเฉพาะ
+            document.body.classList.add('print-landscape');
+            setPrintLayout('landscape'); // กำหนดกระดาษเป็นแนวนอน
+            
+            // รอเล็กน้อยให้ Browser ปรับหน้าจอเตรียมพิมพ์
+            setTimeout(() => {
+                window.print();
+                // นำคลาสออกและคืนค่ากระดาษหลังจากหน้าต่าง Print ทำงานเสร็จ
+                document.body.classList.remove('print-landscape');
+                setPrintLayout('portrait');
+            }, 300);
         }
     </script>
 </body>
