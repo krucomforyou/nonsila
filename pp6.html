@@ -4099,8 +4099,31 @@
             }
             
             setPrintLayout('portrait'); // กำหนดกระดาษเป็นแนวตั้ง
+            
+            // เปลี่ยนชื่อไฟล์ก่อนพิมพ์
+            const originalTitle = document.title;
+            const student = students.find(s => s.id == studentId);
+            if (student) {
+                const sClass = student.class || '';
+                const sRoom = student.room || '';
+                const sNumber = student.number || '';
+                const sCode = student.code || '';
+                const sName = `${student.prefix}${student.name} ${student.surname}`;
+                
+                let termVal = 'ตลอดปี';
+                const isT1 = localStorage.getItem('pp6_chk_term1') === 'true';
+                const isT2 = localStorage.getItem('pp6_chk_term2') === 'true';
+                if (isT1 && !isT2) termVal = 'ภาคเรียนที่1';
+                else if (!isT1 && isT2) termVal = 'ภาคเรียนที่2';
+                
+                document.title = `ปพ.6-${sClass}-${sRoom}-${sNumber}-${sCode}-${sName}-${termVal}-${currentYear}`;
+            }
+            
             // ถ้าเลือกแล้ว ให้ทำการสั่งพิมพ์
             window.print();
+            
+            // คืนค่าชื่อเดิม
+            document.title = originalTitle;
         }
 
         function printWholeClass() {
@@ -4134,8 +4157,26 @@
             
             // หน่วงเวลาเล็กน้อยให้เบราว์เซอร์จัดเรนเดอร์ DOM ชุดใหญ่เสร็จ ก่อนเรียกหน้าต่าง Print
             setTimeout(() => {
+                // เปลี่ยนชื่อไฟล์ก่อนพิมพ์
+                const originalTitle = document.title;
+                const classStr = document.getElementById('report-class-select').value;
+                const sClass = classStr.split('/')[0] || '';
+                const sRoom = classStr.split('/')[1] || '';
+                const schoolName = schoolConfig.name || currentSchoolName;
+                
+                let termVal = 'ตลอดปี';
+                const isT1 = localStorage.getItem('pp6_chk_term1') === 'true';
+                const isT2 = localStorage.getItem('pp6_chk_term2') === 'true';
+                if (isT1 && !isT2) termVal = 'ภาคเรียนที่1';
+                else if (!isT1 && isT2) termVal = 'ภาคเรียนที่2';
+
+                document.title = `ปพ.6-${sClass}-${sRoom}-รายบุคคล-${schoolName}-${termVal}-${currentYear}`;
+
                 setPrintLayout('portrait'); // กำหนดกระดาษเป็นแนวตั้ง
                 window.print();
+                
+                // คืนค่าชื่อเดิม
+                document.title = originalTitle;
                 
                 // คืนค่าหน้าจอพรีวิวกลับเป็นสถานะเดิมแบบเนียนๆ
                 printContainer.innerHTML = originalContainerContent;
@@ -4933,12 +4974,27 @@ html += `<td class="border border-black py-1">${studentRanks[student.id] || '-'}
 
         container.innerHTML = html;
     }
+        
         function printClassSummary() {
             const classStr = document.getElementById('summary-class-select').value;
             if (!classStr) {
                 showBlocksAlert('warning', 'ไม่สามารถพิมพ์ได้', 'กรุณาเลือกชั้นเรียนที่ต้องการพิมพ์สรุปผลก่อนครับ');
                 return;
             }
+
+            // เปลี่ยนชื่อไฟล์ก่อนพิมพ์
+            const originalTitle = document.title;
+            const sClass = classStr.split('/')[0] || '';
+            const sRoom = classStr.split('/')[1] || '';
+            const schoolName = schoolConfig.name || currentSchoolName;
+            
+            let termVal = 'ตลอดปี';
+            const isT1 = localStorage.getItem('pp6_chk_term1') === 'true';
+            const isT2 = localStorage.getItem('pp6_chk_term2') === 'true';
+            if (isT1 && !isT2) termVal = 'ภาคเรียนที่1';
+            else if (!isT1 && isT2) termVal = 'ภาคเรียนที่2';
+
+            document.title = `ปพ.6-${sClass}-${sRoom}-สรุปผลการเรียน-${schoolName}-${termVal}-${currentYear}`;
 
             // เพิ่มคลาสเพื่อให้พิมพ์แบบ Landscape โดยเฉพาะ
             document.body.classList.add('print-landscape');
@@ -4947,6 +5003,10 @@ html += `<td class="border border-black py-1">${studentRanks[student.id] || '-'}
             // รอเล็กน้อยให้ Browser ปรับหน้าจอเตรียมพิมพ์
             setTimeout(() => {
                 window.print();
+                
+                // คืนค่าชื่อเดิม
+                document.title = originalTitle;
+
                 // นำคลาสออกและคืนค่ากระดาษหลังจากหน้าต่าง Print ทำงานเสร็จ
                 document.body.classList.remove('print-landscape');
                 setPrintLayout('portrait');
