@@ -1631,34 +1631,36 @@
             btn.disabled = true;
 
             try {
-                // 1. ระบบลองเข้าสู่ระบบ (Sign In)
+                // 1. แยกการทำ Authentication ออกมาให้ทำงานเสร็จสมบูรณ์ก่อน
                 try {
                     await firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput);
-                    showBlocksToast('เข้าสู่ระบบสำเร็จ', 'success');
-                } catch (loginError) {
-                    // Firebase รุ่นใหม่จะซ่อน Error 'user-not-found' ไว้ใน 'invalid-credential'
-                    if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-credential' || loginError.code === 'auth/invalid-login-credentials') {
+                } catch (authError) {
+                    // ถ้ายังไม่มีบัญชี ระบบจะสมัครสมาชิกใหม่ให้อัตโนมัติ 
+                    if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-login-credentials') {
                         try {
-                            // ถ้าระบบบอกว่ารหัสผิด หรือไม่พบบัญชี ให้ลอง "สมัครสมาชิกใหม่"
                             await firebase.auth().createUserWithEmailAndPassword(emailInput, passwordInput);
-                            showBlocksToast('สร้างบัญชีผู้ดูแลระบบใหม่สำเร็จ', 'success');
                         } catch (createError) {
                             if (createError.code === 'auth/email-already-in-use') {
-                                // ถ้าสมัครไม่ได้เพราะอีเมลซ้ำ แสดงว่าเขามีบัญชีอยู่แล้ว แต่พิมพ์ "รหัสผ่านผิด"
                                 showBlocksAlert('error', 'เข้าสู่ระบบล้มเหลว', 'รหัสผ่านไม่ถูกต้องครับ');
+                                btn.innerHTML = originalHtml; 
+                                btn.disabled = false;
                                 return;
                             }
-                            throw createError; // โยน Error อื่นๆ ออกไปให้ Catch ตัวล่างสุดจัดการ
+                            throw createError;
                         }
-                    } else if (loginError.code === 'auth/wrong-password') {
+                    } else if (authError.code === 'auth/wrong-password') {
                         showBlocksAlert('error', 'เข้าสู่ระบบล้มเหลว', 'รหัสผ่านไม่ถูกต้องครับ');
+                        btn.innerHTML = originalHtml; 
+                        btn.disabled = false;
                         return;
                     } else {
-                        throw loginError;
+                        throw authError; 
                     }
                 }
 
-                // 2. โหลดข้อมูลโรงเรียน (ปพ.6) ต่อหลังจากล็อกอินผ่าน หรือ สมัครสมาชิกผ่านแล้ว
+                showBlocksToast('เข้าสู่ระบบสำเร็จ', 'success');
+
+                // 2. หลังจาก Firebase ทำงานเสร็จ จึงค่อยเริ่มจัดการกับ Local Storage
                 currentSchoolName = schoolInput;
                 sessionStorage.setItem('pp6_current_school', currentSchoolName);
                 
@@ -1685,17 +1687,20 @@
                 }
                 
                 document.getElementById('login-overlay').style.display = 'none';
-                await loadSystemData();
+                
+                // ใช้ setTimeout ให้เบราว์เซอร์เคลียร์ Queue เก่าก่อนเริ่มโหลดระบบหลัก
+                setTimeout(async () => {
+                    await loadSystemData();
+                }, 100);
                 
             } catch (error) { 
-                let errorMsg = 'เชื่อมต่อฐานข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง';
+                let errorMsg = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง';
                 if (error.code === 'auth/invalid-email') errorMsg = 'รูปแบบอีเมลไม่ถูกต้อง';
                 else if (error.code === 'auth/weak-password') errorMsg = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
-                // พิมพ์ Code Error ลงไปให้เห็นด้วย จะได้หาทางแก้ไขง่ายขึ้นในอนาคต
                 else errorMsg += '<br><span class="text-xs text-zinc-400 mt-2 inline-block">Code: ' + error.code + '</span>'; 
                 
-                showBlocksAlert('error', 'เกิดข้อผิดพลาด', errorMsg); 
-                console.error(error);
+                showBlocksAlert('error', 'เข้าสู่ระบบล้มเหลว', errorMsg); 
+                console.error("Login Error Detailed:", error);
             } finally { 
                 btn.innerHTML = originalHtml; 
                 btn.disabled = false; 
