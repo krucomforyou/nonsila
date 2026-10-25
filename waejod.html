@@ -328,24 +328,21 @@
             loadDataFromSheet();
         };
 
+        // นำ URL ของคุณมาตั้งเป็นตัวแปรหลัก
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZEjRLb5LfUXeBdEppKL7brmfaMi1aDCWQUa4b6xGP9BlGIvxjOvVXw8SzA-d2lXwM/exec';
+
+        // 1. ฟังก์ชันโหลดข้อมูล
         function loadDataFromSheet() {
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run
-                    .withSuccessHandler(function(data) {
-                        transactions = JSON.parse(data);
-                        updateDashboard();
-                        initChart();
-                    })
-                    .withFailureHandler(function(err) {
-                        showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้: ' + err.message);
-                    })
-                    .getTransactions();
-            } else {
-                // ถ้าเปิดหน้าเว็บเปล่าๆ (ไม่มี GAS) จะเป็น Array ว่าง
-                transactions = [];
-                updateDashboard();
-                initChart();
-            }
+            fetch(SCRIPT_URL + '?action=load')
+                .then(response => response.json())
+                .then(data => {
+                    transactions = data;
+                    updateDashboard();
+                    initChart();
+                })
+                .catch(err => {
+                    showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้');
+                });
         }
 
         // ==========================================
@@ -533,6 +530,7 @@
         // ==========================================
         // SAVE LOGIC (To Sheet)
         // ==========================================
+        // 2. ฟังก์ชันเซฟข้อมูล
         function saveTransaction() {
             const amountInput = document.getElementById('inputAmount').value;
             const amount = parseFloat(amountInput);
@@ -555,20 +553,27 @@
                 timestamp: Date.now()
             };
 
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run
-                    .withSuccessHandler(function(res) {
-                        transactions.push(newTx);
-                        finishSave(cycle);
-                    })
-                    .withFailureHandler(function(err) {
-                        showModal('error', 'ข้อผิดพลาด', err.message);
-                    })
-                    .saveTransaction(newTx);
-            } else {
-                transactions.push(newTx);
-                finishSave(cycle);
-            }
+            // ใช้ URLSearchParams ป้องกันปัญหา CORS ตอนส่งข้อมูลข้ามเซิร์ฟเวอร์
+            const formData = new URLSearchParams();
+            formData.append('action', 'save');
+            formData.append('data', JSON.stringify(newTx));
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.text())
+            .then(res => {
+                if(res === 'success') {
+                    transactions.push(newTx);
+                    finishSave(cycle);
+                } else {
+                    showModal('error', 'ข้อผิดพลาด', 'บันทึกไม่สำเร็จ');
+                }
+            })
+            .catch(err => {
+                showModal('error', 'ข้อผิดพลาด', err.message);
+            });
         }
 
         function finishSave(cycle) {
@@ -726,30 +731,34 @@
             itemToDelete = null;
         }
 
+        // 3. ฟังก์ชันลบข้อมูล
         function executeDelete() {
             if(itemToDelete) {
-                if (typeof google !== 'undefined' && google.script) {
-                    google.script.run
-                        .withSuccessHandler(function(res) {
-                            transactions = transactions.filter(t => t.id !== itemToDelete);
-                            updateDashboard(); 
-                            showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
-                            itemToDelete = null;
-                            closeConfirmModal();
-                        })
-                        .withFailureHandler(function(err) {
-                            showModal('error', 'ข้อผิดพลาด', err.message);
-                            itemToDelete = null;
-                            closeConfirmModal();
-                        })
-                        .deleteTransaction(itemToDelete);
-                } else {
-                    transactions = transactions.filter(t => t.id !== itemToDelete);
-                    updateDashboard(); 
-                    showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                const formData = new URLSearchParams();
+                formData.append('action', 'delete');
+                formData.append('id', itemToDelete);
+
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.text())
+                .then(res => {
+                    if(res === 'success') {
+                        transactions = transactions.filter(t => t.id !== itemToDelete);
+                        updateDashboard(); 
+                        showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                        itemToDelete = null;
+                        closeConfirmModal();
+                    } else {
+                        showModal('error', 'ข้อผิดพลาด', 'ลบไม่สำเร็จ');
+                    }
+                })
+                .catch(err => {
+                    showModal('error', 'ข้อผิดพลาด', err.message);
                     itemToDelete = null;
                     closeConfirmModal();
-                }
+                });
             }
         }
     </script>
