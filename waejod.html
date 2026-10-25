@@ -325,6 +325,16 @@
         // ==========================================
         window.onload = () => {
             document.getElementById('inputCycleMonth').value = getTodayCycle();
+            
+            // 1. ดึงข้อมูลจาก Local Storage มาแสดงผลทันทีเพื่อให้แอปลื่นไหล
+            const localData = localStorage.getItem('waejod_tx');
+            if (localData) {
+                transactions = JSON.parse(localData);
+                updateDashboard();
+                initChart();
+            }
+            
+            // 2. แอบดึงข้อมูลล่าสุดจาก Google Sheet เป็นแบ็กกราวด์
             loadDataFromSheet();
         };
 
@@ -338,23 +348,22 @@
                 .then(data => {
                     transactions = data;
                     
-                    // 🟢 จุดแก้ไขที่ 1: หารอบบัญชีล่าสุดที่มีข้อมูล แล้วตั้งเป็นหน้าแรก
+                    // บันทึกข้อมูลที่ถูกต้องจาก Sheet ลง Local Storage ทับของเดิม
+                    localStorage.setItem('waejod_tx', JSON.stringify(transactions)); 
+                    
                     if (transactions.length > 0) {
                         let latestCycle = transactions[0].cycle;
                         transactions.forEach(t => {
                             if (t.cycle > latestCycle) latestCycle = t.cycle;
                         });
-                        dashboardCycle = latestCycle; // บังคับให้ Dashboard โชว์เดือนล่าสุด
-                        document.getElementById('inputCycleMonth').value = latestCycle; // เปลี่ยนค่าเริ่มในหน้า "เพิ่มรายการ" ให้เป็นเดือนล่าสุดด้วย
+                        dashboardCycle = latestCycle; 
+                        document.getElementById('inputCycleMonth').value = latestCycle; 
                     }
                     
-                    // 🟢 จุดแก้ไขที่ 2: สลับลำดับ ต้องสร้างกราฟก่อน แล้วค่อยอัปเดตข้อมูล
                     initChart();
                     updateDashboard();
                 })
-                .catch(err => {
-                    showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้');
-                });
+                .catch(err => console.log('Background sync error:', err));
         }
 
         // ==========================================
@@ -565,7 +574,12 @@
                 timestamp: Date.now()
             };
 
-            // ใช้ URLSearchParams ป้องกันปัญหา CORS ตอนส่งข้อมูลข้ามเซิร์ฟเวอร์
+            // 1. บันทึกลง Local Storage และอัปเดตหน้าจอทันที (ไม่ต้องรออินเทอร์เน็ต)
+            transactions.push(newTx);
+            localStorage.setItem('waejod_tx', JSON.stringify(transactions));
+            finishSave(cycle); 
+
+            // 2. ส่งข้อมูลไปเซฟที่ Google Sheet เบื้องหลัง
             const formData = new URLSearchParams();
             formData.append('action', 'save');
             formData.append('data', JSON.stringify(newTx));
@@ -577,15 +591,11 @@
             .then(res => res.text())
             .then(res => {
                 if(res === 'success') {
-                    transactions.push(newTx);
-                    finishSave(cycle);
-                } else {
-                    showModal('error', 'ข้อผิดพลาด', 'บันทึกไม่สำเร็จ');
+                    // 3. เมื่อ Sheet บันทึกสำเร็จ ให้ดึงข้อมูลมาซิงค์หน้าเว็บอีกรอบ
+                    loadDataFromSheet();
                 }
             })
-            .catch(err => {
-                showModal('error', 'ข้อผิดพลาด', err.message);
-            });
+            .catch(err => console.log('Save to sheet error:', err));
         }
 
         function finishSave(cycle) {
@@ -746,9 +756,21 @@
         // 3. ฟังก์ชันลบข้อมูล
         function executeDelete() {
             if(itemToDelete) {
+                const idToDelete = itemToDelete;
+                
+                // 1. ลบข้อมูลจาก Local Storage และอัปเดตหน้าจอทันที
+                transactions = transactions.filter(t => t.id !== idToDelete);
+                localStorage.setItem('waejod_tx', JSON.stringify(transactions));
+                updateDashboard(); 
+                showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                
+                itemToDelete = null;
+                closeConfirmModal();
+
+                // 2. ส่งคำสั่งลบไปที่ Google Sheet เบื้องหลัง
                 const formData = new URLSearchParams();
                 formData.append('action', 'delete');
-                formData.append('id', itemToDelete);
+                formData.append('id', idToDelete);
 
                 fetch(SCRIPT_URL, {
                     method: 'POST',
@@ -757,20 +779,11 @@
                 .then(res => res.text())
                 .then(res => {
                     if(res === 'success') {
-                        transactions = transactions.filter(t => t.id !== itemToDelete);
-                        updateDashboard(); 
-                        showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
-                        itemToDelete = null;
-                        closeConfirmModal();
-                    } else {
-                        showModal('error', 'ข้อผิดพลาด', 'ลบไม่สำเร็จ');
+                        // 3. เมื่อ Sheet ลบสำเร็จ ให้ดึงข้อมูลมาซิงค์หน้าเว็บอีกรอบ
+                        loadDataFromSheet(); 
                     }
                 })
-                .catch(err => {
-                    showModal('error', 'ข้อผิดพลาด', err.message);
-                    itemToDelete = null;
-                    closeConfirmModal();
-                });
+                .catch(err => console.log('Delete from sheet error:', err));
             }
         }
     </script>
