@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>แวะจด - จัดการรายรับรายจ่าย</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#03162b', 
+                            card: '#0a2342', 
+                            light: '#14365d', 
+                            yellow: '#fcd34d', 
+                            blue: '#3b82f6', 
+                            red: '#ef4444', 
+                            green: '#22c55e' 
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #000; color: #fff; display: flex; justify-content: center; }
+        .app-container {
+            width: 100%;
+            max-width: 480px; 
+            background-color: #03162b;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .tab-active { background-color: #0a2342; color: #fcd34d; border-bottom: 3px solid #fcd34d; font-weight: 500; }
+        .tab-inactive { background-color: transparent; color: #9ca3af; }
+        
+        .cat-icon { transition: all 0.2s; }
+        .cat-selected { background-color: #3b82f6 !important; color: white !important; transform: scale(1.1); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.5); }
+        
+        .swipe-content { transition: transform 0.2s ease-out; }
+        .swipe-content.dragging { transition: none; }
+        
+        .modal-enter { opacity: 0; transform: translateY(20px); }
+        .modal-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body>
+
+    <div class="app-container flex flex-col h-screen">
+        
+        <!-- ================= MAIN DASHBOARD VIEW ================= -->
+        <div id="dashboardView" class="flex-1 overflow-y-auto hide-scrollbar pb-24">
+            
+            <!-- Header & Month Selector -->
+            <div class="sticky top-0 z-10 bg-brand-dark pt-6 pb-2 px-4 shadow-md">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-10 h-10 bg-brand-yellow rounded-full flex items-center justify-center text-brand-dark font-bold text-xl">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <h1 class="text-xl font-semibold">แวะจด</h1>
+                    </div>
+                    <button class="w-10 h-10 rounded-full bg-brand-card flex items-center justify-center text-gray-300">
+                        <i class="fa-solid fa-search"></i>
+                    </button>
+                </div>
+
+                <!-- รอบบัญชี (Accounting Cycle) -->
+                <div class="bg-brand-yellow text-brand-dark rounded-xl p-4 shadow-lg relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-2">
+                        <button onclick="changeDashboardMonth(-1)" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/10 transition">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <div class="text-center cursor-pointer flex items-center space-x-2">
+                            <i class="fa-regular fa-calendar text-lg"></i>
+                            <span id="dashboardMonthDisplay" class="font-bold text-lg">รอบบัญชี ต.ค. 69</span>
+                        </div>
+                        <button onclick="changeDashboardMonth(1)" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/10 transition">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="flex justify-between items-end mt-2">
+                        <div>
+                            <p class="text-sm opacity-80 font-medium">เงินในกระเป๋าสุทธิ</p>
+                            <h2 id="dashboardTotalBalance" class="text-3xl font-bold mt-1">0 ฿</h2>
+                            <div class="mt-1 text-xs font-medium bg-black/10 inline-block px-2 py-1 rounded-md">
+                                ยอดยกมา: <span id="dashboardRollover">0</span> ฿ | รอบนี้: <span id="dashboardCycleBalance">0</span> ฿
+                            </div>
+                        </div>
+                        <button class="bg-brand-dark text-white text-xs px-3 py-1.5 rounded-full flex items-center shadow-sm z-10">
+                            <i class="fa-solid fa-chart-pie mr-1"></i> ดูสรุป
+                        </button>
+                    </div>
+
+                    <!-- ลายน้ำกระเป๋าสตางค์ -->
+                    <i class="fa-solid fa-wallet absolute -bottom-4 -right-2 text-6xl opacity-10 pointer-events-none"></i>
+                </div>
+            </div>
+
+            <div class="px-4 py-4 space-y-4">
+                
+                <!-- สรุปรายรับรายจ่าย -->
+                <div class="flex bg-brand-card rounded-xl p-4 divide-x divide-gray-600 shadow-md">
+                    <div class="flex-1 text-center pr-2">
+                        <p class="text-gray-400 text-xs mb-1"><i class="fa-solid fa-arrow-down text-brand-green mr-1"></i> รายรับ</p>
+                        <p id="dashboardIncome" class="text-brand-green font-semibold text-lg">+0</p>
+                    </div>
+                    <div class="flex-1 text-center pl-2">
+                        <p class="text-gray-400 text-xs mb-1"><i class="fa-solid fa-arrow-up text-brand-red mr-1"></i> รายจ่าย</p>
+                        <p id="dashboardExpense" class="text-brand-red font-semibold text-lg">-0</p>
+                    </div>
+                </div>
+
+                <!-- กราฟเปรียบเทียบ -->
+                <div class="bg-brand-card rounded-xl p-4 shadow-md">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-medium text-sm text-gray-200">กราฟเปรียบเทียบข้ามเดือน</h3>
+                    </div>
+                    <div class="relative h-40 w-full">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- รายการล่าสุด -->
+                <div>
+                    <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">รายการในรอบบัญชีนี้</h3>
+                    <div id="transactionList" class="space-y-2">
+                        <!-- รายการจะถูกแทรกที่นี่ -->
+                    </div>
+                    <div id="emptyState" class="text-center py-8 text-gray-500 hidden">
+                        <i class="fa-solid fa-box-open text-4xl mb-2 opacity-50"></i>
+                        <p class="text-sm">ยังไม่มีรายการในรอบบัญชีนี้</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div id="bottomNav" class="fixed bottom-0 w-full max-w-[480px] bg-brand-card border-t border-brand-light flex justify-around pb-safe pt-2 pb-4 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-20">
+            <button class="flex flex-col items-center p-2 text-brand-yellow">
+                <i class="fa-solid fa-house text-xl mb-1"></i>
+                <span class="text-[10px]">หน้าแรก</span>
+            </button>
+            
+            <!-- ปุ่มเพิ่มรายการ (FAB) -->
+            <div class="relative -top-6">
+                <button onclick="openAddTransaction()" class="w-14 h-14 bg-brand-blue rounded-full flex justify-center items-center text-white text-2xl shadow-lg shadow-brand-blue/30 border-4 border-brand-dark transition transform hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+
+            <button class="flex flex-col items-center p-2 text-gray-400">
+                <i class="fa-regular fa-user text-xl mb-1"></i>
+                <span class="text-[10px]">โปรไฟล์</span>
+            </button>
+        </div>
+
+
+        <!-- ================= ADD TRANSACTION VIEW (MODAL) ================= -->
+        <div id="addView" class="fixed inset-0 bg-brand-dark z-50 flex flex-col hidden transform transition-transform duration-300 translate-y-full">
+            
+            <!-- Top Tabs -->
+            <div class="flex items-center pt-4 px-2 pb-0 bg-brand-card relative">
+                <button onclick="closeAddTransaction()" class="absolute left-4 top-5 text-gray-300 text-xl w-8 h-8">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="flex-1 flex justify-center mx-12 rounded-t-xl overflow-hidden bg-brand-dark">
+                    <button onclick="setTxType('expense')" id="tab-expense" class="flex-1 py-3 text-sm text-center tab-active flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-up"></i> รายจ่าย
+                    </button>
+                    <button onclick="setTxType('income')" id="tab-income" class="flex-1 py-3 text-sm text-center tab-inactive flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-down"></i> รายรับ
+                    </button>
+                    <button onclick="setTxType('transfer')" id="tab-transfer" class="flex-1 py-3 text-sm text-center tab-inactive flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-right-arrow-left"></i> ย้ายเงิน
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                
+                <!-- เลือกรอบบัญชี -->
+                <div class="flex items-center text-brand-blue mb-2 text-sm bg-brand-card p-3 rounded-xl border border-brand-light">
+                    <i class="fa-regular fa-calendar-check mr-2 text-lg"></i>
+                    <span class="mr-2">รอบบัญชี:</span>
+                    <input type="month" id="inputCycleMonth" class="bg-transparent border-b border-brand-blue border-dashed focus:outline-none text-white font-medium px-1 w-32 cursor-pointer">
+                    <div class="ml-auto text-xs text-gray-400 bg-black/20 px-2 py-1 rounded">ไม่ล็อคตามวันที่จด</div>
+                </div>
+
+                <!-- จำนวนเงิน -->
+                <div class="bg-brand-card rounded-xl p-5 flex items-center border border-brand-light shadow-md">
+                    <i id="typeIcon" class="fa-solid fa-arrow-up text-brand-red text-2xl mr-4"></i>
+                    <input type="number" id="inputAmount" placeholder="0" class="bg-transparent text-4xl w-full focus:outline-none font-semibold text-white placeholder-gray-600" inputmode="decimal">
+                    <span class="text-xl text-gray-400 ml-2 font-medium">฿</span>
+                </div>
+
+                <!-- หมวดหมู่ -->
+                <div class="bg-brand-card rounded-xl p-4 border border-brand-light shadow-md">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm text-gray-300"><i class="fa-solid fa-border-all mr-2"></i>เลือกหมวดหมู่</h3>
+                    </div>
+                    <!-- ตารางหมวดหมู่ -->
+                    <div id="categoryGrid" class="grid grid-cols-4 gap-y-4 gap-x-2 text-center text-xs">
+                        <!-- ถูกสร้างด้วย JS -->
+                    </div>
+                </div>
+
+                <!-- โน้ต -->
+                <div class="bg-brand-card rounded-xl p-4 border border-brand-light shadow-md flex items-start">
+                    <i class="fa-regular fa-pen-to-square text-brand-blue mt-1 mr-3"></i>
+                    <textarea id="inputNote" rows="2" placeholder="เพิ่มโน้ต (รายละเอียด, สถานที่...)" class="bg-transparent w-full focus:outline-none text-sm resize-none"></textarea>
+                </div>
+
+                <div class="pb-20"></div> <!-- Spacer -->
+            </div>
+
+            <!-- Save Button -->
+            <div class="absolute bottom-0 w-full p-4 bg-brand-dark border-t border-brand-light pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+                <button onclick="saveTransaction()" class="w-full bg-brand-blue text-white font-medium text-lg py-3.5 rounded-full shadow-lg hover:bg-blue-600 active:bg-blue-700 transition">
+                    บันทึกรายการ
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= CUSTOM MODAL (For Alerts) ================= -->
+        <div id="customModal" class="fixed inset-0 bg-black/60 z-[60] flex justify-center items-center hidden opacity-0 transition-opacity duration-200 px-4">
+            <div class="bg-brand-card w-full max-w-sm rounded-2xl p-6 transform scale-95 transition-transform duration-200 border border-gray-600 shadow-2xl text-center" id="customModalContent">
+                <div id="modalIcon" class="w-16 h-16 rounded-full bg-green-500/20 text-green-500 flex justify-center items-center mx-auto mb-4 text-3xl">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h3 id="modalTitle" class="text-xl font-bold mb-2">สำเร็จ</h3>
+                <p id="modalMessage" class="text-gray-300 text-sm mb-6">บันทึกข้อมูลเรียบร้อยแล้ว</p>
+                <button onclick="closeModal()" class="w-full bg-brand-blue py-2.5 rounded-xl font-medium text-white hover:bg-blue-600 transition">ตกลง</button>
+            </div>
+        </div>
+
+        <!-- ================= CONFIRM DELETE MODAL ================= -->
+        <div id="confirmModal" class="fixed inset-0 bg-black/60 z-[60] flex justify-center items-center hidden opacity-0 transition-opacity duration-200 px-4">
+            <div class="bg-brand-card w-full max-w-sm rounded-2xl p-6 transform scale-95 transition-transform duration-200 border border-gray-600 shadow-2xl text-center">
+                <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex justify-center items-center mx-auto mb-4 text-3xl">
+                    <i class="fa-solid fa-trash-alt"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-2">ลบรายการ</h3>
+                <p class="text-gray-300 text-sm mb-6">คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 bg-gray-700 py-2.5 rounded-xl font-medium text-white hover:bg-gray-600 transition">ยกเลิก</button>
+                    <button onclick="executeDelete()" class="flex-1 bg-red-500 py-2.5 rounded-xl font-medium text-white hover:bg-red-600 transition">ลบเลย</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // STATE & DATA MANAGEMENT
+        // ==========================================
+        const CATEGORIES = {
+            expense: [
+                { id: 'e1', name: 'อาหาร', icon: 'fa-bowl-food', color: 'bg-orange-100 text-orange-600' },
+                { id: 'e2', name: 'เดินทาง', icon: 'fa-car', color: 'bg-blue-100 text-blue-600' },
+                { id: 'e3', name: 'ของใช้', icon: 'fa-bag-shopping', color: 'bg-purple-100 text-purple-600' },
+                { id: 'e4', name: 'บิลต่างๆ', icon: 'fa-file-invoice-dollar', color: 'bg-red-100 text-red-600' },
+                { id: 'e5', name: 'บันเทิง', icon: 'fa-film', color: 'bg-pink-100 text-pink-600' },
+                { id: 'e6', name: 'สุขภาพ', icon: 'fa-heart-pulse', color: 'bg-green-100 text-green-600' },
+                { id: 'e7', name: 'บ้าน', icon: 'fa-house', color: 'bg-teal-100 text-teal-600' },
+                { id: 'e8', name: 'อื่นๆ', icon: 'fa-ellipsis', color: 'bg-gray-100 text-gray-600' }
+            ],
+            income: [
+                { id: 'i1', name: 'เงินเดือน', icon: 'fa-envelope-open-text', color: 'bg-green-100 text-green-600' },
+                { id: 'i2', name: 'ค่าจ้าง', icon: 'fa-hand-holding-dollar', color: 'bg-blue-100 text-blue-600' },
+                { id: 'i3', name: 'ยอดยกมา', icon: 'fa-piggy-bank', color: 'bg-yellow-100 text-yellow-600' },
+                { id: 'i4', name: 'โบนัส', icon: 'fa-gift', color: 'bg-orange-100 text-orange-600' },
+                { id: 'i5', name: 'ดอกเบี้ย', icon: 'fa-arrow-trend-up', color: 'bg-purple-100 text-purple-600' },
+                { id: 'i6', name: 'อื่นๆ', icon: 'fa-ellipsis', color: 'bg-gray-100 text-gray-600' }
+            ],
+            transfer: [
+                { id: 't1', name: 'ฝากธนาคาร', icon: 'fa-building-columns', color: 'bg-blue-100 text-blue-600' },
+                { id: 't2', name: 'ถอนเงิน', icon: 'fa-money-bill-wave', color: 'bg-green-100 text-green-600' },
+                { id: 't3', name: 'จ่ายบัตร', icon: 'fa-credit-card', color: 'bg-red-100 text-red-600' }
+            ]
+        };
+
+        const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+        let transactions = [];
+        let currentChart = null;
+
+        let currentTxType = 'expense';
+        let selectedCategoryId = null;
+        let dashboardCycle = getTodayCycle(); 
+
+        function getTodayCycle() {
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            return `${y}-${m}`;
+        }
+
+        // ==========================================
+        // INITIALIZATION (Load From Sheet)
+        // ==========================================
+        window.onload = () => {
+            document.getElementById('inputCycleMonth').value = getTodayCycle();
+            loadDataFromSheet();
+        };
+
+        function loadDataFromSheet() {
+            if (typeof google !== 'undefined') {
+                google.script.run
+                    .withSuccessHandler(function(data) {
+                        transactions = JSON.parse(data);
+                        updateDashboard();
+                        initChart();
+                    })
+                    .withFailureHandler(function(err) {
+                        showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้: ' + err.message);
+                    })
+                    .getTransactions();
+            } else {
+                // ถ้าเปิดหน้าเว็บเปล่าๆ (ไม่มี GAS) จะเป็น Array ว่าง
+                transactions = [];
+                updateDashboard();
+                initChart();
+            }
+        }
+
+        // ==========================================
+        // UI MANIPULATION (DASHBOARD)
+        // ==========================================
+        function formatCycleDisplay(cycleStr) {
+            const parts = cycleStr.split('-');
+            if(parts.length !== 2) return cycleStr;
+            const year = parseInt(parts[0]) + 543; 
+            const monthStr = THAI_MONTHS[parseInt(parts[1]) - 1];
+            return `รอบบัญชี ${monthStr} ${year.toString().slice(-2)}`;
+        }
+
+        function changeDashboardMonth(delta) {
+            const parts = dashboardCycle.split('-');
+            let d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1 + delta, 1);
+            
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            dashboardCycle = `${y}-${m}`;
+            
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            document.getElementById('dashboardMonthDisplay').innerText = formatCycleDisplay(dashboardCycle);
+
+            const cycleTx = transactions.filter(t => t.cycle === dashboardCycle);
+            let income = 0;
+            let expense = 0;
+            let manualRollover = 0; 
+            
+            cycleTx.forEach(t => {
+                if (t.type === 'income') {
+                    income += t.amount;
+                    if (t.categoryId === 'i3') { // ยอดยกมา
+                        manualRollover += t.amount;
+                    }
+                }
+                if (t.type === 'expense') expense += t.amount;
+            });
+
+            const totalBalance = income - expense; 
+            const cycleBalance = (income - manualRollover) - expense; 
+
+            document.getElementById('dashboardTotalBalance').innerText = totalBalance.toLocaleString() + ' ฿';
+            document.getElementById('dashboardRollover').innerText = manualRollover.toLocaleString();
+            document.getElementById('dashboardCycleBalance').innerText = cycleBalance.toLocaleString();
+            
+            const pureIncome = income - manualRollover;
+            document.getElementById('dashboardIncome').innerText = '+' + pureIncome.toLocaleString();
+            document.getElementById('dashboardExpense').innerText = '-' + expense.toLocaleString();
+
+            const listEl = document.getElementById('transactionList');
+            const emptyEl = document.getElementById('emptyState');
+            listEl.innerHTML = '';
+            
+            if (cycleTx.length === 0) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                
+                cycleTx.sort((a,b) => b.timestamp - a.timestamp).forEach(t => {
+                    let cat = CATEGORIES[t.type].find(c => c.id === t.categoryId);
+                    if(!cat) cat = { name: 'ไม่ระบุ', icon: 'fa-circle-question', color: 'bg-gray-100 text-gray-500' };
+
+                    let sign = t.type === 'expense' ? '-' : (t.type === 'income' ? '+' : '');
+                    let amtColor = t.type === 'expense' ? 'text-brand-red' : (t.type === 'income' ? 'text-brand-green' : 'text-gray-300');
+                    
+                    const dateObj = new Date(t.timestamp);
+                    const dateStr = `${dateObj.getDate()} ${THAI_MONTHS[dateObj.getMonth()]}`;
+
+                    const itemHTML = `
+                    <div class="relative overflow-hidden rounded-xl mb-2 shadow-sm border border-brand-light" data-id="${t.id}">
+                        <!-- พื้นหลังปุ่มลบ -->
+                        <div class="absolute top-0 right-0 h-full w-[80px] bg-[#ffcccc] text-[#ff4d4d] flex items-center justify-center text-2xl cursor-pointer z-0" onclick="confirmDeleteTransaction('${t.id}')">
+                            <i class="fa-solid fa-trash-alt"></i>
+                        </div>
+                        <!-- เนื้อหารายการที่ปัดได้ -->
+                        <div class="swipe-content relative z-10 bg-brand-card p-3 rounded-xl flex items-center justify-between w-full cursor-grab active:cursor-grabbing"
+                             ontouchstart="handleDragStart(event)" 
+                             ontouchmove="handleDragMove(event)" 
+                             ontouchend="handleDragEnd(event)"
+                             onmousedown="handleDragStart(event)"
+                             onmousemove="handleDragMove(event)"
+                             onmouseup="handleDragEnd(event)"
+                             onmouseleave="handleDragEnd(event)">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full ${cat.color} flex items-center justify-center text-lg shadow-sm">
+                                    <i class="fa-solid ${cat.icon}"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-sm text-gray-100 flex items-center">${cat.name}</h4>
+                                    <p class="text-xs text-gray-400">${dateStr} ${t.note ? '• ' + t.note : ''}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold ${amtColor}">${sign}${t.amount.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                    listEl.insertAdjacentHTML('beforeend', itemHTML);
+                });
+            }
+
+            updateChartData();
+        }
+
+        // ==========================================
+        // UI MANIPULATION (ADD VIEW)
+        // ==========================================
+        function openAddTransaction() {
+            const addView = document.getElementById('addView');
+            addView.classList.remove('hidden');
+            setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
+            
+            document.getElementById('inputAmount').value = '';
+            document.getElementById('inputNote').value = '';
+            setTxType('expense');
+            document.getElementById('inputCycleMonth').value = dashboardCycle;
+        }
+
+        function closeAddTransaction() {
+            const addView = document.getElementById('addView');
+            addView.classList.add('translate-y-full');
+            setTimeout(() => { addView.classList.add('hidden'); }, 300);
+        }
+
+        function setTxType(type) {
+            currentTxType = type;
+            ['expense', 'income', 'transfer'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (t === type) {
+                    el.className = 'flex-1 py-3 text-sm text-center tab-active flex items-center justify-center gap-2 transition-colors';
+                } else {
+                    el.className = 'flex-1 py-3 text-sm text-center tab-inactive flex items-center justify-center gap-2 border-b-2 border-transparent transition-colors';
+                }
+            });
+
+            const typeIcon = document.getElementById('typeIcon');
+            if (type === 'expense') typeIcon.className = 'fa-solid fa-arrow-up text-brand-red text-2xl mr-4';
+            else if (type === 'income') typeIcon.className = 'fa-solid fa-arrow-down text-brand-green text-2xl mr-4';
+            else typeIcon.className = 'fa-solid fa-arrow-right-arrow-left text-brand-blue text-2xl mr-4';
+
+            renderCategories(type);
+        }
+
+        function renderCategories(type) {
+            const grid = document.getElementById('categoryGrid');
+            grid.innerHTML = '';
+            selectedCategoryId = null;
+
+            CATEGORIES[type].forEach((cat, index) => {
+                if (index === 0) selectedCategoryId = cat.id;
+                const isSelected = selectedCategoryId === cat.id;
+                const activeClass = isSelected ? 'cat-selected' : 'bg-brand-dark text-gray-400';
+                
+                const html = `
+                <div class="flex flex-col items-center gap-1 cursor-pointer" onclick="selectCategory('${cat.id}')">
+                    <div id="cat-circle-${cat.id}" class="w-12 h-12 rounded-full flex justify-center items-center text-lg cat-icon ${activeClass}">
+                        <i class="fa-solid ${cat.icon}"></i>
+                    </div>
+                    <span class="text-[10px] ${isSelected ? 'text-gray-200' : 'text-gray-500'}" id="cat-text-${cat.id}">${cat.name}</span>
+                </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function selectCategory(id) {
+            const prevId = selectedCategoryId;
+            selectedCategoryId = id;
+            
+            if(prevId && document.getElementById(`cat-circle-${prevId}`)) {
+                document.getElementById(`cat-circle-${prevId}`).className = 'w-12 h-12 rounded-full flex justify-center items-center text-lg cat-icon bg-brand-dark text-gray-400';
+                document.getElementById(`cat-text-${prevId}`).className = 'text-[10px] text-gray-500';
+            }
+            if(document.getElementById(`cat-circle-${id}`)) {
+                document.getElementById(`cat-circle-${id}`).className = 'w-12 h-12 rounded-full flex justify-center items-center text-lg cat-icon cat-selected';
+                document.getElementById(`cat-text-${id}`).className = 'text-[10px] text-gray-200';
+            }
+        }
+
+        // ==========================================
+        // SAVE LOGIC (To Sheet)
+        // ==========================================
+        function saveTransaction() {
+            const amountInput = document.getElementById('inputAmount').value;
+            const amount = parseFloat(amountInput);
+            
+            if (isNaN(amount) || amount <= 0) {
+                showModal('error', 'กรุณาระบุจำนวนเงิน', 'จำนวนเงินต้องมากกว่า 0');
+                return;
+            }
+
+            const note = document.getElementById('inputNote').value.trim();
+            const cycle = document.getElementById('inputCycleMonth').value; 
+
+            const newTx = {
+                id: Date.now().toString(),
+                type: currentTxType,
+                amount: amount,
+                categoryId: selectedCategoryId,
+                note: note,
+                cycle: cycle, 
+                timestamp: Date.now()
+            };
+
+            if (typeof google !== 'undefined') {
+                google.script.run
+                    .withSuccessHandler(function(res) {
+                        transactions.push(newTx);
+                        finishSave(cycle);
+                    })
+                    .withFailureHandler(function(err) {
+                        showModal('error', 'ข้อผิดพลาด', err.message);
+                    })
+                    .saveTransaction(newTx);
+            } else {
+                transactions.push(newTx);
+                finishSave(cycle);
+            }
+        }
+
+        function finishSave(cycle) {
+            closeAddTransaction();
+            if (cycle === dashboardCycle) {
+                updateDashboard();
+            } else {
+                setTimeout(() => {
+                    dashboardCycle = cycle;
+                    updateDashboard();
+                }, 500);
+            }
+            showModal('success', 'บันทึกสำเร็จ', `เพิ่มรายการใน ${formatCycleDisplay(cycle)} แล้ว`);
+        }
+
+        // ==========================================
+        // CHART.JS
+        // ==========================================
+        function initChart() {
+            if (currentChart) return;
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            Chart.defaults.color = '#9ca3af';
+            Chart.defaults.font.family = 'Kanit';
+            
+            currentChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [
+                    { label: 'รายรับ', data: [], backgroundColor: '#22c55e', borderRadius: 4, barPercentage: 0.7 },
+                    { label: 'รายจ่าย', data: [], backgroundColor: '#ef4444', borderRadius: 4, barPercentage: 0.7 }
+                ]},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(10, 35, 66, 0.9)', titleFont: { size: 13, family: 'Kanit' }, bodyFont: { size: 13, family: 'Kanit' }, padding: 10, cornerRadius: 8 } },
+                    scales: { y: { display: false, beginAtZero: true, grid: { display: false } }, x: { grid: { display: false, drawBorder: false } } },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }
+
+        function updateChartData() {
+            if(!currentChart) return;
+            const labels = [];
+            const incomeData = [];
+            const expenseData = [];
+            const parts = dashboardCycle.split('-');
+            let currYear = parseInt(parts[0]);
+            let currMonth = parseInt(parts[1]);
+
+            for(let i = 3; i >= 0; i--) {
+                let m = currMonth - i;
+                let y = currYear;
+                if(m <= 0) { m += 12; y -= 1; }
+                const cycleStr = `${y}-${String(m).padStart(2, '0')}`;
+                
+                let inc = 0, exp = 0;
+                transactions.filter(t => t.cycle === cycleStr).forEach(t => {
+                    if(t.type === 'income' && t.categoryId !== 'i3') inc += t.amount;
+                    if(t.type === 'expense') exp += t.amount;
+                });
+                
+                labels.push(THAI_MONTHS[m - 1]);
+                incomeData.push(inc);
+                expenseData.push(exp);
+            }
+
+            currentChart.data.labels = labels;
+            currentChart.data.datasets[0].data = incomeData;
+            currentChart.data.datasets[1].data = expenseData;
+            currentChart.update();
+        }
+
+        // ==========================================
+        // CUSTOM MODAL ALERTS
+        // ==========================================
+        function showModal(type, title, message) {
+            const modal = document.getElementById('customModal');
+            const icon = document.getElementById('modalIcon');
+            
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            
+            if (type === 'success') {
+                icon.className = 'w-16 h-16 rounded-full bg-green-500/20 text-green-500 flex justify-center items-center mx-auto mb-4 text-3xl';
+                icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+            } else {
+                icon.className = 'w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex justify-center items-center mx-auto mb-4 text-3xl';
+                icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('customModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+        }
+
+        // ==========================================
+        // SWIPE TO DELETE & CONFIRMATION
+        // ==========================================
+        let startX = 0;
+        let currentX = 0;
+        let activeSwipeElement = null;
+        let isMouseDragging = false; 
+        let itemToDelete = null;
+
+        function handleDragStart(e) {
+            if (activeSwipeElement && activeSwipeElement !== e.currentTarget) {
+                activeSwipeElement.style.transform = 'translateX(0px)';
+            }
+            activeSwipeElement = e.currentTarget;
+            activeSwipeElement.classList.add('dragging');
+            if (e.type === 'touchstart') startX = e.touches[0].clientX;
+            else { isMouseDragging = true; startX = e.clientX; }
+            currentX = startX;
+        }
+
+        function handleDragMove(e) {
+            if (!activeSwipeElement) return;
+            if (e.type === 'mousemove' && !isMouseDragging) return;
+            if (e.type === 'touchmove') currentX = e.touches[0].clientX;
+            else currentX = e.clientX;
+            
+            let diffX = currentX - startX;
+            if (diffX < 0 && diffX >= -90) activeSwipeElement.style.transform = `translateX(${diffX}px)`;
+        }
+
+        function handleDragEnd(e) {
+            if (!activeSwipeElement) return;
+            activeSwipeElement.classList.remove('dragging');
+            isMouseDragging = false;
+            let diffX = currentX - startX;
+            if (diffX < -40) activeSwipeElement.style.transform = `translateX(-80px)`; 
+            else activeSwipeElement.style.transform = `translateX(0px)`;
+        }
+
+        function confirmDeleteTransaction(id) {
+            itemToDelete = id;
+            const confirmModal = document.getElementById('confirmModal');
+            confirmModal.classList.remove('hidden');
+            setTimeout(() => { confirmModal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeConfirmModal() {
+            const confirmModal = document.getElementById('confirmModal');
+            confirmModal.classList.add('opacity-0');
+            setTimeout(() => { confirmModal.classList.add('hidden'); }, 200);
+            
+            if(activeSwipeElement) {
+                activeSwipeElement.style.transform = 'translateX(0px)';
+                activeSwipeElement = null;
+            }
+            itemToDelete = null;
+        }
+
+        function executeDelete() {
+            if(itemToDelete) {
+                if (typeof google !== 'undefined') {
+                    google.script.run
+                        .withSuccessHandler(function(res) {
+                            transactions = transactions.filter(t => t.id !== itemToDelete);
+                            updateDashboard(); 
+                            showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                            itemToDelete = null;
+                            closeConfirmModal();
+                        })
+                        .withFailureHandler(function(err) {
+                            showModal('error', 'ข้อผิดพลาด', err.message);
+                            itemToDelete = null;
+                            closeConfirmModal();
+                        })
+                        .deleteTransaction(itemToDelete);
+                } else {
+                    transactions = transactions.filter(t => t.id !== itemToDelete);
+                    updateDashboard(); 
+                    showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                    itemToDelete = null;
+                    closeConfirmModal();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
