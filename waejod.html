@@ -15,7 +15,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <script>
         tailwind.config = {
@@ -62,16 +62,96 @@
         .swipe-content { transition: transform 0.2s ease-out; }
         .swipe-content.dragging { transition: none; }
         
-        .modal-enter { opacity: 0; transform: translateY(20px); }
-        .modal-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* PIN input styling to make dots larger */
+        input[type="password"] { letter-spacing: 0.3em; font-family: monospace; font-size: 1.2rem; }
+        input[type="password"]::placeholder { letter-spacing: normal; font-family: 'Kanit', sans-serif; font-size: 0.875rem; }
     </style>
 </head>
 <body>
 
     <div class="app-container flex flex-col h-screen">
+
+        <!-- ================= AUTH VIEW ================= -->
+        <div id="authView" class="flex-1 flex flex-col justify-center items-center px-6 bg-brand-dark z-50 fixed inset-0 max-w-[480px] mx-auto">
+            <div class="w-24 h-24 bg-brand-yellow rounded-full flex items-center justify-center text-brand-dark font-bold text-5xl mb-6 shadow-[0_0_30px_rgba(252,211,77,0.3)]">
+                <i class="fa-solid fa-wallet"></i>
+            </div>
+            <h1 class="text-4xl font-bold text-white mb-2">แวะจด</h1>
+            <p class="text-gray-400 mb-10">จัดการรายรับรายจ่ายของคุณ</p>
+
+            <div class="bg-brand-card w-full rounded-3xl p-6 shadow-2xl border border-brand-light relative overflow-hidden">
+                <!-- Tabs -->
+                <div class="flex bg-brand-dark rounded-xl p-1 mb-6 relative z-10">
+                    <button id="tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2.5 rounded-lg text-sm font-medium bg-brand-blue text-white shadow-md transition-all duration-300">เข้าสู่ระบบ</button>
+                    <button id="tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-all duration-300">สมัครสมาชิก</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4 relative z-10">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">ชื่อผู้ใช้</label>
+                        <div class="flex items-center bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus-within:border-brand-blue transition-colors">
+                            <i class="fa-regular fa-user text-gray-400 mr-3"></i>
+                            <input type="text" id="loginUsername" required class="bg-transparent w-full focus:outline-none text-white text-sm" placeholder="กรอกชื่อผู้ใช้">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">รหัส PIN 6 หลัก</label>
+                        <div class="flex items-center bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus-within:border-brand-blue transition-colors">
+                            <i class="fa-solid fa-lock text-gray-400 mr-3"></i>
+                            <input type="password" id="loginPin" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-transparent w-full focus:outline-none text-white text-lg tracking-widest h-6" placeholder="••••••">
+                        </div>
+                    </div>
+                    <div class="flex items-center ml-1 mt-2">
+                        <div class="relative flex items-start">
+                            <div class="flex h-6 items-center">
+                                <input id="rememberMe" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-brand-dark text-brand-blue focus:ring-brand-blue focus:ring-offset-brand-card cursor-pointer">
+                            </div>
+                            <div class="ml-2 text-sm leading-6">
+                                <label for="rememberMe" class="font-medium text-gray-300 cursor-pointer text-xs">อยู่ในระบบค้างไว้</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-blue text-white font-medium py-3.5 rounded-xl shadow-lg shadow-brand-blue/30 hover:bg-blue-600 active:scale-[0.98] transition-all mt-4">
+                        เข้าสู่ระบบ
+                    </button>
+                </form>
+
+                <!-- Register Form (Hidden initially) -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden relative z-10">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">ชื่อผู้ใช้</label>
+                        <div class="flex items-center bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus-within:border-brand-green transition-colors">
+                            <i class="fa-regular fa-user text-gray-400 mr-3"></i>
+                            <input type="text" id="regUsername" required class="bg-transparent w-full focus:outline-none text-white text-sm" placeholder="ตั้งชื่อผู้ใช้">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">รหัส PIN 6 หลัก</label>
+                        <div class="flex items-center bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus-within:border-brand-green transition-colors">
+                            <i class="fa-solid fa-lock text-gray-400 mr-3"></i>
+                            <input type="password" id="regPin" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-transparent w-full focus:outline-none text-white text-lg tracking-widest h-6" placeholder="••••••">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">ยืนยัน PIN อีกครั้ง</label>
+                        <div class="flex items-center bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus-within:border-brand-green transition-colors">
+                            <i class="fa-solid fa-check-double text-gray-400 mr-3"></i>
+                            <input type="password" id="regPinConfirm" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-transparent w-full focus:outline-none text-white text-lg tracking-widest h-6" placeholder="••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-green text-white font-medium py-3.5 rounded-xl shadow-lg shadow-brand-green/30 hover:bg-green-600 active:scale-[0.98] transition-all mt-4">
+                        สร้างบัญชี
+                    </button>
+                </form>
+
+                <!-- Background decoration for auth card -->
+                <i class="fa-solid fa-shield-halved absolute -bottom-6 -right-6 text-8xl text-brand-dark opacity-40 pointer-events-none"></i>
+            </div>
+        </div>
         
         <!-- ================= MAIN DASHBOARD VIEW ================= -->
-        <div id="dashboardView" class="flex-1 overflow-y-auto hide-scrollbar pb-24">
+        <div id="dashboardView" class="flex-1 overflow-y-auto hide-scrollbar pb-24 hidden">
             
             <!-- Header & Month Selector -->
             <div class="sticky top-0 z-10 bg-brand-dark pt-6 pb-2 px-4 shadow-md">
@@ -82,9 +162,11 @@
                         </div>
                         <h1 class="text-xl font-semibold">แวะจด</h1>
                     </div>
-                    <button class="w-10 h-10 rounded-full bg-brand-card flex items-center justify-center text-gray-300">
-                        <i class="fa-solid fa-search"></i>
-                    </button>
+                    <!-- แสดงชื่อผู้ใช้ที่มุมขวา -->
+                    <div class="flex items-center bg-brand-card rounded-full px-3 py-1.5 border border-brand-light">
+                        <i class="fa-solid fa-user-circle text-gray-400 mr-2"></i>
+                        <span id="displayUsername" class="text-xs text-gray-300 font-medium">User</span>
+                    </div>
                 </div>
 
                 <!-- รอบบัญชี (Accounting Cycle) -->
@@ -95,7 +177,7 @@
                         </button>
                         <div class="text-center cursor-pointer flex items-center space-x-2">
                             <i class="fa-regular fa-calendar text-lg"></i>
-                            <span id="dashboardMonthDisplay" class="font-bold text-lg">รอบบัญชี ต.ค. 69</span>
+                            <span id="dashboardMonthDisplay" class="font-bold text-lg">รอบบัญชี</span>
                         </div>
                         <button onclick="changeDashboardMonth(1)" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/10 transition">
                             <i class="fa-solid fa-chevron-right"></i>
@@ -158,9 +240,91 @@
             </div>
         </div>
 
+        <!-- ================= PROFILE VIEW ================= -->
+        <div id="profileView" class="flex-1 overflow-y-auto hide-scrollbar pb-24 hidden">
+            <!-- Header -->
+            <div class="sticky top-0 z-10 bg-brand-dark pt-6 pb-4 px-4 shadow-md flex items-center justify-between">
+                <h1 class="text-xl font-semibold">ตั้งค่าการใช้งาน</h1>
+            </div>
+
+            <div class="px-4 py-4 space-y-6">
+                <!-- หมวดหมู่: บัญชี -->
+                <div>
+                    <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">บัญชี</h3>
+                    <div class="bg-brand-card rounded-xl overflow-hidden divide-y divide-gray-700/50 shadow-sm border border-brand-light">
+                        <div class="flex items-center justify-between p-4">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-circle-user text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">ชื่อผู้ใช้</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="profileUsernameDisplay" class="text-sm text-brand-yellow font-medium">User</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- หมวดหมู่: รายการ -->
+                <div>
+                    <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">รายการ</h3>
+                    <div class="bg-brand-card rounded-xl overflow-hidden divide-y divide-gray-700/50 shadow-sm border border-brand-light">
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-shapes text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">จัดการหมวดหมู่</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-hashtag text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">จัดการแท็ก</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-file-export text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">ส่งออกข้อมูล</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- หมวดหมู่: การแสดงผล -->
+                <div>
+                    <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">การแสดงผล</h3>
+                    <div class="bg-brand-card rounded-xl overflow-hidden divide-y divide-gray-700/50 shadow-sm border border-brand-light">
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-calendar text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">ตั้งค่าปฏิทิน</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-language text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">ภาษา / Language</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logout Button -->
+                <div class="pt-4 pb-8">
+                    <button onclick="handleLogout()" class="w-full bg-brand-card border border-brand-red/50 text-brand-red font-medium py-3.5 rounded-xl shadow-sm hover:bg-brand-red hover:text-white active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Bottom Navigation -->
-        <div id="bottomNav" class="fixed bottom-0 w-full max-w-[480px] bg-brand-card border-t border-brand-light flex justify-around pb-safe pt-2 pb-4 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-20">
-            <button class="flex flex-col items-center p-2 text-brand-yellow">
+        <div id="bottomNav" class="fixed bottom-0 w-full max-w-[480px] bg-brand-card border-t border-brand-light flex justify-around pb-safe pt-2 pb-4 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-20 hidden">
+            <button id="nav-home" onclick="switchMainTab('home')" class="flex flex-col items-center p-2 text-brand-yellow transition-colors">
                 <i class="fa-solid fa-house text-xl mb-1"></i>
                 <span class="text-[10px]">หน้าแรก</span>
             </button>
@@ -172,7 +336,7 @@
                 </button>
             </div>
 
-            <button class="flex flex-col items-center p-2 text-gray-400">
+            <button id="nav-profile" onclick="switchMainTab('profile')" class="flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors">
                 <i class="fa-regular fa-user text-xl mb-1"></i>
                 <span class="text-[10px]">โปรไฟล์</span>
             </button>
@@ -180,7 +344,7 @@
 
 
         <!-- ================= ADD TRANSACTION VIEW (MODAL) ================= -->
-        <div id="addView" class="fixed inset-0 bg-brand-dark z-50 flex flex-col hidden transform transition-transform duration-300 translate-y-full">
+        <div id="addView" class="fixed inset-0 bg-brand-dark z-50 flex flex-col hidden transform transition-transform duration-300 translate-y-full max-w-[480px] mx-auto">
             
             <!-- Top Tabs -->
             <div class="flex items-center pt-4 px-2 pb-0 bg-brand-card relative">
@@ -276,6 +440,270 @@
 
     <script>
         // ==========================================
+        // AUTHENTICATION LOGIC
+        // ==========================================
+        let currentUser = null;
+
+        function checkAuthSession() {
+            // เช็คว่ามีเซสชั่นค้างอยู่หรือไม่ (Local = ติ๊กถูก, Session = ไม่ติ๊ก)
+            const localUser = localStorage.getItem('waejod_active_user');
+            const sessionUser = sessionStorage.getItem('waejod_active_user');
+
+            if (localUser || sessionUser) {
+                currentUser = localUser || sessionUser;
+                showDashboard();
+            } else {
+                showAuth();
+            }
+        }
+
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                tabLogin.className = 'flex-1 py-2.5 rounded-lg text-sm font-medium bg-brand-blue text-white shadow-md transition-all duration-300';
+                tabRegister.className = 'flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-all duration-300';
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                tabRegister.className = 'flex-1 py-2.5 rounded-lg text-sm font-medium bg-brand-green text-white shadow-md transition-all duration-300';
+                tabLogin.className = 'flex-1 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-all duration-300';
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const user = document.getElementById('regUsername').value.trim();
+            const pin = document.getElementById('regPin').value;
+            const confirm = document.getElementById('regPinConfirm').value;
+
+            if (!/^\d{6}$/.test(pin)) {
+                showModal('error', 'ข้อมูลไม่ถูกต้อง', 'รหัส PIN ต้องเป็นตัวเลข 6 หลักเท่านั้น');
+                return;
+            }
+
+            if (pin !== confirm) {
+                showModal('error', 'รหัสไม่ตรงกัน', 'รหัส PIN ทั้งสองช่องไม่ตรงกัน กรุณาลองใหม่');
+                return;
+            }
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.innerText = 'กำลังสร้างบัญชี...';
+            btn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'register');
+                formData.append('username', user);
+                formData.append('pin', pin);
+
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
+                const result = await res.text();
+
+                if (result === 'exists') {
+                    showModal('error', 'ไม่สามารถใช้ชื่อนี้ได้', 'มีชื่อผู้ใช้นี้ในระบบแล้ว กรุณาใช้ชื่ออื่น');
+                } else if (result === 'success') {
+                    showModal('success', 'สมัครสมาชิกสำเร็จ', 'บัญชีของคุณถูกสร้างเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ');
+                    document.getElementById('registerForm').reset();
+                    switchAuthTab('login');
+                } else {
+                    showModal('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถสมัครสมาชิกได้');
+                }
+            } catch (err) {
+                showModal('error', 'ข้อผิดพลาดเครือข่าย', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUsername').value.trim();
+            const pin = document.getElementById('loginPin').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.innerText = 'กำลังตรวจสอบ...';
+            btn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'login');
+                formData.append('username', user);
+                formData.append('pin', pin);
+
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
+                const result = await res.text();
+
+                if (result === 'success') {
+                    if (rememberMe) {
+                        localStorage.setItem('waejod_active_user', user);
+                    } else {
+                        sessionStorage.setItem('waejod_active_user', user);
+                    }
+                    
+                    currentUser = user;
+                    document.getElementById('loginForm').reset();
+                    showDashboard();
+                } else {
+                    showModal('error', 'เข้าสู่ระบบล้มเหลว', 'ชื่อผู้ใช้หรือรหัส PIN ไม่ถูกต้อง');
+                }
+            } catch (err) {
+                showModal('error', 'ข้อผิดพลาดเครือข่าย', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        const getLocalTxKey = () => `waejod_tx_${currentUser}`;
+
+
+        function saveTransaction() {
+            const amountInput = document.getElementById('inputAmount').value;
+            const amount = parseFloat(amountInput);
+            
+            if (isNaN(amount) || amount <= 0) {
+                showModal('error', 'กรุณาระบุจำนวนเงิน', 'จำนวนเงินต้องมากกว่า 0');
+                return;
+            }
+
+            const note = document.getElementById('inputNote').value.trim();
+            const cycle = document.getElementById('inputCycleMonth').value; 
+
+            const newTx = {
+                id: Date.now().toString(),
+                type: currentTxType,
+                amount: amount,
+                categoryId: selectedCategoryId,
+                note: note,
+                cycle: cycle, 
+                timestamp: Date.now()
+            };
+
+            transactions.push(newTx);
+            localStorage.setItem(getLocalTxKey(), JSON.stringify(transactions));
+            finishSave(cycle); 
+
+            const formData = new URLSearchParams();
+            formData.append('action', 'save');
+            formData.append('username', currentUser); // <-- เพิ่มบรรทัดนี้เพื่อส่งชื่อผู้ใช้
+            formData.append('data', JSON.stringify(newTx));
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: formData
+            }).catch(err => console.log('Save to sheet error:', err));
+        }
+
+        function executeDelete() {
+            if (itemToDelete) {
+                const idToDelete = String(itemToDelete); // แปลงเป็น String เพื่อป้องกันปัญหาเทียบชนิดข้อมูล
+                
+                // ลบ Element ออกจากหน้าจอทันที
+                const elementToRemove = document.querySelector(`[data-id="${idToDelete}"]`);
+                if (elementToRemove) {
+                    elementToRemove.remove();
+                }
+                
+                // กรองข้อมูลในอาเรย์ transactions โดยเทียบแบบ String (ใช้ == เพื่อความยืดหยุ่นระหว่าง string กับ number)
+                transactions = transactions.filter(t => String(t.id) !== idToDelete);
+                
+                // บันทึกลง LocalStorage ของผู้ใช้นั้นๆ ทันที
+                localStorage.setItem(getLocalTxKey(), JSON.stringify(transactions));
+                
+                // อัปเดตหน้าจอ Dashboard และกราฟใหม่ทันที
+                updateDashboard(); 
+                initChart();
+                
+                // เคลียร์ค่าตัวแปรชั่วคราวและปิด Modal ยืนยัน
+                const targetId = idToDelete;
+                itemToDelete = null;
+                closeConfirmModal();
+
+                // ส่งคำสั่งไปลบข้อมูลบน Google Sheet เบื้องหลัง (Background)
+                const formData = new URLSearchParams();
+                formData.append('action', 'delete');
+                formData.append('username', currentUser);
+                formData.append('id', targetId);
+
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.text())
+                .then(result => {
+                    console.log('Delete from sheet success:', result);
+                })
+                .catch(err => console.log('Delete from sheet error:', err));
+            }
+        }
+
+        
+
+        function handleLogout() {
+            localStorage.removeItem('waejod_active_user');
+            sessionStorage.removeItem('waejod_active_user');
+            currentUser = null;
+            showAuth();
+        }
+
+        function switchMainTab(tab) {
+            const dashboardView = document.getElementById('dashboardView');
+            const profileView = document.getElementById('profileView');
+            const navHome = document.getElementById('nav-home');
+            const navProfile = document.getElementById('nav-profile');
+
+            if (tab === 'home') {
+                dashboardView.classList.remove('hidden');
+                profileView.classList.add('hidden');
+                navHome.className = 'flex flex-col items-center p-2 text-brand-yellow transition-colors';
+                navProfile.className = 'flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors';
+                navProfile.querySelector('i').className = 'fa-regular fa-user text-xl mb-1';
+            } else {
+                dashboardView.classList.add('hidden');
+                profileView.classList.remove('hidden');
+                navProfile.className = 'flex flex-col items-center p-2 text-brand-yellow transition-colors';
+                navProfile.querySelector('i').className = 'fa-solid fa-user text-xl mb-1';
+                navHome.className = 'flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors';
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('authView').classList.add('hidden');
+            document.getElementById('bottomNav').classList.remove('hidden');
+            document.getElementById('displayUsername').innerText = currentUser;
+            
+            // อัปเดตชื่อผู้ใช้ในหน้าโปรไฟล์
+            const profileUserEl = document.getElementById('profileUsernameDisplay');
+            if(profileUserEl) profileUserEl.innerText = currentUser;
+
+            // รีเซ็ตให้กลับมาหน้าแรกเสมอเมื่อล็อกอิน
+            switchMainTab('home');
+            
+            // เรียกฟังก์ชันโหลดข้อมูลแอป
+            initApp();
+        }
+
+        function showAuth() {
+            document.getElementById('authView').classList.remove('hidden');
+            document.getElementById('dashboardView').classList.add('hidden');
+            document.getElementById('bottomNav').classList.add('hidden');
+            // รีเซ็ตฟอร์ม
+            document.getElementById('loginForm').reset();
+            document.getElementById('registerForm').reset();
+            switchAuthTab('login');
+        }
+
+        // ==========================================
         // STATE & DATA MANAGEMENT
         // ==========================================
         const CATEGORIES = {
@@ -308,7 +736,6 @@
 
         let transactions = [];
         let currentChart = null;
-
         let currentTxType = 'expense';
         let selectedCategoryId = null;
         let dashboardCycle = getTodayCycle(); 
@@ -321,12 +748,17 @@
         }
 
         // ==========================================
-        // INITIALIZATION (Load From Sheet)
+        // INITIALIZATION
         // ==========================================
         window.onload = () => {
+            // เมื่อโหลดหน้าเว็บ ให้เช็คเซสชั่นการล็อกอินก่อน
+            checkAuthSession();
+        };
+
+        function initApp() {
             document.getElementById('inputCycleMonth').value = getTodayCycle();
             
-            // 1. ดึงข้อมูลจาก Local Storage มาแสดงผลทันทีเพื่อให้แอปลื่นไหล
+            // ดึงข้อมูลจาก Local Storage มาแสดงผล
             const localData = localStorage.getItem('waejod_tx');
             if (localData) {
                 transactions = JSON.parse(localData);
@@ -334,21 +766,21 @@
                 initChart();
             }
             
-            // 2. แอบดึงข้อมูลล่าสุดจาก Google Sheet เป็นแบ็กกราวด์
+            // แอบดึงข้อมูลล่าสุดจาก Google Sheet เป็นแบ็กกราวด์
             loadDataFromSheet();
-        };
+        }
 
         // นำ URL ของคุณมาตั้งเป็นตัวแปรหลัก
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZEjRLb5LfUXeBdEppKL7brmfaMi1aDCWQUa4b6xGP9BlGIvxjOvVXw8SzA-d2lXwM/exec';
 
-        // 1. ฟังก์ชันโหลดข้อมูล
         function loadDataFromSheet() {
-            fetch(SCRIPT_URL + '?action=load&t=' + Date.now())
+            // เพิ่มการตรวจสอบสถานะล็อกอิน และแนบพารามิเตอร์ username ไปกับ URL
+            if (!currentUser) return; 
+            
+            fetch(SCRIPT_URL + '?action=load&username=' + encodeURIComponent(currentUser) + '&t=' + Date.now())
                 .then(response => response.json())
                 .then(data => {
                     transactions = data;
-                    
-                    // บันทึกข้อมูลที่ถูกต้องจาก Sheet ลง Local Storage ทับของเดิม
                     localStorage.setItem('waejod_tx', JSON.stringify(transactions)); 
                     
                     if (transactions.length > 0) {
@@ -370,6 +802,7 @@
         // UI MANIPULATION (DASHBOARD)
         // ==========================================
         function formatCycleDisplay(cycleStr) {
+            if(!cycleStr) return '';
             const parts = cycleStr.split('-');
             if(parts.length !== 2) return cycleStr;
             const year = parseInt(parts[0]) + 543; 
@@ -399,9 +832,7 @@
             cycleTx.forEach(t => {
                 if (t.type === 'income') {
                     income += t.amount;
-                    if (t.categoryId === 'i3') { // ยอดยกมา
-                        manualRollover += t.amount;
-                    }
+                    if (t.categoryId === 'i3') manualRollover += t.amount;
                 }
                 if (t.type === 'expense') expense += t.amount;
             });
@@ -438,11 +869,9 @@
 
                     const itemHTML = `
                     <div class="relative overflow-hidden rounded-xl mb-2 shadow-sm border border-brand-light" data-id="${t.id}">
-                        <!-- พื้นหลังปุ่มลบ -->
                         <div class="absolute top-0 right-0 h-full w-[80px] bg-[#ffcccc] text-[#ff4d4d] flex items-center justify-center text-2xl cursor-pointer z-0" onclick="confirmDeleteTransaction('${t.id}')">
                             <i class="fa-solid fa-trash-alt"></i>
                         </div>
-                        <!-- เนื้อหารายการที่ปัดได้ -->
                         <div class="swipe-content relative z-10 bg-brand-card p-3 rounded-xl flex items-center justify-between w-full cursor-grab active:cursor-grabbing"
                              ontouchstart="handleDragStart(event)" 
                              ontouchmove="handleDragMove(event)" 
@@ -548,47 +977,6 @@
             }
         }
 
-        // ==========================================
-        // SAVE LOGIC (To Sheet)
-        // ==========================================
-        // 2. ฟังก์ชันเซฟข้อมูล
-        function saveTransaction() {
-            const amountInput = document.getElementById('inputAmount').value;
-            const amount = parseFloat(amountInput);
-            
-            if (isNaN(amount) || amount <= 0) {
-                showModal('error', 'กรุณาระบุจำนวนเงิน', 'จำนวนเงินต้องมากกว่า 0');
-                return;
-            }
-
-            const note = document.getElementById('inputNote').value.trim();
-            const cycle = document.getElementById('inputCycleMonth').value; 
-
-            const newTx = {
-                id: Date.now().toString(),
-                type: currentTxType,
-                amount: amount,
-                categoryId: selectedCategoryId,
-                note: note,
-                cycle: cycle, 
-                timestamp: Date.now()
-            };
-
-            // 1. บันทึกลง Local Storage และอัปเดตหน้าจอทันที
-            transactions.push(newTx);
-            localStorage.setItem('waejod_tx', JSON.stringify(transactions));
-            finishSave(cycle); 
-
-            // 2. ส่งข้อมูลไปเซฟที่ Google Sheet เบื้องหลังเงียบๆ (ไม่ต้องดึงกลับมาซ้ำ)
-            const formData = new URLSearchParams();
-            formData.append('action', 'save');
-            formData.append('data', JSON.stringify(newTx));
-
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: formData
-            }).catch(err => console.log('Save to sheet error:', err));
-        }
 
         function finishSave(cycle) {
             closeAddTransaction();
@@ -628,7 +1016,7 @@
         }
 
         function updateChartData() {
-            if(!currentChart) return;
+            if(!currentChart || !dashboardCycle) return;
             const labels = [];
             const incomeData = [];
             const expenseData = [];
@@ -745,35 +1133,6 @@
             itemToDelete = null;
         }
 
-        // 3. ฟังก์ชันลบข้อมูล
-        function executeDelete() {
-            if(itemToDelete) {
-                const idToDelete = itemToDelete;
-                
-                // 🟢 1. เตะรายการออกจากหน้าจอ HTML ทันที (เพื่อให้หายวับไปเลย)
-                const elementToRemove = document.querySelector(`[data-id="${idToDelete}"]`);
-                if (elementToRemove) elementToRemove.remove();
-                
-                // 2. ลบจาก Local Storage และอัปเดตตัวเลขต่างๆ
-                transactions = transactions.filter(t => t.id !== idToDelete);
-                localStorage.setItem('waejod_tx', JSON.stringify(transactions));
-                updateDashboard(); 
-                
-                // 3. ปิด Modal ทันทีเพื่อให้รู้สึกรวดเร็ว
-                itemToDelete = null;
-                closeConfirmModal();
-
-                // 4. ส่งคำสั่งลบไปที่ Google Sheet เบื้องหลังเงียบๆ
-                const formData = new URLSearchParams();
-                formData.append('action', 'delete');
-                formData.append('id', idToDelete);
-
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formData
-                }).catch(err => console.log('Delete from sheet error:', err));
-            }
-        }
     </script>
 </body>
 </html>
