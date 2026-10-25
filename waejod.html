@@ -574,12 +574,12 @@
                 timestamp: Date.now()
             };
 
-            // 1. บันทึกลง Local Storage และอัปเดตหน้าจอทันที (ไม่ต้องรออินเทอร์เน็ต)
+            // 1. บันทึกลง Local Storage และอัปเดตหน้าจอทันที
             transactions.push(newTx);
             localStorage.setItem('waejod_tx', JSON.stringify(transactions));
             finishSave(cycle); 
 
-            // 2. ส่งข้อมูลไปเซฟที่ Google Sheet เบื้องหลัง
+            // 2. ส่งข้อมูลไปเซฟที่ Google Sheet เบื้องหลังเงียบๆ (ไม่ต้องดึงกลับมาซ้ำ)
             const formData = new URLSearchParams();
             formData.append('action', 'save');
             formData.append('data', JSON.stringify(newTx));
@@ -587,15 +587,7 @@
             fetch(SCRIPT_URL, {
                 method: 'POST',
                 body: formData
-            })
-            .then(res => res.text())
-            .then(res => {
-                if(res === 'success') {
-                    // 3. เมื่อ Sheet บันทึกสำเร็จ ให้ดึงข้อมูลมาซิงค์หน้าเว็บอีกรอบ
-                    loadDataFromSheet();
-                }
-            })
-            .catch(err => console.log('Save to sheet error:', err));
+            }).catch(err => console.log('Save to sheet error:', err));
         }
 
         function finishSave(cycle) {
@@ -758,20 +750,16 @@
             if(itemToDelete) {
                 const idToDelete = itemToDelete;
                 
-                // เตะรายการออกจากหน้าจอ HTML ทันที (เพิ่มความรู้สึกรวดเร็ว)
-                const elementToRemove = document.querySelector(`[data-id="${idToDelete}"]`);
-                if (elementToRemove) elementToRemove.remove();
-                
-                // 1. ลบข้อมูลจาก Local Storage และอัปเดตหน้าจอทันที
+                // 1. ลบจาก Local Storage และอัปเดตหน้าจอทันที
                 transactions = transactions.filter(t => t.id !== idToDelete);
                 localStorage.setItem('waejod_tx', JSON.stringify(transactions));
-                updateDashboard();
-                showModal('success', 'สำเร็จ', 'ลบรายการเรียบร้อยแล้ว');
+                updateDashboard(); 
                 
+                // 2. ปิด Modal ทันทีเพื่อให้รู้สึกรวดเร็ว (ไม่ต้องโชว์ Modal สำเร็จซ้ำ)
                 itemToDelete = null;
                 closeConfirmModal();
 
-                // 2. ส่งคำสั่งลบไปที่ Google Sheet เบื้องหลัง
+                // 3. ส่งคำสั่งลบไปที่ Google Sheet เบื้องหลังเงียบๆ
                 const formData = new URLSearchParams();
                 formData.append('action', 'delete');
                 formData.append('id', idToDelete);
@@ -779,15 +767,7 @@
                 fetch(SCRIPT_URL, {
                     method: 'POST',
                     body: formData
-                })
-                .then(res => res.text())
-                .then(res => {
-                    if(res === 'success') {
-                        // 3. เมื่อ Sheet ลบสำเร็จ ให้ดึงข้อมูลมาซิงค์หน้าเว็บอีกรอบ
-                        loadDataFromSheet(); 
-                    }
-                })
-                .catch(err => console.log('Delete from sheet error:', err));
+                }).catch(err => console.log('Delete from sheet error:', err));
             }
         }
     </script>
