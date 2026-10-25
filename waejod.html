@@ -333,16 +333,27 @@
 
         // 1. ฟังก์ชันโหลดข้อมูล
         function loadDataFromSheet() {
-            // 🟢 จุดแก้ไขที่ 3: เติม &t=' + Date.now() เพื่อป้องกันเบราว์เซอร์โหลดข้อมูลเก่าที่ค้างในแคช
             fetch(SCRIPT_URL + '?action=load&t=' + Date.now())
                 .then(response => response.json())
                 .then(data => {
                     transactions = data;
-                    updateDashboard();
+                    
+                    // 🟢 จุดแก้ไขที่ 1: หารอบบัญชีล่าสุดที่มีข้อมูล แล้วตั้งเป็นหน้าแรก
+                    if (transactions.length > 0) {
+                        let latestCycle = transactions[0].cycle;
+                        transactions.forEach(t => {
+                            if (t.cycle > latestCycle) latestCycle = t.cycle;
+                        });
+                        dashboardCycle = latestCycle; // บังคับให้ Dashboard โชว์เดือนล่าสุด
+                        document.getElementById('inputCycleMonth').value = latestCycle; // เปลี่ยนค่าเริ่มในหน้า "เพิ่มรายการ" ให้เป็นเดือนล่าสุดด้วย
+                    }
+                    
+                    // 🟢 จุดแก้ไขที่ 2: สลับลำดับ ต้องสร้างกราฟก่อน แล้วค่อยอัปเดตข้อมูล
                     initChart();
+                    updateDashboard();
                 })
                 .catch(err => {
-                    showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้: ' + err.message);
+                    showModal('error', 'ข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้');
                 });
         }
 
