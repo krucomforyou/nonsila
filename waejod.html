@@ -791,7 +791,7 @@
             showAuth();
         }
 
-        function switchMainTab(tab) {
+        function switchMainTab(tab, pushHistory = true) {
             const dashboardView = document.getElementById('dashboardView');
             const profileView = document.getElementById('profileView');
             const navHome = document.getElementById('nav-home');
@@ -809,6 +809,11 @@
                 navProfile.className = 'flex flex-col items-center p-2 text-brand-yellow transition-colors';
                 navProfile.querySelector('i').className = 'fa-solid fa-user text-xl mb-1';
                 navHome.className = 'flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors';
+                
+                // ถือว่าเป็นการเปลี่ยนหน้าไปโปรไฟล์ ให้บันทึกประวัติ (ถ้าไม่ได้มาจากการกด Back)
+                if (pushHistory) {
+                    window.history.pushState({ page: 'profile' }, null, '');
+                }
             }
         }
 
@@ -1063,6 +1068,9 @@
             addView.classList.remove('hidden');
             setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
             
+            // บันทึกสถานะประวัติว่ากำลังเปิด Modal เพิ่มรายการ
+            window.history.pushState({ modal: 'addView' }, null, '');
+
             document.getElementById('inputAmount').value = '';
             document.getElementById('inputNote').value = '';
             setTxType('expense');
@@ -1358,6 +1366,9 @@
             document.getElementById('changePinForm').reset();
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+            
+            // บันทึกสถานะประวัติว่าเปิด Modal เปลี่ยน PIN
+            window.history.pushState({ modal: 'changePinModal' }, null, '');
         }
 
         function closeChangePinModal() {
@@ -1432,6 +1443,10 @@
             const modal = document.getElementById('catManagerModal');
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('translate-x-full'); }, 10);
+            
+            // บันทึกสถานะประวัติว่ากำลังเปิดหน้าจัดการหมวดหมู่
+            window.history.pushState({ modal: 'catManagerModal' }, null, '');
+
             switchCatTab('expense');
             
             // รีเซ็ตฟอร์มเวลาเปิด
@@ -1554,6 +1569,44 @@
             fetch(SCRIPT_URL, { method: 'POST', body: formData })
                 .catch(e => console.log('Save Category error:', e));
         }
+
+        // ==========================================
+        // BACK BUTTON HANDLER (SMARTPHONE)
+        // ==========================================
+        window.history.pushState({ page: 'main' }, null, '');
+
+        window.addEventListener('popstate', function(e) {
+            // 1. เช็ค Modal หรือหน้าต่างซ้อนย่อยที่เปิดอยู่ก่อน (ไล่จากบนลงล่างตามความซ้อน)
+            const activeModals = [
+                { id: 'confirmCatModal', closeFunc: closeConfirmCatModal },
+                { id: 'confirmModal', closeFunc: closeConfirmModal },
+                { id: 'customModal', closeFunc: closeModal },
+                { id: 'changePinModal', closeFunc: closeChangePinModal },
+                { id: 'catManagerModal', closeFunc: closeCatManager },
+                { id: 'addView', closeFunc: closeAddTransaction }
+            ];
+
+            for (let modal of activeModals) {
+                const el = document.getElementById(modal.id);
+                if (el && !el.classList.contains('hidden') && !el.classList.contains('translate-y-full') && !el.classList.contains('translate-x-full')) {
+                    modal.closeFunc();
+                    // สร้างประวัติชดเชยเพื่อให้แอปยังคงอยู่ในสถานะเดิม ไม่เด้งหลุดออกจากแอป
+                    window.history.pushState({ page: 'main' }, null, '');
+                    return;
+                }
+            }
+
+            // 2. ถ้าไม่มี Modal เปิดอยู่ แต่ผู้ใช้อยู่ที่หน้าโปรไฟล์ ให้ย้อนกลับมาที่หน้าแรก (โฮม)
+            const profileView = document.getElementById('profileView');
+            if (profileView && !profileView.classList.contains('hidden')) {
+                // เรียกสลับหน้าโดยส่ง false เพื่อไม่ให้ pushState ซ้ำซ้อน
+                switchMainTab('home', false);
+                return;
+            }
+
+            // 3. ถ้าอยู่ที่หน้าแรกอยู่แล้ว ให้สร้างประวัติค้างไว้กันหลุดออกจากแอป
+            window.history.pushState({ page: 'main' }, null, '');
+        });
 
     </script>
 </body>
