@@ -791,7 +791,10 @@
             showAuth();
         }
 
-        function switchMainTab(tab, pushHistory = true) {
+        let currentActiveTab = 'home';
+
+        function switchMainTab(tab, fromPopState = false) {
+            currentActiveTab = tab;
             const dashboardView = document.getElementById('dashboardView');
             const profileView = document.getElementById('profileView');
             const navHome = document.getElementById('nav-home');
@@ -803,6 +806,8 @@
                 navHome.className = 'flex flex-col items-center p-2 text-brand-yellow transition-colors';
                 navProfile.className = 'flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors';
                 navProfile.querySelector('i').className = 'fa-regular fa-user text-xl mb-1';
+                
+                if (!fromPopState) window.location.hash = ''; // กลับหน้าหลักเอา hash ออก
             } else {
                 dashboardView.classList.add('hidden');
                 profileView.classList.remove('hidden');
@@ -810,10 +815,7 @@
                 navProfile.querySelector('i').className = 'fa-solid fa-user text-xl mb-1';
                 navHome.className = 'flex flex-col items-center p-2 text-gray-500 hover:text-gray-300 transition-colors';
                 
-                // ถือว่าเป็นการเปลี่ยนหน้าไปโปรไฟล์ ให้บันทึกประวัติ (ถ้าไม่ได้มาจากการกด Back)
-                if (pushHistory) {
-                    window.history.pushState({ page: 'profile' }, null, '');
-                }
+                if (!fromPopState) window.location.hash = 'profile'; // ใส่ hash เมื่อเข้าหน้าโปรไฟล์
             }
         }
 
@@ -1067,10 +1069,9 @@
             const addView = document.getElementById('addView');
             addView.classList.remove('hidden');
             setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
-            
-            // บันทึกสถานะประวัติว่ากำลังเปิด Modal เพิ่มรายการ
-            window.history.pushState({ modal: 'addView' }, null, '');
 
+            window.location.hash = 'add'; // เพิ่มบรรทัดนี้
+            
             document.getElementById('inputAmount').value = '';
             document.getElementById('inputNote').value = '';
             setTxType('expense');
@@ -1088,6 +1089,8 @@
             const addView = document.getElementById('addView');
             addView.classList.remove('hidden');
             setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
+
+            window.location.hash = 'edit'; // เพิ่มบรรทัดนี้
             
             document.getElementById('inputAmount').value = tx.amount;
             document.getElementById('inputNote').value = tx.note || '';
@@ -1108,6 +1111,8 @@
             const addView = document.getElementById('addView');
             addView.classList.add('translate-y-full');
             setTimeout(() => { addView.classList.add('hidden'); }, 300);
+            // ล้าง Hash ถ้ากดปุ่มกากบาทปิดเอง
+            if (window.location.hash === '#add' || window.location.hash === '#edit') history.back();
         }
 
         function setTxType(type) {
@@ -1367,14 +1372,14 @@
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
             
-            // บันทึกสถานะประวัติว่าเปิด Modal เปลี่ยน PIN
-            window.history.pushState({ modal: 'changePinModal' }, null, '');
+            window.location.hash = 'changepin'; // เพิ่มบรรทัดนี้
         }
 
         function closeChangePinModal() {
             const modal = document.getElementById('changePinModal');
             modal.classList.add('opacity-0');
             setTimeout(() => { modal.classList.add('hidden'); }, 200);
+            if (window.location.hash === '#changepin') history.back(); // เพิ่มบรรทัดนี้
         }
 
         async function submitChangePin(e) {
@@ -1444,8 +1449,7 @@
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.remove('translate-x-full'); }, 10);
             
-            // บันทึกสถานะประวัติว่ากำลังเปิดหน้าจัดการหมวดหมู่
-            window.history.pushState({ modal: 'catManagerModal' }, null, '');
+            window.location.hash = 'catmanager'; // เพิ่มบรรทัดนี้
 
             switchCatTab('expense');
             
@@ -1459,7 +1463,8 @@
             const modal = document.getElementById('catManagerModal');
             modal.classList.add('translate-x-full');
             setTimeout(() => { modal.classList.add('hidden'); }, 300);
-            renderCategories(currentTxType); // อัปเดตหน้าเพิ่มรายการ
+            renderCategories(currentTxType); 
+            if (window.location.hash === '#catmanager') history.back(); // เพิ่มบรรทัดนี้
         }
 
         function switchCatTab(type) {
@@ -1571,41 +1576,48 @@
         }
 
         // ==========================================
-        // BACK BUTTON HANDLER (SMARTPHONE)
+        // BACK BUTTON HANDLER (URL HASH BASED)
         // ==========================================
-        window.history.pushState({ page: 'main' }, null, '');
+        
+        // รันฟังก์ชันนี้เพื่อเซ็ตหน้าเริ่มต้นให้ตรงกับ Hash ถ้าเผลอกดรีเฟรช
+        window.addEventListener('load', () => {
+            if (window.location.hash) {
+                // ล้าง Hash ทั้งหมดเมื่อโหลดหน้าเว็บใหม่ ป้องกันค้าง
+                history.replaceState(null, null, ' ');
+            }
+        });
 
-        window.addEventListener('popstate', function(e) {
-            // 1. เช็ค Modal หรือหน้าต่างซ้อนย่อยที่เปิดอยู่ก่อน (ไล่จากบนลงล่างตามความซ้อน)
-            const activeModals = [
-                { id: 'confirmCatModal', closeFunc: closeConfirmCatModal },
-                { id: 'confirmModal', closeFunc: closeConfirmModal },
-                { id: 'customModal', closeFunc: closeModal },
-                { id: 'changePinModal', closeFunc: closeChangePinModal },
-                { id: 'catManagerModal', closeFunc: closeCatManager },
-                { id: 'addView', closeFunc: closeAddTransaction }
-            ];
-
-            for (let modal of activeModals) {
-                const el = document.getElementById(modal.id);
-                if (el && !el.classList.contains('hidden') && !el.classList.contains('translate-y-full') && !el.classList.contains('translate-x-full')) {
-                    modal.closeFunc();
-                    // สร้างประวัติชดเชยเพื่อให้แอปยังคงอยู่ในสถานะเดิม ไม่เด้งหลุดออกจากแอป
-                    window.history.pushState({ page: 'main' }, null, '');
-                    return;
-                }
+        // ดักจับเมื่อ Hash เปลี่ยนไป (กด Back ของสมาร์ทโฟน)
+        window.addEventListener('hashchange', function() {
+            const hash = window.location.hash;
+            
+            // ปิด Modal ทั้งหมดถ้า Hash ปัจจุบันไม่ใช่ชื่อ Modal นั้นๆ
+            const catManagerModal = document.getElementById('catManagerModal');
+            if (hash !== '#catmanager' && !catManagerModal.classList.contains('hidden')) {
+                catManagerModal.classList.add('translate-x-full');
+                setTimeout(() => { catManagerModal.classList.add('hidden'); }, 300);
+                renderCategories(currentTxType);
             }
 
-            // 2. ถ้าไม่มี Modal เปิดอยู่ แต่ผู้ใช้อยู่ที่หน้าโปรไฟล์ ให้ย้อนกลับมาที่หน้าแรก (โฮม)
-            const profileView = document.getElementById('profileView');
-            if (profileView && !profileView.classList.contains('hidden')) {
-                // เรียกสลับหน้าโดยส่ง false เพื่อไม่ให้ pushState ซ้ำซ้อน
-                switchMainTab('home', false);
-                return;
+            const changePinModal = document.getElementById('changePinModal');
+            if (hash !== '#changepin' && !changePinModal.classList.contains('hidden')) {
+                changePinModal.classList.add('opacity-0');
+                setTimeout(() => { changePinModal.classList.add('hidden'); }, 200);
             }
 
-            // 3. ถ้าอยู่ที่หน้าแรกอยู่แล้ว ให้สร้างประวัติค้างไว้กันหลุดออกจากแอป
-            window.history.pushState({ page: 'main' }, null, '');
+            const addViewModal = document.getElementById('addView');
+            if (hash !== '#add' && hash !== '#edit' && !addViewModal.classList.contains('hidden')) {
+                addViewModal.classList.add('translate-y-full');
+                setTimeout(() => { addViewModal.classList.add('hidden'); }, 300);
+            }
+
+            // จัดการสลับแท็บกลับเมื่อกด Back ออกจากหน้า Profile จน Hash หายไป
+            if (hash === '' && currentActiveTab === 'profile') {
+                switchMainTab('home', true); // ส่ง true บอกว่ามาจาก popstate จะได้ไม่ใส่ hash คืน
+            } 
+            else if (hash === '#profile' && currentActiveTab === 'home') {
+                switchMainTab('profile', true);
+            }
         });
 
     </script>
