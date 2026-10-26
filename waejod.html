@@ -154,7 +154,7 @@
         <div id="dashboardView" class="flex-1 overflow-y-auto hide-scrollbar pb-24 hidden">
             
             <!-- Header & Month Selector -->
-            <div class="sticky top-0 z-10 bg-brand-dark pt-6 pb-2 px-4 shadow-md">
+            <div class="sticky top-0 z-40 bg-brand-dark pt-6 pb-2 px-4 shadow-md">
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex items-center space-x-2">
                         <div class="w-10 h-10 bg-brand-yellow rounded-full flex items-center justify-center text-brand-dark font-bold text-xl">
@@ -228,7 +228,19 @@
 
                 <!-- รายการล่าสุด -->
                 <div>
-                    <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">รายการในรอบบัญชีนี้</h3>
+                    <div class="flex justify-between items-center mb-3 px-1">
+                        <h3 class="font-medium text-sm text-gray-400">รายการในรอบบัญชีนี้</h3>
+                        
+                        <!-- Toggle Switch -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-gray-500 uppercase tracking-wider font-semibold" id="swipeStatusText">โหมดอ่าน</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="swipeToggle" class="sr-only peer" onchange="toggleSwipeMode()">
+                                <div class="w-9 h-5 bg-brand-light peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div id="transactionList" class="space-y-2">
                         <!-- รายการจะถูกแทรกที่นี่ -->
                     </div>
@@ -261,6 +273,13 @@
                                 <span id="profileUsernameDisplay" class="text-sm text-brand-yellow font-medium">User</span>
                             </div>
                         </div>
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition" onclick="openChangePinModal()">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-key text-gray-400 text-lg w-6 text-center"></i>
+                                <span class="text-gray-200 text-sm">เปลี่ยนรหัส PIN</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+                        </div>
                     </div>
                 </div>
 
@@ -268,7 +287,7 @@
                 <div>
                     <h3 class="font-medium text-sm text-gray-400 mb-3 ml-1">รายการ</h3>
                     <div class="bg-brand-card rounded-xl overflow-hidden divide-y divide-gray-700/50 shadow-sm border border-brand-light">
-                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition">
+                        <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition" onclick="openCatManager()">
                             <div class="flex items-center gap-3">
                                 <i class="fa-solid fa-shapes text-gray-400 text-lg w-6 text-center"></i>
                                 <span class="text-gray-200 text-sm">จัดการหมวดหมู่</span>
@@ -436,6 +455,88 @@
             </div>
         </div>
 
+        <!-- ================= CONFIRM CATEGORY DELETE MODAL ================= -->
+        <div id="confirmCatModal" class="fixed inset-0 bg-black/60 z-[70] flex justify-center items-center hidden opacity-0 transition-opacity duration-200 px-4">
+            <div class="bg-brand-card w-full max-w-sm rounded-2xl p-6 transform scale-95 transition-transform duration-200 border border-gray-600 shadow-2xl text-center">
+                <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex justify-center items-center mx-auto mb-4 text-3xl">
+                    <i class="fa-solid fa-trash-alt"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-2">ลบหมวดหมู่</h3>
+                <p class="text-gray-300 text-sm mb-6">คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่นี้?<br><span class="text-xs text-gray-500">(รายการเดิมจะไม่ถูกลบ แต่จะกลายเป็นหมวดหมู่ "อื่นๆ")</span></p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmCatModal()" class="flex-1 bg-gray-700 py-2.5 rounded-xl font-medium text-white hover:bg-gray-600 transition">ยกเลิก</button>
+                    <button onclick="executeDeleteCategory()" class="flex-1 bg-red-500 py-2.5 rounded-xl font-medium text-white hover:bg-red-600 transition">ตกลง</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ================= CHANGE PIN MODAL ================= -->
+        <div id="changePinModal" class="fixed inset-0 bg-black/60 z-[60] flex justify-center items-center hidden opacity-0 transition-opacity duration-200 px-4">
+            <div class="bg-brand-card w-full max-w-sm rounded-2xl p-6 transform scale-95 transition-transform duration-200 border border-gray-600 shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-white">เปลี่ยนรหัส PIN</h3>
+                    <button onclick="closeChangePinModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <form id="changePinForm" onsubmit="submitChangePin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">PIN เดิม</label>
+                        <input type="password" id="oldPinInput" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus:border-brand-blue w-full focus:outline-none text-white text-lg tracking-widest h-12" placeholder="••••••">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">PIN ใหม่ 6 หลัก</label>
+                        <input type="password" id="newPinInput" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus:border-brand-blue w-full focus:outline-none text-white text-lg tracking-widest h-12" placeholder="••••••">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1.5 ml-1">ยืนยัน PIN ใหม่</label>
+                        <input type="password" id="confirmNewPinInput" required maxlength="6" inputmode="numeric" pattern="[0-9]{6}" class="bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus:border-brand-blue w-full focus:outline-none text-white text-lg tracking-widest h-12" placeholder="••••••">
+                    </div>
+                    <button type="submit" class="w-full bg-brand-blue text-white font-medium py-3 rounded-xl shadow-lg hover:bg-blue-600 transition-all mt-2">
+                        บันทึกรหัสผ่านใหม่
+                    </button>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- ================= CATEGORY MANAGER MODAL ================= -->
+        <div id="catManagerModal" class="fixed inset-0 bg-brand-dark z-50 flex flex-col hidden transform transition-transform duration-300 translate-x-full max-w-[480px] mx-auto">
+            <div class="flex items-center p-4 bg-brand-card shadow-md">
+                <button onclick="closeCatManager()" class="text-gray-300 text-xl w-8 h-8 mr-2"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2 class="text-lg font-bold text-white">จัดการหมวดหมู่</h2>
+            </div>
+            <div class="flex bg-brand-dark p-2">
+                <button onclick="switchCatTab('expense')" id="cat-tab-expense" class="flex-1 py-2.5 text-sm text-center tab-active rounded-lg transition-all">รายจ่าย</button>
+                <button onclick="switchCatTab('income')" id="cat-tab-income" class="flex-1 py-2.5 text-sm text-center tab-inactive rounded-lg text-gray-400 transition-all">รายรับ</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="catManagerList">
+                <!-- รายการหมวดหมู่จะถูกสร้างด้วย JS -->
+            </div>
+            <div class="p-4 bg-brand-card border-t border-brand-light pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
+                <!-- ส่วนเลือกไอคอน -->
+                <div class="mb-3">
+                    <label class="text-xs text-gray-400 block mb-2 ml-1">เลือกไอคอน</label>
+                    <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2" id="iconSelector">
+                        <div onclick="selectNewIcon('fa-tag', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center shrink-0 cursor-pointer transition-all scale-110 border-2 border-white shadow-lg shadow-brand-blue/30" data-icon="fa-tag"><i class="fa-solid fa-tag"></i></div>
+                        <div onclick="selectNewIcon('fa-basket-shopping', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-basket-shopping"><i class="fa-solid fa-basket-shopping"></i></div>
+                        <div onclick="selectNewIcon('fa-utensils', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-utensils"><i class="fa-solid fa-utensils"></i></div>
+                        <div onclick="selectNewIcon('fa-shirt', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-shirt"><i class="fa-solid fa-shirt"></i></div>
+                        <div onclick="selectNewIcon('fa-gamepad', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-gamepad"><i class="fa-solid fa-gamepad"></i></div>
+                        <div onclick="selectNewIcon('fa-car', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-car"><i class="fa-solid fa-car"></i></div>
+                        <div onclick="selectNewIcon('fa-money-bill-trend-up', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-money-bill-trend-up"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                        <div onclick="selectNewIcon('fa-piggy-bank', this)" class="new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all" data-icon="fa-piggy-bank"><i class="fa-solid fa-piggy-bank"></i></div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="newCatName" placeholder="เพิ่มหมวดหมู่ใหม่..." class="flex-1 bg-brand-dark rounded-xl px-4 py-3 border border-brand-light focus:border-brand-blue focus:outline-none text-white text-sm">
+                    <button onclick="addNewCategory()" class="bg-brand-blue text-white px-5 py-3 rounded-xl font-medium shadow-lg hover:bg-blue-600 active:scale-95 transition"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+        </div>
+
+
+        
+
     </div>
 
     <script>
@@ -579,29 +680,63 @@
             const note = document.getElementById('inputNote').value.trim();
             const cycle = document.getElementById('inputCycleMonth').value; 
 
-            const newTx = {
-                id: Date.now().toString(),
-                type: currentTxType,
-                amount: amount,
-                categoryId: selectedCategoryId,
-                note: note,
-                cycle: cycle, 
-                timestamp: Date.now()
-            };
+            let savedTx;
+            let actionType;
 
-            transactions.push(newTx);
+            if (editingTxId) {
+                // กรณีแก้ไขรายการเดิม
+                const index = transactions.findIndex(t => String(t.id) === String(editingTxId));
+                if (index !== -1) {
+                    transactions[index].type = currentTxType;
+                    transactions[index].amount = amount;
+                    transactions[index].categoryId = selectedCategoryId;
+                    transactions[index].note = note;
+                    transactions[index].cycle = cycle;
+                    // ไม่เปลี่ยน timestamp เดิม
+                    savedTx = transactions[index];
+                }
+                actionType = 'update';
+            } else {
+                // กรณีเพิ่มรายการใหม่
+                savedTx = {
+                    id: Date.now().toString(),
+                    type: currentTxType,
+                    amount: amount,
+                    categoryId: selectedCategoryId,
+                    note: note,
+                    cycle: cycle, 
+                    timestamp: Date.now()
+                };
+                transactions.push(savedTx);
+                actionType = 'save';
+            }
+
             localStorage.setItem(getLocalTxKey(), JSON.stringify(transactions));
-            finishSave(cycle); 
+            finishSave(cycle, actionType === 'update'); 
 
             const formData = new URLSearchParams();
-            formData.append('action', 'save');
-            formData.append('username', currentUser); // <-- เพิ่มบรรทัดนี้เพื่อส่งชื่อผู้ใช้
-            formData.append('data', JSON.stringify(newTx));
+            formData.append('action', actionType);
+            formData.append('username', currentUser); 
+            formData.append('data', JSON.stringify(savedTx));
 
             fetch(SCRIPT_URL, {
                 method: 'POST',
                 body: formData
             }).catch(err => console.log('Save to sheet error:', err));
+        }
+
+        // ปรับปรุงฟังก์ชันรับผลลัพธ์การเซฟนิดหน่อยเพื่อข้อความที่ต่างกัน
+        function finishSave(cycle, isEdit) {
+            closeAddTransaction();
+            if (cycle === dashboardCycle) {
+                updateDashboard();
+            } else {
+                setTimeout(() => {
+                    dashboardCycle = cycle;
+                    updateDashboard();
+                }, 500);
+            }
+            showModal('success', 'สำเร็จ', isEdit ? 'บันทึกการแก้ไขเรียบร้อยแล้ว' : `เพิ่มรายการใน ${formatCycleDisplay(cycle)} แล้ว`);
         }
 
         function executeDelete() {
@@ -706,31 +841,27 @@
         // ==========================================
         // STATE & DATA MANAGEMENT
         // ==========================================
-        const CATEGORIES = {
+        const DEFAULT_CATEGORIES = {
             expense: [
                 { id: 'e1', name: 'อาหาร', icon: 'fa-bowl-food', color: 'bg-orange-100 text-orange-600' },
                 { id: 'e2', name: 'เดินทาง', icon: 'fa-car', color: 'bg-blue-100 text-blue-600' },
                 { id: 'e3', name: 'ของใช้', icon: 'fa-bag-shopping', color: 'bg-purple-100 text-purple-600' },
                 { id: 'e4', name: 'บิลต่างๆ', icon: 'fa-file-invoice-dollar', color: 'bg-red-100 text-red-600' },
-                { id: 'e5', name: 'บันเทิง', icon: 'fa-film', color: 'bg-pink-100 text-pink-600' },
-                { id: 'e6', name: 'สุขภาพ', icon: 'fa-heart-pulse', color: 'bg-green-100 text-green-600' },
-                { id: 'e7', name: 'บ้าน', icon: 'fa-house', color: 'bg-teal-100 text-teal-600' },
                 { id: 'e8', name: 'อื่นๆ', icon: 'fa-ellipsis', color: 'bg-gray-100 text-gray-600' }
             ],
             income: [
                 { id: 'i1', name: 'เงินเดือน', icon: 'fa-envelope-open-text', color: 'bg-green-100 text-green-600' },
-                { id: 'i2', name: 'ค่าจ้าง', icon: 'fa-hand-holding-dollar', color: 'bg-blue-100 text-blue-600' },
                 { id: 'i3', name: 'ยอดยกมา', icon: 'fa-piggy-bank', color: 'bg-yellow-100 text-yellow-600' },
-                { id: 'i4', name: 'โบนัส', icon: 'fa-gift', color: 'bg-orange-100 text-orange-600' },
-                { id: 'i5', name: 'ดอกเบี้ย', icon: 'fa-arrow-trend-up', color: 'bg-purple-100 text-purple-600' },
                 { id: 'i6', name: 'อื่นๆ', icon: 'fa-ellipsis', color: 'bg-gray-100 text-gray-600' }
             ],
             transfer: [
                 { id: 't1', name: 'ฝากธนาคาร', icon: 'fa-building-columns', color: 'bg-blue-100 text-blue-600' },
-                { id: 't2', name: 'ถอนเงิน', icon: 'fa-money-bill-wave', color: 'bg-green-100 text-green-600' },
-                { id: 't3', name: 'จ่ายบัตร', icon: 'fa-credit-card', color: 'bg-red-100 text-red-600' }
+                { id: 't2', name: 'ถอนเงิน', icon: 'fa-money-bill-wave', color: 'bg-green-100 text-green-600' }
             ]
         };
+
+        let CATEGORIES = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+        let currentCatTab = 'expense';
 
         const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
@@ -758,15 +889,19 @@
         function initApp() {
             document.getElementById('inputCycleMonth').value = getTodayCycle();
             
-            // ดึงข้อมูลจาก Local Storage มาแสดงผล
-            const localData = localStorage.getItem('waejod_tx');
+            // โหลดหมวดหมู่ส่วนตัว
+            const localCat = localStorage.getItem('waejod_cat_' + currentUser);
+            if (localCat) CATEGORIES = JSON.parse(localCat);
+            else CATEGORIES = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+
+            // โหลดรายการ
+            const localData = localStorage.getItem('waejod_tx_' + currentUser);
             if (localData) {
                 transactions = JSON.parse(localData);
                 updateDashboard();
                 initChart();
             }
             
-            // แอบดึงข้อมูลล่าสุดจาก Google Sheet เป็นแบ็กกราวด์
             loadDataFromSheet();
         }
 
@@ -774,14 +909,19 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZEjRLb5LfUXeBdEppKL7brmfaMi1aDCWQUa4b6xGP9BlGIvxjOvVXw8SzA-d2lXwM/exec';
 
         function loadDataFromSheet() {
-            // เพิ่มการตรวจสอบสถานะล็อกอิน และแนบพารามิเตอร์ username ไปกับ URL
             if (!currentUser) return; 
             
             fetch(SCRIPT_URL + '?action=load&username=' + encodeURIComponent(currentUser) + '&t=' + Date.now())
                 .then(response => response.json())
                 .then(data => {
-                    transactions = data;
-                    localStorage.setItem('waejod_tx', JSON.stringify(transactions)); 
+                    // รับทั้ง tx และ cat
+                    transactions = data.tx || [];
+                    if (data.cat) {
+                        CATEGORIES = data.cat;
+                        localStorage.setItem('waejod_cat_' + currentUser, JSON.stringify(CATEGORIES));
+                    }
+                    
+                    localStorage.setItem('waejod_tx_' + currentUser, JSON.stringify(transactions)); 
                     
                     if (transactions.length > 0) {
                         let latestCycle = transactions[0].cycle;
@@ -865,14 +1005,21 @@
                     let amtColor = t.type === 'expense' ? 'text-brand-red' : (t.type === 'income' ? 'text-brand-green' : 'text-gray-300');
                     
                     const dateObj = new Date(t.timestamp);
-                    const dateStr = `${dateObj.getDate()} ${THAI_MONTHS[dateObj.getMonth()]}`;
+                    const hours = String(dateObj.getHours()).padStart(2, '0');
+                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                    const dateStr = `${dateObj.getDate()} ${THAI_MONTHS[dateObj.getMonth()]} ${hours}:${minutes} น.`;
 
                     const itemHTML = `
                     <div class="relative overflow-hidden rounded-xl mb-2 shadow-sm border border-brand-light" data-id="${t.id}">
-                        <div class="absolute top-0 right-0 h-full w-[80px] bg-[#ffcccc] text-[#ff4d4d] flex items-center justify-center text-2xl cursor-pointer z-0" onclick="confirmDeleteTransaction('${t.id}')">
+                        <!-- เพิ่มปุ่มแก้ไขสีฟ้าด้านซ้าย -->
+                        <div class="absolute top-0 left-0 h-full w-[80px] bg-brand-light text-brand-blue flex items-center justify-center text-2xl cursor-pointer z-10" onclick="editTransaction('${t.id}')">
+                            <i class="fa-solid fa-pen"></i>
+                        </div>
+                        <!-- ปุ่มลบสีแดงด้านขวา (เหมือนเดิม) -->
+                        <div class="absolute top-0 right-0 h-full w-[80px] bg-[#ffcccc] text-[#ff4d4d] flex items-center justify-center text-2xl cursor-pointer z-10" onclick="confirmDeleteTransaction('${t.id}')">
                             <i class="fa-solid fa-trash-alt"></i>
                         </div>
-                        <div class="swipe-content relative z-10 bg-brand-card p-3 rounded-xl flex items-center justify-between w-full cursor-grab active:cursor-grabbing"
+                        <div class="swipe-content relative z-20 bg-brand-card p-3 rounded-xl flex items-center justify-between w-full cursor-grab active:cursor-grabbing"
                              ontouchstart="handleDragStart(event)" 
                              ontouchmove="handleDragMove(event)" 
                              ontouchend="handleDragEnd(event)"
@@ -905,7 +1052,13 @@
         // ==========================================
         // UI MANIPULATION (ADD VIEW)
         // ==========================================
+        let editingTxId = null; // ตัวแปรเก็บ ID รายการที่กำลังแก้ไข
+
+        // ปรับปรุงฟังก์ชันเปิดหน้าต่างให้รองรับการรีเซ็ตโหมดแก้ไข
         function openAddTransaction() {
+            editingTxId = null;
+            document.querySelector('#addView button[onclick="saveTransaction()"]').innerText = 'บันทึกรายการ';
+            
             const addView = document.getElementById('addView');
             addView.classList.remove('hidden');
             setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
@@ -914,6 +1067,33 @@
             document.getElementById('inputNote').value = '';
             setTxType('expense');
             document.getElementById('inputCycleMonth').value = dashboardCycle;
+        }
+
+        // เพิ่มฟังก์ชันเปิดหน้าแก้ไข
+        function editTransaction(id) {
+            // ใส่ String() ครอบ t.id เพื่อป้องกันปัญหาชนิดข้อมูล
+            const tx = transactions.find(t => String(t.id) === String(id));
+            if (!tx) return;
+
+            editingTxId = tx.id;
+            
+            const addView = document.getElementById('addView');
+            addView.classList.remove('hidden');
+            setTimeout(() => { addView.classList.remove('translate-y-full'); }, 10);
+            
+            document.getElementById('inputAmount').value = tx.amount;
+            document.getElementById('inputNote').value = tx.note || '';
+            document.getElementById('inputCycleMonth').value = tx.cycle;
+            setTxType(tx.type);
+            selectCategory(tx.categoryId);
+            
+            document.querySelector('#addView button[onclick="saveTransaction()"]').innerText = 'บันทึกการแก้ไข';
+            
+            // รีเซ็ตตำแหน่ง swipe
+            if(activeSwipeElement) {
+                activeSwipeElement.style.transform = 'translateX(0px)';
+                activeSwipeElement = null;
+            }
         }
 
         function closeAddTransaction() {
@@ -1084,7 +1264,39 @@
         let isMouseDragging = false; 
         let itemToDelete = null;
 
+        // ==========================================
+        // SWIPE TOGGLE MODE
+        // ==========================================
+        let isSwipeModeEnabled = false; // ค่าเริ่มต้นเป็นโหมดอ่านอย่างเดียว (ปิดปัด)
+
+        function toggleSwipeMode() {
+            const toggle = document.getElementById('swipeToggle');
+            const statusText = document.getElementById('swipeStatusText');
+            
+            isSwipeModeEnabled = toggle.checked;
+            
+            if (isSwipeModeEnabled) {
+                statusText.innerText = 'โหมดแก้ไข';
+                statusText.className = 'text-[10px] text-brand-blue uppercase tracking-wider font-semibold';
+            } else {
+                statusText.innerText = 'โหมดอ่าน';
+                statusText.className = 'text-[10px] text-gray-500 uppercase tracking-wider font-semibold';
+                
+                // ถ้ายกเลิกโหมดแก้ไข ให้เลื่อนรายการที่ปัดค้างไว้อยู่กลับเข้าที่
+                if (activeSwipeElement) {
+                    activeSwipeElement.style.transform = 'translateX(0px)';
+                    activeSwipeElement = null;
+                }
+            }
+        }
+
         function handleDragStart(e) {
+            // หยุดการทำงานถ้าโหมดแก้ไข(Swipe) ปิดอยู่
+            if (!isSwipeModeEnabled) return; 
+
+            // ไม่ต้องทำอะไรถ้ากดโดนปุ่มด้านหลัง
+            if(e.target.closest('.absolute')) return;
+            
             if (activeSwipeElement && activeSwipeElement !== e.currentTarget) {
                 activeSwipeElement.style.transform = 'translateX(0px)';
             }
@@ -1096,21 +1308,26 @@
         }
 
         function handleDragMove(e) {
-            if (!activeSwipeElement) return;
+            if (!isSwipeModeEnabled || !activeSwipeElement) return;
+
             if (e.type === 'mousemove' && !isMouseDragging) return;
             if (e.type === 'touchmove') currentX = e.touches[0].clientX;
             else currentX = e.clientX;
             
             let diffX = currentX - startX;
-            if (diffX < 0 && diffX >= -90) activeSwipeElement.style.transform = `translateX(${diffX}px)`;
+            // ยอมให้เลื่อนได้ทั้งซ้าย (ลบ) และขวา (แก้ไข) ไม่เกิน 90px
+            if (diffX > -90 && diffX < 90) activeSwipeElement.style.transform = `translateX(${diffX}px)`;
         }
 
         function handleDragEnd(e) {
-            if (!activeSwipeElement) return;
+            if (!isSwipeModeEnabled || !activeSwipeElement) return;
+
             activeSwipeElement.classList.remove('dragging');
             isMouseDragging = false;
             let diffX = currentX - startX;
-            if (diffX < -40) activeSwipeElement.style.transform = `translateX(-80px)`; 
+            
+            if (diffX < -40) activeSwipeElement.style.transform = `translateX(-80px)`; // เปิดเมนูลบ
+            else if (diffX > 40) activeSwipeElement.style.transform = `translateX(80px)`; // เปิดเมนูแก้ไข
             else activeSwipeElement.style.transform = `translateX(0px)`;
         }
 
@@ -1131,6 +1348,211 @@
                 activeSwipeElement = null;
             }
             itemToDelete = null;
+        }
+
+        // ==========================================
+        // CHANGE PIN LOGIC
+        // ==========================================
+        function openChangePinModal() {
+            const modal = document.getElementById('changePinModal');
+            document.getElementById('changePinForm').reset();
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeChangePinModal() {
+            const modal = document.getElementById('changePinModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+        }
+
+        async function submitChangePin(e) {
+            e.preventDefault();
+            const oldPin = document.getElementById('oldPinInput').value;
+            const newPin = document.getElementById('newPinInput').value;
+            const confirmPin = document.getElementById('confirmNewPinInput').value;
+
+            if (!/^\d{6}$/.test(newPin)) {
+                showModal('error', 'ข้อมูลไม่ถูกต้อง', 'รหัส PIN ใหม่ต้องเป็นตัวเลข 6 หลักเท่านั้น');
+                return;
+            }
+            if (newPin !== confirmPin) {
+                showModal('error', 'รหัสไม่ตรงกัน', 'รหัส PIN ใหม่ทั้งสองช่องไม่ตรงกัน');
+                return;
+            }
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.innerText = 'กำลังบันทึก...';
+            btn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'changePin');
+                formData.append('username', currentUser);
+                formData.append('oldPin', oldPin);
+                formData.append('newPin', newPin);
+
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
+                const result = await res.text();
+
+                if (result === 'success') {
+                    closeChangePinModal();
+                    showModal('success', 'สำเร็จ', 'เปลี่ยนรหัส PIN เรียบร้อยแล้ว');
+                } else if (result === 'invalid_old_pin') {
+                    showModal('error', 'รหัสเดิมไม่ถูกต้อง', 'รหัส PIN เดิมที่คุณกรอกไม่ถูกต้อง');
+                } else {
+                    showModal('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถเปลี่ยนรหัส PIN ได้');
+                }
+            } catch (err) {
+                showModal('error', 'ข้อผิดพลาดเครือข่าย', 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // CATEGORY MANAGER LOGIC
+        // ==========================================
+        let selectedNewIcon = 'fa-tag'; // ตัวแปรเก็บไอคอนที่เลือก
+
+        function selectNewIcon(iconClass, element) {
+            selectedNewIcon = iconClass;
+            // รีเซ็ตคลาสของไอคอนทั้งหมดก่อน
+            const opts = document.querySelectorAll('.new-icon-opt');
+            opts.forEach(opt => {
+                opt.className = 'new-icon-opt w-10 h-10 rounded-xl bg-brand-dark text-gray-400 flex items-center justify-center shrink-0 cursor-pointer border-2 border-transparent transition-all';
+            });
+            // ไฮไลต์ไอคอนที่ถูกคลิก
+            element.className = 'new-icon-opt w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center shrink-0 cursor-pointer transition-all scale-110 border-2 border-white shadow-lg shadow-brand-blue/30';
+        }
+
+        function openCatManager() {
+            const modal = document.getElementById('catManagerModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('translate-x-full'); }, 10);
+            switchCatTab('expense');
+            
+            // รีเซ็ตฟอร์มเวลาเปิด
+            document.getElementById('newCatName').value = '';
+            const firstIcon = document.querySelector('.new-icon-opt');
+            if (firstIcon) selectNewIcon('fa-tag', firstIcon);
+        }
+
+        function closeCatManager() {
+            const modal = document.getElementById('catManagerModal');
+            modal.classList.add('translate-x-full');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            renderCategories(currentTxType); // อัปเดตหน้าเพิ่มรายการ
+        }
+
+        function switchCatTab(type) {
+            currentCatTab = type;
+            document.getElementById('cat-tab-expense').className = type === 'expense' ? 'flex-1 py-2.5 text-sm text-center tab-active rounded-lg transition-all' : 'flex-1 py-2.5 text-sm text-center tab-inactive rounded-lg text-gray-400 transition-all';
+            document.getElementById('cat-tab-income').className = type === 'income' ? 'flex-1 py-2.5 text-sm text-center tab-active rounded-lg transition-all' : 'flex-1 py-2.5 text-sm text-center tab-inactive rounded-lg text-gray-400 transition-all';
+            renderCatManagerList();
+        }
+
+        function renderCatManagerList() {
+            const listEl = document.getElementById('catManagerList');
+            listEl.innerHTML = '';
+            CATEGORIES[currentCatTab].forEach(cat => {
+                // ป้องกันลบหมวดหมู่พื้นฐาน (e8, i6)
+                const isDeletable = !['e8', 'i6', 'i3'].includes(cat.id);
+                
+                listEl.insertAdjacentHTML('beforeend', `
+                    <div class="flex justify-between items-center bg-brand-dark p-3 rounded-xl border border-brand-light shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full ${cat.color} flex items-center justify-center text-lg"><i class="fa-solid ${cat.icon}"></i></div>
+                            <span class="text-white text-sm font-medium">${cat.name}</span>
+                        </div>
+                        ${isDeletable ? `<button onclick="deleteCategory('${cat.id}')" class="text-gray-500 p-2 hover:bg-red-500/20 hover:text-brand-red rounded-lg transition"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                `);
+            });
+        }
+
+        function addNewCategory() {
+            const nameInput = document.getElementById('newCatName');
+            const name = nameInput.value.trim();
+            if(!name) return;
+            
+            const newId = currentCatTab.charAt(0) + Date.now(); 
+            const colors = ['bg-pink-100 text-pink-600', 'bg-purple-100 text-purple-600', 'bg-indigo-100 text-indigo-600', 'bg-teal-100 text-teal-600', 'bg-amber-100 text-amber-600'];
+            const randColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            const newCat = { id: newId, name: name, icon: selectedNewIcon, color: randColor };
+            
+            // หาตำแหน่งของหมวดหมู่ "อื่นๆ" (e8 หรือ i6) เพื่อแทรกไว้ก่อนหน้า
+            const otherId = currentCatTab === 'expense' ? 'e8' : 'i6';
+            const otherIndex = CATEGORIES[currentCatTab].findIndex(c => c.id === otherId);
+            
+            if (otherIndex !== -1) {
+                CATEGORIES[currentCatTab].splice(otherIndex, 0, newCat); // แทรกก่อนตำแหน่งของ "อื่นๆ"
+            } else {
+                CATEGORIES[currentCatTab].push(newCat); // กรณีหาไม่เจอให้ต่อท้ายตามปกติ
+            }
+            
+            nameInput.value = '';
+            
+            saveCategoriesToBackend();
+            renderCatManagerList();
+        }
+
+        let catToDelete = null;
+
+        function deleteCategory(id) {
+            // แค่เก็บค่า ID และเปิด Modal โชว์ขึ้นมา
+            catToDelete = id;
+            const modal = document.getElementById('confirmCatModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeConfirmCatModal() {
+            // ปิด Modal และเคลียร์ค่า ID
+            const modal = document.getElementById('confirmCatModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); }, 200);
+            catToDelete = null;
+        }
+
+        function executeDeleteCategory() {
+            if (!catToDelete) return;
+            
+            // ดำเนินการลบเมื่อผู้ใช้กดยืนยันใน Modal
+            CATEGORIES[currentCatTab] = CATEGORIES[currentCatTab].filter(c => c.id !== catToDelete);
+            
+            const fallbackId = currentCatTab === 'expense' ? 'e8' : 'i6';
+            let txChanged = false;
+            transactions = transactions.map(t => {
+                if (t.categoryId === catToDelete) {
+                    txChanged = true;
+                    return { ...t, categoryId: fallbackId };
+                }
+                return t;
+            });
+
+            if(txChanged) {
+                localStorage.setItem(getLocalTxKey(), JSON.stringify(transactions));
+                updateDashboard();
+            }
+            
+            saveCategoriesToBackend();
+            renderCatManagerList();
+            closeConfirmCatModal(); // ปิด Modal หลังทำงานเสร็จ
+        }
+
+        function saveCategoriesToBackend() {
+            localStorage.setItem('waejod_cat_' + currentUser, JSON.stringify(CATEGORIES));
+            const formData = new URLSearchParams();
+            formData.append('action', 'saveCategories');
+            formData.append('username', currentUser);
+            formData.append('data', JSON.stringify(CATEGORIES));
+            
+            fetch(SCRIPT_URL, { method: 'POST', body: formData })
+                .catch(e => console.log('Save Category error:', e));
         }
 
     </script>
